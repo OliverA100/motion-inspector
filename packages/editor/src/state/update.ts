@@ -25,7 +25,8 @@ function withinLimit(value: number): number {
 // A background tab can deliver one frame after seconds. Do not jump ahead.
 const LONGEST_TICK_MS = 100;
 
-// A new capture plays once when it arrives.
+// A new capture plays once when it arrives. One that loops on the page (a
+// spinner, a marquee) loops here too.
 export function init(capture: Capture): Model {
   return {
     original: capture,
@@ -33,7 +34,7 @@ export function init(capture: Capture): Model {
     selectedTrack: defaultSelection(capture),
     selectedSegment: 0,
     playing: true,
-    loop: false,
+    loop: capture.trigger === 'loop',
     speed: 1,
     timeMs: 0,
     compare: 'overlay',

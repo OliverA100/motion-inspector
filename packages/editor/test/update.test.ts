@@ -483,3 +483,10 @@ describe('the first selection', () => {
     expect(defaultSelection({ ...cardLift, tracks: [] })).toBeNull();
   });
 });
+
+describe('a new capture', () => {
+  test('plays once, and loops when it loops on the page', () => {
+    expect(init({ ...cardLift, trigger: 'hover' }).loop).toBe(false);
+    expect(init({ ...cardLift, trigger: 'loop' }).loop).toBe(true);
+  });
+});
