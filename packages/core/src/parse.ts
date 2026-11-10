@@ -78,10 +78,7 @@ function oneOf<Option extends string>(value: unknown, options: readonly Option[]
 }
 
 // Parses every item of a list, and says which item an error came from.
-function listOf<Item>(
-  value: unknown,
-  parseItem: (item: unknown) => Result<Item>,
-): Result<Item[]> {
+function listOf<Item>(value: unknown, parseItem: (item: unknown) => Result<Item>): Result<Item[]> {
   return andThen(list(value), (items) =>
     allOk(items.map((item, index) => at(`[${index}]`, parseItem(item)))),
   );
@@ -291,10 +288,7 @@ export function parseTrack(value: unknown): Result<Track> {
     const property = at('property', parseProperty(get(source, 'property')));
     const origin = at('origin', oneOf(get(source, 'origin'), ORIGINS));
     const group = at('groupId', parseGroupId(get(source, 'groupId')));
-    const startOffset = at(
-      'startOffset',
-      andThen(number(get(source, 'startOffset')), duration),
-    );
+    const startOffset = at('startOffset', andThen(number(get(source, 'startOffset')), duration));
     const interrupted = at('interrupted', boolean(get(source, 'interrupted')));
     const keyframes = at(
       'keyframes',

@@ -72,7 +72,9 @@ describe('cubic bezier', () => {
       fc.property(tame, zeroToOne, zeroToOne, (curve, a, b) => {
         const low = Math.min(a, b);
         const high = Math.max(a, b);
-        expect(evaluateEasing(curve, high)).toBeGreaterThanOrEqual(evaluateEasing(curve, low) - 1e-6);
+        expect(evaluateEasing(curve, high)).toBeGreaterThanOrEqual(
+          evaluateEasing(curve, low) - 1e-6,
+        );
       }),
     );
   });
@@ -183,7 +185,9 @@ describe('every easing', () => {
 describe('CSS text', () => {
   test('parses what Chrome reports', () => {
     expect(parseEasing('ease-out')).toEqual({ ok: true, value: named('ease-out') });
-    expect(parseEasing('cubic-bezier(0.34, 1.56, 0.64, 1)')).toEqual(cubicBezier(0.34, 1.56, 0.64, 1));
+    expect(parseEasing('cubic-bezier(0.34, 1.56, 0.64, 1)')).toEqual(
+      cubicBezier(0.34, 1.56, 0.64, 1),
+    );
     expect(parseEasing('steps(5)')).toEqual(steps(5, 'end'));
     expect(parseEasing('steps(5, jump-start)')).toEqual(steps(5, 'start'));
     expect(parseEasing('step-start')).toEqual(steps(1, 'start'));
@@ -254,12 +258,16 @@ describe('speed and nearest named easing', () => {
 
 describe('fitBezier', () => {
   test('finds a named easing again', () => {
-    expect(easingDistance(fitBezier(named('ease-in-out')), named('ease-in-out'))).toBeLessThan(0.03);
+    expect(easingDistance(fitBezier(named('ease-in-out')), named('ease-in-out'))).toBeLessThan(
+      0.03,
+    );
   });
 
   test('gives a close bezier for a linear() spring', () => {
     const spring = unwrap(
-      parseEasing('linear(0 0%, 0.22 9%, 0.86 27%, 1.11 36%, 1.16 42%, 1.04 60%, 0.98 72%, 1 100%)'),
+      parseEasing(
+        'linear(0 0%, 0.22 9%, 0.86 27%, 1.11 36%, 1.16 42%, 1.04 60%, 0.98 72%, 1 100%)',
+      ),
     );
     const fitted = fitBezier(spring);
     expect(fitted.kind).toBe('cubic-bezier');

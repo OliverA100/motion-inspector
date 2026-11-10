@@ -230,32 +230,53 @@ export function createProbe(): Probe {
     lastCapture = capture;
   };
 
-  const read = (track: Track, timeMs: number): string | null => {
+  // Sampling is split into "set the time" and "read the value" on purpose.
+  // Reading a computed style makes the browser recalculate styles if
+  // anything changed since the last read. Set, read, set, read would mean
+  // one recalculation per track. Setting every time first and reading after
+  // means one recalculation for all of them.
+  const seek = (track: Track, timeMs: number): void => {
+    const animation = entries.get(track)?.animation;
+    if (animation !== null && animation !== undefined) {
+      animation.currentTime = timeMs - track.startOffset;
+    }
+  };
+
+  const read = (track: Track): string | null => {
     const entry = entries.get(track);
     if (entry === undefined || entry.animation === null) return null;
-    entry.animation.currentTime = timeMs - track.startOffset;
     return getComputedStyle(entry.element).getPropertyValue(track.property);
   };
 
   return {
     poses: (capture, timeMs) => {
       sync(capture);
-      const readings = capture.tracks.flatMap((track): Reading[] => {
-        if (!isPreviewed(track.property) || !hasEffect(track, timeMs)) return [];
-        const value = read(track, timeMs);
+      const active = capture.tracks.filter(
+        (track) => isPreviewed(track.property) && hasEffect(track, timeMs),
+      );
+      for (const track of active) seek(track, timeMs);
+      const readings = active.flatMap((track): Reading[] => {
+        const value = read(track);
         return value === null ? [] : [{ track, value }];
       });
       const shapeIds = Array.from(new Set(readings.map((reading) => reading.track.shapeId)));
       return shapeIds.flatMap((id) => {
         const shape = findShape(capture.root, id);
         if (shape === null) return [];
-        return [poseOf(shape, readings.filter((reading) => reading.track.shapeId === id))];
+        return [
+          poseOf(
+            shape,
+            readings.filter((reading) => reading.track.shapeId === id),
+          ),
+        ];
       });
     },
     valueAt: (capture, trackIndex, timeMs) => {
       sync(capture);
       const track = capture.tracks[trackIndex];
-      return track === undefined ? null : read(track, timeMs);
+      if (track === undefined) return null;
+      seek(track, timeMs);
+      return read(track);
     },
     dispose: () => {
       for (const entry of entries.values()) entry.animation?.cancel();

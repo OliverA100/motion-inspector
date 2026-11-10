@@ -30,7 +30,11 @@ export async function clickTrigger(page: Page, fixture: string, trigger: string)
 
 // Opens the fixtures page, injects the spike, runs one scenario with real
 // pointer input, and saves the raw dump as JSON.
-export async function record(page: Page, testInfo: TestInfo, scenario: Scenario): Promise<SpikeDump> {
+export async function record(
+  page: Page,
+  testInfo: TestInfo,
+  scenario: Scenario,
+): Promise<SpikeDump> {
   const selector = rootSelector(scenario.fixture);
   await page.goto('/fixtures.html');
   await page.mouse.move(0, 0);

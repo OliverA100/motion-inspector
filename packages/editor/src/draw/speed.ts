@@ -83,7 +83,13 @@ export function drawSpeed(context: CanvasRenderingContext2D, data: SpeedData, si
   if (data.playhead !== null) {
     context.fillStyle = theme.accent;
     context.beginPath();
-    context.arc(x(data.playhead), y(Math.abs(easingSpeed(data.mine, data.playhead))), 4, 0, Math.PI * 2);
+    context.arc(
+      x(data.playhead),
+      y(Math.abs(easingSpeed(data.mine, data.playhead))),
+      4,
+      0,
+      Math.PI * 2,
+    );
     context.fill();
   }
 }

@@ -30,9 +30,12 @@ describe('captureToCss', () => {
   test('keyframe animations: easing per keyframe, none on the last', () => {
     const css = captureToCss(bounce);
     expect(css).toContain(
-      ['  40% {', '    transform: translateY(0px);', '    animation-timing-function: ease-out;', '  }'].join(
-        '\n',
-      ),
+      [
+        '  40% {',
+        '    transform: translateY(0px);',
+        '    animation-timing-function: ease-out;',
+        '  }',
+      ].join('\n'),
     );
     expect(css).toContain(['  100% {', '    transform: translateY(0px);', '  }'].join('\n'));
     expect(css).toContain('  animation: motion-1 900ms linear 0ms 1 normal none;');

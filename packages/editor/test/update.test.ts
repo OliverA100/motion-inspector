@@ -4,7 +4,13 @@ import { NAMED_EASINGS } from '@motion-inspector/core';
 import { bounce, buttonHover, cardLift, dots, loader } from '@motion-inspector/core/src/samples';
 import { capture, easing } from '../../core/test/arbitraries';
 import type { Model, Msg } from '../src/state/model';
-import { curveFeel, easingAt, plainName, takeLengthMs, withoutHidden } from '../src/state/selectors';
+import {
+  curveFeel,
+  easingAt,
+  plainName,
+  takeLengthMs,
+  withoutHidden,
+} from '../src/state/selectors';
 import { init, update } from '../src/state/update';
 import { validateModel } from '../src/state/validate';
 
@@ -12,16 +18,16 @@ const anyNumber = fc.double();
 
 const msg: fc.Arbitrary<Msg> = fc.oneof(
   capture.map((value): Msg => ({ kind: 'captureLoaded', capture: value })),
-  fc.oneof(fc.integer({ min: -2, max: 8 }), anyNumber).map(
-    (trackIndex): Msg => ({ kind: 'trackSelected', trackIndex }),
-  ),
-  fc.oneof(fc.integer({ min: -2, max: 8 }), anyNumber).map(
-    (segmentIndex): Msg => ({ kind: 'segmentSelected', segmentIndex }),
-  ),
+  fc
+    .oneof(fc.integer({ min: -2, max: 8 }), anyNumber)
+    .map((trackIndex): Msg => ({ kind: 'trackSelected', trackIndex })),
+  fc
+    .oneof(fc.integer({ min: -2, max: 8 }), anyNumber)
+    .map((segmentIndex): Msg => ({ kind: 'segmentSelected', segmentIndex })),
   fc.constant<Msg>({ kind: 'trackDeselected' }),
-  fc.oneof(fc.integer({ min: -2, max: 8 }), anyNumber).map(
-    (trackIndex): Msg => ({ kind: 'trackToggled', trackIndex }),
-  ),
+  fc
+    .oneof(fc.integer({ min: -2, max: 8 }), anyNumber)
+    .map((trackIndex): Msg => ({ kind: 'trackToggled', trackIndex })),
   fc.boolean().map((show): Msg => ({ kind: 'originalShown', show })),
   fc.boolean().map((on): Msg => ({ kind: 'hideInOriginalSet', on })),
   fc.constant<Msg>({ kind: 'playToggled' }),
@@ -31,14 +37,16 @@ const msg: fc.Arbitrary<Msg> = fc.oneof(
   anyNumber.map((elapsedMs): Msg => ({ kind: 'ticked', elapsedMs })),
   anyNumber.map((timeMs): Msg => ({ kind: 'scrubbed', timeMs })),
   anyNumber.map((frames): Msg => ({ kind: 'stepped', frames })),
-  fc.constantFrom('overlay', 'side-by-side').map((compare): Msg => ({ kind: 'compareSet', compare })),
+  fc
+    .constantFrom('overlay', 'side-by-side')
+    .map((compare): Msg => ({ kind: 'compareSet', compare })),
   easing.map((value): Msg => ({ kind: 'easingChanged', easing: value })),
-  fc.tuple(fc.integer({ min: -2, max: 8 }), anyNumber).map(
-    ([trackIndex, delayMs]): Msg => ({ kind: 'delayChanged', trackIndex, delayMs }),
-  ),
-  fc.tuple(fc.integer({ min: -2, max: 8 }), anyNumber).map(
-    ([trackIndex, durationMs]): Msg => ({ kind: 'durationChanged', trackIndex, durationMs }),
-  ),
+  fc
+    .tuple(fc.integer({ min: -2, max: 8 }), anyNumber)
+    .map(([trackIndex, delayMs]): Msg => ({ kind: 'delayChanged', trackIndex, delayMs })),
+  fc
+    .tuple(fc.integer({ min: -2, max: 8 }), anyNumber)
+    .map(([trackIndex, durationMs]): Msg => ({ kind: 'durationChanged', trackIndex, durationMs })),
   fc.constant<Msg>({ kind: 'curveReset' }),
   fc.integer({ min: -2, max: 8 }).map((trackIndex): Msg => ({ kind: 'trackReset', trackIndex })),
   fc.constant<Msg>({ kind: 'allReset' }),
@@ -70,11 +78,19 @@ describe('update', () => {
 
 describe('playback', () => {
   test('a new capture plays once from the start', () => {
-    expect(init(cardLift)).toMatchObject({ playing: true, loop: false, timeMs: 0, selectedTrack: 0 });
+    expect(init(cardLift)).toMatchObject({
+      playing: true,
+      loop: false,
+      timeMs: 0,
+      selectedTrack: 0,
+    });
   });
 
   test('ticks advance the clock by real time, scaled by the speed', () => {
-    const slow = run(init(cardLift), [{ kind: 'speedSet', speed: 0.25 }, { kind: 'ticked', elapsedMs: 16 }]);
+    const slow = run(init(cardLift), [
+      { kind: 'speedSet', speed: 0.25 },
+      { kind: 'ticked', elapsedMs: 16 },
+    ]);
     expect(slow.timeMs).toBe(4);
   });
 
@@ -83,9 +99,15 @@ describe('playback', () => {
     expect(length).toBe(400);
     const nearEnd = update(init(cardLift), { kind: 'scrubbed', timeMs: 390 });
     const playing = update(nearEnd, { kind: 'playToggled' });
-    expect(update(playing, { kind: 'ticked', elapsedMs: 16 })).toMatchObject({ timeMs: 400, playing: false });
+    expect(update(playing, { kind: 'ticked', elapsedMs: 16 })).toMatchObject({
+      timeMs: 400,
+      playing: false,
+    });
     const looping = update(playing, { kind: 'loopSet', loop: true });
-    expect(update(looping, { kind: 'ticked', elapsedMs: 16 })).toMatchObject({ timeMs: 6, playing: true });
+    expect(update(looping, { kind: 'ticked', elapsedMs: 16 })).toMatchObject({
+      timeMs: 6,
+      playing: true,
+    });
   });
 
   test('play at the end starts over', () => {
@@ -100,8 +122,14 @@ describe('playback', () => {
   });
 
   test('scrubbing and stepping pause, and stay inside the take', () => {
-    expect(update(init(cardLift), { kind: 'scrubbed', timeMs: 9999 })).toMatchObject({ timeMs: 400, playing: false });
-    const stepped = run(init(cardLift), [{ kind: 'scrubbed', timeMs: 100 }, { kind: 'stepped', frames: 3 }]);
+    expect(update(init(cardLift), { kind: 'scrubbed', timeMs: 9999 })).toMatchObject({
+      timeMs: 400,
+      playing: false,
+    });
+    const stepped = run(init(cardLift), [
+      { kind: 'scrubbed', timeMs: 100 },
+      { kind: 'stepped', frames: 3 },
+    ]);
     expect(stepped.timeMs).toBeCloseTo(150, 10);
     expect(update(stepped, { kind: 'stepped', frames: -100 }).timeMs).toBe(0);
   });
@@ -123,7 +151,14 @@ describe('editing the curve', () => {
   test('a keyframe animation changes only the selected segment', () => {
     const model = run(init(bounce), [{ kind: 'segmentSelected', segmentIndex: 2 }, ease]);
     const kinds = model.edited.tracks[0]?.keyframes.map((keyframe) => keyframe.easing.kind);
-    expect(kinds).toEqual(['cubic-bezier', 'cubic-bezier', 'linear', 'cubic-bezier', 'cubic-bezier', 'linear']);
+    expect(kinds).toEqual([
+      'cubic-bezier',
+      'cubic-bezier',
+      'linear',
+      'cubic-bezier',
+      'cubic-bezier',
+      'linear',
+    ]);
   });
 
   test('tracks from the same animation change together, other shapes do not', () => {
@@ -148,9 +183,9 @@ describe('the timeline: select, unselect, show, hide', () => {
     expect(hidden.hiddenTracks).toEqual([0]);
     // Hiding keeps the track. It is only left out of what is shown.
     expect(hidden.edited.tracks).toHaveLength(2);
-    expect(withoutHidden(hidden.edited, hidden.hiddenTracks).tracks.map((track) => track.property)).toEqual([
-      'transform',
-    ]);
+    expect(
+      withoutHidden(hidden.edited, hidden.hiddenTracks).tracks.map((track) => track.property),
+    ).toEqual(['transform']);
     expect(update(hidden, { kind: 'trackToggled', trackIndex: 0 }).hiddenTracks).toEqual([]);
   });
 
@@ -175,7 +210,8 @@ describe('the timeline: select, unselect, show, hide', () => {
 });
 
 describe('plain words', () => {
-  const named = (name: string) => NAMED_EASINGS.find((entry) => entry.name === name)?.easing ?? { kind: 'linear' as const };
+  const named = (name: string) =>
+    NAMED_EASINGS.find((entry) => entry.name === name)?.easing ?? { kind: 'linear' as const };
 
   test('a curve is described by how it starts and ends', () => {
     expect(curveFeel(named('ease-out'))).toEqual({ start: 'fast', end: 'gentle', extra: null });
@@ -186,7 +222,11 @@ describe('plain words', () => {
 
   test('an overshoot is named with its size', () => {
     const overshoot = cardLift.tracks[0]?.timing.easing ?? named('linear');
-    expect(curveFeel(overshoot)).toEqual({ start: 'fast', end: 'gentle', extra: 'overshoots by 10%' });
+    expect(curveFeel(overshoot)).toEqual({
+      start: 'fast',
+      end: 'gentle',
+      extra: 'overshoots by 10%',
+    });
   });
 
   test('properties get a plain name where there is one', () => {
@@ -240,13 +280,21 @@ describe('reset', () => {
   ];
 
   test('reset curve puts back only the curve', () => {
-    const model = run(init(buttonHover), [{ kind: 'trackSelected', trackIndex: 0 }, ...edits, { kind: 'curveReset' }]);
+    const model = run(init(buttonHover), [
+      { kind: 'trackSelected', trackIndex: 0 },
+      ...edits,
+      { kind: 'curveReset' },
+    ]);
     expect(model.edited.tracks[0]?.timing.easing).toEqual(buttonHover.tracks[0]?.timing.easing);
     expect(model.edited.tracks[0]?.timing.duration).toBe(250);
   });
 
   test('reset row puts back that row, and leaves the others', () => {
-    const model = run(init(buttonHover), [{ kind: 'trackSelected', trackIndex: 0 }, ...edits, { kind: 'trackReset', trackIndex: 0 }]);
+    const model = run(init(buttonHover), [
+      { kind: 'trackSelected', trackIndex: 0 },
+      ...edits,
+      { kind: 'trackReset', trackIndex: 0 },
+    ]);
     expect(model.edited.tracks[0]).toEqual(buttonHover.tracks[0]);
     expect(model.edited.tracks[1]?.timing.duration).toBe(90);
   });

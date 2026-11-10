@@ -4,7 +4,14 @@
 // over it, 24 px wide and invisible. That one element gives the handle its
 // larger hit area, hover and pressed states, focus ring, and keyboard path.
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 import {
   cubicBezier,
   easingDistance,
@@ -107,7 +114,11 @@ export function CurveEditor(props: Props) {
 
   const draw = useCallback<Draw>(
     (context, canvasSize) =>
-      drawCurve(context, { original, mine, playhead, hover, range, showOriginal, theme }, canvasSize),
+      drawCurve(
+        context,
+        { original, mine, playhead, hover, range, showOriginal, theme },
+        canvasSize,
+      ),
     [original, mine, playhead, hover, range, showOriginal, theme],
   );
 
@@ -212,8 +223,8 @@ export function CurveEditor(props: Props) {
         ) : null}
       </header>
       <p className="panel__hint">
-        How the selected property gets from its start value to its end value. Left to right is
-        time. The steeper the line, the faster it moves.
+        How the selected property gets from its start value to its end value. Left to right is time.
+        The steeper the line, the faster it moves.
       </p>
 
       <div
@@ -234,7 +245,9 @@ export function CurveEditor(props: Props) {
               <button
                 key={point.index}
                 type="button"
-                className={drag?.index === point.index ? 'curve__handle is-dragging' : 'curve__handle'}
+                className={
+                  drag?.index === point.index ? 'curve__handle is-dragging' : 'curve__handle'
+                }
                 aria-label={`${point.name}: time ${formatNumber(point.x)}, progress ${formatNumber(point.y)}. Use the arrow keys to move it.`}
                 style={{
                   left: plot.x(point.x) - HIT_SIZE / 2,

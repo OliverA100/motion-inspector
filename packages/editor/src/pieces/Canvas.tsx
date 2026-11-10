@@ -22,6 +22,16 @@ type Props = {
 export function Canvas({ label, height, draw, onSize }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
+  const [ratio, setRatio] = useState(() => window.devicePixelRatio);
+
+  // The pixel ratio changes when the window moves to another screen or the
+  // page is zoomed. Without this the canvas would stay blurry until resized.
+  useEffect(() => {
+    const query = window.matchMedia(`(resolution: ${ratio}dppx)`);
+    const update = (): void => setRatio(window.devicePixelRatio);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, [ratio]);
 
   // Follow the container's width.
   useEffect(() => {
@@ -44,21 +54,14 @@ export function Canvas({ label, height, draw, onSize }: Props) {
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d') ?? null;
     if (canvas === null || context === null || width === 0) return;
-    const ratio = window.devicePixelRatio;
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.clearRect(0, 0, width, height);
     draw(context, { width, height });
-  }, [draw, width, height]);
+  }, [draw, width, height, ratio]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="canvas"
-      role="img"
-      aria-label={label}
-      style={{ height }}
-    />
+    <canvas ref={canvasRef} className="canvas" role="img" aria-label={label} style={{ height }} />
   );
 }

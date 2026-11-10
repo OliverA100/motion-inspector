@@ -57,7 +57,9 @@ export function groupByShorthand(tracks: Track[]): PropertyGroup[] {
     const members = entry.longhands.map((name) => tracks.find((track) => track.property === name));
     const first = members[0];
     if (first === undefined) return false;
-    return members.every((member) => member !== undefined && motionKey(member) === motionKey(first));
+    return members.every(
+      (member) => member !== undefined && motionKey(member) === motionKey(first),
+    );
   });
 
   return tracks.flatMap((track): PropertyGroup[] => {

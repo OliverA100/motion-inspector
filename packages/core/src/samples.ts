@@ -38,7 +38,14 @@ function timing(duration: number, easing: unknown, delay = 0, iterations: unknow
 
 const once = { kind: 'count', count: 1 };
 
-type Look = { x?: number; y?: number; fill?: string | null; radius?: number; stroke?: string; kind?: string };
+type Look = {
+  x?: number;
+  y?: number;
+  fill?: string | null;
+  radius?: number;
+  stroke?: string;
+  kind?: string;
+};
 
 const ACCENT = '#2f6fed';
 const GRAY = '#d4d4d4';
@@ -85,7 +92,12 @@ function transition(
   };
 }
 
-function capture(selector: string, root: unknown, tracks: unknown[], notShown: string[] = []): Capture {
+function capture(
+  selector: string,
+  root: unknown,
+  tracks: unknown[],
+  notShown: string[] = [],
+): Capture {
   const parsed = parseCapture({
     source: {
       url: 'http://localhost:5173/fixtures.html',
@@ -129,9 +141,27 @@ const cardShape = shape(
   140,
   100,
   [
-    shape('image', 'div.fx-card__image', 116, 40, [], { x: 12, y: 12, fill: GRAY, radius: 4, kind: 'image' }),
-    shape('line-1', 'div.fx-card__line', 116, 8, [], { x: 12, y: 60, fill: GRAY, radius: 4, kind: 'text' }),
-    shape('line-2', 'div.fx-card__line', 70, 8, [], { x: 12, y: 76, fill: GRAY, radius: 4, kind: 'text' }),
+    shape('image', 'div.fx-card__image', 116, 40, [], {
+      x: 12,
+      y: 12,
+      fill: GRAY,
+      radius: 4,
+      kind: 'image',
+    }),
+    shape('line-1', 'div.fx-card__line', 116, 8, [], {
+      x: 12,
+      y: 60,
+      fill: GRAY,
+      radius: 4,
+      kind: 'text',
+    }),
+    shape('line-2', 'div.fx-card__line', 70, 8, [], {
+      x: 12,
+      y: 76,
+      fill: GRAY,
+      radius: 4,
+      kind: 'text',
+    }),
   ],
   { fill: '#fafafa', stroke: '#e4e4e4' },
 );
@@ -216,9 +246,16 @@ const bounceStops: [number, number, unknown][] = [
 
 export const bounce = capture(
   'div.fx-bounce',
-  shape('root', 'div.fx-bounce', 24, 88, [shape('ball', 'div.fx-ball', 24, 24, [], { y: 64, radius: 12 })], {
-    fill: null,
-  }),
+  shape(
+    'root',
+    'div.fx-bounce',
+    24,
+    88,
+    [shape('ball', 'div.fx-ball', 24, 24, [], { y: 64, radius: 12 })],
+    {
+      fill: null,
+    },
+  ),
   [
     {
       shapeId: 'ball',
@@ -286,32 +323,43 @@ export const dots = capture(
 
 const corners = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
 
-export const morph = capture('div.fx-morph', shape('root', 'div.fx-morph', 56, 56, [], { fill: GRAY }), [
-  transition(
-    'root',
-    'background-color',
-    keyframe(0, 'rgb(212, 212, 212)', { kind: 'color', r: 212, g: 212, b: 212, a: 1 }),
-    keyframe(1, 'rgb(47, 111, 237)', { kind: 'color', r: 47, g: 111, b: 237, a: 1 }),
-    timing(500, EASE_IN_OUT),
-  ),
-  ...corners.map((corner) =>
+export const morph = capture(
+  'div.fx-morph',
+  shape('root', 'div.fx-morph', 56, 56, [], { fill: GRAY }),
+  [
     transition(
       'root',
-      `border-${corner}-radius`,
-      keyframe(0, '8px', { kind: 'length', px: 8 }),
-      keyframe(1, '50%', { kind: 'percent', value: 50 }),
+      'background-color',
+      keyframe(0, 'rgb(212, 212, 212)', { kind: 'color', r: 212, g: 212, b: 212, a: 1 }),
+      keyframe(1, 'rgb(47, 111, 237)', { kind: 'color', r: 47, g: 111, b: 237, a: 1 }),
       timing(500, EASE_IN_OUT),
     ),
-  ),
-]);
+    ...corners.map((corner) =>
+      transition(
+        'root',
+        `border-${corner}-radius`,
+        keyframe(0, '8px', { kind: 'length', px: 8 }),
+        keyframe(1, '50%', { kind: 'percent', value: 50 }),
+        timing(500, EASE_IN_OUT),
+      ),
+    ),
+  ],
+);
 
 export const stepsSample = capture(
   'div.fx-steps',
-  shape('root', 'div.fx-steps', 144, 24, [shape('dot', 'div.fx-steps__dot', 24, 22, [], { y: 1, radius: 4 })], {
-    fill: null,
-    stroke: '#e4e4e4',
-    radius: 4,
-  }),
+  shape(
+    'root',
+    'div.fx-steps',
+    144,
+    24,
+    [shape('dot', 'div.fx-steps__dot', 24, 22, [], { y: 1, radius: 4 })],
+    {
+      fill: null,
+      stroke: '#e4e4e4',
+      radius: 4,
+    },
+  ),
   [
     {
       shapeId: 'dot',
@@ -372,9 +420,16 @@ const SPRING = {
 
 export const linearSpring = capture(
   'div.fx-linear',
-  shape('root', 'div.fx-linear', 144, 32, [shape('box', 'div.fx-linear__box', 32, 32, [], { radius: 4 })], {
-    fill: null,
-  }),
+  shape(
+    'root',
+    'div.fx-linear',
+    144,
+    32,
+    [shape('box', 'div.fx-linear__box', 32, 32, [], { radius: 4 })],
+    {
+      fill: null,
+    },
+  ),
   [
     transition(
       'box',

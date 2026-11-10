@@ -69,7 +69,11 @@ type ToggleProps = { label: string; checked: boolean; onChange: (checked: boolea
 export function Toggle({ label, checked, onChange }: ToggleProps) {
   return (
     <label className="toggle">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
       {label}
     </label>
   );

@@ -3,7 +3,7 @@
 
 import { test } from '@playwright/test';
 
-const milestone = 'm3-feedback';
+const milestone = 'm3-hardened';
 
 const pages = [
   { name: 'editor-card-lift', url: '/?sample=card-lift&time=150&quiet' },
@@ -12,6 +12,8 @@ const pages = [
   { name: 'editor-stagger-list', url: '/?sample=stagger-list&time=200&quiet' },
   { name: 'editor-linear-read-only', url: '/?sample=linear-spring&time=250&quiet' },
   { name: 'editor-not-shown', url: '/?sample=interrupted&time=60&quiet' },
+  { name: 'editor-100-tracks', url: '/?sample=hundred&time=500&quiet' },
+  { name: 'editor-nothing-captured', url: '/?sample=nothing&quiet' },
   { name: 'pieces', url: '/pieces.html' },
 ];
 const widths = [360, 1280];

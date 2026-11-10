@@ -173,7 +173,13 @@ export function drawTimeline(
     if (row.shown) {
       context.globalAlpha = row.previewed ? 1 : 0.5;
       context.fillStyle = row.selected ? theme.accent : theme.shape;
-      context.roundRect(Math.round(barStart), Math.round(middle - BAR_HEIGHT / 2), barWidth, BAR_HEIGHT, 3);
+      context.roundRect(
+        Math.round(barStart),
+        Math.round(middle - BAR_HEIGHT / 2),
+        barWidth,
+        BAR_HEIGHT,
+        3,
+      );
       context.fill();
       context.globalAlpha = 1;
     } else {

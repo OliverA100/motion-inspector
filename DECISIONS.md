@@ -258,3 +258,48 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** a row that is unticked is left out of my version only. The original's preview keeps every track. A toggle, "Unticked rows also leave the original", makes it apply to both.
 **Why:** the first version removed the track from both previews, so a change to my version changed the original, which is meant to be the fixed reference.
 **Gave up:** with the toggle off, the two previews can show different sets of tracks, so a difference between them may be a hidden row and not an edit.
+
+### D48. Three things can be dragged on the timeline, told apart by where the press lands
+**Chose:** on a bar, the drag moves its delay. On a bar's right edge, it changes its duration. Anywhere else (the ruler, an empty spot) it moves the playhead. The cursor shows which one it will be. This narrows D41, where a press anywhere scrubbed.
+**Why:** timing has to be editable where it is shown, and one area cannot do two things with the same gesture.
+**Gave up:** scrubbing by pressing directly on a bar. The whole ruler and every gap still scrub.
+
+### D49. The timeline's scale only grows, and never during a drag
+**Chose:** the time at the right edge starts at the longer of mine and the original, and widens only after a drag ends.
+**Why:** a bar's own length changes the length of the take. If the scale followed, the bar would rescale under the pointer while being dragged.
+**Gave up:** a bar dragged past the right edge runs off the canvas until the drag ends.
+
+### D50. Nothing that appears during use may change a width or height
+**Chose:** the "edited" marker on a row always keeps its space. The selected row is shown by color and a bar at its left edge, not bold text. The layout test now also watches the parts a pointer aims at (the bars, the label column, the curve, the fields), not only the page's blocks.
+**Why:** both were real bugs found while testing a drag. The marker made the label column wider the moment a row was edited, which shrank the bars under the pointer, so the bar drifted away from the cursor. Bold text did the same on selection.
+**Gave up:** nothing.
+
+### D51. Resets come in three sizes, and are disabled when there is nothing to reset
+**Chose:** "Reset curve", "Reset this row" (curve and timing), and "Reset everything". Double-clicking a handle or a bar resets that one thing. Which rows are ticked is not an edit, so no reset changes it.
+**Why:** each matches one thing that can be edited. A disabled button stays in place, so nothing moves when it wakes up.
+**Gave up:** there is still no undo. That is M4.
+
+### D52. Hand-set timing has a limit
+**Chose:** a delay or duration set in the editor is held within ten minutes.
+**Why:** one typo (30000000) made every other bar too small to see or grab.
+**Gave up:** an animation longer than ten minutes cannot be made by hand. A captured one is not changed.
+
+### D53. The probe sets every time first, then reads every value
+**Chose:** sampling is two passes: `currentTime` on every active track, then the computed style of every track.
+**Why:** reading a style makes the browser recalculate if anything changed. Interleaved, that was one recalculation per track per frame. Measured with 100 tracks under 4x CPU slowdown: 32 ms per frame before, 19.5 ms after.
+**Gave up:** nothing. Before any edit, the original's poses are also reused from mine, since it is the same capture.
+
+### D54. A long timeline is folded
+**Chose:** the first 8 rows are shown, with "Show N more rows".
+**Why:** 100 rows made the page several screens long.
+**Gave up:** the first 8 are simply the first 8. Ordering by importance comes with "select the biggest change" in M4.
+
+### D55. One error boundary around the editor
+**Chose:** if drawing throws, the editor shows a short message with the error, not a blank page.
+**Why:** a tool that fails silently cannot be trusted with real captures.
+**Gave up:** React only offers this as a class, so it is the one class in the project.
+
+### D56. Tests that try to break it
+**Chose:** `tests/robust.spec.ts` opens every sample at 360 and 1280 px and fails on any console error, page error, or content wider than the window. It also covers 100 tracks, a capture with nothing to play, absurd typed values, and six runs of 80 random actions each (clicks on any button or checkbox, drags that leave the page, key presses, bad numbers) with fixed seeds so a failure can be replayed.
+**Why:** the bugs found in this pass were all in combinations nobody would write a test for by hand.
+**Gave up:** about 12 seconds of test time.

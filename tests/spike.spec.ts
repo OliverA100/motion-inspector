@@ -433,7 +433,6 @@ test('interrupted transition: cancelled, replaced by a shorter one that starts m
   expect(hoverIn.readAfterFinish).toBeNull();
 });
 
-
 test('negative delays arrive as they are, and the dots share one start time', async ({
   page,
 }, testInfo) => {

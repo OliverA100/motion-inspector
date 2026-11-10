@@ -73,7 +73,8 @@ type Stop = { output: number; input: number | null };
 function parseStop(text: string): Result<Stop[]> {
   const tokens = text.split(/\s+/).filter((token) => token.length > 0);
   const outputText = tokens[0];
-  if (outputText === undefined || tokens.length > 3) return fail(`"${text}" is not a linear() stop.`);
+  if (outputText === undefined || tokens.length > 3)
+    return fail(`"${text}" is not a linear() stop.`);
   const output = parseNumber(outputText);
   if (!output.ok) return output;
   const inputs = tokens.slice(1).map(parsePercent);

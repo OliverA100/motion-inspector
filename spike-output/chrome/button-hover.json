@@ -17,9 +17,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 87.89999999850988,
-      "timelineTimeAtFirstSight": 131.1,
-      "startTimeWhenReady": 164.4799999994575,
+      "firstSeenAtMs": 91,
+      "timelineTimeAtFirstSight": 150.3,
+      "startTimeWhenReady": 183.61900000309106,
       "keyframes": [
         {
           "offset": 0,
@@ -215,9 +215,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 88.20000000298023,
-      "timelineTimeAtFirstSight": 131.1,
-      "startTimeWhenReady": 164.4799999994575,
+      "firstSeenAtMs": 91.20000000298023,
+      "timelineTimeAtFirstSight": 150.3,
+      "startTimeWhenReady": 183.61900000309106,
       "keyframes": [
         {
           "offset": 0,
@@ -438,42 +438,42 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 87.5,
+      "atMs": 90.60000000149012,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 87.5,
+      "atMs": 90.60000000149012,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 87.5,
+      "atMs": 90.60000000149012,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 87.5,
+      "atMs": 90.60000000149012,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
       "elapsedTime": 0.18,
-      "atMs": 273.8999999985099,
+      "atMs": 272.70000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.18,
-      "atMs": 273.8999999985099,
+      "atMs": 272.70000000298023,
       "targetClassName": "fx-button"
     }
   ]

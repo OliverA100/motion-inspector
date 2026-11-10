@@ -29,7 +29,8 @@ export function validateModel(model: Model): Result<Model> {
     ...(track === undefined ? ['selectedTrack does not point at a track.'] : []),
     ...(model.hiddenTracks.every(
       (index, at) =>
-        model.edited.tracks[index] !== undefined && (at === 0 || index > (model.hiddenTracks[at - 1] ?? -1)),
+        model.edited.tracks[index] !== undefined &&
+        (at === 0 || index > (model.hiddenTracks[at - 1] ?? -1)),
     )
       ? []
       : ['hiddenTracks must be sorted indexes of existing tracks, with no repeats.']),
@@ -39,7 +40,9 @@ export function validateModel(model: Model): Result<Model> {
     ...(Number.isInteger(model.selectedSegment) && model.selectedSegment >= 0
       ? []
       : ['selectedSegment must be a whole number, zero or more.']),
-    ...(Number.isFinite(model.timeMs) && model.timeMs >= 0 && model.timeMs <= takeLengthMs(model.edited)
+    ...(Number.isFinite(model.timeMs) &&
+    model.timeMs >= 0 &&
+    model.timeMs <= takeLengthMs(model.edited)
       ? []
       : [`timeMs must be within the take. Got ${model.timeMs}.`]),
   ];

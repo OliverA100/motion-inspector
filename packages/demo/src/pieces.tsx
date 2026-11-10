@@ -115,7 +115,9 @@ function TimelinePiece() {
       controls={null}
       onSelect={setSelected}
       onToggle={(index) =>
-        setHidden(hidden.includes(index) ? hidden.filter((item) => item !== index) : [...hidden, index])
+        setHidden(
+          hidden.includes(index) ? hidden.filter((item) => item !== index) : [...hidden, index],
+        )
       }
       onScrub={setTimeMs}
       onDelayChange={() => {}}
@@ -167,10 +169,16 @@ function Pieces() {
         <Piece name="SpeedGraph" about="Speed over time for two easings.">
           <SpeedGraph original={overshoot} mine={easeOut} playhead={0.3} showOriginal />
         </Piece>
-        <Piece name="Timeline" about="One row per shape and property. Click a row to select it, untick it to leave it out, and drag on the bars to move through time.">
+        <Piece
+          name="Timeline"
+          about="One row per shape and property. Click a row to select it, untick it to leave it out, and drag on the bars to move through time."
+        >
           <TimelinePiece />
         </Piece>
-        <Piece name="Playback" about="Play, loop, speed and the current time. Here it only holds its own state.">
+        <Piece
+          name="Playback"
+          about="Play, loop, speed and the current time. Here it only holds its own state."
+        >
           <PlaybackPiece />
         </Piece>
       </main>

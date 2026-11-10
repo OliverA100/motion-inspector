@@ -19,9 +19,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 54.899999998509884,
-      "timelineTimeAtFirstSight": 165.8,
-      "startTimeWhenReady": 165.81000000587665,
+      "firstSeenAtMs": 65,
+      "timelineTimeAtFirstSight": 135.4,
+      "startTimeWhenReady": 135.36499999463558,
       "keyframes": [
         {
           "offset": 0,
@@ -420,14 +420,14 @@
       "type": "animationstart",
       "name": "fx-bounce",
       "elapsedTime": 0,
-      "atMs": 71,
+      "atMs": 81.20000000298023,
       "targetClassName": "fx-ball is-playing"
     },
     {
       "type": "animationend",
       "name": "fx-bounce",
       "elapsedTime": 0.9,
-      "atMs": 970.8999999985099,
+      "atMs": 964.7000000029802,
       "targetClassName": "fx-ball is-playing"
     }
   ]

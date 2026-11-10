@@ -176,7 +176,9 @@ export function curveFeel(easing: Easing): CurveFeel {
   }
   const startSpeed = easingSpeed(easing, 0.03);
   const endSpeed = easingSpeed(easing, 0.97);
-  const outputs = Array.from({ length: 101 }, (_item, index) => evaluateEasing(easing, index / 100));
+  const outputs = Array.from({ length: 101 }, (_item, index) =>
+    evaluateEasing(easing, index / 100),
+  );
   const overshoot = Math.round((Math.max(...outputs) - 1) * 100);
   const pullBack = Math.round(-Math.min(...outputs) * 100);
   const extras = [

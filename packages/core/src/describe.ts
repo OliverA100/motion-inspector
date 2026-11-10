@@ -131,9 +131,7 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe): string {
   if (property === 'box-shadow') return 'changes its shadow';
   const quotable =
     fromWords.length <= SHORT_ENOUGH_TO_QUOTE && toWords.length <= SHORT_ENOUGH_TO_QUOTE;
-  return quotable
-    ? `changes ${property} from ${fromWords} to ${toWords}`
-    : `changes ${property}`;
+  return quotable ? `changes ${property} from ${fromWords} to ${toWords}` : `changes ${property}`;
 }
 
 // A rough "how different are these two keyframes", to find the far end of

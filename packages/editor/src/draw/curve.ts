@@ -40,7 +40,9 @@ export const DEFAULT_RANGE: CurveRange = { lowest: -0.25, highest: 1.75 };
 export function widenRange(range: CurveRange, easings: Easing[]): CurveRange {
   const values = easings.flatMap((easing) => {
     const handles = handlesOf(easing);
-    const samples = Array.from({ length: 33 }, (_item, index) => evaluateEasing(easing, index / 32));
+    const samples = Array.from({ length: 33 }, (_item, index) =>
+      evaluateEasing(easing, index / 32),
+    );
     return handles === null ? samples : [...samples, handles.y1, handles.y2];
   });
   return {

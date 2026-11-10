@@ -14,6 +14,13 @@ import type { Model, Msg } from './model';
 import { defaultSelection, easingAt, easingTarget, takeLengthMs } from './selectors';
 
 const FRAME_MS = 1000 / 60;
+// The longest delay or duration that can be set by hand: ten minutes.
+// A typo like 30000000 would otherwise squash every other bar to nothing.
+const LONGEST_MS = 600_000;
+
+function withinLimit(value: number): number {
+  return Math.min(Math.max(saturate(value), -LONGEST_MS), LONGEST_MS);
+}
 // A background tab can deliver one frame after seconds. Do not jump ahead.
 const LONGEST_TICK_MS = 100;
 
@@ -110,7 +117,9 @@ function tick(model: Model, elapsedMs: number): Model {
   const next = model.timeMs + elapsed * model.speed;
   if (next < length) return { ...model, timeMs: next };
   // Reached the end: start over, or stop on the last frame.
-  return model.loop ? { ...model, timeMs: next % length } : { ...model, timeMs: length, playing: false };
+  return model.loop
+    ? { ...model, timeMs: next % length }
+    : { ...model, timeMs: length, playing: false };
 }
 
 function togglePlay(model: Model): Model {
@@ -144,9 +153,13 @@ export function update(model: Model, msg: Msg): Model {
     }
 
     case 'segmentSelected': {
-      const track = model.selectedTrack === null ? undefined : model.edited.tracks[model.selectedTrack];
+      const track =
+        model.selectedTrack === null ? undefined : model.edited.tracks[model.selectedTrack];
       const lastSegment = (track?.keyframes.length ?? 0) - 2;
-      const valid = Number.isInteger(msg.segmentIndex) && msg.segmentIndex >= 0 && msg.segmentIndex <= lastSegment;
+      const valid =
+        Number.isInteger(msg.segmentIndex) &&
+        msg.segmentIndex >= 0 &&
+        msg.segmentIndex <= lastSegment;
       return valid ? { ...model, selectedSegment: msg.segmentIndex } : model;
     }
 
@@ -189,14 +202,14 @@ export function update(model: Model, msg: Msg): Model {
       return changeEasing(model, msg.easing);
 
     case 'delayChanged': {
-      const checked = delay(msg.delayMs);
+      const checked = delay(withinLimit(msg.delayMs));
       return checked.ok
         ? changeTiming(model, msg.trackIndex, (timing) => ({ ...timing, delay: checked.value }))
         : model;
     }
 
     case 'durationChanged': {
-      const checked = duration(msg.durationMs);
+      const checked = duration(withinLimit(msg.durationMs));
       return checked.ok
         ? changeTiming(model, msg.trackIndex, (timing) => ({ ...timing, duration: checked.value }))
         : model;

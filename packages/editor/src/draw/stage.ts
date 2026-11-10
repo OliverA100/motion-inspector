@@ -115,11 +115,7 @@ function drawFilled(
 
 // The original as a dashed outline of the animated shapes only, to stay
 // quiet. Shapes that do not move would only repeat what is already drawn.
-function drawOutline(
-  context: CanvasRenderingContext2D,
-  data: StageData,
-  scale: number,
-): void {
+function drawOutline(context: CanvasRenderingContext2D, data: StageData, scale: number): void {
   walk(context, data.root, data.original, (shape, pose) => {
     if (pose === null) return;
     // Where the original is exactly where mine is, the outline adds nothing.

@@ -1,0 +1,6 @@
+node_modules
+dist
+spike-output
+screenshots
+test-results
+pnpm-lock.yaml

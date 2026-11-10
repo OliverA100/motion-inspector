@@ -8,7 +8,12 @@ type ProbeCheckResult = { compared: number; worst: number; failures: string[] };
 const time = (page: Page) => page.locator('.playback__time');
 
 // Opens the editor paused at a time, and waits until it is ready for input.
-async function openPaused(page: Page, sample: string, timeMs: number, totalMs: number): Promise<void> {
+async function openPaused(
+  page: Page,
+  sample: string,
+  timeMs: number,
+  totalMs: number,
+): Promise<void> {
   await page.goto(`/?sample=${sample}&time=${timeMs}&quiet`);
   await expect(time(page)).toHaveText(`${timeMs} ms of ${totalMs} ms`);
   await expect(page.locator('.mi canvas').first()).toBeVisible();
@@ -206,7 +211,9 @@ test('dragging a handle changes the curve, even outside the canvas, then replays
   await expect(time(page)).toHaveText('400 ms of 400 ms');
 });
 
-test('a handle can be moved with the arrow keys and reset with a double-click', async ({ page }) => {
+test('a handle can be moved with the arrow keys and reset with a double-click', async ({
+  page,
+}) => {
   await openPaused(page, 'card-lift', 0, 400);
   await handles(page).first().focus();
   await page.keyboard.press('ArrowRight');
@@ -242,7 +249,9 @@ test('a timeline row can be selected, and unselected by clicking it again', asyn
 
   await shadow.click();
   await expect(shadow).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByText('Select a row on the timeline to see and change its curve.')).toBeVisible();
+  await expect(
+    page.getByText('Select a row on the timeline to see and change its curve.'),
+  ).toBeVisible();
   await expect(handles(page)).toHaveCount(0);
 });
 
@@ -273,14 +282,20 @@ test('the dashed original can be switched off, and side by side still works', as
 
 // Where the main blocks of the page are. If any of these numbers change
 // while the editor is used, something shifted.
-async function layout(page: Page): Promise<string> {
-  return page.evaluate(() =>
-    Array.from(document.querySelectorAll('.mi__top, .mi__column > *'))
-      .map((element) => {
-        const box = element.getBoundingClientRect();
-        return [box.x, box.y + window.scrollY, box.width, box.height].map(Math.round).join(',');
-      })
-      .join(' | '),
+const BLOCKS = '.mi__top, .mi__column > *';
+// The parts inside the blocks that a pointer aims at.
+const PARTS = '.timeline__bars, .timeline__labels, .curve, .stage, .fields, .playback';
+
+async function layout(page: Page, selector = `${BLOCKS}, ${PARTS}`): Promise<string> {
+  return page.evaluate(
+    (query) =>
+      Array.from(document.querySelectorAll(query))
+        .map((element) => {
+          const box = element.getBoundingClientRect();
+          return [box.x, box.y + window.scrollY, box.width, box.height].map(Math.round).join(',');
+        })
+        .join(' | '),
+    selector,
   );
 }
 
@@ -336,8 +351,11 @@ for (const width of [1280, 360]) {
     // Leave a row out, unselect it, select it again.
     await page.getByRole('checkbox', { name: /^Show Move and scale/ }).uncheck();
     await same();
+    // With nothing selected the curve is replaced by a note, so only the
+    // blocks are compared for that one step.
+    const blocksBefore = await layout(page, BLOCKS);
     await page.locator('.timeline__label').first().click();
-    await same();
+    expect(await layout(page, BLOCKS)).toBe(blocksBefore);
     await page.locator('.timeline__label').first().click();
     await same();
   });

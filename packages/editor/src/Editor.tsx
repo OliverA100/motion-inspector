@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { describeCapture, type Capture } from '@motion-inspector/core';
+import { ErrorBoundary } from './ErrorBoundary';
 import { CurveEditor } from './pieces/CurveEditor';
 import { Button, Toggle } from './pieces/controls';
 import { FrameTime } from './pieces/FrameTime';
@@ -64,7 +65,16 @@ function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
-export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Props) {
+// The editor, wrapped so that a failure shows a message and not a blank page.
+export function Editor(props: Props) {
+  return (
+    <ErrorBoundary>
+      <EditorInside {...props} />
+    </ErrorBoundary>
+  );
+}
+
+function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Props) {
   const [model, dispatch] = useReducer(update, null, () => start(capture, initialMsgs));
   const [dragging, setDragging] = useState(false);
 
@@ -139,9 +149,14 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
     () => probes?.mine.poses(shownEdited, timeMs) ?? [],
     [probes, shownEdited, timeMs],
   );
+  // Until something is edited, the original is the very same capture as
+  // mine, so its poses are the same too and need not be worked out twice.
   const originalPoses = useMemo(
-    () => probes?.original.poses(shownOriginal, timeMs) ?? [],
-    [probes, shownOriginal, timeMs],
+    () =>
+      shownOriginal === shownEdited
+        ? minePoses
+        : (probes?.original.poses(shownOriginal, timeMs) ?? []),
+    [probes, shownOriginal, shownEdited, minePoses, timeMs],
   );
   const rows = useMemo(
     () =>
@@ -158,6 +173,8 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
     [original, edited, hiddenTracks],
   );
 
+  // A capture with nothing to play shows no timeline and no curve.
+  const hasTracks = edited.tracks.length > 0;
   const selected = selectedTracks(model);
   const segments = selected === null ? null : segmentLabels(selected.mine);
   const notPreviewed = Array.from(
@@ -208,92 +225,113 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
               selectedShapeId={selected?.mine.shapeId ?? null}
               onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
             />
-            <Timeline
-              tracks={rows}
-              selectedIndex={model.selectedTrack}
-              // A new capture starts with a fresh timeline scale.
-              key={original.source.capturedAt + original.source.selector + original.tracks.length}
-              totalMs={totalMs}
-              originalTotalMs={takeLengthMs(original)}
-              playheadMs={timeMs}
-              showOriginal={showOriginal}
-              controls={
-                <Playback
-                  playing={model.playing}
-                  loop={model.loop}
-                  speed={model.speed}
-                  timeMs={timeMs}
-                  totalMs={totalMs}
-                  onPlayToggle={() => dispatch({ kind: 'playToggled' })}
-                  onLoopChange={(loop) => dispatch({ kind: 'loopSet', loop })}
-                  onSpeedChange={(speed) => dispatch({ kind: 'speedSet', speed })}
-                />
-              }
-              onSelect={(trackIndex) =>
-                dispatch(
-                  trackIndex === null
-                    ? { kind: 'trackDeselected' }
-                    : { kind: 'trackSelected', trackIndex },
-                )
-              }
-              onToggle={(trackIndex) => dispatch({ kind: 'trackToggled', trackIndex })}
-              onScrub={(time) => dispatch({ kind: 'scrubbed', timeMs: time })}
-              onDelayChange={(trackIndex, delayMs) =>
-                dispatch({ kind: 'delayChanged', trackIndex, delayMs })
-              }
-              onDurationChange={(trackIndex, durationMs) =>
-                dispatch({ kind: 'durationChanged', trackIndex, durationMs })
-              }
-              onReset={(trackIndex) => dispatch({ kind: 'trackReset', trackIndex })}
-              onCommit={() => dispatch({ kind: 'replayed' })}
-              onDragChange={setDragging}
-            />
+            {hasTracks ? (
+              <Timeline
+                tracks={rows}
+                selectedIndex={model.selectedTrack}
+                // A new capture starts with a fresh timeline scale.
+                key={original.source.capturedAt + original.source.selector + original.tracks.length}
+                totalMs={totalMs}
+                originalTotalMs={takeLengthMs(original)}
+                playheadMs={timeMs}
+                showOriginal={showOriginal}
+                controls={
+                  <Playback
+                    playing={model.playing}
+                    loop={model.loop}
+                    speed={model.speed}
+                    timeMs={timeMs}
+                    totalMs={totalMs}
+                    onPlayToggle={() => dispatch({ kind: 'playToggled' })}
+                    onLoopChange={(loop) => dispatch({ kind: 'loopSet', loop })}
+                    onSpeedChange={(speed) => dispatch({ kind: 'speedSet', speed })}
+                  />
+                }
+                onSelect={(trackIndex) =>
+                  dispatch(
+                    trackIndex === null
+                      ? { kind: 'trackDeselected' }
+                      : { kind: 'trackSelected', trackIndex },
+                  )
+                }
+                onToggle={(trackIndex) => dispatch({ kind: 'trackToggled', trackIndex })}
+                onScrub={(time) => dispatch({ kind: 'scrubbed', timeMs: time })}
+                onDelayChange={(trackIndex, delayMs) =>
+                  dispatch({ kind: 'delayChanged', trackIndex, delayMs })
+                }
+                onDurationChange={(trackIndex, durationMs) =>
+                  dispatch({ kind: 'durationChanged', trackIndex, durationMs })
+                }
+                onReset={(trackIndex) => dispatch({ kind: 'trackReset', trackIndex })}
+                onCommit={() => dispatch({ kind: 'replayed' })}
+                onDragChange={setDragging}
+              />
+            ) : (
+              <section className="panel">
+                <header className="panel__head">
+                  <h2 className="panel__title">Nothing to play</h2>
+                </header>
+                <p className="panel__note">
+                  No animation in this capture can be played back. It may be driven by JavaScript
+                  frame by frame, drawn on a canvas, or tied to scrolling. Those cannot be captured
+                  yet. Try picking a different element, or triggering the animation again.
+                </p>
+              </section>
+            )}
           </div>
 
           <div className="mi__column">
-            {/* Each slot keeps its height when nothing is selected, so the
+            {hasTracks ? (
+              <>
+                {/* Each slot keeps its height when nothing is selected, so the
                 panels below it stay where they are. */}
-            <div className="slot slot--curve">
-              {selected === null ? (
-                <section className="panel panel--empty">
-                  <p>Select a row on the timeline to see and change its curve.</p>
-                </section>
-              ) : (
-                <CurveEditor
-                  // A different track or segment starts with a fresh chart.
-                  key={`${model.selectedTrack}-${model.selectedSegment}`}
-                  original={easingAt(selected.original, model.selectedSegment)}
-                  mine={easingAt(selected.mine, model.selectedSegment)}
-                  showOriginal={showOriginal}
-                  playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
-                  durationMs={curveDurationMs(selected.mine, model.selectedSegment)}
-                  term={easingTerm(selected.mine)}
-                  segments={
-                    segments === null ? null : { labels: segments, selected: model.selectedSegment }
-                  }
-                  onSegmentChange={(segmentIndex) => dispatch({ kind: 'segmentSelected', segmentIndex })}
-                  onChange={(easing) => dispatch({ kind: 'easingChanged', easing })}
-                  // Letting go replays the preview by itself.
-                  onCommit={() => dispatch({ kind: 'replayed' })}
-                  onReset={() => dispatch({ kind: 'curveReset' })}
-                  onDragChange={setDragging}
-                />
-              )}
-            </div>
-            <div className="slot slot--speed">
-              {selected === null ? (
-                <section className="panel panel--empty">
-                  <p>The speed of the selected row appears here.</p>
-                </section>
-              ) : (
-                <SpeedGraph
-                  original={easingAt(selected.original, model.selectedSegment)}
-                  mine={easingAt(selected.mine, model.selectedSegment)}
-                  playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
-                  showOriginal={showOriginal}
-                />
-              )}
-            </div>
+                <div className="slot slot--curve">
+                  {selected === null ? (
+                    <section className="panel panel--empty">
+                      <p>Select a row on the timeline to see and change its curve.</p>
+                    </section>
+                  ) : (
+                    <CurveEditor
+                      // A different track or segment starts with a fresh chart.
+                      key={`${model.selectedTrack}-${model.selectedSegment}`}
+                      original={easingAt(selected.original, model.selectedSegment)}
+                      mine={easingAt(selected.mine, model.selectedSegment)}
+                      showOriginal={showOriginal}
+                      playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
+                      durationMs={curveDurationMs(selected.mine, model.selectedSegment)}
+                      term={easingTerm(selected.mine)}
+                      segments={
+                        segments === null
+                          ? null
+                          : { labels: segments, selected: model.selectedSegment }
+                      }
+                      onSegmentChange={(segmentIndex) =>
+                        dispatch({ kind: 'segmentSelected', segmentIndex })
+                      }
+                      onChange={(easing) => dispatch({ kind: 'easingChanged', easing })}
+                      // Letting go replays the preview by itself.
+                      onCommit={() => dispatch({ kind: 'replayed' })}
+                      onReset={() => dispatch({ kind: 'curveReset' })}
+                      onDragChange={setDragging}
+                    />
+                  )}
+                </div>
+                <div className="slot slot--speed">
+                  {selected === null ? (
+                    <section className="panel panel--empty">
+                      <p>The speed of the selected row appears here.</p>
+                    </section>
+                  ) : (
+                    <SpeedGraph
+                      original={easingAt(selected.original, model.selectedSegment)}
+                      mine={easingAt(selected.mine, model.selectedSegment)}
+                      playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
+                      showOriginal={showOriginal}
+                    />
+                  )}
+                </div>
+              </>
+            ) : null}
 
             {edited.notShown.length > 0 || notPreviewed.length > 0 ? (
               <section className="panel">

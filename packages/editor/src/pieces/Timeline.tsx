@@ -9,6 +9,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type KeyboardEvent,
   type MouseEvent,
@@ -73,6 +74,8 @@ type Props = {
 // shape's name, which may need two lines when it is long.
 const ROW_HEIGHT = 52;
 const RULER_HEIGHT = 28;
+// A capture can have a hundred tracks. Show the first few and fold the rest.
+const ROWS_WHEN_FOLDED = 8;
 // Bars snap to 10 ms steps. Holding Alt turns it off.
 const SNAP_MS = 10;
 
@@ -95,7 +98,16 @@ const CURSORS: Record<TimelineHit['kind'], string> = {
 };
 
 export function Timeline(props: Props) {
-  const { tracks, selectedIndex, totalMs, playheadMs, showOriginal, onScrub, onDragChange } = props;
+  const { selectedIndex, totalMs, playheadMs, showOriginal, onScrub, onDragChange } = props;
+  const [unfolded, setUnfolded] = useState(false);
+  // Rows keep their index into the full list, so nothing else has to know
+  // that some are folded away.
+  const foldable = props.tracks.length > ROWS_WHEN_FOLDED;
+  const tracks = useMemo(
+    () => (unfolded ? props.tracks : props.tracks.slice(0, ROWS_WHEN_FOLDED)),
+    [props.tracks, unfolded],
+  );
+  const foldedCount = props.tracks.length - tracks.length;
   const theme = useTheme();
   const [size, setSize] = useState<Size | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -216,8 +228,13 @@ export function Timeline(props: Props) {
     else if (event.key === 'End') onScrub(totalMs);
   };
 
-  const selected = selectedIndex === null ? null : (tracks[selectedIndex] ?? null);
-  const cursor = drag === null ? CURSORS[hover] : drag.kind === 'delay' ? 'grabbing' : CURSORS[drag.kind === 'scrub' ? 'empty' : 'bar-end'];
+  const selected = selectedIndex === null ? null : (props.tracks[selectedIndex] ?? null);
+  const cursor =
+    drag === null
+      ? CURSORS[hover]
+      : drag.kind === 'delay'
+        ? 'grabbing'
+        : CURSORS[drag.kind === 'scrub' ? 'empty' : 'bar-end'];
 
   return (
     <section className="panel">
@@ -226,8 +243,8 @@ export function Timeline(props: Props) {
         {props.controls}
       </header>
       <p className="panel__hint">
-        When each property animates. Drag a bar to start it earlier or later, and its right edge
-        to make it longer or shorter. Drag the ruler or an empty spot to move through time.
+        When each property animates. Drag a bar to start it earlier or later, and its right edge to
+        make it longer or shorter. Drag the ruler or an empty spot to move through time.
       </p>
       <div className="timeline">
         <div className="timeline__labels">
@@ -257,7 +274,9 @@ export function Timeline(props: Props) {
                 >
                   {/* The plain word first, the CSS term in mono beside it. */}
                   <span className="timeline__line">
-                    {track.name !== null ? <span className="timeline__name">{track.name}</span> : null}
+                    {track.name !== null ? (
+                      <span className="timeline__name">{track.name}</span>
+                    ) : null}
                     <code>{track.property}</code>
                     {/* Always in the layout, only hidden when the row is not
                         edited. If it came and went, the label column would
@@ -305,6 +324,14 @@ export function Timeline(props: Props) {
         </div>
       </div>
 
+      {foldable ? (
+        <div className="timeline__more">
+          <Button onClick={() => setUnfolded(!unfolded)}>
+            {unfolded ? 'Show fewer rows' : `Show ${foldedCount} more rows`}
+          </Button>
+        </div>
+      ) : null}
+
       {/* Always here, and only disabled when no row is selected, so the
           panel keeps its height. */}
       <div className="fields">
@@ -324,7 +351,9 @@ export function Timeline(props: Props) {
           value={selected?.mine.durationMs ?? null}
           unit="ms"
           min={0}
-          onChange={(value) => selectedIndex !== null && props.onDurationChange(selectedIndex, value)}
+          onChange={(value) =>
+            selectedIndex !== null && props.onDurationChange(selectedIndex, value)
+          }
         />
         <Button
           disabled={selected === null || !selected.edited}
@@ -335,9 +364,9 @@ export function Timeline(props: Props) {
       </div>
 
       <p className="panel__foot">
-        <kbd>Space</kbd> play or pause · <kbd>←</kbd> <kbd>→</kbd> one frame · with{' '}
-        <kbd>Shift</kbd> ten frames · <kbd>1</kbd> to <kbd>4</kbd> speed · hold <kbd>Alt</kbd>{' '}
-        while dragging to turn off snapping · double-click a bar to reset it
+        <kbd>Space</kbd> play or pause · <kbd>←</kbd> <kbd>→</kbd> one frame · with <kbd>Shift</kbd>{' '}
+        ten frames · <kbd>1</kbd> to <kbd>4</kbd> speed · hold <kbd>Alt</kbd> while dragging to turn
+        off snapping · double-click a bar to reset it
       </p>
     </section>
   );

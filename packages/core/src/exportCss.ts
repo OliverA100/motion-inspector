@@ -15,7 +15,8 @@ function safeInComment(text: string): string {
 
 function selectorFor(capture: Capture, shape: Shape): string {
   const isRoot = shape.id === capture.root.id;
-  const selector = isRoot && capture.source.selector.length > 0 ? capture.source.selector : shape.label;
+  const selector =
+    isRoot && capture.source.selector.length > 0 ? capture.source.selector : shape.label;
   return selector.length > 0 ? selector : '.element';
 }
 
@@ -186,7 +187,10 @@ function animationPart(name: string, unit: AnimationUnit): string {
 function declaration(name: string, parts: string[]): string[] {
   if (parts.length === 0) return [];
   if (parts.length === 1) return [`  ${name}: ${parts[0]};`];
-  return [`  ${name}:`, ...parts.map((part, index) => `    ${part}${index === parts.length - 1 ? ';' : ','}`)];
+  return [
+    `  ${name}:`,
+    ...parts.map((part, index) => `    ${part}${index === parts.length - 1 ? ';' : ','}`),
+  ];
 }
 
 export function captureToCss(capture: Capture): string {
@@ -217,10 +221,14 @@ export function captureToCss(capture: Capture): string {
     // Children have no selector of their own, only a label, so several can
     // share one. Say which is which.
     const sameSelector = perShape.filter((other) => other.selector === entry.selector);
-    const position = perShape.slice(0, index + 1).filter((other) => other.selector === entry.selector);
+    const position = perShape
+      .slice(0, index + 1)
+      .filter((other) => other.selector === entry.selector);
     const which =
       sameSelector.length > 1
-        ? [`/* ${safeInComment(entry.selector)}, number ${position.length} of ${sameSelector.length} */`]
+        ? [
+            `/* ${safeInComment(entry.selector)}, number ${position.length} of ${sameSelector.length} */`,
+          ]
         : [];
     return [
       ...entry.units

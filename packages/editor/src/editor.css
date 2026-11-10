@@ -66,10 +66,16 @@ html {
   }
 }
 
+/* A long selector wraps inside the word. It never widens the page. */
 .mi__source {
   margin: var(--space-2) 0 0;
   font-size: var(--text-small);
   color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.mi__top > div:first-child {
+  min-width: 0;
 }
 
 .mi__actions {
@@ -152,6 +158,14 @@ html {
   font-size: var(--text-small);
   color: var(--color-text-muted);
   border-bottom: var(--hairline) solid var(--color-border);
+}
+
+.panel__note {
+  max-width: 60ch;
+  margin: 0;
+  padding: var(--space-4) var(--space-3);
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
 }
 
 .panel__foot {
@@ -473,11 +487,16 @@ html {
   visibility: hidden;
 }
 
-/* The selected item looks the same in every view: the accent color. */
+/* The selected item looks the same in every view: the accent color.
+   Color only, and a bar at the left edge. Bold text would be wider, and
+   the whole label column would change width when a row is selected. */
 .timeline__row.is-selected .timeline__name,
 .timeline__row.is-selected .timeline__line > code:first-child {
   color: var(--color-accent);
-  font-weight: var(--weight-medium);
+}
+
+.timeline__row.is-selected {
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
 .timeline__bars {
@@ -486,6 +505,11 @@ html {
 
 .timeline__bars:focus-visible {
   outline-offset: -2px;
+}
+
+.timeline__more {
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--hairline) solid var(--color-border);
 }
 
 /* A fixed grid, so the block is the same height whatever the CSS terms

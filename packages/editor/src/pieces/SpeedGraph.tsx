@@ -22,11 +22,7 @@ export function SpeedGraph({ original, mine, playhead, showOriginal }: Props) {
       <p className="panel__hint">
         How fast it moves at each moment. Higher is faster. It is the steepness of the curve above.
       </p>
-      <Canvas
-        label="Speed over time for the selected track"
-        height={132}
-        draw={draw}
-      />
+      <Canvas label="Speed over time for the selected track" height={132} draw={draw} />
     </section>
   );
 }
