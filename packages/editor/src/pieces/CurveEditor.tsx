@@ -46,6 +46,8 @@ type Props = {
   onChange: (easing: Easing) => void;
   // Called when a change is finished: a handle is let go, a preset is picked.
   onCommit: () => void;
+  // Puts the curve back to the original's.
+  onReset: () => void;
   onDragChange: (dragging: boolean) => void;
 };
 
@@ -191,6 +193,15 @@ export function CurveEditor(props: Props) {
         <h2 className="panel__title">
           Curve <code className="panel__term">{props.term}</code>
         </h2>
+        <Button
+          disabled={easingDistance(original, mine) === 0 && original.kind === mine.kind}
+          onClick={() => {
+            props.onReset();
+            onCommit();
+          }}
+        >
+          Reset curve
+        </Button>
         {props.segments !== null ? (
           <Segmented
             label="Which part of the animation"
@@ -235,6 +246,7 @@ export function CurveEditor(props: Props) {
                 onPointerMove={onHandleMove}
                 onPointerUp={onHandleUp}
                 onPointerCancel={onHandleUp}
+                onLostPointerCapture={onHandleUp}
                 onDoubleClick={() => onHandleReset(point.index)}
                 onKeyDown={(event) => onHandleKey(point.index, event)}
               />

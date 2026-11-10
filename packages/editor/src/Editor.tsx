@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { describeCapture, type Capture } from '@motion-inspector/core';
 import { CurveEditor } from './pieces/CurveEditor';
-import { Toggle } from './pieces/controls';
+import { Button, Toggle } from './pieces/controls';
 import { FrameTime } from './pieces/FrameTime';
 import { Playback } from './pieces/Playback';
 import { SpeedGraph } from './pieces/SpeedGraph';
@@ -20,11 +20,14 @@ import {
   curvePlayhead,
   easingAt,
   easingTerm,
+  isAnythingEdited,
+  isTrackEdited,
   plainName,
   segmentLabels,
   selectedTracks,
   takeLengthMs,
   timelineRows,
+  timingTerms,
   withoutHidden,
 } from './state/selectors';
 import { init, update } from './state/update';
@@ -50,6 +53,11 @@ function hostOf(url: string): string {
   } catch {
     return url;
   }
+}
+
+function termsAt(capture: Capture, index: number): { delay: string; duration: string } {
+  const track = capture.tracks[index];
+  return track === undefined ? { delay: 'delay', duration: 'duration' } : timingTerms(track);
 }
 
 function plural(count: number, word: string): string {
@@ -142,7 +150,11 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
         name: plainName(row.property),
         previewed: isPreviewed(row.property),
         shown: !hiddenTracks.includes(index),
+        edited: isTrackEdited(model, index),
+        delayTerm: termsAt(edited, index).delay,
+        durationTerm: termsAt(edited, index).duration,
       })),
+    // "model" is only read for original and edited, which are listed.
     [original, edited, hiddenTracks],
   );
 
@@ -171,6 +183,12 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
               checked={showOriginal}
               onChange={(show) => dispatch({ kind: 'originalShown', show })}
             />
+            <Button
+              disabled={!isAnythingEdited(model)}
+              onClick={() => dispatch({ kind: 'allReset' })}
+            >
+              Reset everything
+            </Button>
             <Toggle
               label="Unticked rows also leave the original"
               checked={hideInOriginal}
@@ -193,7 +211,10 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
             <Timeline
               tracks={rows}
               selectedIndex={model.selectedTrack}
+              // A new capture starts with a fresh timeline scale.
+              key={original.source.capturedAt + original.source.selector + original.tracks.length}
               totalMs={totalMs}
+              originalTotalMs={takeLengthMs(original)}
               playheadMs={timeMs}
               showOriginal={showOriginal}
               controls={
@@ -217,6 +238,14 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
               }
               onToggle={(trackIndex) => dispatch({ kind: 'trackToggled', trackIndex })}
               onScrub={(time) => dispatch({ kind: 'scrubbed', timeMs: time })}
+              onDelayChange={(trackIndex, delayMs) =>
+                dispatch({ kind: 'delayChanged', trackIndex, delayMs })
+              }
+              onDurationChange={(trackIndex, durationMs) =>
+                dispatch({ kind: 'durationChanged', trackIndex, durationMs })
+              }
+              onReset={(trackIndex) => dispatch({ kind: 'trackReset', trackIndex })}
+              onCommit={() => dispatch({ kind: 'replayed' })}
               onDragChange={setDragging}
             />
           </div>
@@ -246,6 +275,7 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
                   onChange={(easing) => dispatch({ kind: 'easingChanged', easing })}
                   // Letting go replays the preview by itself.
                   onCommit={() => dispatch({ kind: 'replayed' })}
+                  onReset={() => dispatch({ kind: 'curveReset' })}
                   onDragChange={setDragging}
                 />
               )}

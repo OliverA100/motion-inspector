@@ -33,6 +33,15 @@ const msg: fc.Arbitrary<Msg> = fc.oneof(
   anyNumber.map((frames): Msg => ({ kind: 'stepped', frames })),
   fc.constantFrom('overlay', 'side-by-side').map((compare): Msg => ({ kind: 'compareSet', compare })),
   easing.map((value): Msg => ({ kind: 'easingChanged', easing: value })),
+  fc.tuple(fc.integer({ min: -2, max: 8 }), anyNumber).map(
+    ([trackIndex, delayMs]): Msg => ({ kind: 'delayChanged', trackIndex, delayMs }),
+  ),
+  fc.tuple(fc.integer({ min: -2, max: 8 }), anyNumber).map(
+    ([trackIndex, durationMs]): Msg => ({ kind: 'durationChanged', trackIndex, durationMs }),
+  ),
+  fc.constant<Msg>({ kind: 'curveReset' }),
+  fc.integer({ min: -2, max: 8 }).map((trackIndex): Msg => ({ kind: 'trackReset', trackIndex })),
+  fc.constant<Msg>({ kind: 'allReset' }),
 );
 
 function run(model: Model, messages: Msg[]): Model {
@@ -184,5 +193,72 @@ describe('plain words', () => {
     expect(plainName('transform')).toBe('Move and scale');
     expect(plainName('border-top-left-radius')).toBe('Corner, top left');
     expect(plainName('filter')).toBeNull();
+  });
+});
+
+describe('timing', () => {
+  test('delay and duration can be changed, and the take gets longer or shorter', () => {
+    const model = run(init(cardLift), [
+      { kind: 'delayChanged', trackIndex: 0, delayMs: 100 },
+      { kind: 'durationChanged', trackIndex: 0, durationMs: 250 },
+    ]);
+    expect(model.edited.tracks[0]?.timing).toMatchObject({ delay: 100, duration: 250 });
+    expect(takeLengthMs(model.edited)).toBe(350);
+    expect(model.original.tracks[0]?.timing).toMatchObject({ delay: 0, duration: 400 });
+  });
+
+  test('a delay can be negative, a duration cannot', () => {
+    const model = run(init(cardLift), [
+      { kind: 'delayChanged', trackIndex: 0, delayMs: -50 },
+      { kind: 'durationChanged', trackIndex: 0, durationMs: -10 },
+    ]);
+    expect(model.edited.tracks[0]?.timing).toMatchObject({ delay: -50, duration: 400 });
+  });
+
+  test('the playhead is pulled back when the take gets shorter than it', () => {
+    const model = run(init(cardLift), [
+      { kind: 'scrubbed', timeMs: 390 },
+      { kind: 'durationChanged', trackIndex: 0, durationMs: 200 },
+    ]);
+    expect(model.timeMs).toBe(200);
+  });
+
+  test('tracks from one animation keep one timing', () => {
+    // A dot's transform and opacity are one animation.
+    const model = update(init(dots), { kind: 'durationChanged', trackIndex: 0, durationMs: 600 });
+    expect(model.edited.tracks.map((track) => track.timing.duration)).toEqual([
+      600, 600, 1200, 1200, 1200, 1200,
+    ]);
+  });
+});
+
+describe('reset', () => {
+  const edits: Msg[] = [
+    { kind: 'easingChanged', easing: { kind: 'linear' } },
+    { kind: 'durationChanged', trackIndex: 0, durationMs: 250 },
+    { kind: 'durationChanged', trackIndex: 1, durationMs: 90 },
+  ];
+
+  test('reset curve puts back only the curve', () => {
+    const model = run(init(buttonHover), [{ kind: 'trackSelected', trackIndex: 0 }, ...edits, { kind: 'curveReset' }]);
+    expect(model.edited.tracks[0]?.timing.easing).toEqual(buttonHover.tracks[0]?.timing.easing);
+    expect(model.edited.tracks[0]?.timing.duration).toBe(250);
+  });
+
+  test('reset row puts back that row, and leaves the others', () => {
+    const model = run(init(buttonHover), [{ kind: 'trackSelected', trackIndex: 0 }, ...edits, { kind: 'trackReset', trackIndex: 0 }]);
+    expect(model.edited.tracks[0]).toEqual(buttonHover.tracks[0]);
+    expect(model.edited.tracks[1]?.timing.duration).toBe(90);
+  });
+
+  test('reset everything puts back every edit, and keeps which rows are ticked', () => {
+    const model = run(init(buttonHover), [
+      { kind: 'trackSelected', trackIndex: 0 },
+      ...edits,
+      { kind: 'trackToggled', trackIndex: 1 },
+      { kind: 'allReset' },
+    ]);
+    expect(model.edited).toEqual(buttonHover);
+    expect(model.hiddenTracks).toEqual([1]);
   });
 });

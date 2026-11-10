@@ -1,9 +1,17 @@
 // update: the one function that changes the Model. Pure: same model and
 // message in, same model out. React's useReducer calls it.
 
-import { saturate, type Capture, type Easing, type Track } from '@motion-inspector/core';
+import {
+  delay,
+  duration,
+  saturate,
+  type Capture,
+  type Easing,
+  type Timing,
+  type Track,
+} from '@motion-inspector/core';
 import type { Model, Msg } from './model';
-import { defaultSelection, easingTarget, takeLengthMs } from './selectors';
+import { defaultSelection, easingAt, easingTarget, takeLengthMs } from './selectors';
 
 const FRAME_MS = 1000 / 60;
 // A background tab can deliver one frame after seconds. Do not jump ahead.
@@ -63,6 +71,34 @@ function changeEasing(model: Model, easing: Easing): Model {
     return offset === undefined ? track : withKeyframeEasing(track, offset, easing);
   });
   return { ...model, edited: { ...model.edited, tracks } };
+}
+
+// Changes the timing of one track. Tracks in the same group came from one
+// animation and share its timing, so they change together.
+function changeTiming(model: Model, trackIndex: number, change: (timing: Timing) => Timing): Model {
+  const target = model.edited.tracks[trackIndex];
+  if (target === undefined) return model;
+  const tracks = model.edited.tracks.map((track, index) => {
+    const sameGroup = target.groupId !== null && track.groupId === target.groupId;
+    return index === trackIndex || sameGroup ? { ...track, timing: change(track.timing) } : track;
+  });
+  return keepTimeInside({ ...model, edited: { ...model.edited, tracks } });
+}
+
+// A shorter take can leave the playhead past its end. Bring it back.
+function keepTimeInside(model: Model): Model {
+  return { ...model, timeMs: clampTime(model, model.timeMs) };
+}
+
+// Puts a track, and the tracks grouped with it, back to the original.
+function resetTrack(model: Model, trackIndex: number): Model {
+  const target = model.edited.tracks[trackIndex];
+  if (target === undefined) return model;
+  const tracks = model.edited.tracks.map((track, index) => {
+    const sameGroup = target.groupId !== null && track.groupId === target.groupId;
+    return index === trackIndex || sameGroup ? (model.original.tracks[index] ?? track) : track;
+  });
+  return keepTimeInside({ ...model, edited: { ...model.edited, tracks } });
 }
 
 // ---------- Playback ----------
@@ -151,5 +187,36 @@ export function update(model: Model, msg: Msg): Model {
 
     case 'easingChanged':
       return changeEasing(model, msg.easing);
+
+    case 'delayChanged': {
+      const checked = delay(msg.delayMs);
+      return checked.ok
+        ? changeTiming(model, msg.trackIndex, (timing) => ({ ...timing, delay: checked.value }))
+        : model;
+    }
+
+    case 'durationChanged': {
+      const checked = duration(msg.durationMs);
+      return checked.ok
+        ? changeTiming(model, msg.trackIndex, (timing) => ({ ...timing, duration: checked.value }))
+        : model;
+    }
+
+    // The selected curve goes back to the original's.
+    case 'curveReset': {
+      const original =
+        model.selectedTrack === null ? undefined : model.original.tracks[model.selectedTrack];
+      return original === undefined
+        ? model
+        : changeEasing(model, easingAt(original, model.selectedSegment));
+    }
+
+    case 'trackReset':
+      return resetTrack(model, msg.trackIndex);
+
+    // Every edit is undone. Which rows are ticked is a view choice, not an
+    // edit, so it stays.
+    case 'allReset':
+      return keepTimeInside({ ...model, edited: model.original });
   }
 }

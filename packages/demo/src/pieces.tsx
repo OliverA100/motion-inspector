@@ -85,6 +85,7 @@ function CurvePiece() {
       onSegmentChange={() => {}}
       onChange={setMine}
       onCommit={() => {}}
+      onReset={() => setMine(overshoot)}
       onDragChange={() => {}}
     />
   );
@@ -99,12 +100,16 @@ function TimelinePiece() {
     name: plainName(row.property),
     previewed: isPreviewed(row.property),
     shown: !hidden.includes(index),
+    edited: false,
+    delayTerm: 'transition-delay',
+    durationTerm: 'transition-duration',
   }));
   return (
     <Timeline
       tracks={rows}
       selectedIndex={selected}
       totalMs={takeLengthMs(staggerList)}
+      originalTotalMs={takeLengthMs(staggerList)}
       playheadMs={timeMs}
       showOriginal
       controls={null}
@@ -113,6 +118,10 @@ function TimelinePiece() {
         setHidden(hidden.includes(index) ? hidden.filter((item) => item !== index) : [...hidden, index])
       }
       onScrub={setTimeMs}
+      onDelayChange={() => {}}
+      onDurationChange={() => {}}
+      onReset={() => {}}
+      onCommit={() => {}}
       onDragChange={() => {}}
     />
   );

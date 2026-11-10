@@ -189,3 +189,37 @@ export function curveFeel(easing: Easing): CurveFeel {
     extra: extras.length === 0 ? null : extras.join(', '),
   };
 }
+
+// ---------- What has been edited ----------
+
+function sameData(first: unknown, second: unknown): boolean {
+  return JSON.stringify(first) === JSON.stringify(second);
+}
+
+export function isTrackEdited(model: Model, trackIndex: number): boolean {
+  return !sameData(model.edited.tracks[trackIndex], model.original.tracks[trackIndex]);
+}
+
+export function isCurveEdited(model: Model): boolean {
+  const selected = selectedTracks(model);
+  if (selected === null) return false;
+  return !sameData(
+    easingAt(selected.mine, model.selectedSegment),
+    easingAt(selected.original, model.selectedSegment),
+  );
+}
+
+export function isAnythingEdited(model: Model): boolean {
+  return model.edited !== model.original && !sameData(model.edited, model.original);
+}
+
+// The CSS terms for a track's delay and duration.
+export function timingTerms(track: Track): { delay: string; duration: string } {
+  if (track.origin === 'css-transition') {
+    return { delay: 'transition-delay', duration: 'transition-duration' };
+  }
+  if (track.origin === 'css-animation') {
+    return { delay: 'animation-delay', duration: 'animation-duration' };
+  }
+  return { delay: 'delay', duration: 'duration' };
+}

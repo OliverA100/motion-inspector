@@ -58,5 +58,11 @@ export type Msg =
   | { kind: 'compareSet'; compare: Compare }
   | { kind: 'originalShown'; show: boolean }
   | { kind: 'hideInOriginalSet'; on: boolean }
-  // Edits
-  | { kind: 'easingChanged'; easing: Easing };
+  // Edits. Each one changes `edited` only.
+  | { kind: 'easingChanged'; easing: Easing }
+  | { kind: 'delayChanged'; trackIndex: number; delayMs: number }
+  | { kind: 'durationChanged'; trackIndex: number; durationMs: number }
+  // Resets, from small to large.
+  | { kind: 'curveReset' }
+  | { kind: 'trackReset'; trackIndex: number }
+  | { kind: 'allReset' };

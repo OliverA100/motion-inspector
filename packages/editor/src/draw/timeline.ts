@@ -58,6 +58,36 @@ function rulerStep(totalMs: number): number {
   return steps.find((step) => step >= rough) ?? 10000;
 }
 
+// What is under a point on the timeline. The pointer handling asks this,
+// using the same numbers the drawing uses.
+export type TimelineHit =
+  | { kind: 'empty' }
+  // On a bar: dragging moves its delay.
+  | { kind: 'bar'; row: number }
+  // On a bar's right edge: dragging changes its duration.
+  | { kind: 'bar-end'; row: number };
+
+const EDGE_GRAB = 8;
+// Bars are 12 px tall. The grab area is the whole row, which is taller.
+export function hitTest(
+  point: { x: number; y: number },
+  bars: Bar[],
+  width: number,
+  totalMs: number,
+  rowHeight: number,
+  rulerHeight: number,
+): TimelineHit {
+  const row = Math.floor((point.y - rulerHeight) / rowHeight);
+  const bar = bars[row];
+  if (point.y < rulerHeight || bar === undefined) return { kind: 'empty' };
+  const scale = timelineScale(width, totalMs);
+  const start = scale.x(bar.startMs + bar.delayMs);
+  const end = start + Math.max(2, scale.x(bar.durationMs) - scale.x(0));
+  if (Math.abs(point.x - end) <= EDGE_GRAB) return { kind: 'bar-end', row };
+  if (point.x >= start && point.x <= end) return { kind: 'bar', row };
+  return { kind: 'empty' };
+}
+
 export function timelineHeight(rowCount: number, rowHeight: number, rulerHeight: number): number {
   return rulerHeight + rowCount * rowHeight;
 }

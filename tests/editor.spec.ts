@@ -66,8 +66,8 @@ test('the timeline is the scrubber: drag on it to move through time', async ({ p
   const box = await bars.boundingBox();
   if (box === null) throw new Error('No timeline');
 
-  // Press in the middle: the playhead jumps there.
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  // Press on the ruler, in the middle: the playhead jumps there.
+  await page.mouse.move(box.x + box.width / 2, box.y + 10);
   await page.mouse.down();
   await expect(time(page)).toHaveText('200 ms of 400 ms');
   // Drag far past the right edge, off the timeline: it follows, and stops at the end.
@@ -76,6 +76,92 @@ test('the timeline is the scrubber: drag on it to move through time', async ({ p
   await page.mouse.move(box.x - 500, box.y, { steps: 4 });
   await expect(time(page)).toHaveText('0 ms of 400 ms');
   await page.mouse.up();
+});
+
+test('dragging a bar changes its delay, and its right edge changes its duration', async ({
+  page,
+}) => {
+  await openPaused(page, 'card-lift', 0, 400);
+  const delay = page.getByRole('spinbutton', { name: /Starts after/ });
+  const duration = page.getByRole('spinbutton', { name: /Lasts/ });
+  await expect(delay).toHaveValue('0');
+  await expect(duration).toHaveValue('400');
+
+  const bars = page.getByRole('slider', { name: 'Time' });
+  // The row must be on screen for the mouse to reach it.
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  const box = await bars.boundingBox();
+  if (box === null) throw new Error('No timeline');
+  const rowY = box.y + 28 + 26;
+
+  // The right edge of the bar is at 400 ms, the right end of the timeline.
+  await page.mouse.move(box.x + box.width - 12, rowY);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 12 - (box.width - 24) / 4, rowY, { steps: 5 });
+  await page.mouse.up();
+  await expect(duration).toHaveValue('300');
+  // The original is still 400 ms, so the row is marked as edited.
+  await expect(page.locator('.timeline__edited')).toBeVisible();
+  // The bars did not change width when the row became "edited", so the bar
+  // stayed under the pointer for the whole drag.
+  expect((await bars.boundingBox())?.width).toBe(box.width);
+
+  // The middle of the bar: drag it right to delay it. It snaps to 10 ms.
+  const before = await bars.boundingBox();
+  if (before === null) throw new Error('No timeline');
+  await page.mouse.move(before.x + 60, rowY);
+  await page.mouse.down();
+  await page.mouse.move(before.x + 60 + 37, rowY, { steps: 5 });
+  await page.mouse.up();
+  const delayed = Number(await delay.inputValue());
+  expect(delayed).toBeGreaterThan(0);
+  expect(delayed % 10).toBe(0);
+});
+
+test('timing can be typed as numbers', async ({ page }) => {
+  await openPaused(page, 'card-lift', 0, 400);
+  await page.getByRole('spinbutton', { name: /Lasts/ }).fill('250');
+  await page.getByRole('spinbutton', { name: /Starts after/ }).fill('120');
+  await expect(time(page)).toHaveText('0 ms of 370 ms');
+  await expect(page.locator('.mi__description')).toContainText('over 250 ms');
+});
+
+test('reset: the curve, one row, or everything', async ({ page }) => {
+  await openPaused(page, 'card-lift', 0, 400);
+  const resetCurve = page.getByRole('button', { name: 'Reset curve' });
+  const resetRow = page.getByRole('button', { name: 'Reset this row' });
+  const resetAll = page.getByRole('button', { name: 'Reset everything' });
+  // Nothing is edited yet, so there is nothing to reset.
+  await expect(resetCurve).toBeDisabled();
+  await expect(resetRow).toBeDisabled();
+  await expect(resetAll).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Slow start', exact: true }).click();
+  await page.getByRole('spinbutton', { name: /Lasts/ }).fill('250');
+  await expect(curveText(page)).toHaveText('ease-in');
+
+  // Reset curve: the curve goes back, the timing stays.
+  await resetCurve.click();
+  await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(page.getByRole('spinbutton', { name: /Lasts/ })).toHaveValue('250');
+
+  // Reset this row: the timing goes back too.
+  await resetRow.click();
+  await expect(page.getByRole('spinbutton', { name: /Lasts/ })).toHaveValue('400');
+  await expect(resetAll).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Slow end', exact: true }).click();
+  await resetAll.click();
+  await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+});
+
+test('a row shows the whole name of its shape', async ({ page }) => {
+  await openPaused(page, 'card-lift', 0, 400);
+  const shape = page.locator('.timeline__shape').first();
+  await expect(shape).toHaveText('div.fx-card');
+  // Not cut short: the text fits inside its box.
+  const fits = await shape.evaluate((element) => element.scrollWidth <= element.clientWidth);
+  expect(fits).toBe(true);
 });
 
 test('the timeline works from the keyboard as a slider', async ({ page }) => {
@@ -239,6 +325,12 @@ for (const width of [1280, 360]) {
     await same();
     await page.getByRole('checkbox', { name: 'Show the original (dashed)' }).check();
     await page.getByRole('radio', { name: 'Side by side' }).click();
+    await same();
+
+    // Change the timing and reset it.
+    await page.getByRole('spinbutton', { name: /Lasts/ }).fill('250');
+    await same();
+    await page.getByRole('button', { name: 'Reset everything' }).click();
     await same();
 
     // Leave a row out, unselect it, select it again.
