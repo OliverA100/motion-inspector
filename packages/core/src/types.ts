@@ -45,6 +45,9 @@ export type Capture = {
 
 export type Shape = {
   id: ShapeId;
+  // A short name for people, built from the tag and first class name, for
+  // example "button.primary". Never text content from the page.
+  label: string;
   kind: 'box' | 'text' | 'image';
   // Relative to the root shape, at rest.
   box: { x: number; y: number; width: number; height: number };
@@ -114,7 +117,7 @@ export type Easing =
   // x1 and x2 stay in 0 to 1. y1 and y2 can be any finite number (overshoot).
   | { kind: 'cubic-bezier'; x1: UnitInterval; y1: number; x2: UnitInterval; y2: number }
   | { kind: 'steps'; count: PositiveInt; position: StepPosition }
-  // CSS linear(). At least 2 points, inputs sorted, from 0 to 1.
+  // CSS linear(). At least 2 points, inputs never decreasing.
   | { kind: 'linear-points'; points: { input: number; output: number }[] };
 
 // CSS also has jump-start and jump-end. They mean the same as start and end,

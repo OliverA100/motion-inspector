@@ -1,0 +1,1060 @@
+{
+  "browserVersion": "158.0.8127.18",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.8127.18 Safari/537.36",
+  "records": [
+    {
+      "constructorName": "CSSAnimation",
+      "transitionProperty": null,
+      "animationName": "fx-dot",
+      "id": "",
+      "target": {
+        "tag": "span",
+        "className": "",
+        "pathFromRoot": [
+          0
+        ]
+      },
+      "pseudoElement": null,
+      "timelineType": "DocumentTimeline",
+      "playState": "running",
+      "startTime": 5.999000000883825,
+      "currentTime": 33.332999999116176,
+      "firstSeenAtMs": 0.4000000059604645,
+      "timelineTimeAtFirstSight": 39.332,
+      "startTimeWhenReady": 5.999000000883825,
+      "keyframes": [
+        {
+          "offset": 0,
+          "computedOffset": 0,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 0.4,
+          "computedOffset": 0.4,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(1)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "1"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(1, 1)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 0.8,
+          "computedOffset": 0.8,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 1,
+          "computedOffset": 1,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "timing": {
+        "delay": -320,
+        "direction": "normal",
+        "duration": 1200,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": "Infinity"
+      },
+      "computedTiming": {
+        "delay": -320,
+        "direction": "normal",
+        "duration": 1200,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": "Infinity",
+        "activeDuration": "Infinity",
+        "currentIteration": 0,
+        "endTime": "Infinity",
+        "localTime": 33.332999999116176,
+        "progress": 0.29444416666593015
+      },
+      "transitionStyle": {
+        "property": "all",
+        "duration": "0s",
+        "delay": "0s",
+        "timingFunction": "ease"
+      },
+      "restingAtPick": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(0.913427, 0, 0, 0.913427, 0, 0)",
+            "computed": "scale(0.913427, 0.913427)"
+          }
+        },
+        {
+          "cssName": "translate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "rotate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "scale",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.913427",
+            "computed": "0.913427"
+          }
+        },
+        {
+          "cssName": "background-color",
+          "read": {
+            "resolved": "rgb(47, 111, 237)",
+            "computed": "rgb(47, 111, 237)"
+          }
+        },
+        {
+          "cssName": "border-top-color",
+          "read": {
+            "resolved": "rgb(28, 28, 28)",
+            "computed": "rgb(28, 28, 28)"
+          }
+        },
+        {
+          "cssName": "border-top-left-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-top-right-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-bottom-right-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-bottom-left-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "width",
+          "read": {
+            "resolved": "10px",
+            "computed": "10px"
+          }
+        },
+        {
+          "cssName": "height",
+          "read": {
+            "resolved": "10px",
+            "computed": "10px"
+          }
+        },
+        {
+          "cssName": "box-shadow",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        }
+      ],
+      "readAtFirstSight": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(0.913427, 0, 0, 0.913427, 0, 0)",
+            "computed": "scale(0.913427, 0.913427)"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.913427",
+            "computed": "0.913427"
+          }
+        }
+      ],
+      "readAfterFinish": null
+    },
+    {
+      "constructorName": "CSSAnimation",
+      "transitionProperty": null,
+      "animationName": "fx-dot",
+      "id": "",
+      "target": {
+        "tag": "span",
+        "className": "",
+        "pathFromRoot": [
+          1
+        ]
+      },
+      "pseudoElement": null,
+      "timelineType": "DocumentTimeline",
+      "playState": "running",
+      "startTime": 5.999000000883825,
+      "currentTime": 33.332999999116176,
+      "firstSeenAtMs": 0.5,
+      "timelineTimeAtFirstSight": 39.332,
+      "startTimeWhenReady": 5.999000000883825,
+      "keyframes": [
+        {
+          "offset": 0,
+          "computedOffset": 0,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 0.4,
+          "computedOffset": 0.4,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(1)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "1"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(1, 1)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 0.8,
+          "computedOffset": 0.8,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 1,
+          "computedOffset": 1,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "timing": {
+        "delay": -160,
+        "direction": "normal",
+        "duration": 1200,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": "Infinity"
+      },
+      "computedTiming": {
+        "delay": -160,
+        "direction": "normal",
+        "duration": 1200,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": "Infinity",
+        "activeDuration": "Infinity",
+        "currentIteration": 0,
+        "endTime": "Infinity",
+        "localTime": 33.332999999116176,
+        "progress": 0.16111083333259682
+      },
+      "transitionStyle": {
+        "property": "all",
+        "duration": "0s",
+        "delay": "0s",
+        "timingFunction": "ease"
+      },
+      "restingAtPick": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(0.601797, 0, 0, 0.601797, 0, 0)",
+            "computed": "scale(0.601797, 0.601797)"
+          }
+        },
+        {
+          "cssName": "translate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "rotate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "scale",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.601797",
+            "computed": "0.601797"
+          }
+        },
+        {
+          "cssName": "background-color",
+          "read": {
+            "resolved": "rgb(47, 111, 237)",
+            "computed": "rgb(47, 111, 237)"
+          }
+        },
+        {
+          "cssName": "border-top-color",
+          "read": {
+            "resolved": "rgb(28, 28, 28)",
+            "computed": "rgb(28, 28, 28)"
+          }
+        },
+        {
+          "cssName": "border-top-left-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-top-right-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-bottom-right-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-bottom-left-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "width",
+          "read": {
+            "resolved": "10px",
+            "computed": "10px"
+          }
+        },
+        {
+          "cssName": "height",
+          "read": {
+            "resolved": "10px",
+            "computed": "10px"
+          }
+        },
+        {
+          "cssName": "box-shadow",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        }
+      ],
+      "readAtFirstSight": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(0.601797, 0, 0, 0.601797, 0, 0)",
+            "computed": "scale(0.601797, 0.601797)"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.601797",
+            "computed": "0.601797"
+          }
+        }
+      ],
+      "readAfterFinish": null
+    },
+    {
+      "constructorName": "CSSAnimation",
+      "transitionProperty": null,
+      "animationName": "fx-dot",
+      "id": "",
+      "target": {
+        "tag": "span",
+        "className": "",
+        "pathFromRoot": [
+          2
+        ]
+      },
+      "pseudoElement": null,
+      "timelineType": "DocumentTimeline",
+      "playState": "running",
+      "startTime": 5.999000000883825,
+      "currentTime": 33.332999999116176,
+      "firstSeenAtMs": 0.6000000014901161,
+      "timelineTimeAtFirstSight": 39.332,
+      "startTimeWhenReady": 5.999000000883825,
+      "keyframes": [
+        {
+          "offset": 0,
+          "computedOffset": 0,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 0.4,
+          "computedOffset": 0.4,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(1)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "1"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(1, 1)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 0.8,
+          "computedOffset": 0.8,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "offset": 1,
+          "computedOffset": 1,
+          "easing": "ease-in-out",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "scale(0.4)"
+            },
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.4"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSScale",
+                    "x": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0.4,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "scale(0.4, 0.4)"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "direction": "normal",
+        "duration": 1200,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": "Infinity"
+      },
+      "computedTiming": {
+        "delay": 0,
+        "direction": "normal",
+        "duration": 1200,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": "Infinity",
+        "activeDuration": "Infinity",
+        "currentIteration": 0,
+        "endTime": "Infinity",
+        "localTime": 33.332999999116176,
+        "progress": 0.027777499999263478
+      },
+      "transitionStyle": {
+        "property": "all",
+        "duration": "0s",
+        "delay": "0s",
+        "timingFunction": "ease"
+      },
+      "restingAtPick": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(0.405636, 0, 0, 0.405636, 0, 0)",
+            "computed": "scale(0.405636, 0.405636)"
+          }
+        },
+        {
+          "cssName": "translate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "rotate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "scale",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.405636",
+            "computed": "0.405636"
+          }
+        },
+        {
+          "cssName": "background-color",
+          "read": {
+            "resolved": "rgb(47, 111, 237)",
+            "computed": "rgb(47, 111, 237)"
+          }
+        },
+        {
+          "cssName": "border-top-color",
+          "read": {
+            "resolved": "rgb(28, 28, 28)",
+            "computed": "rgb(28, 28, 28)"
+          }
+        },
+        {
+          "cssName": "border-top-left-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-top-right-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-bottom-right-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-bottom-left-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "width",
+          "read": {
+            "resolved": "10px",
+            "computed": "10px"
+          }
+        },
+        {
+          "cssName": "height",
+          "read": {
+            "resolved": "10px",
+            "computed": "10px"
+          }
+        },
+        {
+          "cssName": "box-shadow",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        }
+      ],
+      "readAtFirstSight": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(0.405636, 0, 0, 0.405636, 0, 0)",
+            "computed": "scale(0.405636, 0.405636)"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.405636",
+            "computed": "0.405636"
+          }
+        }
+      ],
+      "readAfterFinish": null
+    }
+  ],
+  "events": []
+}

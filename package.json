@@ -6,12 +6,15 @@
     "dev": "pnpm --filter @motion-inspector/demo dev",
     "typecheck": "pnpm -r typecheck && tsc -p tests --noEmit",
     "test:spike": "pnpm --filter @motion-inspector/capture build:spike && playwright test tests/spike.spec.ts",
-    "screenshots": "playwright test tests/screenshots.spec.ts --project=chrome"
+    "screenshots": "playwright test tests/screenshots.spec.ts --project=chrome",
+    "test": "pnpm -r test"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
+    "fast-check": "^4.10.2",
     "typescript": "^7.0.2",
-    "vite": "^8.3.8"
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
   }
 }

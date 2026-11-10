@@ -57,6 +57,10 @@ export type SpikeRecord = {
   startTime: unknown;
   currentTime: unknown;
   firstSeenAtMs: number;
+  // The document timeline's time when the animation was first seen.
+  timelineTimeAtFirstSight: number | null;
+  // animation.startTime once the animation is no longer pending.
+  startTimeWhenReady: number | null;
   keyframes: SpikeKeyframe[];
   timing: unknown;
   computedTiming: unknown;
@@ -185,6 +189,10 @@ function describeTyped(cssName: string, value: string): unknown {
   }
 }
 
+function toNumber(value: CSSNumberish | null): number | null {
+  return typeof value === 'number' ? value : null;
+}
+
 function pathFromRoot(root: Element, element: Element): number[] {
   const path: number[] = [];
   let current: Element | null = element;
@@ -251,6 +259,8 @@ function readAnimation(current: Session, animation: Animation): SpikeRecord | nu
     startTime: animation.startTime,
     currentTime: animation.currentTime,
     firstSeenAtMs: performance.now() - current.startedAt,
+    timelineTimeAtFirstSight: toNumber(document.timeline.currentTime),
+    startTimeWhenReady: null,
     keyframes,
     timing: effect.getTiming(),
     computedTiming: effect.getComputedTiming(),
@@ -264,6 +274,15 @@ function readAnimation(current: Session, animation: Animation): SpikeRecord | nu
     readAtFirstSight: target === null ? [] : readStyles(target, animatedNames),
     readAfterFinish: null,
   };
+
+  animation.ready.then(
+    () => {
+      record.startTimeWhenReady = toNumber(animation.startTime);
+    },
+    () => {
+      // Cancelled before it started.
+    },
+  );
 
   // When the animation ends by itself (and does not fill forwards), the
   // element is back at rest. Read again, as the "true" resting value.

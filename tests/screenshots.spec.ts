@@ -3,7 +3,7 @@
 
 import { test } from '@playwright/test';
 
-const milestone = 'm1';
+const milestone = 'm2';
 
 const widths = [360, 1280];
 const themes = ['light', 'dark'] as const;

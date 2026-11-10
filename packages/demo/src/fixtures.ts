@@ -45,6 +45,12 @@ onTrigger(steps, 'play', () => {
   replayClass(inside(steps, '.fx-steps'), 'is-playing');
 });
 
+// 11. Pop in
+const pop = fixture('pop');
+onTrigger(pop, 'play', () => {
+  replayClass(inside(pop, '.fx-pop'), 'is-playing');
+});
+
 // 8. element.animate(), three variants
 const waapi = fixture('web-animation');
 const waapiBox = inside(waapi, '.fx-waapi');

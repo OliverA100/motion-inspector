@@ -1,6 +1,6 @@
 # What Chrome reports for animations
 
-Recorded by the M1 spike (`packages/capture/src/spike.ts`) on the fixtures page, in installed Chrome 157 and Playwright's Chromium 158. Both gave the same results. The raw data is in `spike-output/`. Every row marked "tested" has an assertion in `tests/spike.spec.ts`, so a Chrome change will fail a test.
+Recorded by the spike (`packages/capture/src/spike.ts`) on the fixtures page in M1, with three more recordings at the start of M2 (negative delays, a CSS animation with no end keyframe, start times). Browsers: installed Chrome 157 and Playwright's Chromium 158. Both gave the same results. The raw data is in `spike-output/`. Every row marked "tested" has an assertion in `tests/spike.spec.ts`, so a Chrome change will fail a test.
 
 To record again: `pnpm test:spike`.
 
@@ -51,6 +51,7 @@ The question from the M0 review: can transforms be read as a list of functions, 
 | Case | What `getKeyframes()` returns |
 | --- | --- |
 | CSS animation with only `to` (the loader) | Two keyframes. Chrome adds the start keyframe itself, with the element's own value (`none`) and `composite: "replace"`. |
+| CSS animation with only `from` (pop in) | Two keyframes. Chrome adds the end keyframe itself, with the resting values (`transform: none`, `opacity: 0.9`) and `composite: "replace"`. |
 | `element.animate()` with only an end keyframe | One keyframe, `computedOffset: 1`. Nothing is added. |
 | `element.animate()` with only a start keyframe | One keyframe, `computedOffset: 0`. Nothing is added. |
 
@@ -85,7 +86,16 @@ Rules for capture, based on this:
 ## Timing (tested)
 
 - `transition-delay` arrives as `timing.delay`. In the staggered list, all eight transitions appear in the same frame, with delays of 0, 60, 120 and 180 ms.
-- An animation is usually still pending when first seen: `startTime` is `null` and `currentTime` is `0`. So the start offset of a track comes from the time it was first seen, minus its `currentTime`. `startTime` is not used.
+- Negative delays arrive as they are. The three staggered dots report `delay` of -320, -160 and 0 ms and share one start time, so the stagger is only in the delay. `currentTime` does not include the delay: the time inside the animation is `currentTime - delay`.
+- Start time, measured in M2 on the document timeline:
+
+  | Case | `startTime` when first seen | Timeline time minus `currentTime` | `startTime` after `animation.ready` |
+  | --- | --- | --- | --- |
+  | Already running (loader, dots) | A number | Equal to `startTime` (0.000 ms apart) | The same number |
+  | Newly triggered (hover, click) | `null` (pending) | Only the time it was seen, because `currentTime` is 0 | 0 to 33 ms later than the time it was seen |
+
+  So "first seen minus `currentTime`" keeps the phase of running animations, but for a new animation it is no better than the first-seen time. The accurate value in both cases is **`startTime` read after `animation.ready` resolves**. Capture uses that. If the animation is cancelled before it is ready, capture falls back to the time it was first seen.
+- A track's `startOffset` is its start time minus the earliest start time in the take. So offsets are zero or more, and tracks that started together (the eight list transitions, the three dots) get exactly the same offset.
 - `iterations` is `Infinity` for an infinite animation, and so are `endTime` and `activeDuration`. JSON cannot hold `Infinity`.
 - `getTiming().fill` is `"auto"` for `element.animate()`. Only `getComputedTiming().fill` gives the real value (`"none"`). Transitions report `"backwards"`.
 - Every fixture runs on a `DocumentTimeline`. Anything else is scroll-driven and goes to `notShown`.
@@ -96,6 +106,5 @@ Never set by any fixture. The only value other than `"auto"` is the `"replace"` 
 
 ## Not covered by the spike
 
-- Pseudo-elements, shadow roots, scroll-driven timelines, and `iterationStart` or `endDelay` other than zero. These are handled in M5.
-- Negative delays.
-- A CSS animation with a missing end keyframe. Expected to behave like the missing start, but not recorded.
+- Pseudo-elements, shadow roots and scroll-driven timelines. Fixtures and assertions for these come at the start of M5, before the real capture code (see `docs/milestone-notes.md`).
+- `iterationStart` or `endDelay` other than zero.

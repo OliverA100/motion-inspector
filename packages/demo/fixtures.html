@@ -9,7 +9,7 @@
   <body>
     <main class="page">
       <h1>Fixtures</h1>
-      <p>Nine small animated components to test capture on.</p>
+      <p>Small animated components to test capture on.</p>
 
       <div class="grid">
         <section class="fixture" data-fixture="button-hover">
@@ -136,6 +136,30 @@
             <div class="fx-morph" data-root></div>
           </div>
           <div class="fixture__controls">Hover the square</div>
+        </section>
+
+        <section class="fixture" data-fixture="dots">
+          <header>
+            <h2>Staggered dots</h2>
+            <p>Infinite animation with negative <code>animation-delay</code></p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-dots" data-root><span></span><span></span><span></span></div>
+          </div>
+          <div class="fixture__controls">Always running</div>
+        </section>
+
+        <section class="fixture" data-fixture="pop">
+          <header>
+            <h2>Pop in</h2>
+            <p><code>@keyframes</code> animation, no end keyframe</p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-pop" data-root></div>
+          </div>
+          <div class="fixture__controls">
+            <button class="trigger" data-trigger="play" type="button">Play</button>
+          </div>
         </section>
       </div>
     </main>

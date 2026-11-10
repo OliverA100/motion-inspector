@@ -1,1 +1,13 @@
 export type * from './types';
+export * from './result';
+export * from './numbers';
+export * from './format';
+export * from './easing';
+export * from './easingCss';
+export * from './sample';
+export * from './shapes';
+export * from './groups';
+export * from './parse';
+export * from './exportCss';
+export * from './describe';
+export * from './copyForAi';

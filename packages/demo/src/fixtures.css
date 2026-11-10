@@ -324,3 +324,62 @@ body {
   background-color: var(--color-accent);
   border-radius: 50%;
 }
+
+/* ---------- 10. Staggered dots: negative delays ---------- */
+
+.fx-dots {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.fx-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: fx-dot 1200ms ease-in-out infinite;
+}
+
+/* Negative delays: every dot is mid-cycle from the first frame. */
+.fx-dots span:nth-child(1) {
+  animation-delay: -320ms;
+}
+
+.fx-dots span:nth-child(2) {
+  animation-delay: -160ms;
+}
+
+@keyframes fx-dot {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.4);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ---------- 11. Pop in: keyframe animation with no end keyframe ---------- */
+
+.fx-pop {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-2);
+  background: var(--color-accent);
+  opacity: 0.9;
+}
+
+.fx-pop.is-playing {
+  animation: fx-pop 500ms ease-out 1;
+}
+
+/* No "to" keyframe on purpose: the end is the element's resting style. */
+@keyframes fx-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0.3;
+  }
+}

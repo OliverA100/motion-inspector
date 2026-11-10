@@ -146,6 +146,21 @@ test('transition-delay arrives as timing.delay, all transitions appear in one fr
 
   const seen = dump.records.map((item) => item.firstSeenAtMs);
   expect(Math.max(...seen) - Math.min(...seen)).toBeLessThan(20);
+
+  // Start offset. When first seen, a new animation is pending: startTime is
+  // null and currentTime is 0, so "time seen minus currentTime" is only the
+  // time it was seen. The real start time arrives once animation.ready
+  // resolves. It is the same for all eight, and never earlier than first seen.
+  const starts = dump.records.map((item) => item.startTimeWhenReady);
+  expect(starts[0]).not.toBeNull();
+  expect(new Set(starts).size).toBe(1);
+  for (const item of dump.records) {
+    expect(item.startTime).toBeNull();
+    expect(item.currentTime).toBe(0);
+    const lateBy = (item.startTimeWhenReady ?? 0) - (item.timelineTimeAtFirstSight ?? 0);
+    expect(lateBy).toBeGreaterThan(-1);
+    expect(lateBy).toBeLessThan(50);
+  }
 });
 
 test('CSS animation: infinite iterations, generated start keyframe, rotation is 360 degrees', async ({
@@ -169,6 +184,17 @@ test('CSS animation: infinite iterations, generated start keyframe, rotation is 
   // still be null (pending) right after page load. currentTime is reliable.
   expect(spin.firstSeenAtMs).toBeLessThan(50);
   expect(typeof spin.currentTime).toBe('number');
+
+  // Start offset. If the animation was already running when first seen,
+  // "timeline time minus currentTime" is exactly its start time, so the
+  // phase of a running loop is kept.
+  if (typeof spin.startTime === 'number') {
+    const derived = (spin.timelineTimeAtFirstSight ?? 0) - (spin.currentTime as number);
+    expect(derived).toBeCloseTo(spin.startTime, 2);
+    expect(spin.startTimeWhenReady).toBeCloseTo(spin.startTime, 2);
+  }
+  // Either way, startTime after "ready" is set.
+  expect(spin.startTimeWhenReady).not.toBeNull();
 
   // The CSS has only a "to" keyframe. Chrome adds the start keyframe itself
   // and marks it with composite "replace".
@@ -407,3 +433,58 @@ test('interrupted transition: cancelled, replaced by a shorter one that starts m
   expect(hoverIn.readAfterFinish).toBeNull();
 });
 
+
+test('negative delays arrive as they are, and the dots share one start time', async ({
+  page,
+}, testInfo) => {
+  const dump = await record(page, testInfo, {
+    name: 'dots',
+    fixture: 'dots',
+    trigger: async () => {},
+    recordMs: 300,
+  });
+
+  expect(dump.records).toHaveLength(3);
+  expect(dump.records.map((item) => timing(item).delay)).toEqual([-320, -160, 0]);
+
+  // "0%, 80%, 100%" in the CSS becomes three separate keyframes.
+  for (const item of dump.records) {
+    expect(item.keyframes.map((keyframe) => keyframe.computedOffset)).toEqual([0, 0.4, 0.8, 1]);
+  }
+
+  // The stagger is only in the delay. The start time is the same for all.
+  const starts = dump.records.map((item) => item.startTimeWhenReady);
+  expect(starts[0]).not.toBeNull();
+  expect(new Set(starts).size).toBe(1);
+
+  // currentTime does not include the delay. The time inside the animation is
+  // currentTime minus delay, so a negative delay means "already this far in".
+  for (const item of dump.records) {
+    expect(computedTiming(item).localTime).toBe(item.currentTime);
+  }
+});
+
+test('CSS animation with no end keyframe: Chrome adds it, with the resting values', async ({
+  page,
+}, testInfo) => {
+  const dump = await record(page, testInfo, {
+    name: 'pop',
+    fixture: 'pop',
+    trigger: click('pop', 'play'),
+    recordMs: 800,
+  });
+
+  const pop = only(dump.records);
+  expect(pop.constructorName).toBe('CSSAnimation');
+  expect(pop.keyframes).toHaveLength(2);
+
+  // The CSS has only "from". The end keyframe is Chrome's, marked "replace".
+  expect(first(pop).composite).toBe('auto');
+  expect(last(pop).composite).toBe('replace');
+  expect(last(pop).computedOffset).toBe(1);
+
+  // Its values are the element's resting style: no transform, opacity 0.9.
+  expect(valueOf(last(pop), 'transform')).toBe('none');
+  expect(valueOf(last(pop), 'opacity')).toBe('0.9');
+  expect(read(pop.readAfterFinish, 'opacity')?.resolved).toBe('0.9');
+});
