@@ -1022,6 +1022,89 @@ test('a skeleton shimmer keeps its gradient tile', async ({ page }) => {
   expect(capture.tracks.map((item) => item.property).sort()).toContain('background-position-x');
 });
 
+test('an SVG group that moves is a shape holding its parts', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'svg-group', nothing, 500));
+  const group = flattenShapes(capture.root).find((shape) => shape.kind === 'group');
+  expect(group?.label).toBe('g.fx-train');
+  // The carriage and both wheels move with it; the rail does not.
+  expect(group?.children.map((child) => child.label)).toEqual(['rect', 'circle', 'circle']);
+  expect(track(capture, 'transform').shapeId).toBe(group?.id);
+  expect(capture.notShown).toEqual([]);
+});
+
+test('items pushed down by a panel opening get layout tracks, which are not exported', async ({
+  page,
+}) => {
+  const capture = onlyCapture(await captureFixture(page, 'reflow', click('reflow', 'toggle'), 700));
+  const layout = capture.tracks.filter((item) => item.origin === 'layout');
+  const moved = layout.filter((item) => item.property === 'top');
+  // The second and third items, each 60 px further down at the end.
+  expect(moved).toHaveLength(2);
+  for (const item of moved) {
+    const [first, last] = [item.keyframes[0], item.keyframes.at(-1)];
+    const distance =
+      (last?.parsed?.kind === 'length' ? last.parsed.px : 0) -
+      (first?.parsed?.kind === 'length' ? first.parsed.px : 0);
+    expect(distance).toBeCloseTo(60, 0);
+  }
+  expect(describeCapture(capture)).toContain('parts move with the layout');
+  expect(captureToCss(capture)).not.toMatch(/\btop\b/);
+});
+
+test('a transition restarted every frame by a script is one take, with a note', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(async () => {
+    const box = document.createElement('div');
+    box.className = 'nudged';
+    box.style.cssText =
+      'position: fixed; left: 20px; top: 20px; width: 40px; height: 40px; background: #2f6fed; transition: transform 150ms';
+    document.body.append(box);
+    window.MotionCapture.record(box);
+    for (let frame = 1; frame <= 20; frame += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      box.style.transform = `translateX(${frame}px)`;
+    }
+  });
+  await page.waitForTimeout(600);
+  const takes = await page.evaluate(() => window.MotionCapture.stop());
+  expect(takes.length).toBeLessThanOrEqual(2);
+  const notes = takes.flatMap((take) => take.capture?.notShown ?? []);
+  expect(notes.join(' ')).toMatch(/restarted \d+ times in a row/);
+});
+
+test('an SVG group that starts moving during the take gets a shape then', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .late-svg.go .late-wheel { animation: late-roll 400ms linear }
+      .late-svg.go .masked { animation: late-roll 400ms linear }
+      @keyframes late-roll { to { transform: translateX(20px) } }`;
+    document.head.append(style);
+    const host = document.createElement('div');
+    host.style.cssText = 'position: fixed; left: 20px; top: 20px';
+    host.innerHTML =
+      '<svg class="late-svg" width="100" height="40" viewBox="0 0 100 40">' +
+      '<defs><mask id="late-mask"><g class="masked"><rect width="50" height="40" fill="#fff" /></g></mask></defs>' +
+      '<g class="late-wheel"><circle cx="10" cy="20" r="6" fill="#111" /><circle cx="30" cy="20" r="6" fill="#111" /></g>' +
+      '<rect x="60" y="10" width="30" height="20" fill="#2f6fed" mask="url(#late-mask)" /></svg>';
+    document.body.append(host);
+    const svg = host.querySelector('.late-svg') as Element;
+    window.MotionCapture.record(svg);
+    svg.classList.add('go');
+  });
+  await page.waitForTimeout(800);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+  const group = flattenShapes(capture.root).find((shape) => shape.kind === 'group');
+  expect(group?.label).toBe('g.late-wheel');
+  expect(group?.children.map((child) => child.label)).toEqual(['circle', 'circle']);
+  expect(track(capture, 'transform').shapeId).toBe(group?.id);
+  // The group inside the mask is a cut-out, listed with its reason.
+  expect(capture.notShown.join(' ')).toContain('part of an SVG mask or clip');
+});
+
 // ---------- The picker ----------
 
 const overlay = (page: Page) => page.locator('[data-motion-inspector="picker"]');

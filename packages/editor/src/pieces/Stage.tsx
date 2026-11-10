@@ -27,6 +27,8 @@ type Props = {
   backdrop: string | null;
   // The box of the parent that cuts the component off on the page.
   frame: { x: number; y: number; width: number; height: number } | null;
+  // Where layout tracks take the parts, so the stage fits it.
+  reach: { x: number; y: number; width: number; height: number } | null;
   onCompareChange: (compare: Compare) => void;
   onGhostTrailChange: (on: boolean) => void;
   onShowOriginalChange: (show: boolean) => void;
@@ -57,6 +59,7 @@ export function Stage(props: Props) {
     ghosts,
     backdrop,
     frame,
+    reach,
   } = props;
   const theme = useTheme();
   const [size, setSize] = useState<Size | null>(null);
@@ -78,6 +81,7 @@ export function Stage(props: Props) {
           ghosts,
           backdrop,
           frame,
+          reach,
           theme,
         },
         canvasSize,
@@ -93,6 +97,7 @@ export function Stage(props: Props) {
       ghosts,
       backdrop,
       frame,
+      reach,
       theme,
     ],
   );
@@ -102,7 +107,7 @@ export function Stage(props: Props) {
     const box = event.currentTarget.getBoundingClientRect();
     return shapeAt(
       { x: event.clientX - box.left, y: event.clientY - box.top },
-      { root, mine, compare, frame },
+      { root, mine, compare, frame, reach },
       size,
     );
   };

@@ -15,10 +15,12 @@ import { FrameTime } from './pieces/FrameTime';
 import { Playback } from './pieces/Playback';
 import { SpeedGraph } from './pieces/SpeedGraph';
 import { Stage } from './pieces/Stage';
+import { layoutReach } from './draw/stage';
 import { Timeline } from './pieces/Timeline';
 import { createProbe, isPreviewed, type Probe } from './probe';
 import type { Msg, Speed } from './state/model';
 import {
+  layoutName,
   curveDurationMs,
   curvePlayhead,
   easingAt,
@@ -182,7 +184,12 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
     () =>
       timelineRows(original, edited).map((row, index) => ({
         ...row,
-        name: plainName(row.property),
+        // A layout row is what the page did around the animation, not an
+        // animation itself; its name says so.
+        name:
+          edited.tracks[index]?.origin === 'layout'
+            ? layoutName(row.property)
+            : plainName(row.property),
         previewed: isPreviewed(row.property),
         shown: !hiddenTracks.includes(index),
         highlighted:
@@ -285,6 +292,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               ghosts={ghosts}
               backdrop={edited.backdrop}
               frame={edited.frame}
+              reach={layoutReach(edited)}
               onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
               onGhostTrailChange={(on) => dispatch({ kind: 'ghostTrailSet', on })}
               onShowOriginalChange={(show) => dispatch({ kind: 'originalShown', show })}

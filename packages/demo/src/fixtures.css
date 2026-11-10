@@ -906,3 +906,49 @@ fx-shadow-card {
     background-position: -100% 0;
   }
 }
+
+/* 29. An SVG group that moves, as Railway's trains do. */
+
+.fx-train {
+  animation: fx-train 2000ms ease-in-out infinite alternate;
+}
+
+@keyframes fx-train {
+  from {
+    transform: translateX(0px);
+  }
+  to {
+    transform: translateX(130px);
+  }
+}
+
+/* 30. Reflow: siblings move when a panel opens. */
+
+.fx-reflow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 180px;
+}
+
+.fx-reflow__item {
+  border-radius: 6px;
+  background: #e8e8e8;
+}
+
+.fx-reflow__head {
+  height: 24px;
+  border-radius: 6px;
+  background: #2f6fed;
+}
+
+.fx-reflow__panel {
+  height: 0;
+  overflow: hidden;
+  background: #cfdcf8;
+  transition: height 300ms ease-out;
+}
+
+.fx-reflow.is-open .fx-reflow__panel {
+  height: 60px;
+}

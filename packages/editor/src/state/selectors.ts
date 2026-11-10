@@ -226,6 +226,12 @@ export function plainName(property: string): string | null {
   return PLAIN_NAMES.find((entry) => entry.property === property)?.name ?? null;
 }
 
+// The name of a layout row (a part moved or resized by the layout).
+export function layoutName(property: string): string {
+  if (property === 'left' || property === 'top') return 'Moved by layout';
+  return 'Resized by layout';
+}
+
 // What a curve does, in words, so the picture does not have to be decoded.
 export type CurveFeel = { start: string; end: string; extra: string | null };
 

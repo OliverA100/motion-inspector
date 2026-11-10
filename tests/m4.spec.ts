@@ -390,3 +390,41 @@ test('a gradient is drawn with its direction, not as one color', async ({ page }
   });
   expect(high - low).toBeGreaterThan(25);
 });
+
+test('items pushed down by the layout are drawn lower as the panel opens', async ({ page }) => {
+  const takes = await captureFixture(
+    page,
+    'reflow',
+    (p) => p.click('[data-fixture="reflow"] [data-trigger="toggle"]'),
+    700,
+  );
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(takes[0]?.capture),
+  );
+  // The lowest pixel of the blue item headers.
+  const lowestBlue = async (time: number): Promise<number> => {
+    await page.goto(`/?capture=session&quiet&time=${time}`);
+    await page.waitForTimeout(150);
+    return page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const context = canvas.getContext('2d');
+      if (context === null) return -1;
+      const { data, width } = context.getImageData(0, 0, canvas.width, canvas.height);
+      let lowest = -1;
+      for (let index = 0; index < data.length; index += 4) {
+        const red = data[index] ?? 0;
+        const green = data[index + 1] ?? 0;
+        const blue = data[index + 2] ?? 0;
+        if (Math.abs(red - 47) < 20 && Math.abs(green - 111) < 20 && Math.abs(blue - 237) < 20) {
+          lowest = Math.max(lowest, Math.floor(index / 4 / width));
+        }
+      }
+      return lowest;
+    });
+  };
+  const start = await lowestBlue(0);
+  const end = await lowestBlue(400);
+  // 60 px of layout at the stage's scale: well over 30 canvas pixels.
+  expect(end - start).toBeGreaterThan(30);
+});

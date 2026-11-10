@@ -32,6 +32,7 @@
     "shadow": null,
     "clipPath": null,
     "filter": null,
+    "inSvg": null,
     "gradient": null,
     "words": null,
     "icon": null,
@@ -64,6 +65,7 @@
         "shadow": null,
         "clipPath": null,
         "filter": null,
+        "inSvg": null,
         "gradient": null,
         "words": [
           {
@@ -113,6 +115,7 @@
         "shadow": null,
         "clipPath": null,
         "filter": null,
+        "inSvg": null,
         "gradient": null,
         "words": null,
         "icon": null,

@@ -191,7 +191,7 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
   return fc.record({
     id: fc.constant(''),
     label: fc.string(),
-    kind: fc.constantFrom('box', 'text', 'image', 'path'),
+    kind: fc.constantFrom('box', 'text', 'image', 'path', 'group'),
     box: fc.record({ x: anyNumber, y: anyNumber, width: zeroOrMore, height: zeroOrMore }),
     radius: fc.tuple(zeroOrMore, zeroOrMore, zeroOrMore, zeroOrMore),
     fill: fc.oneof(fc.constant(null), fc.string()),
@@ -221,6 +221,10 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
     ),
     clipPath: fc.oneof(fc.constant(null), fc.string()),
     filter: fc.oneof(fc.constant(null), fc.string()),
+    inSvg: fc.oneof(
+      fc.constant(null),
+      fc.tuple(anyNumber, anyNumber, anyNumber, anyNumber, anyNumber, anyNumber),
+    ),
     words: fc.oneof(
       fc.constant(null),
       fc.array(fc.record({ x: anyNumber, width: zeroOrMore }), { maxLength: 4 }),

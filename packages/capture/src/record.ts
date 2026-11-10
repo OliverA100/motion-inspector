@@ -20,6 +20,7 @@ import {
 } from '@motion-inspector/core';
 import { readValue } from './readValue';
 import {
+  addLateGroup,
   addLatePseudo,
   addLateShape,
   animationsUnder,
@@ -27,6 +28,7 @@ import {
   labelOf,
   containingBlock,
   type Box,
+  layoutNow,
   type RawShape,
   type Snapshot,
 } from './snapshot';
@@ -232,6 +234,11 @@ function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | nu
   if (!seen.onDocumentTimeline) {
     return `A scroll-driven animation on ${label} is not shown, because it follows the scroll position, not time.`;
   }
+  // Railway's logo moves trains inside an SVG mask: a cut-out that reveals
+  // the logo, not something drawn.
+  if (seen.target.closest('mask, clipPath, pattern, marker') !== null) {
+    return `An animation on ${label} is not shown, because it moves part of an SVG mask or clip (a cut-out), which the preview cannot draw.`;
+  }
   if (seen.pseudoElement === null && !snapshot.shapeIdOf.has(seen.target)) {
     return `An animation on ${label} is not shown, because that part was left out of the simplified drawing.`;
   }
@@ -409,7 +416,205 @@ function tracksFor(
   return { tracks, notShown, unchanged };
 }
 
-function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
+// ---------- Layout ----------
+
+// Properties that only change how something is painted. An animation of
+// anything else may move the parts around it.
+const PAINT_ONLY = new Set([
+  'transform',
+  'translate',
+  'rotate',
+  'scale',
+  'opacity',
+  'color',
+  'background-color',
+  'background-position-x',
+  'background-position-y',
+  'border-top-color',
+  'border-right-color',
+  'border-bottom-color',
+  'border-left-color',
+  'outline-color',
+  'outline-width',
+  'outline-offset',
+  'box-shadow',
+  'text-shadow',
+  'filter',
+  'backdrop-filter',
+  'clip-path',
+  'fill',
+  'stroke',
+  'stroke-dasharray',
+  'stroke-dashoffset',
+  'visibility',
+  'text-decoration-color',
+  'text-decoration-thickness',
+  'caret-color',
+  'z-index',
+  'mask-position',
+  'border-top-left-radius',
+  'border-top-right-radius',
+  'border-bottom-right-radius',
+  'border-bottom-left-radius',
+]);
+
+function movesLayout(seen: Seen): boolean {
+  return (
+    seen.pseudoElement === null && seen.properties.some((property) => !PAINT_ONLY.has(property))
+  );
+}
+
+type LayoutSample = { time: number; boxes: Map<Element, Box> };
+
+function sampleLayout(snapshot: Snapshot): LayoutSample {
+  const boxes = new Map<Element, Box>();
+  for (const [element, shape] of snapshot.shapeOf) {
+    if (shape.kind === 'text' || !(element instanceof HTMLElement)) continue;
+    boxes.set(element, layoutNow(snapshot, element));
+  }
+  return { time: asNumber(document.timeline.currentTime) ?? 0, boxes };
+}
+
+// Fewer points along a line: Ramer-Douglas-Peucker, keeping the first and
+// last. A point is kept when leaving it out would move the line by more
+// than half a pixel.
+function simplify(points: { t: number; v: number }[], tolerance = 0.5): { t: number; v: number }[] {
+  if (points.length <= 2) return points;
+  const first = points[0] as { t: number; v: number };
+  const last = points[points.length - 1] as { t: number; v: number };
+  let farthest = 0;
+  let index = 0;
+  points.forEach((point, at) => {
+    if (at === 0 || at === points.length - 1) return;
+    const along = last.t === first.t ? 0 : (point.t - first.t) / (last.t - first.t);
+    const distance = Math.abs(point.v - (first.v + (last.v - first.v) * along));
+    if (distance > farthest) {
+      farthest = distance;
+      index = at;
+    }
+  });
+  if (farthest <= tolerance) return [first, last];
+  return [
+    ...simplify(points.slice(0, index + 1), tolerance).slice(0, -1),
+    ...simplify(points.slice(index), tolerance),
+  ];
+}
+
+// Layout tracks: how parts moved and resized because the layout changed
+// (an accordion's panel pushing the items below it down, a margin
+// growing), measured on the page while the take ran. The preview has no
+// layout engine; this is what the browser actually did. A part's motion is
+// measured relative to its parent shape, since the stage moves children
+// with their parent. Changes a part's own animations already describe are
+// left to them.
+function layoutTracksFor(
+  snapshot: Snapshot,
+  take: Seen[],
+  samples: LayoutSample[],
+  takeStart: number,
+): unknown[] {
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  if (first === undefined || last === undefined || samples.length < 2) return [];
+  const parentOf = new Map<RawShape, RawShape>();
+  const visit = (shape: RawShape): void => {
+    for (const child of shape.children) {
+      parentOf.set(child, shape);
+      visit(child);
+    }
+  };
+  visit(snapshot.root);
+  const span = Math.max(last.time - first.time, 1);
+  const tracks: unknown[] = [];
+  for (const [element, shape] of snapshot.shapeOf) {
+    const start = first.boxes.get(element);
+    if (start === undefined) continue;
+    const own = new Set(
+      take
+        .filter((seen) => seen.target === element && seen.pseudoElement === null)
+        .flatMap((seen) => seen.properties),
+    );
+    const parentShape = parentOf.get(shape);
+    const parentElement = parentShape === undefined ? undefined : snapshot.ownerOf.get(parentShape);
+    const parentStart = parentElement === undefined ? undefined : first.boxes.get(parentElement);
+    const series = (read: (box: Box, parent: Box | undefined) => number): number[] =>
+      samples.map((sample) => {
+        const box = sample.boxes.get(element) ?? start;
+        const parent = parentElement === undefined ? undefined : sample.boxes.get(parentElement);
+        return read(box, parent);
+      });
+    const isRoot = element === snapshot.rootElement;
+    const wanted: { property: string; rest: number; values: number[] }[] = [];
+    if (!isRoot && !own.has('left') && !own.has('right')) {
+      wanted.push({
+        property: 'left',
+        rest: shape.box.x,
+        values: series(
+          (box, parent) =>
+            shape.box.x + (box.x - start.x) - ((parent?.x ?? 0) - (parentStart?.x ?? 0)),
+        ),
+      });
+    }
+    if (!isRoot && !own.has('top') && !own.has('bottom')) {
+      wanted.push({
+        property: 'top',
+        rest: shape.box.y,
+        values: series(
+          (box, parent) =>
+            shape.box.y + (box.y - start.y) - ((parent?.y ?? 0) - (parentStart?.y ?? 0)),
+        ),
+      });
+    }
+    if (!own.has('width')) {
+      wanted.push({ property: 'width', rest: shape.box.width, values: series((box) => box.width) });
+    }
+    if (!own.has('height')) {
+      wanted.push({
+        property: 'height',
+        rest: shape.box.height,
+        values: series((box) => box.height),
+      });
+    }
+    for (const { property, values } of wanted) {
+      const base = values[0] ?? 0;
+      if (values.every((value) => Math.abs(value - base) < 0.5)) continue;
+      const points = simplify(
+        values.map((value, index) => ({ t: (samples[index]?.time ?? 0) - first.time, v: value })),
+      ).slice(0, 30);
+      tracks.push({
+        shapeId: shape.id,
+        property,
+        origin: 'layout',
+        groupId: 'layout',
+        startOffset: Math.max(0, first.time - takeStart),
+        interrupted: false,
+        keyframes: points.map((point, index) => ({
+          offset: index === points.length - 1 ? 1 : Math.min(point.t / span, 1),
+          value: `${Math.round(point.v * 100) / 100}px`,
+          parsed: { kind: 'length', px: Math.round(point.v * 100) / 100 },
+          easing: { kind: 'linear' },
+          implicit: false,
+        })),
+        timing: {
+          delay: 0,
+          duration: span,
+          iterations: { kind: 'count', count: 1 },
+          direction: 'normal',
+          fill: 'both',
+          easing: { kind: 'linear' },
+        },
+      });
+    }
+  }
+  return tracks;
+}
+
+function buildTake(
+  snapshot: Snapshot,
+  take: Seen[],
+  samples: LayoutSample[] = [],
+  notes: string[] = [],
+): TakeResult {
   // Parts that were hidden at pick time and appeared for this animation get
   // their shapes now.
   for (const seen of take) {
@@ -417,7 +622,9 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
       snapshot.rootElement.contains(seen.target) ||
       snapshot.shadowRoots.some((root) => root.contains(seen.target));
     if (!seen.onDocumentTimeline || !inside) continue;
-    if (seen.pseudoElement === null) addLateShape(snapshot, seen.target);
+    if (seen.pseudoElement === null && seen.target instanceof SVGGElement) {
+      addLateGroup(snapshot, seen.target);
+    } else if (seen.pseudoElement === null) addLateShape(snapshot, seen.target);
     else addLatePseudo(snapshot, seen.target, seen.pseudoElement);
   }
   // The take starts with the first animation that is new and can be drawn.
@@ -446,6 +653,7 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
     property: unknown;
     groupId: string | null;
   }[];
+  const layout = layoutTracksFor(snapshot, take, samples, takeStart) as typeof tracks;
   tracks.forEach((track, index) => {
     const there = tracks
       .slice(0, index)
@@ -463,10 +671,11 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
       capturedAt: new Date().toISOString(),
     },
     root: snapshot.root,
-    tracks,
+    tracks: [...tracks, ...layout],
     backdrop: snapshot.backdrop,
     frame: snapshot.frame,
     notShown: [
+      ...notes,
       ...snapshot.notes,
       ...built.flatMap((item) => item.notShown),
       // Something did run. Say so, rather than "nothing was captured".
@@ -617,6 +826,10 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   const idleMs = options.idleMs ?? DEFAULT_IDLE_MS;
   const alreadySeen = new WeakSet<Animation>();
   let take: Seen[] = [];
+  // Layout read every frame while the take animates something that can
+  // move the parts around it.
+  let samples: LayoutSample[] = [];
+  let previousSamples: LayoutSample[] = [];
   let lastActivity = performance.now();
   let frame = 0;
   let foundAnything = false;
@@ -653,20 +866,71 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // way back.
   let previous: Seen[] | null = null;
 
-  const endTake = (): void => {
+  // Takes cut off by a restart of the same property almost at once. A run
+  // of them is a script restarting a transition every frame (found on
+  // Railway: 91 takes for one hover). They are held back; a run of three
+  // or more becomes one take, the last, with a note. Fewer are sent as
+  // usual: a quick hover-out is still its own take.
+  const QUICK_MS = 100;
+  let held: { take: Seen[]; samples: LayoutSample[] }[] = [];
+
+  const endTake = (quick = false): void => {
+    if (take.length === 0) return;
+    if (quick) {
+      held.push({ take, samples });
+      take = [];
+      samples = [];
+      return;
+    }
+    let chainNote: string[] = [];
+    if (held.length >= 3) {
+      const first = held[0]?.take[0];
+      chainNote = [
+        `The animation on ${first === undefined ? 'this part' : labelOf(first.target)} was restarted ${held.length + 1} times in a row, most likely by a script. Only the last one is shown.`,
+      ];
+      held = [];
+    } else {
+      const earlier = held;
+      held = [];
+      const current = take;
+      const currentSamples = samples;
+      for (const item of earlier) {
+        take = item.take;
+        samples = item.samples;
+        sendTake([]);
+      }
+      take = current;
+      samples = currentSamples;
+    }
+    sendTake(chainNote);
+  };
+
+  const sendTake = (chainNote: string[]): void => {
     if (take.length === 0) return;
     const finished = take;
+    const finishedSamples = samples;
     take = [];
+    samples = [];
     // A hover and its leave are one motion: the leave is added to the take
     // it reverses, which is sent again to replace the first version.
     if (previous !== null && isWayBackOf(previous, finished)) {
-      const merged = [...previous, ...afterAHold(previous, finished)];
+      const back = afterAHold(previous, finished);
+      const shift =
+        Math.min(...finished.map((seen) => seen.startTime)) -
+        Math.min(...back.map((seen) => seen.startTime));
+      const merged = [...previous, ...back];
+      const mergedSamples = [
+        ...previousSamples,
+        ...finishedSamples.map((sample) => ({ ...sample, time: sample.time - shift })),
+      ];
       previous = null;
-      options.onTake({ ...buildTake(snapshot, merged), replaces: true });
+      previousSamples = [];
+      options.onTake({ ...buildTake(snapshot, merged, mergedSamples, chainNote), replaces: true });
       return;
     }
     previous = finished;
-    options.onTake(buildTake(snapshot, finished));
+    previousSamples = finishedSamples;
+    options.onTake(buildTake(snapshot, finished, finishedSamples, chainNote));
   };
 
   const onFrame = (): void => {
@@ -711,7 +975,10 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       );
       if (replaced !== undefined) {
         seen.interrupted = replaced.ended !== 'finished' && isReversal(replaced, seen);
-        if (take.includes(replaced)) endTake();
+        if (take.includes(replaced)) {
+          const began = Math.min(...take.map((item) => item.startTime));
+          endTake(seen.startTime - began < QUICK_MS);
+        }
       }
       take = [...take, seen];
       handled.push(seen);
@@ -732,6 +999,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         return;
       }
     }
+    if (take.some(movesLayout) && samples.length < 600) samples.push(sampleLayout(snapshot));
     if (take.some(stillRunning)) lastActivity = now;
     else if (now - lastActivity > idleMs) endTake();
     frame = requestAnimationFrame(onFrame);

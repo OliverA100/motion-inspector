@@ -204,9 +204,11 @@ export function captureToCss(capture: Capture): string {
         transitions: groupByShorthand(
           firstOfEach(tracks).filter((track) => track.origin === 'css-transition'),
         ),
+        // Layout tracks are what the browser did in response, not CSS to
+        // write.
         units: animationUnits(
           shape,
-          tracks.filter((track) => track.origin !== 'css-transition'),
+          tracks.filter((track) => track.origin !== 'css-transition' && track.origin !== 'layout'),
         ),
       };
     })

@@ -69,6 +69,7 @@ function StagePiece() {
         root={cardLift.root}
         backdrop={cardLift.backdrop}
         frame={cardLift.frame}
+        reach={null}
         mine={mine}
         original={original}
         showOriginal

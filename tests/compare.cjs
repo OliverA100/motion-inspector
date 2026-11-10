@@ -43,6 +43,8 @@ const cases = [
   { name: 'fixture-clip-loader', url: `${EDITOR}/fixtures.html`, pick: '.fx-clip-loader', trigger: 'none' },
   { name: 'fixture-switches', url: `${EDITOR}/fixtures.html`, pick: '.fx-switches', trigger: 'click', clickTarget: '[data-fixture="switches"] [data-trigger="toggle"]' },
   { name: 'fixture-skeleton', url: `${EDITOR}/fixtures.html`, pick: '.fx-skeleton', trigger: 'none' },
+  { name: 'fixture-svg-group', url: `${EDITOR}/fixtures.html`, pick: '.fx-svg-group', trigger: 'none' },
+  { name: 'fixture-reflow', url: `${EDITOR}/fixtures.html`, pick: '.fx-reflow', trigger: 'click', clickTarget: '[data-fixture="reflow"] [data-trigger="toggle"]' },
   { name: 'fixture-icon-button', url: `${EDITOR}/fixtures.html`, pick: '.fx-icon-button__arrows', trigger: 'hover' },
   // Real sites.
   { name: 'bootstrap-button', url: 'https://getbootstrap.com/docs/5.3/components/buttons/', pick: '.bd-example .btn-primary', trigger: 'hover' },
@@ -150,6 +152,23 @@ async function realFrames(page, c) {
   // Let everything run to its end, so the take closes.
   await page.evaluate(() => window.__compare.animations.forEach((a) => (Number.isFinite(a.effect.getComputedTiming().activeDuration) ? a.finish() : a.play())));
   await page.waitForTimeout(700);
+  await page.evaluate(() => window.MotionCapture.stop());
+  // The capture comes from a second run that nothing pauses or seeks: the
+  // paused run above is only for photographs. Layout is read every frame
+  // while a take runs, and would record the seeking (found on the reflow
+  // fixture).
+  await page.goto(c.url, { waitUntil: c.waitUntil ?? 'domcontentloaded', timeout: 45000 });
+  await page.waitForTimeout(1500);
+  if (c.prepare) await page.evaluate(c.prepare);
+  await page.evaluate(captureScript + '\n;window.MotionCapture = MotionCapture;');
+  const again = page.locator(c.pick).first();
+  await again.evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => {});
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(500);
+  await again.evaluate((el) => window.MotionCapture.record(el));
+  if (c.trigger === 'hover') await again.hover({ force: true });
+  if (c.trigger === 'click') await page.locator(c.clickTarget).first().click({ force: true });
+  await page.waitForTimeout(Math.min(paused.length, 4000) + 700);
   const takes = await page.evaluate(() => window.MotionCapture.stop());
   return { frames, length: paused.length, takes };
 }

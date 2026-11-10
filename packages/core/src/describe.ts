@@ -382,10 +382,16 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
 const MAX_GROUPS_DESCRIBED = 5;
 
 export function describeCapture(capture: Capture): string {
+  // Layout tracks follow from the animations; they get one sentence of
+  // their own at the end.
+  const own = { ...capture, tracks: capture.tracks.filter((track) => track.origin !== 'layout') };
   const motions = flattenShapes(capture.root).flatMap((shape) => {
-    const motion = motionOf(capture, shape);
+    const motion = motionOf(own, shape);
     return motion === null ? [] : [motion];
   });
+  const moved = new Set(
+    capture.tracks.filter((track) => track.origin === 'layout').map((track) => track.shapeId),
+  ).size;
 
   const keys = Array.from(new Set(motions.map(sameMotionKey)));
   const groups = keys.map((key) => motions.filter((motion) => sameMotionKey(motion) === key));
@@ -396,6 +402,9 @@ export function describeCapture(capture: Capture): string {
   return [
     ...(motions.length === 0 ? ['No animations were captured.'] : described),
     ...(left === 0 ? [] : [left === 1 ? '1 more shape animates.' : `${left} more shapes animate.`]),
+    ...(moved === 0
+      ? []
+      : [moved === 1 ? '1 part moves with the layout.' : `${moved} parts move with the layout.`]),
     ...(notShown === 0
       ? []
       : [

@@ -138,3 +138,9 @@ const switches = fixture('switches');
 onTrigger(switches, 'toggle', () => {
   inside(switches, '.fx-switches').classList.toggle('is-on');
 });
+
+// 30. Reflow.
+const reflow = fixture('reflow');
+onTrigger(reflow, 'toggle', () => {
+  inside(reflow, '.fx-reflow').classList.toggle('is-open');
+});

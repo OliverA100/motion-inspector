@@ -37,6 +37,7 @@
     },
     "clipPath": null,
     "filter": null,
+    "inSvg": null,
     "gradient": null,
     "words": null,
     "icon": null,
@@ -69,6 +70,7 @@
         "shadow": null,
         "clipPath": null,
         "filter": null,
+        "inSvg": null,
         "gradient": null,
         "words": [
           {
@@ -190,67 +192,22 @@
     },
     {
       "shapeId": "s0",
-      "property": "box-shadow",
-      "origin": "css-transition",
-      "groupId": "s0:box-shadow",
-      "startOffset": 50,
-      "interrupted": true,
-      "keyframes": [
-        {
-          "offset": 0,
-          "value": "rgba(0, 0, 0, 0.22) 0px 3.07852px 7.81984px 0px",
-          "parsed": null,
-          "easing": {
-            "kind": "linear"
-          },
-          "implicit": false
-        },
-        {
-          "offset": 1,
-          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
-          "parsed": null,
-          "easing": {
-            "kind": "linear"
-          },
-          "implicit": false
-        }
-      ],
-      "timing": {
-        "delay": 0,
-        "duration": 74.83,
-        "iterations": {
-          "kind": "count",
-          "count": 1
-        },
-        "direction": "normal",
-        "fill": "backwards",
-        "easing": {
-          "kind": "cubic-bezier",
-          "x1": 0,
-          "y1": 0,
-          "x2": 0.58,
-          "y2": 1
-        }
-      }
-    },
-    {
-      "shapeId": "s0",
       "property": "transform",
       "origin": "css-transition",
       "groupId": "s0:transform",
-      "startOffset": 50,
+      "startOffset": 33.37,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.831406px)",
+          "value": "translateY(-0.574913px)",
           "parsed": {
             "kind": "transform",
             "functions": [
               {
                 "fn": "translate",
                 "x": 0,
-                "y": -0.83
+                "y": -0.57
               }
             ]
           },
@@ -274,7 +231,52 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 74.83,
+        "duration": 51.74,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0",
+      "property": "box-shadow",
+      "origin": "css-transition",
+      "groupId": "s0:box-shadow",
+      "startOffset": 50.07,
+      "interrupted": true,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "rgba(0, 0, 0, 0.216) 0px 2.43728px 6.02439px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 51.74,
         "iterations": {
           "kind": "count",
           "count": 1

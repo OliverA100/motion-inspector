@@ -51,7 +51,7 @@ const UNKNOWN_FILL = '#d9d9d9';
 export type RawShape = {
   id: string;
   label: string;
-  kind: 'box' | 'text' | 'image' | 'path';
+  kind: 'box' | 'text' | 'image' | 'path' | 'group';
   box: { x: number; y: number; width: number; height: number };
   radius: [number, number, number, number];
   fill: string | null;
@@ -70,6 +70,7 @@ export type RawShape = {
   shadow: { color: string; x: number; y: number; blur: number } | null;
   clipPath: string | null;
   filter: string | null;
+  inSvg: [number, number, number, number, number, number] | null;
   // A gradient background, drawn with its direction. fill holds its
   // average color.
   gradient: RawGradient | null;
@@ -371,6 +372,9 @@ type IconPart = {
   // False for parts drawn through <use>: their element is the <use>, and
   // only its first part stands for it.
   register: boolean;
+  // The groups around it that may animate, outermost first. Each becomes a
+  // shape that holds the parts inside it.
+  groups: SVGGElement[];
   path: RawIconPath;
   // Where its own transform turns about, in its own coordinates.
   origin: { x: number; y: number };
@@ -403,6 +407,7 @@ function iconPart(part: Element, textColor: string): IconPart | null | 'hidden' 
   return {
     element: part,
     register: true,
+    groups: movingGroups(part),
     origin: { x: reference.x + originX, y: reference.y + originY },
     transform: restingTransform(style),
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
@@ -491,6 +496,7 @@ function useParts(use: SVGUseElement): IconPart[] | null {
     parts.push({
       element: use,
       register: index === 0,
+      groups: movingGroups(use),
       origin: { x: 0, y: 0 },
       transform: null,
       opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
@@ -520,6 +526,65 @@ function useParts(use: SVGUseElement): IconPart[] | null {
     });
   }
   return parts;
+}
+
+// The <g> elements around an SVG part that are set up to animate,
+// outermost first. Railway's trains move this way.
+function movingGroups(part: Element): SVGGElement[] {
+  const groups: SVGGElement[] = [];
+  for (
+    let at = part.parentElement;
+    at !== null && !(at instanceof SVGSVGElement);
+    at = at.parentElement
+  ) {
+    if (
+      at instanceof SVGGElement &&
+      (mayAnimate(getComputedStyle(at)) || at.getAnimations().length > 0)
+    ) {
+      groups.unshift(at);
+    }
+  }
+  return groups;
+}
+
+// A shape for an SVG group that may animate. Its parts keep the positions
+// they had when picked, which include the group's transform then; the
+// stage applies only the change from it (see the stage's placement).
+function groupShape(walk: Walk, group: SVGGElement, box: Box, id: string): RawShape | null {
+  const parent = group.parentElement;
+  const outer = parent instanceof SVGGraphicsElement ? parent.getCTM() : null;
+  const own = group.getCTM();
+  if (outer === null || own === null) return null;
+  const local = DOMMatrix.fromMatrix(outer).inverse().multiply(DOMMatrix.fromMatrix(own));
+  const style = getComputedStyle(group);
+  const [originX = 0, originY = 0] = style.transformOrigin.split(' ').map(parseFloat);
+  const reference = style.transformBox === 'fill-box' ? group.getBBox() : { x: 0, y: 0 };
+  const shape: RawShape = {
+    id,
+    label: labelOf(group),
+    kind: 'group',
+    box,
+    radius: [0, 0, 0, 0],
+    fill: null,
+    stroke: null,
+    opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
+    transformOrigin: { x: reference.x + originX, y: reference.y + originY },
+    clip: false,
+    transform: [local.a, local.b, local.c, local.d, local.e, local.f],
+    shadow: null,
+    clipPath: null,
+    filter: null,
+    inSvg: [outer.a, outer.b, outer.c, outer.d, outer.e, outer.f],
+    gradient: null,
+    words: null,
+    icon: null,
+    children: [],
+  };
+  walk.snapshot.shapeIdOf.set(group, id);
+  walk.shapeOf.set(group, shape);
+  walk.ownerOf.set(shape, group);
+  if (walk.readsResting) walk.snapshot.resting.set(group, readResting(group));
+  return shape;
 }
 
 function iconPaths(svg: SVGSVGElement): IconPart[] | null {
@@ -571,6 +636,7 @@ function partShape(walk: Walk, part: IconPart, box: Box, id: string): RawShape {
     shadow: null,
     clipPath: null,
     filter: null,
+    inSvg: null,
     gradient: null,
     words: null,
     icon: [part.path],
@@ -623,7 +689,24 @@ function iconShape(
   if (parts !== null) {
     // Each part is a shape of its own, so an animation on one part (a
     // spinner's circle drawing itself, a chevron's stroke turning) is drawn.
-    const children = parts.map((part, index) => partShape(walk, part, rect, `${id}.p${index}`));
+    // Parts go inside the shapes of the groups that may move them.
+    const children: RawShape[] = [];
+    const groupShapes = new Map<SVGGElement, RawShape>();
+    parts.forEach((part, index) => {
+      let into = children;
+      for (const group of part.groups) {
+        let shape = groupShapes.get(group);
+        if (shape === undefined) {
+          const made = groupShape(walk, group, rect, `${id}.g${groupShapes.size}`);
+          if (made === null) break;
+          shape = made;
+          groupShapes.set(group, shape);
+          into.push(shape);
+        }
+        into = shape.children;
+      }
+      into.push(partShape(walk, part, rect, `${id}.p${index}`));
+    });
     return {
       id,
       label: labelOf(element),
@@ -639,6 +722,7 @@ function iconShape(
       shadow: null,
       clipPath: null,
       filter: null,
+      inSvg: null,
       gradient: null,
       words: null,
       icon: null,
@@ -679,6 +763,7 @@ function iconShape(
     shadow: null,
     clipPath: null,
     filter: null,
+    inSvg: null,
     gradient: null,
     words: null,
     icon: null,
@@ -764,6 +849,7 @@ function boxShape(
     shadow: restingShadow(style.boxShadow),
     clipPath: basicClipPath(style.clipPath),
     filter: style.filter === 'none' ? null : style.filter,
+    inSvg: null,
     gradient: drawable,
     words: null,
     icon: null,
@@ -1065,6 +1151,7 @@ function textBars(
       shadow: null,
       clipPath: null,
       filter: null,
+      inSvg: null,
       gradient: null,
       words,
       icon: null,
@@ -1358,7 +1445,13 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     }
     // A transform read in the middle of its animation is not a resting one.
     // Its track draws it instead.
-    if (shape !== undefined && TRANSFORM_LIKE.some((property) => properties.has(property))) {
+    // A group's transform is measured, not read, and its parts are placed
+    // with it, so it stays (see groupShape).
+    if (
+      shape !== undefined &&
+      shape.kind !== 'group' &&
+      TRANSFORM_LIKE.some((property) => properties.has(property))
+    ) {
       shape.transform = null;
     }
   }
@@ -1389,6 +1482,17 @@ export function takeSnapshot(rootElement: Element): Snapshot {
         : []),
     ],
   };
+}
+
+// ---------- Layout while a take runs ----------
+
+// Where an element is laid out now, relative to the picked element, without
+// transforms (offsets). Read every frame while a layout animation runs.
+export function layoutNow(snapshot: Snapshot, element: Element): Box {
+  return layoutBox(element, {
+    ...lateWalk(snapshot),
+    rootRect: snapshot.rootElement.getBoundingClientRect(),
+  });
 }
 
 // ---------- Shapes for parts that appear later ----------
@@ -1478,6 +1582,93 @@ export function addLateShape(snapshot: Snapshot, element: Element): boolean {
   snapshot.nextId.value = walk.count;
   parentShape.children.push(...added);
   return snapshot.shapeIdOf.has(element);
+}
+
+// An SVG group that started animating during the take (a class added on
+// hover sets Railway's trains moving), so it had no shape when picked. It
+// gets one now, and the parts inside it move into it. Its parts were
+// measured when picked, with the group at its base transform: its
+// transform attribute, or none. That is the "then" the stage moves from.
+export function addLateGroup(snapshot: Snapshot, group: SVGGElement): boolean {
+  if (snapshot.shapeIdOf.has(group)) return true;
+  const svg = group.ownerSVGElement;
+  const svgShape = svg === null ? undefined : snapshot.shapeOf.get(svg);
+  if (svgShape === undefined) return false;
+  const inside: { shape: RawShape; parent: RawShape }[] = [];
+  const visit = (shape: RawShape): void => {
+    for (const child of shape.children) {
+      const owner = snapshot.ownerOf.get(child);
+      if (owner !== undefined && group.contains(owner))
+        inside.push({ shape: child, parent: shape });
+      else visit(child);
+    }
+  };
+  visit(svgShape);
+  const first = inside[0];
+  // New content (the trains are added to the logo on hover): the group and
+  // its parts are measured now, together, so its transform and its parts'
+  // positions agree.
+  if (first === undefined) return addNewGroup(snapshot, group, svgShape);
+  const parent = group.parentElement;
+  const outer = parent instanceof SVGGraphicsElement ? parent.getCTM() : null;
+  if (outer === null) return false;
+  const base = group.transform.baseVal.consolidate()?.matrix ?? new DOMMatrix();
+  const style = getComputedStyle(group);
+  const [originX = 0, originY = 0] = style.transformOrigin.split(' ').map(parseFloat);
+  const reference = style.transformBox === 'fill-box' ? group.getBBox() : { x: 0, y: 0 };
+  const id = `${svgShape.id}.late${snapshot.nextId.value}`;
+  snapshot.nextId.value += 1;
+  const shape: RawShape = {
+    id,
+    label: labelOf(group),
+    kind: 'group',
+    box: svgShape.box,
+    radius: [0, 0, 0, 0],
+    fill: null,
+    stroke: null,
+    opacity: 1,
+    transformOrigin: { x: reference.x + originX, y: reference.y + originY },
+    clip: false,
+    transform: [base.a, base.b, base.c, base.d, base.e, base.f],
+    shadow: null,
+    clipPath: null,
+    filter: null,
+    inSvg: [outer.a, outer.b, outer.c, outer.d, outer.e, outer.f],
+    gradient: null,
+    words: null,
+    icon: null,
+    children: inside.map((item) => item.shape),
+  };
+  for (const item of inside) {
+    item.parent.children = item.parent.children.filter((child) => child !== item.shape);
+  }
+  const at = first.parent.children.length;
+  first.parent.children.splice(at, 0, shape);
+  snapshot.shapeIdOf.set(group, id);
+  snapshot.shapeOf.set(group, shape);
+  snapshot.ownerOf.set(shape, group);
+  return true;
+}
+
+function addNewGroup(snapshot: Snapshot, group: SVGGElement, svgShape: RawShape): boolean {
+  const walk = lateWalk(snapshot);
+  const shape = groupShape(walk, group, svgShape.box, `${svgShape.id}.late${walk.count}`);
+  if (shape === null) return false;
+  walk.count += 1;
+  const textColor = getComputedStyle(group).color;
+  const parts = Array.from(group.querySelectorAll(GEOMETRY)).filter(
+    (part) => part.closest(NOT_DRAWN) === null,
+  );
+  for (const part of parts.slice(0, MOST_ICON_PATHS)) {
+    const made = iconPart(part, textColor);
+    if (made === null || made === 'hidden') continue;
+    shape.children.push(partShape(walk, made, svgShape.box, `${shape.id}.p${walk.count}`));
+    walk.count += 1;
+  }
+  snapshot.nextId.value = walk.count;
+  if (shape.children.length === 0) return false;
+  svgShape.children.push(shape);
+  return true;
 }
 
 // A ::before or ::after that has no shape yet, because it did not exist or

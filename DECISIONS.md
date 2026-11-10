@@ -624,3 +624,23 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 The sweep also counts motion driven by script frame by frame (inline styles changing every frame, with no browser animation): three elements in 23 sites (on Framer, Figma and Airbnb). These sites animate almost everything with CSS.
 **Why:** asked to "try it on websites like stripe, vercel, mercury".
 **Gave up:** script-driven motion is still not captured. Animations of SVG groups (`<g>`, Railway's trains) are listed as left out. A canvas blur is not scaled with the preview's zoom.
+
+### D118. Animated SVG groups
+**Chose:** a new shape kind, `group`, for a `<g>` that animates. It holds the parts inside it. Its `transform` is its whole transform when it was measured, and `inSvg` maps its parent's coordinates to the SVG's box. Its parts keep the positions they had then. The stage applies only the change, the animated transform times the inverse of the measured one, in the SVG's coordinates, so a group already moving when picked is not moved twice. A group that only starts animating during the take (a class added on hover) gets its shape then: its existing parts move into it, measured against its base transform; new parts are measured together with it. An animation inside an SVG `<mask>` or `<clipPath>` is listed as a cut-out the preview cannot draw.
+**Why:** asked for, after Railway's trains were "left out of the simplified drawing". On Railway itself they turned out to be a mask (a cut-out that reveals the logo), which the note now says. Groups that are drawn content (illustrations, icons whose parts move together) are drawn.
+**Gave up:** masks themselves are still not drawn.
+
+### D119. Layout animations, measured
+**Chose:** while a take animates anything that can affect layout (not only colors, transforms, opacity and the like), capture reads each part's layout box every frame (offsets, without transforms; it only reads). When the take ends, a part's movement relative to its parent shape, and its change in size, become tracks with a new origin, `layout`: `left`, `top`, `width` and `height` in px, with up to 30 keyframes (Ramer-Douglas-Peucker, half a pixel). Changes a part's own animations already describe are left to them. The stage draws them like any size or position track and fits where they take things. Descriptions add one sentence ("2 parts move with the layout."), the timeline names them "Moved by layout" and "Resized by layout", and the CSS export leaves them out: they are what the browser did, not CSS to write.
+**Why:** asked for. The preview has no layout engine, so an accordion opening did not push the items below it down, and margin and grid animations moved nothing. Measuring the page is exact where a layout engine would be a guess.
+**Gave up:** a layout track is linked to the take's own timing but not to its curve: editing an animation's curve does not reshape the layout's response. A pseudo-element in the flow of text is still not measured (daisyUI's toggle knob).
+
+### D120. A transition restarted every frame is one take
+**Chose:** a take cut off by a restart of the same property within 100 ms is held back. A run of three or more becomes one take, the last, with a note ("restarted N times in a row, most likely by a script"); fewer are sent as usual, so a quick hover-out is still its own take.
+**Why:** on Railway, a script nudged a transitioned element every frame and one hover made 91 takes, which would have filled the extension's list.
+**Gave up:** the motion the script makes is not reconstructed.
+
+### D121. The compare harness captures from an untouched run
+**Chose:** compare.cjs photographs the page during a paused, seeked run, and takes its capture from a second run of the same trigger that nothing pauses.
+**Why:** layout is measured every frame; on the paused run it recorded the seeking itself.
+**Gave up:** each case takes a few seconds longer.

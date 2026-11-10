@@ -59,7 +59,10 @@ export type Shape = {
   label: string;
   // 'path' is one part of an SVG icon: its transform and transformOrigin are
   // in the icon's own coordinates (icon[0].matrix places them), as in SVG.
-  kind: 'box' | 'text' | 'image' | 'path';
+  // 'group' is an SVG <g> that animates. For it, transform is its whole
+  // transform when picked (origin included), inSvg places it, and its
+  // children are the parts inside it.
+  kind: 'box' | 'text' | 'image' | 'path' | 'group';
   // Relative to the root shape, at rest.
   box: { x: number; y: number; width: number; height: number };
   // Top left, top right, bottom right, bottom left. In px.
@@ -89,6 +92,9 @@ export type Shape = {
   // The resting clip-path as computed CSS, such as "inset(0px 50% 0px 0px)"
   // or "polygon(50% 50%, 0% 0%, 100% 0%)". null when there is none.
   clipPath: string | null;
+  // For an SVG group: the matrix from its parent's coordinates to the
+  // shape's box (the SVG's), a b c d e f. null for everything else.
+  inSvg: [number, number, number, number, number, number] | null;
   // The resting CSS filter, such as "blur(3px)" or "grayscale(1)". null
   // when there is none.
   filter: string | null;
@@ -154,7 +160,10 @@ export type Track = {
   shapeId: ShapeId;
   // CSS name of one longhand property, for example "border-top-left-radius".
   property: string;
-  origin: 'css-transition' | 'css-animation' | 'web-animation';
+  // 'layout': not an animation on the page, but how a part moved or resized
+  // because the layout around it changed while the take ran (an accordion
+  // pushing the items below it down), measured there. Never exported.
+  origin: 'css-transition' | 'css-animation' | 'web-animation' | 'layout';
   // Tracks that came from the same animation share a group id and are
   // retimed together. null means the track stands alone (or was unlinked).
   groupId: GroupId | null;

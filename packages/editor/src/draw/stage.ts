@@ -2,7 +2,7 @@
 // images, and icons from their own outlines. Child shapes move inside their
 // parent's transform.
 
-import type { Shape, ShapeId } from '@motion-inspector/core';
+import { findShape, type Capture, type Shape, type ShapeId } from '@motion-inspector/core';
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
 import { clipPathOf } from './clipPath';
@@ -65,6 +65,9 @@ export type StageData = {
   // The box of the parent that cuts off the component on the page. Nothing
   // is drawn outside it. null when nothing cuts it off.
   frame: Area | null;
+  // Where layout tracks take the parts (see layoutReach). The stage fits
+  // this too, so a list that grows is not cut off. null when there are none.
+  reach: Area | null;
   theme: Theme;
 };
 
@@ -102,6 +105,23 @@ function shapePath(
 // pointer hit-testing both use this.
 function placement(shape: Shape, pose: Pose | null): DOMMatrix {
   let matrix = new DOMMatrix().translate(pose?.dx ?? 0, pose?.dy ?? 0);
+  // An SVG group: its parts are drawn where they were when picked, which
+  // includes the group's transform then. Only the change from it is
+  // applied, in the SVG's coordinates, so a group already moving when
+  // picked is not moved twice.
+  if (shape.kind === 'group') {
+    if (shape.inSvg === null || pose?.matrix == null) return matrix;
+    const toSvg = new DOMMatrix()
+      .translate(shape.box.x, shape.box.y)
+      .multiply(new DOMMatrix(shape.inSvg));
+    const { x, y } = shape.transformOrigin;
+    const now = new DOMMatrix()
+      .translate(x, y)
+      .multiply(new DOMMatrix(pose.matrix))
+      .translate(-x, -y);
+    const then = shape.transform === null ? new DOMMatrix() : new DOMMatrix(shape.transform);
+    return matrix.multiply(toSvg).multiply(now).multiply(then.inverse()).multiply(toSvg.inverse());
+  }
   const transform = pose?.matrix ?? shape.transform;
   if (shape.kind !== 'path' && transform !== null) {
     const originX = shape.box.x + shape.transformOrigin.x;
@@ -530,12 +550,42 @@ function visibleBounds(bounds: Area, frame: Area | null): Area {
 
 // How the drawing is fitted into an area: its scale, where the top left of
 // what is drawn lands, and which point of the root's coordinates that is.
+function union(first: Area, second: Area | null): Area {
+  if (second === null) return first;
+  const left = Math.min(first.x, second.x);
+  const top = Math.min(first.y, second.y);
+  const right = Math.max(first.x + first.width, second.x + second.width);
+  const bottom = Math.max(first.y + first.height, second.y + second.height);
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+// Where the layout tracks of a capture take its parts at their end: an
+// item pushed down, a list grown taller. Measured from the shapes' boxes.
+export function layoutReach(capture: Capture): Area | null {
+  let reach: Area | null = null;
+  for (const track of capture.tracks) {
+    if (track.origin !== 'layout') continue;
+    const shape = findShape(capture.root, track.shapeId);
+    const first = track.keyframes[0]?.parsed;
+    const last = track.keyframes[track.keyframes.length - 1]?.parsed;
+    if (shape === null || first?.kind !== 'length' || last?.kind !== 'length') continue;
+    const moved = { ...shape.box };
+    if (track.property === 'left') moved.x += last.px - first.px;
+    if (track.property === 'top') moved.y += last.px - first.px;
+    if (track.property === 'width') moved.width = Math.max(moved.width, last.px);
+    if (track.property === 'height') moved.height = Math.max(moved.height, last.px);
+    reach = reach === null ? moved : union(reach, moved);
+  }
+  return reach;
+}
+
 function fit(
   root: Shape,
   frame: Area | null,
   area: Area,
+  reach: Area | null = null,
 ): { scale: number; left: number; top: number; originX: number; originY: number } {
-  const bounds = visibleBounds(restBounds(root), frame);
+  const bounds = visibleBounds(union(restBounds(root), reach), frame);
   const scale = Math.min(
     (area.width - PADDING * 2) / Math.max(bounds.width, 1),
     (area.height - PADDING * 2) / Math.max(bounds.height, 1),
@@ -555,10 +605,11 @@ function inArea(
   context: CanvasRenderingContext2D,
   root: Shape,
   frame: Area | null,
+  reach: Area | null,
   area: Area,
   draw: (scale: number) => void,
 ): void {
-  const { scale, left, top, originX, originY } = fit(root, frame, area);
+  const { scale, left, top, originX, originY } = fit(root, frame, area, reach);
   context.save();
   context.translate(left, top);
   context.scale(scale, scale);
@@ -647,7 +698,7 @@ function hitShape(shape: Shape, poses: Pose[], parent: DOMMatrix, point: DOMPoin
 // The shape of my version under a point on the canvas, or null.
 export function shapeAt(
   point: { x: number; y: number },
-  data: Pick<StageData, 'root' | 'mine' | 'compare' | 'frame'>,
+  data: Pick<StageData, 'root' | 'mine' | 'compare' | 'frame' | 'reach'>,
   size: Size,
 ): ShapeId | null {
   const { scale, left, top, originX, originY } = fit(
@@ -680,7 +731,7 @@ export function drawStage(context: CanvasRenderingContext2D, data: StageData, si
   const { root, theme } = data;
   paintBackdrop(context, data, mineArea(data.compare, size));
   if (data.compare === 'overlay') {
-    inArea(context, root, data.frame, mineArea('overlay', size), (scale) =>
+    inArea(context, root, data.frame, data.reach, mineArea('overlay', size), (scale) =>
       drawMine(context, data, scale),
     );
     return;
@@ -690,10 +741,17 @@ export function drawStage(context: CanvasRenderingContext2D, data: StageData, si
   // The two halves start below their captions.
   const height = size.height - CAPTION_HEIGHT;
   paintBackdrop(context, data, { x: 0, y: CAPTION_HEIGHT, width: half, height });
-  inArea(context, root, data.frame, { x: 0, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
-    drawFilled(context, root, data.original, null, theme, scale);
-  });
-  inArea(context, root, data.frame, mineArea('side-by-side', size), (scale) =>
+  inArea(
+    context,
+    root,
+    data.frame,
+    data.reach,
+    { x: 0, y: CAPTION_HEIGHT, width: half, height },
+    (scale) => {
+      drawFilled(context, root, data.original, null, theme, scale);
+    },
+  );
+  inArea(context, root, data.frame, data.reach, mineArea('side-by-side', size), (scale) =>
     drawMine(context, data, scale),
   );
   caption(context, theme, 'Original', 0);

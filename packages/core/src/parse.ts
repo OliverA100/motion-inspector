@@ -279,7 +279,7 @@ export function parseTiming(value: unknown): Result<Timing> {
 
 // ---------- Tracks ----------
 
-const ORIGINS = ['css-transition', 'css-animation', 'web-animation'] as const;
+const ORIGINS = ['css-transition', 'css-animation', 'web-animation', 'layout'] as const;
 
 function parseGroupId(value: unknown): Result<GroupId | null> {
   if (value === null) return ok(null);
@@ -336,7 +336,7 @@ export function parseTrack(value: unknown): Result<Track> {
 
 // ---------- Shapes ----------
 
-const SHAPE_KINDS = ['box', 'text', 'image', 'path'] as const;
+const SHAPE_KINDS = ['box', 'text', 'image', 'path', 'group'] as const;
 
 // Takes saved before a field existed have none. They still load, with null.
 function optional<Value>(
@@ -637,6 +637,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const shadow = at('shadow', optional(get(source, 'shadow'), parseShadow));
     const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
     const filter = at('filter', optional(get(source, 'filter'), text));
+    const inSvg = at('inSvg', optional(get(source, 'inSvg'), parseMatrix));
     const gradient = at('gradient', optional(get(source, 'gradient'), parseGradient));
     const words = at('words', optional(get(source, 'words'), parseWords));
     const children = at(
@@ -659,6 +660,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !shadow.ok ||
       !clipPath.ok ||
       !filter.ok ||
+      !inSvg.ok ||
       !gradient.ok ||
       !words.ok ||
       !children.ok
@@ -680,6 +682,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           shadow,
           clipPath,
           filter,
+          inSvg,
           gradient,
           words,
           children,
@@ -701,6 +704,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       shadow: shadow.value,
       clipPath: clipPath.value,
       filter: filter.value,
+      inSvg: inSvg.value,
       gradient: gradient.value,
       words: words.value,
       icon: icon.value,

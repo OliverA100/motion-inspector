@@ -196,9 +196,9 @@ Script-driven motion (inline styles changing every frame, no browser animation) 
 - **Text is drawn as bars.** Page text is never copied.
 - **A toggle's knob drawn as a background image** (Bootstrap's switch) is not shown.
 - **SVG animations (SMIL) and JavaScript-driven animations are not captured.**
-- **Layout animations are not drawn.** daisyUI's toggle animates `grid-template-columns`; MUI's and Mantine's accordions animate `margin`. The preview has no layout engine.
+- **Layout is measured, not computed** (D119): parts pushed or resized by an animation move as they did on the page, but only for the take as it was recorded. A pseudo-element in the flow of text (daisyUI's toggle knob) is still not measured.
 - **Click ripples** (MUI) are created and removed by script during the click, and are often gone before they can be measured.
 - **Menus and dialogs that open elsewhere** (a portal at the end of the page) are not part of the picked element. Pick them when open.
 - **A pseudo-element in the flow of text** (an inline arrow after a link) is listed, not drawn: its box cannot be measured.
 - **Motion driven by script frame by frame** (some Framer Motion or GSAP effects) is not captured: the browser does not report it as an animation.
-- **Animated SVG groups** (`<g>`) are listed, not drawn.
+- **SVG masks and clips are not drawn.** Railway's moving trains are a mask; they are listed with that reason.
