@@ -247,7 +247,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 72 | Stripe | The nav caret, 2 px off in every sweep: translate set apart from an animated transform was dropped | translate, rotate and scale are kept with transform (D147): 0 px |
 | 73 | Magic UI | The rotating word's outgoing heading was "left out of the drawing": text only, and gone by the end of the take | Shaped as soon as it animates (D144) |
 
-After this pass the sweep checks 279 elements on 32 sites: all within 1.4 px of the page but GitHub's dialog, which the page plays late. Stripe's caret, the other, is fixed (72).
+The sweep now also runs Magic UI, Aceternity, a scroll-driven demo, and menus and dialogs that open at the end of the page (shadcn, MUI, Ant Design), and Catalyst's switch: 43 more elements, all within 1.4 px. Before them, it checked 279 elements on 32 sites: all within 1.4 px of the page but GitHub's dialog, which the page plays late. Stripe's caret, the other, is fixed (72).
 
 ## Known limits seen on real sites
 

@@ -58,6 +58,10 @@ const sites = [
   { name: 'pico', url: 'https://picocss.com/docs/switch' },
   { name: 'antd-button', url: 'https://ant.design/components/button' },
   { name: 'antd-switch', url: 'https://ant.design/components/switch' },
+  { name: 'magicui-shimmer', url: 'https://magicui.design/docs/components/shimmer-button', loaders: 3 },
+  { name: 'magicui-marquee', url: 'https://magicui.design/docs/components/marquee', loaders: 3 },
+  { name: 'aceternity-hover', url: 'https://ui.aceternity.com/components/card-hover-effect', hover: 6 },
+  { name: 'sda-image-reveal', url: 'https://scroll-driven-animations.style/demos/image-reveal/css/', loaders: 3 },
   { name: 'chakra', url: 'https://chakra-ui.com/docs/components/switch' },
   { name: 'tailwind', url: 'https://tailwindcss.com/' },
   { name: 'vercel', url: 'https://vercel.com/' },
@@ -124,6 +128,13 @@ const sites = [
     ['mantine-accordion', 'https://mantine.dev/core/accordion/'],
     ['chakra-accordion', 'https://www.chakra-ui.com/docs/components/accordion'],
     ['flowbite-accordion', 'https://flowbite.com/docs/components/accordion/'],
+    // Menus and dialogs that open at the end of the page (D141).
+    ['shadcn-dropdown', 'https://ui.shadcn.com/docs/components/dropdown-menu'],
+    ['shadcn-dialog', 'https://ui.shadcn.com/docs/components/dialog'],
+    ['mui-menu', 'https://mui.com/material-ui/react-menu/'],
+    ['antd-collapse', 'https://ant.design/components/collapse'],
+    ['antd-modal', 'https://ant.design/components/modal'],
+    ['catalyst-switch', 'https://catalyst.tailwindui.com/docs/switch'],
   ].map(([name, url]) => ({ name: `c-${name}`, url, click: 6, hover: 1 })),
 ];
 
