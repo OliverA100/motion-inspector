@@ -1,7 +1,7 @@
 // Draws speed over time for the selected track: original and mine.
 // Speed 1 is "as fast as a straight line".
 
-import { easingSpeed, type Easing } from '@motion-inspector/core';
+import { easingDistance, easingSpeed, type Easing } from '@motion-inspector/core';
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
 
@@ -9,6 +9,7 @@ export type SpeedData = {
   original: Easing;
   mine: Easing;
   playhead: number | null;
+  showOriginal: boolean;
   theme: Theme;
 };
 
@@ -54,6 +55,9 @@ export function drawSpeed(context: CanvasRenderingContext2D, data: SpeedData, si
   context.textBaseline = 'bottom';
   context.textAlign = 'right';
   context.fillText('steady speed', x(1), y(1) - 4);
+  context.textAlign = 'left';
+  context.textBaseline = 'top';
+  context.fillText('faster', x(0), PADDING - 12);
 
   const stroke = (values: number[]): void => {
     context.beginPath();
@@ -65,11 +69,13 @@ export function drawSpeed(context: CanvasRenderingContext2D, data: SpeedData, si
   };
 
   context.lineJoin = 'round';
-  context.strokeStyle = theme.original;
-  context.lineWidth = 1.5;
-  context.setLineDash([4, 4]);
-  stroke(original);
-  context.setLineDash([]);
+  if (data.showOriginal && easingDistance(data.original, data.mine) > 0) {
+    context.strokeStyle = theme.original;
+    context.lineWidth = 1.5;
+    context.setLineDash([4, 4]);
+    stroke(original);
+    context.setLineDash([]);
+  }
   context.strokeStyle = theme.accent;
   context.lineWidth = 2;
   stroke(mine);

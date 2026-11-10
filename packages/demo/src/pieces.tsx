@@ -9,6 +9,7 @@ import {
   createProbe,
   CurveEditor,
   isPreviewed,
+  plainName,
   Playback,
   SpeedGraph,
   Stage,
@@ -52,12 +53,13 @@ function StagePiece() {
         root={cardLift.root}
         mine={mine}
         original={original}
+        showOriginal
         compare={compare}
         selectedShapeId={cardLift.root.id}
         onCompareChange={setCompare}
       />
       <input
-        className="scrubber"
+        style={{ width: '100%' }}
         type="range"
         aria-label="Time"
         min={0}
@@ -75,6 +77,7 @@ function CurvePiece() {
     <CurveEditor
       original={overshoot}
       mine={mine}
+      showOriginal
       playhead={0.3}
       durationMs={400}
       term="transition-timing-function"
@@ -88,18 +91,29 @@ function CurvePiece() {
 }
 
 function TimelinePiece() {
-  const [selected, setSelected] = useState(0);
-  const rows = timelineRows(staggerList, staggerList).map((row) => ({
+  const [selected, setSelected] = useState<number | null>(0);
+  const [hidden, setHidden] = useState<number[]>([]);
+  const [timeMs, setTimeMs] = useState(200);
+  const rows = timelineRows(staggerList, staggerList).map((row, index) => ({
     ...row,
+    name: plainName(row.property),
     previewed: isPreviewed(row.property),
+    shown: !hidden.includes(index),
   }));
   return (
     <Timeline
       tracks={rows}
       selectedIndex={selected}
       totalMs={takeLengthMs(staggerList)}
-      playheadMs={200}
+      playheadMs={timeMs}
+      showOriginal
+      controls={null}
       onSelect={setSelected}
+      onToggle={(index) =>
+        setHidden(hidden.includes(index) ? hidden.filter((item) => item !== index) : [...hidden, index])
+      }
+      onScrub={setTimeMs}
+      onDragChange={() => {}}
     />
   );
 }
@@ -108,18 +122,16 @@ function PlaybackPiece() {
   const [playing, setPlaying] = useState(false);
   const [loop, setLoop] = useState(true);
   const [speed, setSpeed] = useState<Speed>(1);
-  const [timeMs, setTimeMs] = useState(300);
   return (
     <Playback
       playing={playing}
       loop={loop}
       speed={speed}
-      timeMs={timeMs}
+      timeMs={300}
       totalMs={takeLengthMs(bounce)}
       onPlayToggle={() => setPlaying(!playing)}
       onLoopChange={setLoop}
       onSpeedChange={setSpeed}
-      onScrub={setTimeMs}
     />
   );
 }
@@ -144,12 +156,12 @@ function Pieces() {
           <CurvePiece />
         </Piece>
         <Piece name="SpeedGraph" about="Speed over time for two easings.">
-          <SpeedGraph original={overshoot} mine={easeOut} playhead={0.3} />
+          <SpeedGraph original={overshoot} mine={easeOut} playhead={0.3} showOriginal />
         </Piece>
-        <Piece name="Timeline" about="One row per shape and property. Click a row to select it.">
+        <Piece name="Timeline" about="One row per shape and property. Click a row to select it, untick it to leave it out, and drag on the bars to move through time.">
           <TimelinePiece />
         </Piece>
-        <Piece name="Playback" about="Play, loop, speed, and a scrubber. Here it only holds its own state.">
+        <Piece name="Playback" about="Play, loop, speed and the current time. Here it only holds its own state.">
           <PlaybackPiece />
         </Piece>
       </main>

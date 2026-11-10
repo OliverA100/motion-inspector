@@ -4,7 +4,7 @@
 // over it, 24 px wide and invisible. That one element gives the handle its
 // larger hit area, hover and pressed states, focus ring, and keyboard path.
 
-import { useCallback, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import {
   cubicBezier,
   easingDistance,
@@ -17,12 +17,13 @@ import {
 } from '@motion-inspector/core';
 import {
   curvePlot,
+  DEFAULT_RANGE,
   drawCurve,
   handlesOf,
-  rangeFor,
-  type CurveRange,
+  widenRange,
   type Handles,
 } from '../draw/curve';
+import { curveFeel } from '../state/selectors';
 import { useTheme } from '../theme';
 import { Canvas, type Draw, type Size } from './Canvas';
 import { Button, Segmented } from './controls';
@@ -30,6 +31,7 @@ import { Button, Segmented } from './controls';
 type Props = {
   original: Easing;
   mine: Easing;
+  showOriginal: boolean;
   // Where playback is on this curve, as an input from 0 to 1.
   playhead: number | null;
   // How long the curve runs, for the readout.
@@ -55,14 +57,14 @@ const CLOSE_ENOUGH = 0.03;
 const SNAP_DISTANCE = 0.025;
 
 const PRESETS: { name: string; values: [number, number, number, number] }[] = [
-  { name: 'Linear', values: [0.25, 0.25, 0.75, 0.75] },
+  { name: 'Steady', values: [0.25, 0.25, 0.75, 0.75] },
   { name: 'Ease', values: [0.25, 0.1, 0.25, 1] },
-  { name: 'Ease in', values: [0.42, 0, 1, 1] },
-  { name: 'Ease out', values: [0, 0, 0.58, 1] },
-  { name: 'Ease in-out', values: [0.42, 0, 0.58, 1] },
+  { name: 'Slow start', values: [0.42, 0, 1, 1] },
+  { name: 'Slow end', values: [0, 0, 0.58, 1] },
+  { name: 'Slow both', values: [0.42, 0, 0.58, 1] },
   { name: 'Overshoot', values: [0.34, 1.56, 0.64, 1] },
-  { name: 'Anticipate', values: [0.36, 0, 0.66, -0.56] },
-  { name: 'Back and forth', values: [0.68, -0.6, 0.32, 1.6] },
+  { name: 'Pull back', values: [0.36, 0, 0.66, -0.56] },
+  { name: 'Both', values: [0.68, -0.6, 0.32, 1.6] },
 ];
 
 function bezier(handles: Handles): Easing | null {
@@ -79,31 +81,32 @@ function clamp(value: number, lowest: number, highest: number): number {
   return Math.min(Math.max(value, lowest), highest);
 }
 
-function overshootPercent(easing: Easing): number {
-  const outputs = Array.from({ length: 101 }, (_item, index) => evaluateEasing(easing, index / 100));
-  return Math.round((Math.max(...outputs) - 1) * 100);
-}
-
-type Drag = { index: 0 | 1; left: number; top: number; range: CurveRange };
+type Drag = { index: 0 | 1; left: number; top: number };
 
 export function CurveEditor(props: Props) {
-  const { original, mine, playhead, onChange, onCommit, onDragChange } = props;
+  const { original, mine, showOriginal, playhead, onChange, onCommit, onDragChange } = props;
   const theme = useTheme();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size | null>(null);
   const [hover, setHover] = useState<number | null>(null);
-  // While a handle is dragged, the plot's range is frozen, so the grid does
-  // not rescale under the pointer. It is worked out again on release.
   const [drag, setDrag] = useState<Drag | null>(null);
 
-  const range = drag?.range ?? rangeFor([original, mine]);
+  // The chart's vertical scale. It starts wide and only ever widens, and
+  // never during a drag, so the grid does not move under the pointer.
+  const [range, setRange] = useState(() => widenRange(DEFAULT_RANGE, [original, mine]));
+  useEffect(() => {
+    if (drag !== null) return;
+    const wider = widenRange(range, [original, mine]);
+    if (wider.lowest !== range.lowest || wider.highest !== range.highest) setRange(wider);
+  }, [original, mine, drag, range]);
+
   const handles = handlesOf(mine);
   const plot = size === null ? null : curvePlot(size, range);
 
   const draw = useCallback<Draw>(
     (context, canvasSize) =>
-      drawCurve(context, { original, mine, playhead, hover, range, theme }, canvasSize),
-    [original, mine, playhead, hover, range.lowest, range.highest, theme],
+      drawCurve(context, { original, mine, playhead, hover, range, showOriginal, theme }, canvasSize),
+    [original, mine, playhead, hover, range, showOriginal, theme],
   );
 
   const setHandle = (index: 0 | 1, x: number, y: number): void => {
@@ -119,15 +122,14 @@ export function CurveEditor(props: Props) {
     // Capture: the drag keeps working when the pointer leaves the canvas.
     event.currentTarget.setPointerCapture(event.pointerId);
     // The wrapper's position is read once here, not on every move.
-    setDrag({ index, left: box.left, top: box.top, range });
+    setDrag({ index, left: box.left, top: box.top });
     onDragChange(true);
   };
 
   const onHandleMove = (event: PointerEvent<HTMLButtonElement>): void => {
-    if (drag === null || size === null) return;
-    const frozen = curvePlot(size, drag.range);
-    const x = clamp(frozen.input(event.clientX - drag.left), 0, 1);
-    const y = clamp(frozen.output(event.clientY - drag.top), drag.range.lowest, drag.range.highest);
+    if (drag === null || plot === null) return;
+    const x = clamp(plot.input(event.clientX - drag.left), 0, 1);
+    const y = clamp(plot.output(event.clientY - drag.top), range.lowest, range.highest);
     setHandle(drag.index, event.altKey ? x : snap(x), event.altKey ? y : snap(y));
   };
 
@@ -173,14 +175,14 @@ export function CurveEditor(props: Props) {
   };
 
   const nearest = nearestNamedEasing(mine);
-  const overshoot = overshootPercent(mine);
+  const feel = curveFeel(mine);
   const readAt = hover ?? playhead;
   const handlePoints: { index: 0 | 1; x: number; y: number; name: string }[] =
     handles === null
       ? []
       : [
-          { index: 0, x: handles.x1, y: handles.y1, name: 'First handle' },
-          { index: 1, x: handles.x2, y: handles.y2, name: 'Second handle' },
+          { index: 0, x: handles.x1, y: handles.y1, name: 'Start handle' },
+          { index: 1, x: handles.x2, y: handles.y2, name: 'End handle' },
         ];
 
   return (
@@ -198,6 +200,10 @@ export function CurveEditor(props: Props) {
           />
         ) : null}
       </header>
+      <p className="panel__hint">
+        How the selected property gets from its start value to its end value. Left to right is
+        time. The steeper the line, the faster it moves.
+      </p>
 
       <div
         ref={wrapperRef}
@@ -206,7 +212,7 @@ export function CurveEditor(props: Props) {
         onPointerLeave={() => setHover(null)}
       >
         <Canvas
-          label="Easing curve. Dashed is the original, solid is mine."
+          label="Easing curve. Solid is mine, dashed is the original."
           height={HEIGHT}
           draw={draw}
           onSize={setSize}
@@ -235,59 +241,74 @@ export function CurveEditor(props: Props) {
             ))}
       </div>
 
+      {/* Three lines, each always present, so nothing below ever moves. */}
       <div className="readout">
-        <code>{easingToCss(mine)}</code>
-        {nearest.distance > 0 && nearest.distance < CLOSE_ENOUGH ? (
-          <span>close to {nearest.name}</span>
-        ) : null}
-        {overshoot > 0 ? <span>{overshoot}% overshoot</span> : null}
-        {/* The space is always reserved, so nothing shifts when it appears. */}
-        <span className="readout__point">
+        <p className="readout__feel">
+          Starts <strong>{feel.start}</strong>, ends <strong>{feel.end}</strong>
+          {feel.extra !== null ? <>, {feel.extra}</> : null}.
+        </p>
+        <p className="readout__css" title={easingToCss(mine)}>
+          <code>{easingToCss(mine)}</code>
+          {nearest.distance > 0 && nearest.distance < CLOSE_ENOUGH ? (
+            <span> close to {nearest.name}</span>
+          ) : null}
+        </p>
+        <p className="readout__point">
           {readAt === null
-            ? ''
-            : `${formatNumber(Math.round(readAt * props.durationMs))} ms, ${formatNumber(
+            ? 'Point at the curve to read a moment on it.'
+            : `At ${formatNumber(Math.round(readAt * props.durationMs))} ms it is ${formatNumber(
                 Math.round(evaluateEasing(mine, readAt) * 100),
-              )}% progress`}
-        </span>
+              )}% of the way.`}
+        </p>
       </div>
 
-      {handles === null ? (
-        <div className="curve__note">
-          <span>
-            {mine.kind === 'steps'
-              ? 'This is a steps easing. It jumps, so it has no handles to drag.'
-              : 'This is a linear() easing, a curve made of straight pieces. It has no handles to drag.'}
-          </span>
-          <Button
-            onClick={() => {
-              onChange(fitBezier(mine));
-              onCommit();
-            }}
-          >
-            Convert to bezier
-          </Button>
-        </div>
-      ) : (
-        <div className="presets" role="group" aria-label="Curve presets">
-          {PRESETS.map((preset) => {
-            const [x1, y1, x2, y2] = preset.values;
-            const easing = bezier({ x1, y1, x2, y2 });
-            if (easing === null) return null;
-            return (
-              <Button
-                key={preset.name}
-                pressed={easingDistance(easing, mine) === 0}
-                onClick={() => {
-                  onChange(easing);
-                  onCommit();
-                }}
-              >
-                {preset.name}
-              </Button>
-            );
-          })}
-        </div>
-      )}
+      <div className="curve__help">
+        {handles === null ? (
+          <>
+            <p>
+              {mine.kind === 'steps'
+                ? 'This is a steps easing: it jumps from one position to the next. It has no handles to drag.'
+                : 'This is a linear() easing: a curve made of straight pieces. It has no handles to drag.'}
+            </p>
+            <Button
+              onClick={() => {
+                onChange(fitBezier(mine));
+                onCommit();
+              }}
+            >
+              Convert to a curve with handles
+            </Button>
+          </>
+        ) : (
+          <>
+            <dl className="guide">
+              <dt>Start handle</dt>
+              <dd>Drag right for a slower start. Drag up for a faster one.</dd>
+              <dt>End handle</dt>
+              <dd>Drag left for a gentler stop. Drag above the top line to overshoot.</dd>
+            </dl>
+            <div className="presets" role="group" aria-label="Ready-made curves">
+              {PRESETS.map((preset) => {
+                const [x1, y1, x2, y2] = preset.values;
+                const easing = bezier({ x1, y1, x2, y2 });
+                if (easing === null) return null;
+                return (
+                  <Button
+                    key={preset.name}
+                    pressed={easingDistance(easing, mine) === 0}
+                    onClick={() => {
+                      onChange(easing);
+                      onCommit();
+                    }}
+                  >
+                    {preset.name}
+                  </Button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
     </section>
   );
 }

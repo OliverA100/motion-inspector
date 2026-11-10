@@ -3,7 +3,7 @@
 
 import { test } from '@playwright/test';
 
-const milestone = 'm3';
+const milestone = 'm3-feedback';
 
 const pages = [
   { name: 'editor-card-lift', url: '/?sample=card-lift&time=150&quiet' },

@@ -10,5 +10,5 @@ export { Timeline } from './pieces/Timeline';
 export { createProbe, isPreviewed } from './probe';
 export type { Probe } from './probe';
 export type { Compare, Model, Msg, Speed } from './state/model';
-export { takeLengthMs, timelineRows } from './state/selectors';
+export { plainName, takeLengthMs, timelineRows } from './state/selectors';
 export { init, update } from './state/update';

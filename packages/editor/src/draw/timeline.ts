@@ -13,6 +13,8 @@ export type TimelineRow = {
   selected: boolean;
   // False for properties the stage cannot preview. The bar is drawn fainter.
   previewed: boolean;
+  // False when the track was taken out of the preview. Drawn as an outline.
+  shown: boolean;
 };
 
 export type TimelineData = {
@@ -22,8 +24,21 @@ export type TimelineData = {
   playheadMs: number;
   rowHeight: number;
   rulerHeight: number;
+  showOriginal: boolean;
   theme: Theme;
 };
+
+// Between a time and an x position on the timeline. The pointer handling
+// uses the same function as the drawing, so they always agree.
+export type TimelineScale = { x: (ms: number) => number; ms: (x: number) => number };
+
+export function timelineScale(width: number, totalMs: number): TimelineScale {
+  const plotWidth = width - SIDE_PADDING * 2;
+  return {
+    x: (ms) => SIDE_PADDING + (ms / totalMs) * plotWidth,
+    ms: (x) => ((x - SIDE_PADDING) / plotWidth) * totalMs,
+  };
+}
 
 const SIDE_PADDING = 12;
 const BAR_HEIGHT = 12;
@@ -53,14 +68,16 @@ export function drawTimeline(
   size: Size,
 ): void {
   const theme = data.theme;
-  const plotWidth = size.width - SIDE_PADDING * 2;
-  const x = (ms: number): number => SIDE_PADDING + (ms / data.totalMs) * plotWidth;
+  const x = timelineScale(size.width, data.totalMs).x;
 
   // Ruler: a tick and a label at each step. Every number has a unit.
   const step = rulerStep(data.totalMs);
   context.font = `${theme.textSmall}px ${theme.fontMono}`;
   context.textBaseline = 'middle';
   context.lineWidth = 1;
+  // Where the last label ended, so the next one is skipped if it would
+  // touch it (a short timeline on a narrow panel).
+  let labelEnd = -Infinity;
   for (let ms = 0; ms <= data.totalMs; ms += step) {
     const tickX = Math.round(x(ms)) + 0.5;
     context.strokeStyle = theme.grid;
@@ -69,12 +86,15 @@ export function drawTimeline(
     context.lineTo(tickX, size.height);
     context.stroke();
     // Labels sit just right of their tick, like a ruler. One that would run
-    // off the right edge is left out.
+    // off the right edge, or into the label before it, is left out.
     const label = ms === 0 ? '0 ms' : `${ms} ms`;
     context.fillStyle = theme.muted;
     context.textAlign = 'left';
-    if (x(ms) + 4 + context.measureText(label).width <= size.width) {
-      context.fillText(label, x(ms) + 4, data.rulerHeight / 2);
+    const labelStart = x(ms) + 4;
+    const labelWidth = context.measureText(label).width;
+    if (labelStart >= labelEnd + 8 && labelStart + labelWidth <= size.width) {
+      context.fillText(label, labelStart, data.rulerHeight / 2);
+      labelEnd = labelStart + labelWidth;
     }
   }
 
@@ -90,7 +110,7 @@ export function drawTimeline(
     context.stroke();
 
     // The original, as a dashed outline, only where mine differs.
-    if (!sameBar(row.mine, row.original)) {
+    if (data.showOriginal && row.shown && !sameBar(row.mine, row.original)) {
       const start = x(row.original.startMs + row.original.delayMs);
       context.strokeStyle = theme.original;
       context.setLineDash([3, 3]);
@@ -109,7 +129,7 @@ export function drawTimeline(
     // Delay: a thin line leading into the bar.
     const begin = x(row.mine.startMs);
     const barStart = x(row.mine.startMs + row.mine.delayMs);
-    if (row.mine.delayMs > 0) {
+    if (row.mine.delayMs > 0 && row.shown) {
       context.strokeStyle = row.selected ? theme.accent : theme.original;
       context.beginPath();
       context.moveTo(begin, Math.round(middle) + 0.5);
@@ -117,19 +137,26 @@ export function drawTimeline(
       context.stroke();
     }
 
-    // Duration: the bar.
-    context.globalAlpha = row.previewed ? 1 : 0.5;
-    context.fillStyle = row.selected ? theme.accent : theme.shape;
+    // Duration: the bar. A track taken out of the preview is an outline.
+    const barWidth = Math.max(2, Math.round(x(row.mine.durationMs) - x(0)));
     context.beginPath();
-    context.roundRect(
-      Math.round(barStart),
-      Math.round(middle - BAR_HEIGHT / 2),
-      Math.max(2, Math.round(x(row.mine.durationMs) - x(0))),
-      BAR_HEIGHT,
-      3,
-    );
-    context.fill();
-    context.globalAlpha = 1;
+    if (row.shown) {
+      context.globalAlpha = row.previewed ? 1 : 0.5;
+      context.fillStyle = row.selected ? theme.accent : theme.shape;
+      context.roundRect(Math.round(barStart), Math.round(middle - BAR_HEIGHT / 2), barWidth, BAR_HEIGHT, 3);
+      context.fill();
+      context.globalAlpha = 1;
+    } else {
+      context.strokeStyle = row.selected ? theme.accent : theme.shape;
+      context.roundRect(
+        Math.round(barStart) + 0.5,
+        Math.round(middle - BAR_HEIGHT / 2) + 0.5,
+        barWidth - 1,
+        BAR_HEIGHT - 1,
+        3,
+      );
+      context.stroke();
+    }
   });
 
   // Playhead: a line through every row, with a grip in the ruler.

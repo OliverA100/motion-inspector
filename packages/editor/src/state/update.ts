@@ -21,6 +21,8 @@ export function init(capture: Capture): Model {
     speed: 1,
     timeMs: 0,
     compare: 'overlay',
+    showOriginal: true,
+    hiddenTracks: [],
   };
 }
 
@@ -93,6 +95,17 @@ export function update(model: Model, msg: Msg): Model {
         ? model
         : { ...model, selectedTrack: msg.trackIndex, selectedSegment: 0 };
 
+    case 'trackDeselected':
+      return { ...model, selectedTrack: null, selectedSegment: 0 };
+
+    case 'trackToggled': {
+      if (model.edited.tracks[msg.trackIndex] === undefined) return model;
+      const hidden = model.hiddenTracks.includes(msg.trackIndex)
+        ? model.hiddenTracks.filter((index) => index !== msg.trackIndex)
+        : [...model.hiddenTracks, msg.trackIndex].sort((first, second) => first - second);
+      return { ...model, hiddenTracks: hidden };
+    }
+
     case 'segmentSelected': {
       const track = model.selectedTrack === null ? undefined : model.edited.tracks[model.selectedTrack];
       const lastSegment = (track?.keyframes.length ?? 0) - 2;
@@ -128,6 +141,9 @@ export function update(model: Model, msg: Msg): Model {
 
     case 'compareSet':
       return { ...model, compare: msg.compare };
+
+    case 'originalShown':
+      return { ...model, showOriginal: msg.show };
 
     case 'easingChanged':
       return changeEasing(model, msg.easing);

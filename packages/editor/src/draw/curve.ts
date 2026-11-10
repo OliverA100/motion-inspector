@@ -1,7 +1,7 @@
 // Draws the easing curve of the selected segment.
 // Dashed gray is the original, the accent color is mine.
 
-import { evaluateEasing, type Easing } from '@motion-inspector/core';
+import { easingDistance, evaluateEasing, type Easing } from '@motion-inspector/core';
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
 
@@ -14,6 +14,7 @@ export type CurveData = {
   hover: number | null;
   // The progress values at the bottom and top of the plot.
   range: CurveRange;
+  showOriginal: boolean;
   theme: Theme;
 };
 
@@ -29,17 +30,22 @@ export function handlesOf(easing: Easing): Handles | null {
   return { x1: easing.x1, y1: easing.y1, x2: easing.x2, y2: easing.y2 };
 }
 
-// A range that keeps both curves and all handles on screen, in steps of a
-// quarter so the grid lines stay put for small changes.
-export function rangeFor(easings: Easing[]): CurveRange {
+// The range every curve starts with. Wide enough for a normal overshoot,
+// so most edits never change the scale.
+export const DEFAULT_RANGE: CurveRange = { lowest: -0.25, highest: 1.75 };
+
+// Widens a range, in quarter steps, until the curves and their handles fit.
+// It never narrows: a scale that shrinks and grows as you edit makes the
+// whole chart jump.
+export function widenRange(range: CurveRange, easings: Easing[]): CurveRange {
   const values = easings.flatMap((easing) => {
     const handles = handlesOf(easing);
     const samples = Array.from({ length: 33 }, (_item, index) => evaluateEasing(easing, index / 32));
     return handles === null ? samples : [...samples, handles.y1, handles.y2];
   });
   return {
-    lowest: Math.floor((Math.min(0, ...values) - 0.1) * 4) / 4,
-    highest: Math.ceil((Math.max(1, ...values) + 0.1) * 4) / 4,
+    lowest: Math.min(range.lowest, Math.floor((Math.min(...values) - 0.05) * 4) / 4),
+    highest: Math.max(range.highest, Math.ceil((Math.max(...values) + 0.05) * 4) / 4),
   };
 }
 
@@ -135,6 +141,15 @@ function drawHandles(context: CanvasRenderingContext2D, plot: CurvePlot, data: C
     context.fill();
     context.stroke();
   }
+
+  // Name the handles, so the guide below the chart can refer to them.
+  context.fillStyle = data.theme.accent;
+  context.font = `${data.theme.textSmall}px ${data.theme.fontUi}`;
+  context.textBaseline = 'middle';
+  context.textAlign = 'left';
+  context.fillText('start', plot.x(mine.x1) + HANDLE_RADIUS + 6, plot.y(mine.y1));
+  context.textAlign = 'right';
+  context.fillText('end', plot.x(mine.x2) - HANDLE_RADIUS - 6, plot.y(mine.y2));
 }
 
 export function drawCurve(context: CanvasRenderingContext2D, data: CurveData, size: Size): void {
@@ -154,11 +169,15 @@ export function drawCurve(context: CanvasRenderingContext2D, data: CurveData, si
   drawAxisHints(context, plot, theme);
 
   context.lineJoin = 'round';
-  context.strokeStyle = theme.original;
-  context.lineWidth = 1.5;
-  context.setLineDash([4, 4]);
-  strokeCurve(context, plot, data.original);
-  context.setLineDash([]);
+  // The original is only drawn where it says something: when it is wanted,
+  // and when it is not the same curve as mine.
+  if (data.showOriginal && easingDistance(data.original, data.mine) > 0) {
+    context.strokeStyle = theme.original;
+    context.lineWidth = 1.5;
+    context.setLineDash([4, 4]);
+    strokeCurve(context, plot, data.original);
+    context.setLineDash([]);
+  }
 
   context.strokeStyle = theme.accent;
   context.lineWidth = 2;

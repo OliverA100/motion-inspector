@@ -29,7 +29,8 @@ export type StageData = {
   // Poses for shapes that are animating. A shape with no pose is at rest.
   mine: Pose[];
   original: Pose[];
-  compare: 'overlay' | 'side-by-side';
+  // "mine" draws no original at all.
+  compare: 'mine' | 'overlay' | 'side-by-side';
   selectedShapeId: ShapeId | null;
   theme: Theme;
 };
@@ -118,6 +119,9 @@ function drawOutline(
 ): void {
   walk(context, data.root, data.original, (shape, pose) => {
     if (pose === null) return;
+    // Where the original is exactly where mine is, the outline adds nothing.
+    const mine = data.mine.find((candidate) => candidate.shapeId === shape.id);
+    if (JSON.stringify(mine) === JSON.stringify(pose)) return;
     shapePath(context, shape, pose);
     context.strokeStyle = data.theme.original;
     context.lineWidth = 1 / scale;
@@ -161,11 +165,11 @@ function caption(context: CanvasRenderingContext2D, theme: Theme, text: string, 
 
 export function drawStage(context: CanvasRenderingContext2D, data: StageData, size: Size): void {
   const { root, theme } = data;
-  if (data.compare === 'overlay') {
+  if (data.compare !== 'side-by-side') {
     const whole = { x: 0, y: 0, width: size.width, height: size.height };
     inArea(context, root, whole, (scale) => {
       drawFilled(context, root, data.mine, data.selectedShapeId, theme, scale);
-      drawOutline(context, data, scale);
+      if (data.compare === 'overlay') drawOutline(context, data, scale);
     });
     return;
   }

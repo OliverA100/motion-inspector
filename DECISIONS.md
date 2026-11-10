@@ -221,3 +221,35 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** the take's length counts two iterations of an infinite animation.
 **Why:** the timeline and the scrubber need an end, and two cycles show the repeat.
 **Gave up:** the choice of two is arbitrary.
+
+## Editor, after the first feel test (M3 feedback)
+
+### D41. The timeline is the only scrubber
+**Chose:** the separate slider is gone. Pressing or dragging anywhere on the timeline's bars moves the playhead, and the play controls sit in the timeline's header. This replaces D36.
+**Why:** two controls for one thing (a slider and a playhead) made it unclear which was the real one.
+**Gave up:** the free keyboard and screen-reader support of a native slider. The timeline now sets `role="slider"` and its values by hand, and Home and End are handled in code.
+
+### D42. Space is reserved for everything that can change
+**Chose:** the description keeps room for three lines. The curve readout is three lines of fixed height that cut long text with an ellipsis. "Play" and "Pause" share one width. The time readout reserves its widest value. The curve and speed panels sit in slots of fixed height. The page always keeps room for the scrollbar.
+**Why:** each of these moved the page while it was being used. A browser test (`nothing shifts while the editor is used`) now records where every block is, plays, drags, picks presets, toggles and selects, and fails if any block moved by a pixel.
+**Gave up:** some empty space, most visible under a short description on a narrow panel. The slot heights are numbers measured from the tallest real content at each width, so they need another look if the content of those panels changes.
+
+### D43. The curve chart's scale only widens
+**Chose:** the chart starts with room for a normal overshoot, widens in quarter steps when a curve needs more, and never narrows while the same track is selected. This replaces D35.
+**Why:** rescaling to fit after every release made the chart jump each time a handle was let go.
+**Gave up:** after one extreme curve the chart stays zoomed out until another track is selected.
+
+### D44. The original is optional, and only drawn where it differs
+**Chose:** one toggle, "Show the original (dashed)", for the stage, curve, speed graph and timeline. When it is on, a dashed line is still only drawn where the original is not the same as mine.
+**Why:** before any edit the two are identical, so the dashed lines sat exactly on the solid ones and only added noise.
+**Gave up:** with nothing edited there is no dashed line to show that the feature exists. The toggle's label says what it is.
+
+### D45. A track can be left out without deleting it
+**Chose:** each timeline row has a checkbox. Unticking it takes the track out of the preview and the description. The track stays in the Model, as an index in `hiddenTracks`.
+**Why:** real captures include tracks that are not interesting. Hiding is reversible and keeps `edited` and `original` the same length, which every other part relies on.
+**Gave up:** nothing is ever removed from the capture. Whether hidden tracks are left out of the exports is decided in M4.
+
+### D46. The curve is explained in words
+**Chose:** the handles are labeled "start" and "end" on the chart. Under it, one line says what the curve does ("Starts fast, ends gentle, overshoots by 10%"), and a short guide says what moving each handle does. Presets are named by effect ("Slow start"), not by CSS keyword. Each panel has a one-line hint, and timeline rows show a plain name before the CSS term.
+**Why:** a bezier chart is not self-explanatory, and CSS keywords like `ease-in` do not say what they do.
+**Gave up:** more text on screen, against the brief's "show less by default". The CSS terms are still there, in mono, beside the plain words.

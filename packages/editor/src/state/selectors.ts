@@ -1,6 +1,8 @@
 // Pure questions about a Model or a Capture. No React, no DOM.
 
 import {
+  easingSpeed,
+  evaluateEasing,
   findShape,
   formatNumber,
   sampleTrack,
@@ -119,4 +121,71 @@ export function segmentLabels(track: Track): string[] | null {
     const end = track.keyframes[index + 1]?.offset ?? 1;
     return `${formatNumber(Math.round(keyframe.offset * 100))} to ${formatNumber(Math.round(end * 100))}%`;
   });
+}
+
+// A capture without the tracks that were taken out of the preview.
+export function withoutHidden(capture: Capture, hiddenTracks: number[]): Capture {
+  if (hiddenTracks.length === 0) return capture;
+  return {
+    ...capture,
+    tracks: capture.tracks.filter((_track, index) => !hiddenTracks.includes(index)),
+  };
+}
+
+// ---------- Plain words ----------
+
+const CORNERS: { property: string; name: string }[] = [
+  { property: 'border-top-left-radius', name: 'Corner, top left' },
+  { property: 'border-top-right-radius', name: 'Corner, top right' },
+  { property: 'border-bottom-right-radius', name: 'Corner, bottom right' },
+  { property: 'border-bottom-left-radius', name: 'Corner, bottom left' },
+];
+
+const PLAIN_NAMES: { property: string; name: string }[] = [
+  { property: 'transform', name: 'Move and scale' },
+  { property: 'translate', name: 'Move' },
+  { property: 'rotate', name: 'Rotate' },
+  { property: 'scale', name: 'Scale' },
+  { property: 'opacity', name: 'Fade' },
+  { property: 'background-color', name: 'Background' },
+  { property: 'box-shadow', name: 'Shadow' },
+  { property: 'width', name: 'Width' },
+  { property: 'height', name: 'Height' },
+  { property: 'border-top-color', name: 'Border color, top' },
+  { property: 'border-right-color', name: 'Border color, right' },
+  { property: 'border-bottom-color', name: 'Border color, bottom' },
+  { property: 'border-left-color', name: 'Border color, left' },
+  ...CORNERS,
+];
+
+// The plain word for a CSS property, shown before the CSS term.
+// null when there is none, and the CSS term stands alone.
+export function plainName(property: string): string | null {
+  return PLAIN_NAMES.find((entry) => entry.property === property)?.name ?? null;
+}
+
+// What a curve does, in words, so the picture does not have to be decoded.
+export type CurveFeel = { start: string; end: string; extra: string | null };
+
+const FAST = 1.4;
+const SLOW = 0.6;
+
+export function curveFeel(easing: Easing): CurveFeel {
+  if (easing.kind === 'steps') {
+    return { start: 'jumps', end: 'jumps', extra: `${easing.count} steps` };
+  }
+  const startSpeed = easingSpeed(easing, 0.03);
+  const endSpeed = easingSpeed(easing, 0.97);
+  const outputs = Array.from({ length: 101 }, (_item, index) => evaluateEasing(easing, index / 100));
+  const overshoot = Math.round((Math.max(...outputs) - 1) * 100);
+  const pullBack = Math.round(-Math.min(...outputs) * 100);
+  const extras = [
+    ...(pullBack > 0 ? [`pulls back ${pullBack}% first`] : []),
+    ...(overshoot > 0 ? [`overshoots by ${overshoot}%`] : []),
+  ];
+  return {
+    start: startSpeed > FAST ? 'fast' : startSpeed < SLOW ? 'slow' : 'steady',
+    end: endSpeed > FAST ? 'abrupt' : endSpeed < SLOW ? 'gentle' : 'steady',
+    extra: extras.length === 0 ? null : extras.join(', '),
+  };
 }

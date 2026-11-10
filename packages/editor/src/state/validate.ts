@@ -27,9 +27,12 @@ export function validateModel(model: Model): Result<Model> {
       ? []
       : ['edited tracks must keep the shape, property and values of the original.']),
     ...(track === undefined ? ['selectedTrack does not point at a track.'] : []),
-    ...(model.selectedTrack === null && model.edited.tracks.length > 0
-      ? ['A capture with tracks must have one selected.']
-      : []),
+    ...(model.hiddenTracks.every(
+      (index, at) =>
+        model.edited.tracks[index] !== undefined && (at === 0 || index > (model.hiddenTracks[at - 1] ?? -1)),
+    )
+      ? []
+      : ['hiddenTracks must be sorted indexes of existing tracks, with no repeats.']),
     ...(track !== null && track !== undefined && model.selectedSegment > track.keyframes.length - 2
       ? ['selectedSegment is past the last segment.']
       : []),

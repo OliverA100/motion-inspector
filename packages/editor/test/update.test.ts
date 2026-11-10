@@ -1,9 +1,10 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
-import { bounce, cardLift, dots, loader } from '@motion-inspector/core/src/samples';
+import { NAMED_EASINGS } from '@motion-inspector/core';
+import { bounce, buttonHover, cardLift, dots, loader } from '@motion-inspector/core/src/samples';
 import { capture, easing } from '../../core/test/arbitraries';
 import type { Model, Msg } from '../src/state/model';
-import { easingAt, takeLengthMs } from '../src/state/selectors';
+import { curveFeel, easingAt, plainName, takeLengthMs, withoutHidden } from '../src/state/selectors';
 import { init, update } from '../src/state/update';
 import { validateModel } from '../src/state/validate';
 
@@ -17,6 +18,11 @@ const msg: fc.Arbitrary<Msg> = fc.oneof(
   fc.oneof(fc.integer({ min: -2, max: 8 }), anyNumber).map(
     (segmentIndex): Msg => ({ kind: 'segmentSelected', segmentIndex }),
   ),
+  fc.constant<Msg>({ kind: 'trackDeselected' }),
+  fc.oneof(fc.integer({ min: -2, max: 8 }), anyNumber).map(
+    (trackIndex): Msg => ({ kind: 'trackToggled', trackIndex }),
+  ),
+  fc.boolean().map((show): Msg => ({ kind: 'originalShown', show })),
   fc.constant<Msg>({ kind: 'playToggled' }),
   fc.constant<Msg>({ kind: 'replayed' }),
   fc.boolean().map((loop): Msg => ({ kind: 'loopSet', loop })),
@@ -117,5 +123,58 @@ describe('editing the curve', () => {
     const second = model.edited.tracks.slice(2, 4).map((track) => easingAt(track, 0).kind);
     expect(first).toEqual(['linear', 'linear']);
     expect(second).toEqual(['cubic-bezier', 'cubic-bezier']);
+  });
+});
+
+describe('the timeline: select, unselect, show, hide', () => {
+  test('a track can be unselected, and selected again', () => {
+    const none = update(init(cardLift), { kind: 'trackDeselected' });
+    expect(none.selectedTrack).toBeNull();
+    expect(update(none, { kind: 'trackSelected', trackIndex: 0 }).selectedTrack).toBe(0);
+  });
+
+  test('a track can be taken out of the preview and put back', () => {
+    const hidden = update(init(buttonHover), { kind: 'trackToggled', trackIndex: 0 });
+    expect(hidden.hiddenTracks).toEqual([0]);
+    // Hiding keeps the track. It is only left out of what is shown.
+    expect(hidden.edited.tracks).toHaveLength(2);
+    expect(withoutHidden(hidden.edited, hidden.hiddenTracks).tracks.map((track) => track.property)).toEqual([
+      'transform',
+    ]);
+    expect(update(hidden, { kind: 'trackToggled', trackIndex: 0 }).hiddenTracks).toEqual([]);
+  });
+
+  test('hidden tracks stay sorted, and a track that does not exist is ignored', () => {
+    const model = [1, 0, 7].reduce(
+      (current, trackIndex) => update(current, { kind: 'trackToggled', trackIndex }),
+      init(buttonHover),
+    );
+    expect(model.hiddenTracks).toEqual([0, 1]);
+  });
+
+  test('the original can be switched off', () => {
+    expect(update(init(cardLift), { kind: 'originalShown', show: false }).showOriginal).toBe(false);
+  });
+});
+
+describe('plain words', () => {
+  const named = (name: string) => NAMED_EASINGS.find((entry) => entry.name === name)?.easing ?? { kind: 'linear' as const };
+
+  test('a curve is described by how it starts and ends', () => {
+    expect(curveFeel(named('ease-out'))).toEqual({ start: 'fast', end: 'gentle', extra: null });
+    expect(curveFeel(named('ease-in'))).toEqual({ start: 'slow', end: 'abrupt', extra: null });
+    expect(curveFeel(named('ease-in-out'))).toEqual({ start: 'slow', end: 'gentle', extra: null });
+    expect(curveFeel(named('linear'))).toEqual({ start: 'steady', end: 'steady', extra: null });
+  });
+
+  test('an overshoot is named with its size', () => {
+    const overshoot = cardLift.tracks[0]?.timing.easing ?? named('linear');
+    expect(curveFeel(overshoot)).toEqual({ start: 'fast', end: 'gentle', extra: 'overshoots by 10%' });
+  });
+
+  test('properties get a plain name where there is one', () => {
+    expect(plainName('transform')).toBe('Move and scale');
+    expect(plainName('border-top-left-radius')).toBe('Corner, top left');
+    expect(plainName('filter')).toBeNull();
   });
 });

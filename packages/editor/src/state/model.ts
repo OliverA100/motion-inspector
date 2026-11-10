@@ -14,7 +14,7 @@ export type Model = {
   original: Capture;
   // The capture with my edits. Always has the same tracks, in the same order.
   edited: Capture;
-  // Index into edited.tracks, or null when the capture has no tracks.
+  // Index into edited.tracks, or null when nothing is selected.
   selectedTrack: number | null;
   // The keyframe the selected segment starts at.
   selectedSegment: number;
@@ -25,11 +25,19 @@ export type Model = {
   // In ms from the start of the take.
   timeMs: number;
   compare: Compare;
+  // Whether the original is drawn at all (the dashed gray lines).
+  showOriginal: boolean;
+  // Tracks taken out of the preview, as indexes into edited.tracks.
+  // Sorted, no repeats. A hidden track is kept, only not shown or exported.
+  hiddenTracks: number[];
 };
 
 export type Msg =
   | { kind: 'captureLoaded'; capture: Capture }
   | { kind: 'trackSelected'; trackIndex: number }
+  | { kind: 'trackDeselected' }
+  // Takes a track out of the preview, or puts it back.
+  | { kind: 'trackToggled'; trackIndex: number }
   | { kind: 'segmentSelected'; segmentIndex: number }
   // Playback
   | { kind: 'playToggled' }
@@ -43,5 +51,6 @@ export type Msg =
   | { kind: 'stepped'; frames: number }
   // View
   | { kind: 'compareSet'; compare: Compare }
+  | { kind: 'originalShown'; show: boolean }
   // Edits
   | { kind: 'easingChanged'; easing: Easing };

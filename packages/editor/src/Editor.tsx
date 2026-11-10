@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { describeCapture, type Capture } from '@motion-inspector/core';
 import { CurveEditor } from './pieces/CurveEditor';
+import { Toggle } from './pieces/controls';
 import { FrameTime } from './pieces/FrameTime';
 import { Playback } from './pieces/Playback';
 import { SpeedGraph } from './pieces/SpeedGraph';
@@ -19,10 +20,12 @@ import {
   curvePlayhead,
   easingAt,
   easingTerm,
+  plainName,
   segmentLabels,
   selectedTracks,
   takeLengthMs,
   timelineRows,
+  withoutHidden,
 } from './state/selectors';
 import { init, update } from './state/update';
 
@@ -114,20 +117,32 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const { original, edited, timeMs } = model;
+  const { original, edited, timeMs, hiddenTracks, showOriginal } = model;
   const totalMs = takeLengthMs(edited);
+  // What is previewed and described: everything except the tracks that were
+  // unticked on the timeline.
+  const shownEdited = useMemo(() => withoutHidden(edited, hiddenTracks), [edited, hiddenTracks]);
+  const shownOriginal = useMemo(
+    () => withoutHidden(original, hiddenTracks),
+    [original, hiddenTracks],
+  );
   const minePoses = useMemo(
-    () => probes?.mine.poses(edited, timeMs) ?? [],
-    [probes, edited, timeMs],
+    () => probes?.mine.poses(shownEdited, timeMs) ?? [],
+    [probes, shownEdited, timeMs],
   );
   const originalPoses = useMemo(
-    () => probes?.original.poses(original, timeMs) ?? [],
-    [probes, original, timeMs],
+    () => probes?.original.poses(shownOriginal, timeMs) ?? [],
+    [probes, shownOriginal, timeMs],
   );
   const rows = useMemo(
     () =>
-      timelineRows(original, edited).map((row) => ({ ...row, previewed: isPreviewed(row.property) })),
-    [original, edited],
+      timelineRows(original, edited).map((row, index) => ({
+        ...row,
+        name: plainName(row.property),
+        previewed: isPreviewed(row.property),
+        shown: !hiddenTracks.includes(index),
+      })),
+    [original, edited, hiddenTracks],
   );
 
   const selected = selectedTracks(model);
@@ -142,57 +157,79 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
         <header className="mi__top">
           <div>
             {/* The plain-words description comes first. */}
-            <p className="mi__description">{describeCapture(edited)}</p>
+            <p className="mi__description">{describeCapture(shownEdited)}</p>
             <p className="mi__source">
               <code>{edited.source.selector}</code> on {hostOf(edited.source.url)} ·{' '}
               {plural(edited.tracks.length, 'track')}
               {edited.notShown.length > 0 ? ` · ${edited.notShown.length} not shown` : ''}
             </p>
           </div>
+          <div className="mi__actions">
+            <Toggle
+              label="Show the original (dashed)"
+              checked={showOriginal}
+              onChange={(show) => dispatch({ kind: 'originalShown', show })}
+            />
+          </div>
         </header>
 
         <div className="mi__grid">
           <div className="mi__column">
-            <div>
-              <Stage
-                root={edited.root}
-                mine={minePoses}
-                original={originalPoses}
-                compare={model.compare}
-                selectedShapeId={selected?.mine.shapeId ?? null}
-                onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
-              />
-              <Playback
-                playing={model.playing}
-                loop={model.loop}
-                speed={model.speed}
-                timeMs={timeMs}
-                totalMs={totalMs}
-                onPlayToggle={() => dispatch({ kind: 'playToggled' })}
-                onLoopChange={(loop) => dispatch({ kind: 'loopSet', loop })}
-                onSpeedChange={(speed) => dispatch({ kind: 'speedSet', speed })}
-                onScrub={(time) => dispatch({ kind: 'scrubbed', timeMs: time })}
-              />
-            </div>
+            <Stage
+              root={edited.root}
+              mine={minePoses}
+              original={originalPoses}
+              showOriginal={showOriginal}
+              compare={model.compare}
+              selectedShapeId={selected?.mine.shapeId ?? null}
+              onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
+            />
             <Timeline
               tracks={rows}
               selectedIndex={model.selectedTrack}
               totalMs={totalMs}
               playheadMs={timeMs}
-              onSelect={(trackIndex) => dispatch({ kind: 'trackSelected', trackIndex })}
+              showOriginal={showOriginal}
+              controls={
+                <Playback
+                  playing={model.playing}
+                  loop={model.loop}
+                  speed={model.speed}
+                  timeMs={timeMs}
+                  totalMs={totalMs}
+                  onPlayToggle={() => dispatch({ kind: 'playToggled' })}
+                  onLoopChange={(loop) => dispatch({ kind: 'loopSet', loop })}
+                  onSpeedChange={(speed) => dispatch({ kind: 'speedSet', speed })}
+                />
+              }
+              onSelect={(trackIndex) =>
+                dispatch(
+                  trackIndex === null
+                    ? { kind: 'trackDeselected' }
+                    : { kind: 'trackSelected', trackIndex },
+                )
+              }
+              onToggle={(trackIndex) => dispatch({ kind: 'trackToggled', trackIndex })}
+              onScrub={(time) => dispatch({ kind: 'scrubbed', timeMs: time })}
+              onDragChange={setDragging}
             />
           </div>
 
           <div className="mi__column">
-            {selected === null ? (
-              <section className="panel">
-                <p className="empty">This capture has no animations to show.</p>
-              </section>
-            ) : (
-              <>
+            {/* Each slot keeps its height when nothing is selected, so the
+                panels below it stay where they are. */}
+            <div className="slot slot--curve">
+              {selected === null ? (
+                <section className="panel panel--empty">
+                  <p>Select a row on the timeline to see and change its curve.</p>
+                </section>
+              ) : (
                 <CurveEditor
+                  // A different track or segment starts with a fresh chart.
+                  key={`${model.selectedTrack}-${model.selectedSegment}`}
                   original={easingAt(selected.original, model.selectedSegment)}
                   mine={easingAt(selected.mine, model.selectedSegment)}
+                  showOriginal={showOriginal}
                   playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
                   durationMs={curveDurationMs(selected.mine, model.selectedSegment)}
                   term={easingTerm(selected.mine)}
@@ -205,13 +242,22 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
                   onCommit={() => dispatch({ kind: 'replayed' })}
                   onDragChange={setDragging}
                 />
+              )}
+            </div>
+            <div className="slot slot--speed">
+              {selected === null ? (
+                <section className="panel panel--empty">
+                  <p>The speed of the selected row appears here.</p>
+                </section>
+              ) : (
                 <SpeedGraph
                   original={easingAt(selected.original, model.selectedSegment)}
                   mine={easingAt(selected.mine, model.selectedSegment)}
                   playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
+                  showOriginal={showOriginal}
                 />
-              </>
-            )}
+              )}
+            </div>
 
             {edited.notShown.length > 0 || notPreviewed.length > 0 ? (
               <section className="panel">

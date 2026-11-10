@@ -17,9 +17,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 50.399999998509884,
-      "timelineTimeAtFirstSight": 103.8,
-      "startTimeWhenReady": 103.84100000374019,
+      "firstSeenAtMs": 57.399999998509884,
+      "timelineTimeAtFirstSight": 109.7,
+      "startTimeWhenReady": 109.6830000024056,
       "keyframes": [
         {
           "offset": 0,
@@ -264,14 +264,14 @@
       "type": "animationstart",
       "name": "fx-pop",
       "elapsedTime": 0,
-      "atMs": 66.5,
+      "atMs": 73.79999999701977,
       "targetClassName": "fx-pop is-playing"
     },
     {
       "type": "animationend",
       "name": "fx-pop",
       "elapsedTime": 0.5,
-      "atMs": 566.6000000014901,
+      "atMs": 557.1000000014901,
       "targetClassName": "fx-pop is-playing"
     }
   ]
