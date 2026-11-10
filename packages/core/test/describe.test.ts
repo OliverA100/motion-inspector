@@ -12,7 +12,7 @@ import {
   morph,
   staggerList,
   stepsSample,
-} from './samples';
+} from '../src/samples';
 
 describe('describeCapture on the sample captures', () => {
   test('button hover: movement first, then the shadow', () => {

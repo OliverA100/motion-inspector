@@ -144,3 +144,20 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** Newton's method and bisection are small recursive functions with a step counter.
 **Why:** the rule for core is no mutation, and this form ports to Elm line for line. The depth is at most 50.
 **Gave up:** a `for` loop would be more familiar to most TypeScript readers.
+
+## Editor (M3)
+
+### D26. Draw functions get the theme as a plain object
+**Chose:** `readTheme()` reads the CSS tokens once into an object, and every draw function receives it in its data.
+**Why:** a canvas cannot use CSS variables, and a draw function that read them itself would not be pure. The tokens file stays the only place a color is defined.
+**Gave up:** the theme is read again only when the system switches light and dark. A token edited in dev tools does not reach the canvases until a reload.
+
+### D27. Timeline row labels are HTML, the bars are one canvas
+**Chose:** the left column of the timeline is real text. The bars, ruler and playhead are drawn on one canvas beside it, with the same row height.
+**Why:** text stays sharp, selectable and readable by screen readers, and long names can be cut off with an ellipsis by CSS.
+**Gave up:** two things must agree on the row height. It is one constant, passed to both.
+
+### D28. One `Canvas` component owns every canvas element
+**Chose:** `Canvas` sizes the element, handles `devicePixelRatio` and resizing, and calls a pure `draw(context, size)`.
+**Why:** the sharpness and resize logic exists once. Each piece only supplies data and a draw function.
+**Gave up:** every canvas clears and redraws fully when its data changes. That is the intended model here: redraw only when the model changes.

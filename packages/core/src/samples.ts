@@ -1,9 +1,9 @@
-// Sample captures for tests. Written by hand from the raw data the M1 spike
+// Sample captures for tests and for the demo site. Written by hand from the raw data the M1 spike
 // recorded on the fixtures page (spike-output/). M5 replaces them with the
 // output of the real capture script.
 
-import { parseCapture } from '../src/parse';
-import type { Capture } from '../src/types';
+import { parseCapture } from './parse';
+import type { Capture } from './types';
 
 // ---------- Small builders for raw capture data ----------
 

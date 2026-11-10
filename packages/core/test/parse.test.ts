@@ -2,7 +2,7 @@ import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import { parseCapture, parseCaptureJson } from '../src/parse';
 import { capture, rawCapture } from './arbitraries';
-import { allSamples, cardLift } from './samples';
+import { allSamples, cardLift } from '../src/samples';
 
 describe('parseCapture', () => {
   test('never throws, whatever it is given', () => {

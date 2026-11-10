@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { captureFromAiText, copyForAiText } from '../src/copyForAi';
 import { captureToCss } from '../src/exportCss';
 import { capture } from './arbitraries';
-import { bounce, buttonHover, cardLift, dots, morph } from './samples';
+import { bounce, buttonHover, cardLift, dots, morph } from '../src/samples';
 
 describe('captureToCss', () => {
   test('transitions: one declaration, with the values in a comment', () => {

@@ -17,9 +17,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 85.69999999552965,
-      "timelineTimeAtFirstSight": 97.7,
-      "startTimeWhenReady": 114.3210000009276,
+      "firstSeenAtMs": 173.39999999850988,
+      "timelineTimeAtFirstSight": 190.5,
+      "startTimeWhenReady": 223.83799999806797,
       "keyframes": [
         {
           "offset": 0,
@@ -207,9 +207,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 85.79999999701977,
-      "timelineTimeAtFirstSight": 97.7,
-      "startTimeWhenReady": 114.3210000009276,
+      "firstSeenAtMs": 173.60000000149012,
+      "timelineTimeAtFirstSight": 190.5,
+      "startTimeWhenReady": 223.83799999806797,
       "keyframes": [
         {
           "offset": 0,
@@ -431,9 +431,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 123.69999999552965,
-      "timelineTimeAtFirstSight": 164.3,
-      "startTimeWhenReady": 164.3,
+      "firstSeenAtMs": 221.89999999850988,
+      "timelineTimeAtFirstSight": 273.8,
+      "startTimeWhenReady": 273.8,
       "keyframes": [
         {
           "offset": 0,
@@ -444,7 +444,7 @@
             {
               "name": "boxShadow",
               "cssName": "box-shadow",
-              "value": "rgba(0, 0, 0, 0.22) 0px 3.07785px 7.81797px 0px"
+              "value": "rgba(0, 0, 0, 0.22) 0px 3.07721px 7.8162px 0px"
             }
           ],
           "typedOm": []
@@ -467,7 +467,7 @@
       "timing": {
         "delay": 0,
         "direction": "normal",
-        "duration": 74.80247014829185,
+        "duration": 74.77972191278725,
         "easing": "ease-out",
         "endDelay": 0,
         "fill": "backwards",
@@ -477,15 +477,15 @@
       "computedTiming": {
         "delay": 0,
         "direction": "normal",
-        "duration": 74.80247014829185,
+        "duration": 74.77972191278725,
         "easing": "ease-out",
         "endDelay": 0,
         "fill": "backwards",
         "iterationStart": 0,
         "iterations": 1,
-        "activeDuration": 74.80247014829185,
+        "activeDuration": 74.77972191278725,
         "currentIteration": 0,
-        "endTime": 74.80247014829185,
+        "endTime": 74.77972191278725,
         "localTime": 0,
         "progress": 0
       },
@@ -599,8 +599,8 @@
         {
           "cssName": "box-shadow",
           "read": {
-            "resolved": "rgba(0, 0, 0, 0.22) 0px 3.07785px 7.81797px 0px",
-            "computed": "rgba(0, 0, 0, 0.22) 0px 3.07785px 7.81797px 0px"
+            "resolved": "rgba(0, 0, 0, 0.22) 0px 3.07721px 7.8162px 0px",
+            "computed": "rgba(0, 0, 0, 0.22) 0px 3.07721px 7.8162px 0px"
           }
         }
       ],
@@ -627,11 +627,11 @@
       "pseudoElement": null,
       "timelineType": "DocumentTimeline",
       "playState": "running",
-      "startTime": 164.3,
+      "startTime": 273.8,
       "currentTime": 0,
-      "firstSeenAtMs": 123.79999999701977,
-      "timelineTimeAtFirstSight": 164.3,
-      "startTimeWhenReady": 164.3,
+      "firstSeenAtMs": 222,
+      "timelineTimeAtFirstSight": 273.8,
+      "startTimeWhenReady": 273.8,
       "keyframes": [
         {
           "offset": 0,
@@ -642,7 +642,7 @@
             {
               "name": "transform",
               "cssName": "transform",
-              "value": "translateY(-0.831139px)"
+              "value": "translateY(-0.830886px)"
             }
           ],
           "typedOm": [
@@ -658,7 +658,7 @@
                       "unit": "px"
                     },
                     "y": {
-                      "value": -0.831139,
+                      "value": -0.830886,
                       "unit": "px"
                     },
                     "z": {
@@ -666,7 +666,7 @@
                       "unit": "px"
                     },
                     "is2D": true,
-                    "text": "translate(0px, -0.831139px)"
+                    "text": "translate(0px, -0.830886px)"
                   }
                 ]
               }
@@ -699,7 +699,7 @@
       "timing": {
         "delay": 0,
         "direction": "normal",
-        "duration": 74.80247014829185,
+        "duration": 74.77972191278725,
         "easing": "ease-out",
         "endDelay": 0,
         "fill": "backwards",
@@ -709,15 +709,15 @@
       "computedTiming": {
         "delay": 0,
         "direction": "normal",
-        "duration": 74.80247014829185,
+        "duration": 74.77972191278725,
         "easing": "ease-out",
         "endDelay": 0,
         "fill": "backwards",
         "iterationStart": 0,
         "iterations": 1,
-        "activeDuration": 74.80247014829185,
+        "activeDuration": 74.77972191278725,
         "currentIteration": 0,
-        "endTime": 74.80247014829185,
+        "endTime": 74.77972191278725,
         "localTime": 0,
         "progress": 0
       },
@@ -831,8 +831,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(1, 0, 0, 1, 0, -0.831139)",
-            "computed": "translate(0px, -0.831139px)"
+            "resolved": "matrix(1, 0, 0, 1, 0, -0.830886)",
+            "computed": "translate(0px, -0.830886px)"
           }
         }
       ],
@@ -852,84 +852,84 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 85.19999999552965,
+      "atMs": 172.89999999850988,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 85.19999999552965,
+      "atMs": 172.89999999850988,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 85.19999999552965,
+      "atMs": 172.89999999850988,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 85.19999999552965,
+      "atMs": 172.89999999850988,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitioncancel",
       "name": "transform",
-      "elapsedTime": 0.049978999999072404,
-      "atMs": 140,
+      "elapsedTime": 0.049962000001932017,
+      "atMs": 237.79999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitioncancel",
       "name": "box-shadow",
-      "elapsedTime": 0.049978999999072404,
-      "atMs": 140,
+      "elapsedTime": 0.049962000001932017,
+      "atMs": 237.79999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 140,
+      "atMs": 237.79999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 140,
+      "atMs": 237.79999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 140,
+      "atMs": 237.79999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 140.09999999403954,
+      "atMs": 237.79999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
-      "elapsedTime": 0.07480247014829185,
-      "atMs": 206.89999999850988,
+      "elapsedTime": 0.07477972191278726,
+      "atMs": 304.29999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
-      "elapsedTime": 0.07480247014829185,
-      "atMs": 206.89999999850988,
+      "elapsedTime": 0.07477972191278726,
+      "atMs": 304.3999999985099,
       "targetClassName": "fx-button"
     }
   ]

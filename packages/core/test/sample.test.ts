@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { sampleTrack, trackEndTime, type TrackSample } from '../src/sample';
 import type { Track } from '../src/types';
 import { capture } from './arbitraries';
-import { bounce, cardLift, dots, loader, staggerList } from './samples';
+import { bounce, cardLift, dots, loader, staggerList } from '../src/samples';
 
 function numbersIn(sample: TrackSample): number[] {
   if (sample.kind === 'idle') return [];

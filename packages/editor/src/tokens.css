@@ -1,6 +1,6 @@
 /*
   Design tokens. Every color, size, radius and duration lives here.
-  First draft (M1). The editor will share this file from M3 on.
+  The editor and the demo site both read this file.
   Light and dark follow the system setting.
 */
 
@@ -16,6 +16,11 @@
   --color-shape: #d4d4d4;
   --color-accent: #2f6fed;
   --color-on-accent: #ffffff;
+  /* Canvas colors. Dashed gray is the original, the accent is mine. */
+  --color-original: #9a9a9a;
+  --color-grid: #ededed;
+  --color-stage: #f4f4f4;
+  --color-accent-soft: #dbe6fd;
 
   /* 4 px spacing grid */
   --space-1: 4px;
@@ -29,6 +34,10 @@
   --radius-1: 4px;
   --radius-2: 8px;
   --hairline: 1px;
+
+  /* Controls. The hit area is never smaller than 24 px. */
+  --control-height: 28px;
+  --row-height: 28px;
 
   /* One UI font, one mono font, two weights, three sizes */
   --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -54,5 +63,9 @@
     --color-shape: #3d3d3d;
     --color-accent: #6b9bff;
     --color-on-accent: #0d1b3a;
+    --color-original: #7d7d7d;
+    --color-grid: #262626;
+    --color-stage: #111111;
+    --color-accent-soft: #223457;
   }
 }

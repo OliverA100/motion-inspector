@@ -3,21 +3,29 @@
 
 import { test } from '@playwright/test';
 
-const milestone = 'm2';
+const milestone = 'm3-layout';
 
+const pages = [
+  { name: 'editor-overlay', url: '/' },
+  { name: 'editor-side-by-side', url: '/?compare=side-by-side' },
+];
 const widths = [360, 1280];
 const themes = ['light', 'dark'] as const;
 
-for (const width of widths) {
-  for (const theme of themes) {
-    test(`fixtures page at ${width} px, ${theme}`, async ({ page }) => {
-      await page.emulateMedia({ colorScheme: theme });
-      await page.setViewportSize({ width, height: 800 });
-      await page.goto('/fixtures.html');
-      await page.screenshot({
-        path: `screenshots/${milestone}/fixtures-${width}-${theme}.png`,
-        fullPage: true,
+for (const target of pages) {
+  for (const width of widths) {
+    for (const theme of themes) {
+      test(`${target.name} at ${width} px, ${theme}`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: theme });
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(target.url);
+        // Canvases draw after the first layout.
+        await page.waitForTimeout(200);
+        await page.screenshot({
+          path: `screenshots/${milestone}/${target.name}-${width}-${theme}.png`,
+          fullPage: true,
+        });
       });
-    });
+    }
   }
 }

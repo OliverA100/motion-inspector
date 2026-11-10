@@ -17,9 +17,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 121.70000000298023,
-      "timelineTimeAtFirstSight": 154.8,
-      "startTimeWhenReady": 221.48700000252575,
+      "firstSeenAtMs": 113,
+      "timelineTimeAtFirstSight": 140.9,
+      "startTimeWhenReady": 190.86199999583187,
       "keyframes": [
         {
           "offset": 0,
@@ -215,9 +215,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 121.89999999850988,
-      "timelineTimeAtFirstSight": 154.8,
-      "startTimeWhenReady": 221.48700000252575,
+      "firstSeenAtMs": 113.29999999701977,
+      "timelineTimeAtFirstSight": 140.9,
+      "startTimeWhenReady": 190.86199999583187,
       "keyframes": [
         {
           "offset": 0,
@@ -438,42 +438,42 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 121.30000000447035,
+      "atMs": 112.70000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 121.30000000447035,
+      "atMs": 112.70000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 121.30000000447035,
+      "atMs": 112.70000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 121.39999999850988,
+      "atMs": 112.70000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
       "elapsedTime": 0.18,
-      "atMs": 305.70000000298023,
+      "atMs": 299.1000000014901,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.18,
-      "atMs": 305.70000000298023,
+      "atMs": 299.1000000014901,
       "targetClassName": "fx-button"
     }
   ]
