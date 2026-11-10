@@ -23,6 +23,7 @@ export function init(capture: Capture): Model {
     compare: 'overlay',
     showOriginal: true,
     hiddenTracks: [],
+    hideInOriginal: false,
   };
 }
 
@@ -144,6 +145,9 @@ export function update(model: Model, msg: Msg): Model {
 
     case 'originalShown':
       return { ...model, showOriginal: msg.show };
+
+    case 'hideInOriginalSet':
+      return { ...model, hideInOriginal: msg.on };
 
     case 'easingChanged':
       return changeEasing(model, msg.easing);

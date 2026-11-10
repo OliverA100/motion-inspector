@@ -253,3 +253,8 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** the handles are labeled "start" and "end" on the chart. Under it, one line says what the curve does ("Starts fast, ends gentle, overshoots by 10%"), and a short guide says what moving each handle does. Presets are named by effect ("Slow start"), not by CSS keyword. Each panel has a one-line hint, and timeline rows show a plain name before the CSS term.
 **Why:** a bezier chart is not self-explanatory, and CSS keywords like `ease-in` do not say what they do.
 **Gave up:** more text on screen, against the brief's "show less by default". The CSS terms are still there, in mono, beside the plain words.
+
+### D47. Unticking a row leaves the original alone, unless asked
+**Chose:** a row that is unticked is left out of my version only. The original's preview keeps every track. A toggle, "Unticked rows also leave the original", makes it apply to both.
+**Why:** the first version removed the track from both previews, so a change to my version changed the original, which is meant to be the fixed reference.
+**Gave up:** with the toggle off, the two previews can show different sets of tracks, so a difference between them may be a hidden row and not an edit.

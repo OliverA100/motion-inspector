@@ -23,6 +23,7 @@ const msg: fc.Arbitrary<Msg> = fc.oneof(
     (trackIndex): Msg => ({ kind: 'trackToggled', trackIndex }),
   ),
   fc.boolean().map((show): Msg => ({ kind: 'originalShown', show })),
+  fc.boolean().map((on): Msg => ({ kind: 'hideInOriginalSet', on })),
   fc.constant<Msg>({ kind: 'playToggled' }),
   fc.constant<Msg>({ kind: 'replayed' }),
   fc.boolean().map((loop): Msg => ({ kind: 'loopSet', loop })),
@@ -150,6 +151,13 @@ describe('the timeline: select, unselect, show, hide', () => {
       init(buttonHover),
     );
     expect(model.hiddenTracks).toEqual([0, 1]);
+  });
+
+  test('unticking a row leaves the original alone unless asked', () => {
+    const model = update(init(buttonHover), { kind: 'trackToggled', trackIndex: 0 });
+    expect(model.hideInOriginal).toBe(false);
+    expect(model.original.tracks).toHaveLength(2);
+    expect(update(model, { kind: 'hideInOriginalSet', on: true }).hideInOriginal).toBe(true);
   });
 
   test('the original can be switched off', () => {

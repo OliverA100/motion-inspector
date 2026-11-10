@@ -117,14 +117,15 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const { original, edited, timeMs, hiddenTracks, showOriginal } = model;
+  const { original, edited, timeMs, hiddenTracks, showOriginal, hideInOriginal } = model;
   const totalMs = takeLengthMs(edited);
   // What is previewed and described: everything except the tracks that were
   // unticked on the timeline.
   const shownEdited = useMemo(() => withoutHidden(edited, hiddenTracks), [edited, hiddenTracks]);
+  // The original stays whole unless I ask for unticked rows to leave it too.
   const shownOriginal = useMemo(
-    () => withoutHidden(original, hiddenTracks),
-    [original, hiddenTracks],
+    () => (hideInOriginal ? withoutHidden(original, hiddenTracks) : original),
+    [original, hiddenTracks, hideInOriginal],
   );
   const minePoses = useMemo(
     () => probes?.mine.poses(shownEdited, timeMs) ?? [],
@@ -169,6 +170,11 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
               label="Show the original (dashed)"
               checked={showOriginal}
               onChange={(show) => dispatch({ kind: 'originalShown', show })}
+            />
+            <Toggle
+              label="Unticked rows also leave the original"
+              checked={hideInOriginal}
+              onChange={(on) => dispatch({ kind: 'hideInOriginalSet', on })}
             />
           </div>
         </header>

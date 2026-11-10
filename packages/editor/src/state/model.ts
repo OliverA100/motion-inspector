@@ -32,6 +32,9 @@ export type Model = {
   // Tracks taken out of the preview, as indexes into edited.tracks.
   // Sorted, no repeats. A hidden track is kept, only not shown or exported.
   hiddenTracks: number[];
+  // Whether unticking a row also takes it out of the original's preview.
+  // Off by default: what I do to my version leaves the original alone.
+  hideInOriginal: boolean;
 };
 
 export type Msg =
@@ -54,5 +57,6 @@ export type Msg =
   // View
   | { kind: 'compareSet'; compare: Compare }
   | { kind: 'originalShown'; show: boolean }
+  | { kind: 'hideInOriginalSet'; on: boolean }
   // Edits
   | { kind: 'easingChanged'; easing: Easing };
