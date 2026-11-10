@@ -7,7 +7,14 @@ import { bounce, cardLift, dots, loader, staggerList } from '../src/samples';
 
 function numbersIn(sample: TrackSample): number[] {
   if (sample.kind === 'idle') return [];
-  return [sample.iteration, sample.progress, sample.segmentIndex, sample.segmentProgress];
+  return [
+    sample.iteration,
+    sample.iterationProgress,
+    sample.progress,
+    sample.segmentIndex,
+    sample.segmentInput,
+    sample.segmentProgress,
+  ];
 }
 
 function trackOf(tracks: Track[], index: number): Track {

@@ -248,3 +248,26 @@ export function nearestNamedEasing(easing: Easing): { name: NamedEasing; distanc
     distance: easingDistance(easing, named.easing),
   })).reduce((best, candidate) => (candidate.distance < best.distance ? candidate : best));
 }
+
+// ---------- Convert to bezier ----------
+
+const FIT_X = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
+const FIT_Y = [-0.5, -0.3, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.3, 1.5];
+
+// The cubic bezier closest to any easing, for "convert to bezier" on a
+// steps() or linear() easing. It tries every handle position on a coarse
+// grid and keeps the best. Simple, a few tens of thousands of curves, and
+// only run when the button is pressed. A steps() easing has no good bezier
+// match, so the result is a smooth curve through the same start and end.
+export function fitBezier(easing: Easing): Easing {
+  const candidates = FIT_X.flatMap((x1) =>
+    FIT_X.flatMap((x2) => FIT_Y.flatMap((y1) => FIT_Y.map((y2) => knownBezier(x1, y1, x2, y2)))),
+  );
+  return candidates.reduce(
+    (best, candidate) => {
+      const distance = easingDistance(easing, candidate);
+      return distance < best.distance ? { easing: candidate, distance } : best;
+    },
+    { easing: knownBezier(0.25, 0.25, 0.75, 0.75), distance: Infinity },
+  ).easing;
+}

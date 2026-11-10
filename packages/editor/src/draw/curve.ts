@@ -10,26 +10,61 @@ export type CurveData = {
   mine: Easing;
   // Where playback is, as an input from 0 to 1. null hides the dot.
   playhead: number | null;
+  // Where the pointer is, as an input from 0 to 1. null hides the guide.
+  hover: number | null;
+  // The progress values at the bottom and top of the plot.
+  range: CurveRange;
   theme: Theme;
 };
 
-// The plot shows progress from -0.25 to 1.5, so an overshoot and its
-// handles stay on screen.
-const LOWEST = -0.25;
-const HIGHEST = 1.5;
+export type CurveRange = { lowest: number; highest: number };
+
+export type Handles = { x1: number; y1: number; x2: number; y2: number };
+
+// The two handles of an easing, or null when it has none to drag.
+// "linear" is shown as the bezier that draws the same straight line.
+export function handlesOf(easing: Easing): Handles | null {
+  if (easing.kind === 'linear') return { x1: 0.25, y1: 0.25, x2: 0.75, y2: 0.75 };
+  if (easing.kind !== 'cubic-bezier') return null;
+  return { x1: easing.x1, y1: easing.y1, x2: easing.x2, y2: easing.y2 };
+}
+
+// A range that keeps both curves and all handles on screen, in steps of a
+// quarter so the grid lines stay put for small changes.
+export function rangeFor(easings: Easing[]): CurveRange {
+  const values = easings.flatMap((easing) => {
+    const handles = handlesOf(easing);
+    const samples = Array.from({ length: 33 }, (_item, index) => evaluateEasing(easing, index / 32));
+    return handles === null ? samples : [...samples, handles.y1, handles.y2];
+  });
+  return {
+    lowest: Math.floor((Math.min(0, ...values) - 0.1) * 4) / 4,
+    highest: Math.ceil((Math.max(1, ...values) + 0.1) * 4) / 4,
+  };
+}
+
 const PADDING = 16;
 const SAMPLES = 96;
 const HANDLE_RADIUS = 5;
 
 // Where the plot sits inside the canvas. Shared with pointer handling later.
-export type CurvePlot = { x: (input: number) => number; y: (output: number) => number };
+export type CurvePlot = {
+  x: (input: number) => number;
+  y: (output: number) => number;
+  // The other way: from a pixel position to an input or output.
+  input: (x: number) => number;
+  output: (y: number) => number;
+};
 
-export function curvePlot(size: Size): CurvePlot {
+export function curvePlot(size: Size, range: CurveRange): CurvePlot {
   const plotWidth = size.width - PADDING * 2;
   const plotHeight = size.height - PADDING * 2;
+  const span = range.highest - range.lowest;
   return {
     x: (input) => PADDING + input * plotWidth,
-    y: (output) => PADDING + (1 - (output - LOWEST) / (HIGHEST - LOWEST)) * plotHeight,
+    y: (output) => PADDING + (1 - (output - range.lowest) / span) * plotHeight,
+    input: (x) => (x - PADDING) / plotWidth,
+    output: (y) => range.lowest + (1 - (y - PADDING) / plotHeight) * span,
   };
 }
 
@@ -79,10 +114,11 @@ function drawAxisHints(context: CanvasRenderingContext2D, plot: CurvePlot, theme
 }
 
 function drawHandles(context: CanvasRenderingContext2D, plot: CurvePlot, data: CurveData): void {
-  if (data.mine.kind !== 'cubic-bezier') return;
+  const mine = handlesOf(data.mine);
+  if (mine === null) return;
   const handles = [
-    { fromX: 0, fromY: 0, x: data.mine.x1, y: data.mine.y1 },
-    { fromX: 1, fromY: 1, x: data.mine.x2, y: data.mine.y2 },
+    { fromX: 0, fromY: 0, x: mine.x1, y: mine.y1 },
+    { fromX: 1, fromY: 1, x: mine.x2, y: mine.y2 },
   ];
   for (const handle of handles) {
     context.strokeStyle = data.theme.accent;
@@ -102,9 +138,19 @@ function drawHandles(context: CanvasRenderingContext2D, plot: CurvePlot, data: C
 }
 
 export function drawCurve(context: CanvasRenderingContext2D, data: CurveData, size: Size): void {
-  const plot = curvePlot(size);
+  const plot = curvePlot(size, data.range);
   const theme = data.theme;
   drawGrid(context, plot, theme);
+
+  if (data.hover !== null) {
+    const hoverX = Math.round(plot.x(data.hover)) + 0.5;
+    context.strokeStyle = theme.border;
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(hoverX, 0);
+    context.lineTo(hoverX, size.height);
+    context.stroke();
+  }
   drawAxisHints(context, plot, theme);
 
   context.lineJoin = 'round';

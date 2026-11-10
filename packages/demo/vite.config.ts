@@ -8,6 +8,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: 'index.html',
+        pieces: 'pieces.html',
         fixtures: 'fixtures.html',
       },
     },

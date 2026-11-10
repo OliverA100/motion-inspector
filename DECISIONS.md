@@ -161,3 +161,63 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** `Canvas` sizes the element, handles `devicePixelRatio` and resizing, and calls a pure `draw(context, size)`.
 **Why:** the sharpness and resize logic exists once. Each piece only supplies data and a draw function.
 **Gave up:** every canvas clears and redraws fully when its data changes. That is the intended model here: redraw only when the model changes.
+
+### D29. Design: "Panels"
+**Chose:** bordered panels on a gray page, blue accent. Picked from three options built as real variants (screenshots in `screenshots/m3-options/`).
+**Why:** each piece has a clear edge, which also suits the pieces page where each is shown alone.
+**Gave up:** the denser "Bench" layout gave the timeline the full width. That can still be borrowed.
+
+### D30. One Model, one Msg, one update
+**Chose:** all editor state is one `Model`. Every change is a `Msg` handled by the pure `update` in `state/update.ts`. React's `useReducer` runs it. Those files import no React and no DOM.
+**Why:** every behavior can be tested without a browser, a property test can throw random messages at it, and it ports to Elm as it is.
+**Gave up:** small things that could be local component state (which track is selected) go through a message too. The only local state left is what never leaves a piece: hover position, and the drag in progress.
+
+### D31. The clock is a number in the Model, advanced by messages
+**Chose:** while playing, a `requestAnimationFrame` loop sends `ticked` with the real time that passed. `update` moves `timeMs`. Nothing else keeps time.
+**Why:** the stage, the playhead and the curve dot all read the same number, so they cannot drift apart. The loop runs only while playing.
+**Gave up:** React renders the editor on every frame while playing. Measured at 16.6 ms per frame, also with 4x CPU slowdown (`tests/frame-time.cjs`).
+
+### D32. The probe plays the whole track, not one segment
+**Chose:** for each track the probe keeps a hidden element with a paused Web Animation built from all of the track's keyframes, easings and timing. To sample, it sets `currentTime` and reads the computed style.
+**Why:** the browser then does the timing and easing math itself, so comparing it with core is a real test. That test passes on every sample capture (more than 1000 values, all within 0.01).
+**Gave up:** an edited track needs a new animation, so dragging a handle creates one per frame for that track. It is cheap, and old ones are cancelled.
+
+### D33. In the preview, a transition keeps its end value
+**Chose:** after a transition ends, the stage keeps showing its last value.
+**Why:** on the page the element stays in its new state while the hover is held. Chrome reports `fill: backwards` for transitions, and following that literally would make the shape snap back at the end.
+**Gave up:** the preview treats transitions differently from keyframe animations, which do return to rest unless they fill forwards.
+
+### D34. Curve handles are real buttons over the canvas
+**Chose:** each bezier handle is drawn on the canvas, with an invisible 24 px `<button>` placed over it.
+**Why:** one element gives the handle its larger hit area, hover and pressed states, focus ring, pointer capture and arrow-key control. No hit-testing code, and a screen reader can reach it.
+**Gave up:** the button's position is set from the model on each render, so the piece needs to know the canvas size.
+
+### D35. The curve's range is frozen while a handle is dragged
+**Chose:** the plot scales to fit both curves and all handles, in quarter steps. During a drag that scale does not change. It is worked out again on release.
+**Why:** a grid that rescales under the pointer makes the handle feel like it is slipping.
+**Gave up:** a handle cannot be dragged past the current edge of the plot in one go. Let go, and the plot grows.
+
+### D36. The scrubber is a native slider
+**Chose:** `<input type="range">` with a step of one frame.
+**Why:** it follows the pointer with no lag, works from the keyboard, and is announced correctly, with no code.
+**Gave up:** its look is limited to what `accent-color` allows. The timeline's draggable playhead comes in M4.
+
+### D37. Which easing the curve editor edits
+**Chose:** a transition's curve is the effect easing. A keyframe animation's curve is the easing of the selected segment. An `element.animate()` call with only an effect easing counts as the first kind.
+**Why:** it follows where Chrome keeps the easing (D13), so an edit lands where the author would write it.
+**Gave up:** a track that uses both levels at once shows only the segment easing.
+
+### D38. Tracks from one animation share an easing edit
+**Chose:** changing the curve of a track also changes the other tracks with the same group id.
+**Why:** in CSS, a keyframe's `animation-timing-function` applies to every property in that keyframe.
+**Gave up:** to give one property its own curve, the track must be unlinked first (M4).
+
+### D39. "Convert to bezier" is a coarse search
+**Chose:** `fitBezier` tries every handle position on a grid of about 35,000 curves and keeps the closest.
+**Why:** simple to read, no numerical method to explain, and it only runs when the button is pressed.
+**Gave up:** the fit is approximate. A `steps()` easing has no good bezier match at all, and the note beside the button says so.
+
+### D40. An animation that repeats forever is shown for two cycles
+**Chose:** the take's length counts two iterations of an infinite animation.
+**Why:** the timeline and the scrubber need an end, and two cycles show the repeat.
+**Gave up:** the choice of two is arbitrary.

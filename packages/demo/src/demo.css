@@ -1,0 +1,96 @@
+/* The demo site's own chrome: a slim bar above the editor. */
+
+@import '../../editor/src/tokens.css';
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+}
+
+.demo-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--hairline) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: var(--weight-regular) var(--text-small) / 1.45 var(--font-ui);
+}
+
+.demo-bar strong {
+  font-weight: var(--weight-medium);
+}
+
+.demo-bar a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.demo-bar a:hover,
+.demo-bar a[aria-current='page'] {
+  color: var(--color-text);
+}
+
+.demo-bar label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  color: var(--color-text-muted);
+}
+
+.demo-bar select {
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-1);
+}
+
+/* ---------- Pieces page ---------- */
+
+.pieces {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-12);
+  color: var(--color-text);
+  font: var(--weight-regular) var(--text-body) / 1.45 var(--font-ui);
+}
+
+.pieces h1 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-title);
+  font-weight: var(--weight-medium);
+}
+
+.pieces > p {
+  margin: 0 0 var(--space-8);
+  color: var(--color-text-muted);
+}
+
+.piece {
+  margin-bottom: var(--space-12);
+}
+
+.piece h2 {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--weight-medium);
+}
+
+.piece > p {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+}
+
+/* The pieces carry the editor's own styles. Here they sit outside ".mi". */
+.piece .mi {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}

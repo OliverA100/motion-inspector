@@ -1,28 +1,31 @@
 // Stage: the simplified component, drawn at the current time.
+// It takes poses as plain data. Where they come from (the probe) is not its
+// business, so it can be shown alone with any poses.
 
 import { useCallback } from 'react';
 import type { Shape, ShapeId } from '@motion-inspector/core';
 import { drawStage, type Pose } from '../draw/stage';
+import type { Compare } from '../state/model';
 import { useTheme } from '../theme';
 import { Canvas, type Draw } from './Canvas';
-import { Segmented, Toggle } from './controls';
-
-export type Compare = 'overlay' | 'side-by-side';
+import { Segmented } from './controls';
 
 type Props = {
   root: Shape;
   mine: Pose[];
   original: Pose[];
   compare: Compare;
-  ghostTrail: boolean;
   selectedShapeId: ShapeId | null;
-  onCompareChange?: (compare: Compare) => void;
-  onGhostTrailChange?: (on: boolean) => void;
+  onCompareChange: (compare: Compare) => void;
 };
 
-export function Stage(props: Props) {
+const COMPARE_OPTIONS: { value: Compare; text: string }[] = [
+  { value: 'overlay', text: 'Overlay' },
+  { value: 'side-by-side', text: 'Side by side' },
+];
+
+export function Stage({ root, mine, original, compare, selectedShapeId, onCompareChange }: Props) {
   const theme = useTheme();
-  const { root, mine, original, compare, selectedShapeId } = props;
   const draw = useCallback<Draw>(
     (context, size) =>
       drawStage(context, { root, mine, original, compare, selectedShapeId, theme }, size),
@@ -33,22 +36,12 @@ export function Stage(props: Props) {
     <section className="panel">
       <header className="panel__head">
         <h2 className="panel__title">Stage</h2>
-        <div className="panel__tools">
-          <Toggle
-            label="Ghost trail"
-            checked={props.ghostTrail}
-            {...(props.onGhostTrailChange ? { onChange: props.onGhostTrailChange } : {})}
-          />
-          <Segmented
-            label="Compare with the original"
-            options={[
-              { value: 'overlay', text: 'Overlay' },
-              { value: 'side-by-side', text: 'Side by side' },
-            ]}
-            value={compare}
-            {...(props.onCompareChange ? { onChange: props.onCompareChange } : {})}
-          />
-        </div>
+        <Segmented
+          label="Compare with the original"
+          options={COMPARE_OPTIONS}
+          value={compare}
+          onChange={onCompareChange}
+        />
       </header>
       <div className="stage">
         <Canvas label="Preview of the captured component" height={280} draw={draw} />

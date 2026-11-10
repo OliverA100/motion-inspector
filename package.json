@@ -7,7 +7,9 @@
     "typecheck": "pnpm -r typecheck && tsc -p tests --noEmit",
     "test:spike": "pnpm --filter @motion-inspector/capture build:spike && playwright test tests/spike.spec.ts",
     "screenshots": "playwright test tests/screenshots.spec.ts --project=chrome",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "test:browser": "pnpm --filter @motion-inspector/capture build:spike && playwright test tests/spike.spec.ts tests/editor.spec.ts",
+    "test:editor": "playwright test tests/editor.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",

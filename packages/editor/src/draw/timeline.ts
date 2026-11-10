@@ -43,8 +43,8 @@ function rulerStep(totalMs: number): number {
   return steps.find((step) => step >= rough) ?? 10000;
 }
 
-export function timelineHeight(data: Pick<TimelineData, 'rows' | 'rowHeight' | 'rulerHeight'>): number {
-  return data.rulerHeight + data.rows.length * data.rowHeight;
+export function timelineHeight(rowCount: number, rowHeight: number, rulerHeight: number): number {
+  return rulerHeight + rowCount * rowHeight;
 }
 
 export function drawTimeline(

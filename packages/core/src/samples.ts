@@ -38,15 +38,28 @@ function timing(duration: number, easing: unknown, delay = 0, iterations: unknow
 
 const once = { kind: 'count', count: 1 };
 
-function shape(id: string, label: string, width: number, height: number, children: unknown[] = []) {
+type Look = { x?: number; y?: number; fill?: string | null; radius?: number; stroke?: string; kind?: string };
+
+const ACCENT = '#2f6fed';
+const GRAY = '#d4d4d4';
+
+function shape(
+  id: string,
+  label: string,
+  width: number,
+  height: number,
+  children: unknown[] = [],
+  look: Look = {},
+) {
+  const radius = look.radius ?? 8;
   return {
     id,
     label,
-    kind: 'box',
-    box: { x: 0, y: 0, width, height },
-    radius: [8, 8, 8, 8],
-    fill: '#2f6fed',
-    stroke: null,
+    kind: look.kind ?? 'box',
+    box: { x: look.x ?? 0, y: look.y ?? 0, width, height },
+    radius: [radius, radius, radius, radius],
+    fill: look.fill === undefined ? ACCENT : look.fill,
+    stroke: look.stroke === undefined ? null : { color: look.stroke, width: 1 },
     opacity: 1,
     transformOrigin: { x: width / 2, y: height / 2 },
     children,
@@ -89,7 +102,11 @@ function capture(selector: string, root: unknown, tracks: unknown[], notShown: s
 
 // ---------- The samples ----------
 
-export const buttonHover = capture('button.fx-button', shape('root', 'button.fx-button', 96, 36), [
+const buttonShape = shape('root', 'button.fx-button', 96, 36, [
+  shape('label', 'text', 56, 8, [], { x: 20, y: 14, fill: '#ffffff', radius: 3, kind: 'text' }),
+]);
+
+export const buttonHover = capture('button.fx-button', buttonShape, [
   transition(
     'root',
     'box-shadow',
@@ -106,7 +123,20 @@ export const buttonHover = capture('button.fx-button', shape('root', 'button.fx-
   ),
 ]);
 
-export const cardLift = capture('div.fx-card', shape('root', 'div.fx-card', 140, 100), [
+const cardShape = shape(
+  'root',
+  'div.fx-card',
+  140,
+  100,
+  [
+    shape('image', 'div.fx-card__image', 116, 40, [], { x: 12, y: 12, fill: GRAY, radius: 4, kind: 'image' }),
+    shape('line-1', 'div.fx-card__line', 116, 8, [], { x: 12, y: 60, fill: GRAY, radius: 4, kind: 'text' }),
+    shape('line-2', 'div.fx-card__line', 70, 8, [], { x: 12, y: 76, fill: GRAY, radius: 4, kind: 'text' }),
+  ],
+  { fill: '#fafafa', stroke: '#e4e4e4' },
+);
+
+export const cardLift = capture('div.fx-card', cardShape, [
   transition(
     'root',
     'transform',
@@ -125,7 +155,10 @@ export const staggerList = capture(
     'ul.fx-list',
     160,
     80,
-    listItems.map((index) => shape(`item-${index}`, 'li', 160, 14)),
+    listItems.map((index) =>
+      shape(`item-${index}`, 'li', 160, 14, [], { y: index * 22, fill: GRAY, radius: 4 }),
+    ),
+    { fill: null },
   ),
   listItems.flatMap((index) => [
     transition(
@@ -145,7 +178,18 @@ export const staggerList = capture(
   ]),
 );
 
-export const loader = capture('div.fx-loader', shape('root', 'div.fx-loader', 32, 32), [
+// The loader is a ring with one colored quarter. As shapes: a ring, and a
+// small marker on it, so the rotation can be seen.
+const loaderShape = shape(
+  'root',
+  'div.fx-loader',
+  32,
+  32,
+  [shape('marker', 'marker', 6, 6, [], { x: 13, y: -1, radius: 3 })],
+  { fill: null, stroke: GRAY, radius: 16 },
+);
+
+export const loader = capture('div.fx-loader', loaderShape, [
   {
     shapeId: 'root',
     property: 'transform',
@@ -172,7 +216,9 @@ const bounceStops: [number, number, unknown][] = [
 
 export const bounce = capture(
   'div.fx-bounce',
-  shape('root', 'div.fx-bounce', 24, 88, [shape('ball', 'div.fx-ball', 24, 24)]),
+  shape('root', 'div.fx-bounce', 24, 88, [shape('ball', 'div.fx-ball', 24, 24, [], { y: 64, radius: 12 })], {
+    fill: null,
+  }),
   [
     {
       shapeId: 'ball',
@@ -205,7 +251,10 @@ export const dots = capture(
     'div.fx-dots',
     46,
     10,
-    dotDelays.map((_delay, index) => shape(`dot-${index}`, 'span', 10, 10)),
+    dotDelays.map((_delay, index) =>
+      shape(`dot-${index}`, 'span', 10, 10, [], { x: index * 18, radius: 5 }),
+    ),
+    { fill: null },
   ),
   dotDelays.flatMap((delay, index) => [
     {
@@ -237,7 +286,7 @@ export const dots = capture(
 
 const corners = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
 
-export const morph = capture('div.fx-morph', shape('root', 'div.fx-morph', 56, 56), [
+export const morph = capture('div.fx-morph', shape('root', 'div.fx-morph', 56, 56, [], { fill: GRAY }), [
   transition(
     'root',
     'background-color',
@@ -258,7 +307,11 @@ export const morph = capture('div.fx-morph', shape('root', 'div.fx-morph', 56, 5
 
 export const stepsSample = capture(
   'div.fx-steps',
-  shape('root', 'div.fx-steps', 144, 24, [shape('dot', 'div.fx-steps__dot', 24, 22)]),
+  shape('root', 'div.fx-steps', 144, 24, [shape('dot', 'div.fx-steps__dot', 24, 22, [], { y: 1, radius: 4 })], {
+    fill: null,
+    stroke: '#e4e4e4',
+    radius: 4,
+  }),
   [
     {
       shapeId: 'dot',
@@ -287,7 +340,7 @@ export const stepsSample = capture(
 // The button's hover-out, cut short. Chrome shortened it from 180 ms.
 export const interruptedHover = capture(
   'button.fx-button',
-  shape('root', 'button.fx-button', 96, 36),
+  buttonShape,
   [
     {
       ...transition(
@@ -303,6 +356,36 @@ export const interruptedHover = capture(
   ['An animation on ::before cannot be drawn.'],
 );
 
+const SPRING = {
+  kind: 'linear-points',
+  points: [
+    [0, 0],
+    [0.09, 0.22],
+    [0.27, 0.86],
+    [0.36, 1.11],
+    [0.42, 1.16],
+    [0.6, 1.04],
+    [0.72, 0.98],
+    [1, 1],
+  ].map(([input, output]) => ({ input, output })),
+};
+
+export const linearSpring = capture(
+  'div.fx-linear',
+  shape('root', 'div.fx-linear', 144, 32, [shape('box', 'div.fx-linear__box', 32, 32, [], { radius: 4 })], {
+    fill: null,
+  }),
+  [
+    transition(
+      'box',
+      'transform',
+      keyframe(0, 'none', transform()),
+      keyframe(1, 'translateX(96px)', transform(translate(96, 0))),
+      timing(700, SPRING),
+    ),
+  ],
+);
+
 export const allSamples = [
   buttonHover,
   cardLift,
@@ -312,5 +395,6 @@ export const allSamples = [
   dots,
   morph,
   stepsSample,
+  linearSpring,
   interruptedHover,
 ];

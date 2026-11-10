@@ -22,11 +22,17 @@ export type TrackSample =
       phase: 'before' | 'running' | 'after';
       // Which repeat this is, counting from 0.
       iteration: number;
+      // Progress through one iteration before the effect easing, 0 to 1.
+      // This is the input of the effect easing: where its curve dot sits.
+      iterationProgress: number;
       // Progress through one iteration after the effect easing. Usually 0 to
       // 1. An overshooting easing takes it outside.
       progress: number;
       // The keyframe the current segment starts at.
       segmentIndex: number;
+      // How far through that segment before the keyframe's easing.
+      // This is the input of the keyframe easing.
+      segmentInput: number;
       // How far through that segment, after the keyframe's own easing.
       // This is the number to interpolate values with.
       segmentProgress: number;
@@ -126,15 +132,14 @@ function segmentIndexAt(keyframes: Keyframe[], progress: number): number {
   return Math.min(Math.max(lastAtOrBefore, 0), keyframes.length - 2);
 }
 
-function segmentProgressAt(keyframes: Keyframe[], index: number, progress: number): number {
+function segmentInputAt(keyframes: Keyframe[], index: number, progress: number): number {
   const start = keyframes[index];
   const end = keyframes[index + 1];
   if (start === undefined || end === undefined) return 0;
   const length = end.offset - start.offset;
   // Two keyframes at the same offset: a jump. Before it 0, from it on 1.
   if (length === 0) return progress < start.offset ? 0 : 1;
-  const local = saturate((progress - start.offset) / length);
-  return evaluateEasing(start.easing, local);
+  return saturate((progress - start.offset) / length);
 }
 
 // ---------- Public function ----------
@@ -154,13 +159,17 @@ export function sampleTrack(track: Track, timeMs: number): TrackSample {
   const progress = evaluateEasing(timing.easing, directed);
 
   const segmentIndex = segmentIndexAt(track.keyframes, progress);
+  const segmentInput = segmentInputAt(track.keyframes, segmentIndex, progress);
+  const segmentEasing = track.keyframes[segmentIndex]?.easing ?? { kind: 'linear' };
   return {
     kind: 'active',
     phase,
     iteration: saturate(iteration),
+    iterationProgress: directed,
     progress,
     segmentIndex,
-    segmentProgress: segmentProgressAt(track.keyframes, segmentIndex, progress),
+    segmentInput,
+    segmentProgress: evaluateEasing(segmentEasing, segmentInput),
   };
 }
 

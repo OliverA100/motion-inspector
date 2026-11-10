@@ -2,8 +2,10 @@ import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import {
   cubicBezier,
+  easingDistance,
   easingSpeed,
   evaluateEasing,
+  fitBezier,
   linearPoints,
   NAMED_EASINGS,
   nearestNamedEasing,
@@ -247,5 +249,20 @@ describe('speed and nearest named easing', () => {
     const nearest = nearestNamedEasing(unwrap(cubicBezier(0.02, 0.01, 0.56, 1)));
     expect(nearest.name).toBe('ease-out');
     expect(nearest.distance).toBeLessThan(0.03);
+  });
+});
+
+describe('fitBezier', () => {
+  test('finds a named easing again', () => {
+    expect(easingDistance(fitBezier(named('ease-in-out')), named('ease-in-out'))).toBeLessThan(0.03);
+  });
+
+  test('gives a close bezier for a linear() spring', () => {
+    const spring = unwrap(
+      parseEasing('linear(0 0%, 0.22 9%, 0.86 27%, 1.11 36%, 1.16 42%, 1.04 60%, 0.98 72%, 1 100%)'),
+    );
+    const fitted = fitBezier(spring);
+    expect(fitted.kind).toBe('cubic-bezier');
+    expect(easingDistance(fitted, spring)).toBeLessThan(0.1);
   });
 });

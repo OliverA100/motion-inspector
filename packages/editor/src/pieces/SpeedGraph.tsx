@@ -23,7 +23,7 @@ export function SpeedGraph({ original, mine, playhead }: Props) {
           <span className="legend__mine">Mine</span>
         </div>
       </header>
-      <Canvas label="Speed over time for the selected track" height={132} draw={draw} />
+      <Canvas label="Speed over time for the selected track. Dashed is the original, solid is mine." height={132} draw={draw} />
     </section>
   );
 }

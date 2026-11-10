@@ -8,8 +8,21 @@ import type { Theme } from '../theme';
 // A 2D transform as the six numbers of a matrix: a, b, c, d, e, f.
 export type Matrix = [number, number, number, number, number, number];
 
-// How one shape looks at the current time.
-export type Pose = { shapeId: ShapeId; matrix: Matrix; opacity: number };
+export type Shadow = { color: string; x: number; y: number; blur: number };
+
+// How one shape differs from its resting look at the current time.
+// null means "as at rest" for that part.
+export type Pose = {
+  shapeId: ShapeId;
+  matrix: Matrix | null;
+  opacity: number | null;
+  fill: string | null;
+  strokeColor: string | null;
+  radius: [number, number, number, number] | null;
+  width: number | null;
+  height: number | null;
+  shadow: Shadow | null;
+};
 
 export type StageData = {
   root: Shape;
@@ -25,9 +38,15 @@ const PADDING = 32;
 const MAX_SCALE = 2;
 const CAPTION_HEIGHT = 20;
 
-function shapePath(context: CanvasRenderingContext2D, shape: Shape): void {
+function shapePath(context: CanvasRenderingContext2D, shape: Shape, pose: Pose | null): void {
   context.beginPath();
-  context.roundRect(shape.box.x, shape.box.y, shape.box.width, shape.box.height, shape.radius);
+  context.roundRect(
+    shape.box.x,
+    shape.box.y,
+    pose?.width ?? shape.box.width,
+    pose?.height ?? shape.box.height,
+    pose?.radius ?? shape.radius,
+  );
 }
 
 // Applies a shape's pose around its transform origin, then calls `paint`
@@ -40,7 +59,7 @@ function walk(
 ): void {
   const pose = poses.find((candidate) => candidate.shapeId === shape.id) ?? null;
   context.save();
-  if (pose !== null) {
+  if (pose !== null && pose.matrix !== null) {
     const originX = shape.box.x + shape.transformOrigin.x;
     const originY = shape.box.y + shape.transformOrigin.y;
     context.translate(originX, originY);
@@ -52,34 +71,54 @@ function walk(
   context.restore();
 }
 
-function drawFilled(context: CanvasRenderingContext2D, data: StageData, scale: number): void {
-  walk(context, data.root, data.mine, (shape, pose) => {
-    const alpha = shape.opacity * (pose?.opacity ?? 1);
-    context.globalAlpha = alpha;
-    shapePath(context, shape);
-    if (shape.fill !== null) {
-      context.fillStyle = shape.fill;
+function drawFilled(
+  context: CanvasRenderingContext2D,
+  root: Shape,
+  poses: Pose[],
+  selectedShapeId: ShapeId | null,
+  theme: Theme,
+  scale: number,
+): void {
+  walk(context, root, poses, (shape, pose) => {
+    context.globalAlpha = shape.opacity * (pose?.opacity ?? 1);
+    shapePath(context, shape, pose);
+    const fill = pose?.fill ?? shape.fill;
+    if (fill !== null) {
+      if (pose !== null && pose.shadow !== null) {
+        // Canvas shadows ignore the current transform, so scale by hand.
+        context.shadowColor = pose.shadow.color;
+        context.shadowOffsetX = pose.shadow.x * scale;
+        context.shadowOffsetY = pose.shadow.y * scale;
+        context.shadowBlur = pose.shadow.blur * scale;
+      }
+      context.fillStyle = fill;
       context.fill();
+      context.shadowColor = 'transparent';
     }
     if (shape.stroke !== null) {
-      context.strokeStyle = shape.stroke.color;
+      context.strokeStyle = pose?.strokeColor ?? shape.stroke.color;
       context.lineWidth = shape.stroke.width;
       context.stroke();
     }
     context.globalAlpha = 1;
-    if (shape.id === data.selectedShapeId) {
-      context.strokeStyle = data.theme.accent;
+    if (shape.id === selectedShapeId) {
+      context.strokeStyle = theme.accent;
       context.lineWidth = 1.5 / scale;
       context.stroke();
     }
   });
 }
 
-// The original as a dashed outline of the root shape only, to stay quiet.
-function drawOutline(context: CanvasRenderingContext2D, data: StageData, scale: number): void {
-  walk(context, data.root, data.original, (shape) => {
-    if (shape.id !== data.root.id) return;
-    shapePath(context, shape);
+// The original as a dashed outline of the animated shapes only, to stay
+// quiet. Shapes that do not move would only repeat what is already drawn.
+function drawOutline(
+  context: CanvasRenderingContext2D,
+  data: StageData,
+  scale: number,
+): void {
+  walk(context, data.root, data.original, (shape, pose) => {
+    if (pose === null) return;
+    shapePath(context, shape, pose);
     context.strokeStyle = data.theme.original;
     context.lineWidth = 1 / scale;
     context.setLineDash([4 / scale, 4 / scale]);
@@ -121,10 +160,11 @@ function caption(context: CanvasRenderingContext2D, theme: Theme, text: string, 
 }
 
 export function drawStage(context: CanvasRenderingContext2D, data: StageData, size: Size): void {
+  const { root, theme } = data;
   if (data.compare === 'overlay') {
     const whole = { x: 0, y: 0, width: size.width, height: size.height };
-    inArea(context, data.root, whole, (scale) => {
-      drawFilled(context, data, scale);
+    inArea(context, root, whole, (scale) => {
+      drawFilled(context, root, data.mine, data.selectedShapeId, theme, scale);
       drawOutline(context, data, scale);
     });
     return;
@@ -133,16 +173,15 @@ export function drawStage(context: CanvasRenderingContext2D, data: StageData, si
   const half = size.width / 2;
   // The two halves start below their captions.
   const height = size.height - CAPTION_HEIGHT;
-  // Left: the original, drawn filled with its own poses.
-  inArea(context, data.root, { x: 0, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
-    drawFilled(context, { ...data, mine: data.original, selectedShapeId: null }, scale);
+  inArea(context, root, { x: 0, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
+    drawFilled(context, root, data.original, null, theme, scale);
   });
-  inArea(context, data.root, { x: half, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
-    drawFilled(context, data, scale);
+  inArea(context, root, { x: half, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
+    drawFilled(context, root, data.mine, data.selectedShapeId, theme, scale);
   });
-  caption(context, data.theme, 'Original', 0);
-  caption(context, data.theme, 'Mine', half);
-  context.strokeStyle = data.theme.border;
+  caption(context, theme, 'Original', 0);
+  caption(context, theme, 'Mine', half);
+  context.strokeStyle = theme.border;
   context.lineWidth = 1;
   context.beginPath();
   context.moveTo(Math.round(half) + 0.5, 0);

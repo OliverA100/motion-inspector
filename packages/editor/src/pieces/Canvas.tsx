@@ -14,9 +14,12 @@ type Props = {
   // Height in CSS px. The width follows the container.
   height: number;
   draw: Draw;
+  // Called when the canvas gets its size, and when that changes. A piece
+  // that places controls over the canvas needs it.
+  onSize?: (size: Size) => void;
 };
 
-export function Canvas({ label, height, draw }: Props) {
+export function Canvas({ label, height, draw, onSize }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -31,6 +34,10 @@ export function Canvas({ label, height, draw }: Props) {
     observer.observe(canvas);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (width > 0) onSize?.({ width, height });
+  }, [onSize, width, height]);
 
   // Redraw only when the size or the draw function changes.
   useEffect(() => {

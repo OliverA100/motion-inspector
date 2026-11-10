@@ -6,9 +6,10 @@ A tool to dissect, understand and re-tune animations found on real websites. Wor
 
 ```bash
 pnpm install
-pnpm dev          # fixtures page at http://localhost:5173/fixtures.html
-pnpm test         # unit and property tests
-pnpm test:spike   # records what Chrome reports for each fixture
+pnpm dev            # editor demo at http://localhost:5173/ (also /pieces.html, /fixtures.html)
+pnpm test           # unit and property tests
+pnpm test:browser   # browser tests: the capture spike and the editor
+pnpm screenshots    # saves screenshots of every state to screenshots/
 ```
 
 ## Known limits

@@ -1,0 +1,47 @@
+// The editor's whole state, and every message that can change it.
+//
+// This file and update.ts have no React and no DOM in them. They are plain
+// data and pure functions, so they can be tested alone and ported to Elm.
+
+import type { Capture, Easing } from '@motion-inspector/core';
+
+export type Speed = 1 | 0.5 | 0.25 | 0.1;
+
+export type Compare = 'overlay' | 'side-by-side';
+
+export type Model = {
+  // The capture as it arrived. Never changes.
+  original: Capture;
+  // The capture with my edits. Always has the same tracks, in the same order.
+  edited: Capture;
+  // Index into edited.tracks, or null when the capture has no tracks.
+  selectedTrack: number | null;
+  // The keyframe the selected segment starts at.
+  selectedSegment: number;
+  playing: boolean;
+  loop: boolean;
+  speed: Speed;
+  // The one clock. Every view reads this, so they cannot drift apart.
+  // In ms from the start of the take.
+  timeMs: number;
+  compare: Compare;
+};
+
+export type Msg =
+  | { kind: 'captureLoaded'; capture: Capture }
+  | { kind: 'trackSelected'; trackIndex: number }
+  | { kind: 'segmentSelected'; segmentIndex: number }
+  // Playback
+  | { kind: 'playToggled' }
+  | { kind: 'replayed' }
+  | { kind: 'loopSet'; loop: boolean }
+  | { kind: 'speedSet'; speed: Speed }
+  // A frame passed while playing. elapsedMs is real time since the last one.
+  | { kind: 'ticked'; elapsedMs: number }
+  | { kind: 'scrubbed'; timeMs: number }
+  // Step by whole frames of 1/60 s. Negative steps go back.
+  | { kind: 'stepped'; frames: number }
+  // View
+  | { kind: 'compareSet'; compare: Compare }
+  // Edits
+  | { kind: 'easingChanged'; easing: Easing };
