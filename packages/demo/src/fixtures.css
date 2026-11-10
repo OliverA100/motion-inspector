@@ -1127,3 +1127,62 @@ fx-shadow-card {
 .fx-flip:hover .fx-flip__back {
   transform: rotateY(0deg);
 }
+
+/* 36. Through a variable: a registered custom property moves what uses it. */
+@property --fx-x {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+.fx-var {
+  display: flex;
+  align-items: center;
+  width: 160px;
+  height: 64px;
+  padding-left: 12px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: #7c3aed;
+  transform: translateX(var(--fx-x));
+  transition: --fx-x 500ms ease-out;
+}
+.fx-var:hover {
+  --fx-x: 60px;
+}
+.fx-var__dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translateX(calc(var(--fx-x) * 1.5));
+}
+
+/* 37. Ripple: a part added by a click and taken off the page again. */
+.fx-ripple {
+  position: relative;
+  width: 160px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #1d4ed8;
+}
+.fx-ripple__wave {
+  position: absolute;
+  left: 50px;
+  top: -6px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #ffffff;
+  animation: fx-ripple-grow 300ms ease-out both;
+}
+@keyframes fx-ripple-grow {
+  from {
+    transform: scale(0);
+    opacity: 0.1;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+}

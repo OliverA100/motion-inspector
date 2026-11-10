@@ -1204,7 +1204,7 @@ test('a box moved by a script spring gets script tracks that match the film', as
     const to = next === undefined ? from : xOf(next.value);
     expect(Math.abs(from + (to - from) * at.segmentProgress - frame.matrix[4])).toBeLessThan(0.55);
   }
-  expect(describeCapture(capture)).toMatch(/script/);
+  expect(describeCapture(capture)).toMatch(/was measured from the page/);
 });
 
 test('a card that tilts toward the pointer is captured as following it, with its lag', async ({
@@ -1374,4 +1374,44 @@ test('a script-moved hover and its leave are two takes, the leave starting where
   expect(cut(clips[0]?.keyframes.at(-1)?.value)).toBeCloseTo(120, 0);
   expect(cut(clips[1]?.keyframes[0]?.value)).toBeCloseTo(cut(clips[0]?.keyframes.at(-1)?.value), 1);
   expect(cut(clips[1]?.keyframes.at(-1)?.value)).toBeCloseTo(40, 0);
+});
+
+test('a button pressed inside the recorded element names its take "click", not "focus"', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  // The whole fixture, its button included: the press moves focus to it.
+  await page.evaluate(() => window.MotionCapture.record('[data-fixture="spring"]'));
+  await page.click('[data-fixture="spring"] [data-trigger="toggle"]');
+  await page.waitForTimeout(1600);
+  const takes = await page.evaluate(() => window.MotionCapture.stop());
+  const triggers = takes.flatMap((take) => (take.capture === null ? [] : [take.capture.trigger]));
+  expect(triggers).not.toContain('focus');
+  expect(triggers[0]).toBe('click');
+});
+
+test('parts moved through a CSS variable are measured, the variable itself not listed', async ({
+  page,
+}) => {
+  const capture = onlyCapture(
+    await captureFixture(
+      page,
+      'variable',
+      (p) => p.hover('[data-fixture="variable"] [data-root]'),
+      900,
+    ),
+  );
+  // No track of the variable, and no note that it could not be shown.
+  expect(capture.tracks.some((track) => track.property.startsWith('--'))).toBe(false);
+  expect(capture.notShown.join(' ')).not.toContain('CSS variables');
+  const moved = (id: string): number => {
+    const track = capture.tracks.find(
+      (item) => item.shapeId === id && item.property === 'transform',
+    );
+    return Number(/translate\(([-\d.]+)px/.exec(track?.keyframes.at(-1)?.value ?? '')?.[1]);
+  };
+  // The box by --fx-x, its dot by one and a half times it, plus the box's.
+  expect(moved(capture.root.id)).toBeCloseTo(60, 0);
+  expect(moved(capture.root.children[0]?.id ?? '')).toBeCloseTo(90, 0);
+  expect(describeCapture(capture)).toContain('was measured from the page');
 });

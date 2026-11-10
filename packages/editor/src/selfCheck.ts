@@ -104,6 +104,12 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
       frames += 1;
       const pose = followAt(index) ?? poses?.find((item) => item.shapeId === entry.shapeId);
       const preview = pose?.matrix ?? shape.transform ?? identity;
+      // What is seen of it: nothing while it is hidden.
+      const seen = pose?.visible === false ? 0 : (pose?.opacity ?? shape.opacity);
+      opacity = Math.max(opacity, Math.abs(seen - frame.opacity));
+      // Unseen on the page and in the preview (removed, hidden): where it
+      // would be does not matter.
+      if (seen === 0 && frame.opacity === 0) return;
       for (const [x, y] of corners) {
         const [px1, py1] = apply(preview, pose?.taper ?? null, x, y);
         const [px2, py2] = apply(frame.matrix, frame.taper, x, y);
@@ -113,7 +119,6 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
           worstAtMs = frame.t;
         }
       }
-      opacity = Math.max(opacity, Math.abs((pose?.opacity ?? shape.opacity) - frame.opacity));
     });
     return frames === 0
       ? []

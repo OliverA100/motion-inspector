@@ -455,8 +455,8 @@ export function describeCapture(capture: Capture): string {
       ? []
       : [
           scripted === 1
-            ? 'A script moves 1 part; its motion was measured from the page.'
-            : `A script moves ${scripted} parts; their motion was measured from the page.`,
+            ? 'The motion of 1 part was measured from the page.'
+            : `The motion of ${scripted} parts was measured from the page.`,
         ]),
     ...(moved === 0
       ? []

@@ -4,7 +4,9 @@ import type { Page } from '@playwright/test';
 import type { Capture } from '../packages/core/src/types';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const captureScript = resolve(here, '../packages/capture/dist/capture.iife.js');
+// CAPTURE=path tests another build of the capture script.
+const captureScript =
+  process.env.CAPTURE ?? resolve(here, '../packages/capture/dist/capture.iife.js');
 
 export type Take = { capture: Capture | null; problems: string[]; raw: unknown; replaces: boolean };
 

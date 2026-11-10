@@ -217,7 +217,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 49 | Chakra | A collapsed panel hidden with display: none was filmed as fully visible | A part with no box is filmed as unseen (D134) |
 | 50 | daisyUI | A card flip lost its front face's turn: rotateY(180deg) to rotateY(0deg) was taken as no change, 129 px off | Transforms must also agree as 3D matrices to be "no change" (D134) |
 
-## Eighth pass: speed while recording, the parent's perspective, and Vercel's peel (D135 to D138)
+## Eighth pass: speed while recording, the parent's perspective, Vercel's peel, and new kinds of sites (D135 to D139)
 
 `node tests/freeze-sites.cjs` records real pages as the extension does (whole pages picked too) and times their frames; with PROFILE=1 it says which capture functions took the time.
 
@@ -230,6 +230,10 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 55 | Vercel | Reported: the peeled flap had no shadow: a drop-shadow filter on its wrapper was cut by the flap's own clip | Filters act on a shape and its content once drawn (D138) |
 | 56 | Vercel | The flap was grey where the page's is white: the script rewrites its gradient as it peels | background-image is filmed and drawn (D138) |
 | 57 | Vercel | Reported: the grid of faint lines over the blue was missing. Only the most opaque gradient layer was drawn | Every layer is kept and drawn; repeating tiles as patterns (D138) |
+| 58 | Sonner | A toast's button take was named "Focus" | A press inside the element names its take "Click" (D139) |
+| 59 | NumberFlow | Digits rolled by animating CSS variables: 415 px and 100% opacity off | Parts moved through a variable are filmed and measured: within 1.2 px (D139) |
+| 60 | MUI | The tab's click ripple stayed drawn after it was taken off the page: 100% opacity off | Parts taken off the page are hidden from then on (D139) |
+| 61 | Fine | Hamburger icons (spin, elastic), Radix and Mantine switches, GSAP hover | All within 0.1 px of the page |
 
 ## Known limits seen on real sites
 

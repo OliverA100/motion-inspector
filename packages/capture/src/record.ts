@@ -331,6 +331,78 @@ function partOf(
     : { id, box: shape.box, resting: snapshot.resting.get(seen.target) };
 }
 
+// Parts taken off the page during the take (a click's ripple, a toast that
+// left, a menu closed): hidden from the moment they went, as on the page.
+// The film saw them go: no box from then on.
+function removalTracksFor(
+  snapshot: Snapshot,
+  film: Film,
+  scripted: Set<Element>,
+  takeStart: number,
+): unknown[] {
+  // A measured track shows only while it runs: this one runs from the
+  // moment the part went to the end of the film, hidden throughout.
+  const filmEnds = Math.max(
+    ...Array.from(film.values()).flatMap((frames) => frames.map((frame) => frame.time)),
+  );
+  return Array.from(film).flatMap(([element, frames]) => {
+    const shapeId = snapshot.shapeIdOf.get(element);
+    if (element.isConnected || scripted.has(element) || shapeId === undefined) return [];
+    const lastSeen = frames.findLastIndex((frame) => frame.opacity > 0);
+    const gone = frames[lastSeen + 1];
+    if (lastSeen < 0 || gone === undefined) return [];
+    const at = Math.max(0, gone.time - takeStart);
+    const keyframe = (offset: number, value: string) => ({
+      offset,
+      value,
+      parsed: null,
+      easing: { kind: 'linear' },
+      implicit: false,
+    });
+    return [
+      {
+        shapeId,
+        property: 'visibility',
+        origin: 'script',
+        groupId: null,
+        // A millisecond early: frame times are kept to a tenth, and the frame
+        // that saw it gone may round to just before the moment.
+        startOffset: Math.max(0, at - 1),
+        interrupted: false,
+        keyframes: [keyframe(0, 'hidden'), keyframe(1, 'hidden')],
+        timing: {
+          delay: 0,
+          // To a millisecond past the last frame, for the same reason.
+          duration: Math.max(1, filmEnds - gone.time + 2),
+          iterations: { kind: 'count', count: 1 },
+          direction: 'normal',
+          // Not before it starts: until then the part is there.
+          fill: 'forwards',
+          easing: { kind: 'linear' },
+        },
+      },
+    ];
+  });
+}
+
+// An animation of CSS variables only (custom properties). What it moves is
+// whatever uses them: NumberFlow's digits roll through --_number-flow-dy
+// in their transforms. Those parts are filmed and measured.
+function changesVariables(seen: Seen): boolean {
+  return (
+    seen.pseudoElement === null &&
+    (seen.properties.length === 0 || seen.properties.every((property) => property.startsWith('--')))
+  );
+}
+
+// The parts a variable can move: the element and the drawn parts inside it.
+const MOST_PARTS_THROUGH_A_VARIABLE = 80;
+function partsUsingVariables(snapshot: Snapshot, element: Element): Element[] {
+  return [element, ...Array.from(element.querySelectorAll('*'))]
+    .filter((part) => snapshot.shapeOf.has(part))
+    .slice(0, MOST_PARTS_THROUGH_A_VARIABLE);
+}
+
 function tracksFor(
   snapshot: Snapshot,
   seen: Seen,
@@ -832,6 +904,14 @@ function scriptTracksFor(
       ...FILMED_STYLES.flatMap((property, which) => {
         const texts = frames.map((frame) => frame.styles[which] ?? '');
         if (new Set(texts).size < 2) return [];
+        // A moving gradient is drawn when it is linear. A conic one turned
+        // by a variable (Resend's ring) would be listed and not drawn.
+        if (
+          property === 'background-image' &&
+          !texts.every((text) => text.startsWith('linear-gradient('))
+        ) {
+          return [];
+        }
         const slots = numberSlots(texts);
         if (slots === null) return [];
         return [
@@ -1103,6 +1183,15 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
     if (event.type === 'out' && crosses) return 'leave';
     if (event.type === 'down') return 'click';
     if (event.type === 'key') return 'key';
+    // A press moves focus too, a moment after it: that is a click (found on
+    // Sonner: a toast's button was named by its focus).
+    const pressed =
+      (event.type === 'focus' || event.type === 'blur') &&
+      near.some(
+        (other) =>
+          other.type === 'down' && other.time <= event.time && other.time >= event.time - 300,
+      );
+    if (pressed) return 'click';
     if (event.type === 'focus' && within(root, event.target)) return 'focus';
     if (event.type === 'blur' && within(root, event.target)) return 'blur';
   }
@@ -1164,7 +1253,22 @@ function buildTake(
     followed.has(seen.target) &&
     seen.pseudoElement === null &&
     seen.properties.every((property) => TRANSFORM_PROPERTIES.includes(property));
-  const kept = take.filter((seen) => !replacedByRule(seen));
+  const scripts = scriptTracksFor(
+    snapshot,
+    take,
+    film,
+    new Set(Array.from(scripted).filter((element) => !followed.has(element))),
+    takeStart,
+  ) as { shapeId: unknown; property: unknown; groupId: string | null }[];
+  // A variable whose effect was measured is shown by that: its own values
+  // cannot be drawn, and listing them would only repeat it.
+  const measuredIds = new Set(scripts.map((track) => track.shapeId));
+  const measuredThrough = (seen: Seen): boolean =>
+    changesVariables(seen) &&
+    partsUsingVariables(snapshot, seen.target).some((part) =>
+      measuredIds.has(snapshot.shapeIdOf.get(part)),
+    );
+  const kept = take.filter((seen) => !replacedByRule(seen) && !measuredThrough(seen));
   const built = kept.map((seen, index) =>
     // Properties from one animation share its timing: one group.
     tracksFor(
@@ -1183,13 +1287,7 @@ function buildTake(
     groupId: string | null;
   }[];
   const layout = layoutTracksFor(snapshot, take, samples, takeStart) as typeof tracks;
-  const scripts = scriptTracksFor(
-    snapshot,
-    take,
-    film,
-    new Set(Array.from(scripted).filter((element) => !followed.has(element))),
-    takeStart,
-  ) as typeof tracks;
+  const removals = removalTracksFor(snapshot, film, scripted, takeStart) as typeof tracks;
   tracks.forEach((track, index) => {
     const there = tracks
       .slice(0, index)
@@ -1232,7 +1330,7 @@ function buildTake(
       capturedAt: new Date().toISOString(),
     },
     root: snapshot.root,
-    tracks: [...tracks, ...layout, ...scripts],
+    tracks: [...tracks, ...layout, ...scripts, ...removals],
     measured: measuredFor(snapshot, film, takeStart),
     follows: follows.length > 0 ? follows : null,
     trigger: trigger ?? triggerOf(snapshot.rootElement, take, take.length === 0 ? takeStart : null),
@@ -1437,6 +1535,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   let film: Film = new Map();
   let previousFilm: Film = new Map();
   let scripted = new Set<Element>();
+  // Every element inside when the element was picked, to tell a part made
+  // later from one that was there.
+  const existedAtPick = new WeakSet<Element>([
+    snapshot.rootElement,
+    ...Array.from(snapshot.rootElement.querySelectorAll('*')),
+  ]);
+  // The parts each variable animation can move, found once.
+  const partsOfVariables = new WeakMap<Seen, Element[]>();
   let lastFilmed = -Infinity;
   let lastStyleChange = -Infinity;
   // Parts a script never stops moving. One take of them is enough.
@@ -1803,6 +1909,20 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         return seen === null ? [] : [seen];
       },
     );
+    // A part made after the pick (a click's ripple, a toast) is measured as
+    // soon as it animates: it may be taken off the page before the take
+    // ends, and then it could not be. Parts that were there but hidden (a
+    // panel about to open) are measured at the end, when their size is known.
+    for (const seen of fresh) {
+      if (
+        seen.pseudoElement === null &&
+        seen.onDocumentTimeline &&
+        !existedAtPick.has(seen.target) &&
+        snapshot.rootElement.contains(seen.target)
+      ) {
+        addLateShape(snapshot, seen.target);
+      }
+    }
 
     // The same property on the same element restarted before it was done
     // (hover out during hover in). That is a new take, not a second track.
@@ -1884,6 +2004,20 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       for (const seen of take) {
         if (seen.pseudoElement === null) filmed.add(seen.target);
       }
+      // Parts a CSS variable moves, filmed too.
+      const throughVariables = new Set<Element>();
+      for (const seen of take) {
+        if (!changesVariables(seen)) continue;
+        let parts = partsOfVariables.get(seen);
+        if (parts === undefined) {
+          parts = partsUsingVariables(snapshot, seen.target);
+          partsOfVariables.set(seen, parts);
+        }
+        for (const part of parts) {
+          filmed.add(part);
+          throughVariables.add(part);
+        }
+      }
       // Parts that appear for the animation have no shape yet: they get one
       // when the take is built, and their film is matched to it then.
       for (const element of filmed) {
@@ -1893,6 +2027,15 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         if (frames[frames.length - 1]?.time === docNow) continue;
         frames.push({ time: docNow, ...frameNow(element) });
         film.set(element, frames);
+      }
+      // One that moved is measured, as a script's part is.
+      for (const element of throughVariables) {
+        const frames = film.get(element) ?? [];
+        const first = frames[0];
+        const last = frames[frames.length - 1];
+        if (first !== undefined && last !== undefined && !sameFrame(first, last)) {
+          scripted.add(element);
+        }
       }
     }
     if (scriptActive) {

@@ -177,6 +177,59 @@ body {
   color: var(--color-text-muted);
 }
 
+/* Picking or listening, before anything is captured: one sign, one word,
+   one line on what to do. */
+.xp__empty--waiting {
+  gap: var(--space-2);
+}
+
+.xp__empty--waiting .xp__status {
+  flex: none;
+  max-width: 30ch;
+  font-size: var(--text-body);
+}
+
+/* A ring while picking; a dot that gently pulses while listening. */
+.xp__signal {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  margin-bottom: var(--space-2);
+  border: 2px solid var(--color-accent);
+  border-radius: 50%;
+}
+
+.xp__signal.is-listening {
+  border: 0;
+  background: var(--color-accent);
+}
+
+.xp__signal.is-listening::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: xp-pulse 1.8s var(--ease-ui) infinite;
+}
+
+@keyframes xp-pulse {
+  from {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xp__signal.is-listening::after {
+    animation: none;
+  }
+}
+
 .xp__message {
   margin: var(--space-3);
   padding: var(--space-4);

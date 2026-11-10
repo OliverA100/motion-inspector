@@ -786,3 +786,25 @@ test("a card flip is drawn through its parent's perspective, each face only from
   expect(end?.blue).toBe(0);
   expect(end?.pink).toBeGreaterThan(1000);
 });
+
+test('a part taken off the page during the take vanishes then in the preview', async ({ page }) => {
+  const takes = await captureFixture(
+    page,
+    'ripple',
+    (p) => p.click('[data-fixture="ripple"] [data-root]'),
+    1000,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  const hidden = capture?.tracks.find((track) => track.property === 'visibility');
+  // Hidden from when it was removed, about 400 ms in.
+  expect(hidden?.keyframes.at(-1)?.value).toBe('hidden');
+  expect(hidden?.startOffset ?? 0).toBeGreaterThan(300);
+  expect(hidden?.startOffset ?? 0).toBeLessThan(520);
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
+  await page.goto('/?capture=session&quiet&time=0');
+  await expect(page.locator('.mi__check')).toHaveText(/^Matches the page · [\d.]+ px$/);
+});

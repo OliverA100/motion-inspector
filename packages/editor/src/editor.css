@@ -391,7 +391,8 @@ html {
 }
 
 /* The export text: a fixed height, scrolling inside, so the panel is the
-   same size however long the CSS is. */
+   same size however long the CSS is. Long lines wrap rather than run past
+   the edge. */
 .export__text {
   display: block;
   width: 100%;
@@ -404,7 +405,8 @@ html {
   background: transparent;
   border: 0;
   resize: none;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   tab-size: 2;
 }
 

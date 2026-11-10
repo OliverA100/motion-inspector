@@ -770,3 +770,16 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - The panel's More menu closes on a press outside it and on Escape, which returns focus to its button.
 **Why:** reported: "look how the shadows are wrong here" (the flap had no shadow, wrong shading and a hard blue edge), "also draw the grid lines on the blue", and "three dot menu won't close unless I click the three dots again".
 **Gave up:** a moving gradient is drawn from its first layer, and only when it is linear; a moving radial or conic one keeps its resting look. A stop past 100% (Vercel's blue ends at 160%) is drawn at 100%.
+
+### D139. What CSS variables move, parts that leave, and a calmer start
+**Chose:**
+- An animation of CSS variables only (custom properties) moves whatever uses them through var(): the element and the drawn parts inside it are filmed while it runs, and each part that moves is measured, as a script's part is. The variable's own tracks and the note that it could not be shown are then left out: the measured motion shows what it does. NumberFlow's rolling digits went from 415 px off to within 1.2 px.
+- A filmed background-image becomes a track only when it is a linear gradient the preview can draw; a conic one turned by a variable is still listed as not shown.
+- The description no longer says "A script moves N parts": the motion of N parts "was measured from the page", by a script or a variable.
+- A part taken off the page during a take (MUI's click ripple, a toast that leaves) is hidden from that moment: a measured visibility track, from the frame that saw it gone to the end of the film, held only forwards. A part made after the pick is measured as soon as it animates, since it may be gone before the take ends; parts that were there but hidden are still measured at the end, when their size is known.
+- The self-check counts a hidden part as opacity 0, and ignores where a part is while it is unseen both on the page and in the preview.
+- A press inside the element names its take "Click", even though the press also moved focus (Sonner's toast button was named "Focus").
+- The panel, while picking or listening with nothing captured yet, shows one sign, one word and one line in its middle ("Listening", "Hover or click it on the page."), instead of a small line under the toolbar over an empty panel. With reduced motion the sign does not pulse.
+- On wide screens, Export and the notes sit under the timeline, so the two columns end near each other; the export text wraps instead of running past the panel's edge.
+**Why:** a pass over new kinds of sites (Sonner, NumberFlow, hamburger icons, Radix, Mantine, GSAP) and the full sweep: 221 elements, all within 1.4 px but MUI's ripple (100% opacity off) and Stripe's caret (2 px).
+**Gave up:** NumberFlow's digits are columns of numbers behind a CSS mask, which is not drawn: the motion is right, the picture does not read as numbers. Only parts inside the element are filmed for a variable, at most 80.

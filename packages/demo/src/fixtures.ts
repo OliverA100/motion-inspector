@@ -242,3 +242,12 @@ const peelTowards = (to: number): void => {
 };
 peel.addEventListener('pointerenter', () => peelTowards(120));
 peel.addEventListener('pointerleave', () => peelTowards(40));
+
+// 37. Ripple. A click adds a circle, which a script removes 400 ms later.
+const ripple = inside(fixture('ripple'), '.fx-ripple');
+ripple.addEventListener('click', () => {
+  const wave = document.createElement('span');
+  wave.className = 'fx-ripple__wave';
+  ripple.append(wave);
+  setTimeout(() => wave.remove(), 400);
+});

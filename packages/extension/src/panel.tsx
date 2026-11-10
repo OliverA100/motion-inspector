@@ -125,17 +125,23 @@ function statusText(panel: Panel): string {
     case 'idle':
       return panel.stoppedByItself ? 'Recording stopped by itself.' : '';
     case 'picking':
-      return 'Click an element on the page. Esc cancels.';
+      // With no takes yet, the panel's middle says it under "Pick an element".
+      return panel.takes.length === 0
+        ? 'Click it on the page. Esc cancels.'
+        : 'Click an element on the page. Esc cancels.';
     case 'listening': {
       // Say so when the thing being watched is not the thing that was clicked.
       const moved =
-        status.movedTo === null ? '' : ` Watching ${status.movedTo}, the part that moves.`;
+        status.movedTo === null ? '' : `Watching ${status.movedTo}, the part that moves. `;
       if (status.found > 0) {
-        return `Listening…${moved} ${status.found === 1 ? '1 take' : `${status.found} takes`}.`;
+        return `Listening… ${moved}${status.found === 1 ? '1 take' : `${status.found} takes`}.`;
       }
+      // Under "Listening" in the panel's middle when nothing is captured
+      // yet; in the status line, after the word, when takes are listed.
+      const listening = panel.takes.length === 0 ? '' : 'Listening… ';
       return showTip(panel)
-        ? `Listening…${moved} Nothing yet: hover or click it, or play the hover.`
-        : `Listening…${moved} Hover or click it on the page.`;
+        ? `${listening}${moved}Nothing yet. Hover or click it, or play the hover.`
+        : `${listening}${moved}Hover or click it on the page.`;
     }
     case 'nothing-found':
       return 'Stopped.';
@@ -453,6 +459,10 @@ function PanelApp() {
   };
 
   const status = panel.status;
+  // Nothing captured yet, and picking or listening: the panel's middle
+  // says what to do, rather than a line under the toolbar.
+  const waiting =
+    panel.takes.length === 0 && (status.kind === 'picking' || status.kind === 'listening');
   const shown = selectedTake(panel);
 
   return (
@@ -527,10 +537,25 @@ function PanelApp() {
             ) : null}
           </div>
         </details>
-        <p className="xp__status" role="status">
-          {copied !== '' ? copied : statusText(panel)}
-        </p>
+        {waiting ? null : (
+          <p className="xp__status" role="status">
+            {copied !== '' ? copied : statusText(panel)}
+          </p>
+        )}
       </header>
+
+      {waiting ? (
+        <section className="xp__empty xp__empty--waiting">
+          <span
+            className={status.kind === 'listening' ? 'xp__signal is-listening' : 'xp__signal'}
+            aria-hidden="true"
+          />
+          <h2>{status.kind === 'listening' ? 'Listening' : 'Pick an element'}</h2>
+          <p className="xp__status" role="status">
+            {copied !== '' ? copied : statusText(panel)}
+          </p>
+        </section>
+      ) : null}
 
       {panel.notice !== null ? (
         <div className="xp__notice" role="alert">

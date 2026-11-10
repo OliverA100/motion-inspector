@@ -562,6 +562,34 @@
           <div class="fixture__controls">Hover the row</div>
         </section>
 
+        <section class="fixture" data-fixture="variable">
+          <header>
+            <h2>Through a variable</h2>
+            <p>
+              A registered <code>--fx-x</code> transitions on hover. The box and its dot move only
+              through <code>var()</code> in their transforms
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-var" data-root><div class="fx-var__dot"></div></div>
+          </div>
+          <div class="fixture__controls">Hover the box</div>
+        </section>
+
+        <section class="fixture" data-fixture="ripple">
+          <header>
+            <h2>Ripple</h2>
+            <p>
+              A click adds a circle that grows and fades in; a script takes it off the page 400 ms
+              later
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-ripple" data-root></div>
+          </div>
+          <div class="fixture__controls">Click the button</div>
+        </section>
+
         <section class="fixture" data-fixture="flip">
           <header>
             <h2>Card flip</h2>

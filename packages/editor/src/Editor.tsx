@@ -450,6 +450,33 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                 </section>
               )}
             </div>
+            {/* Under the timeline on wide screens, so the two columns end
+                near each other. */}
+            <div className="mi__pane" data-active={tab === 'export'}>
+              {hasTracks ? (
+                <ExportPanel css={exportCss} aiText={exportForAi} copier={copier} />
+              ) : null}
+            </div>
+            <div className="mi__pane" data-active={tab === 'notes'}>
+              {edited.notShown.length > 0 || notPreviewed.length > 0 ? (
+                <section className="panel">
+                  <header className="panel__head">
+                    <h2 className="panel__title">Not shown</h2>
+                  </header>
+                  <ul className="notes">
+                    {edited.notShown.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                    {notPreviewed.map((name) => (
+                      <li key={name}>
+                        <code>{name}</code> is not previewed on the stage. Its timing and curve can
+                        still be edited.
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
           </div>
 
           <div className="mi__column">
@@ -504,31 +531,6 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                     )}
                   </div>
                 </>
-              ) : null}
-            </div>
-            <div className="mi__pane" data-active={tab === 'export'}>
-              {hasTracks ? (
-                <ExportPanel css={exportCss} aiText={exportForAi} copier={copier} />
-              ) : null}
-            </div>
-            <div className="mi__pane" data-active={tab === 'notes'}>
-              {edited.notShown.length > 0 || notPreviewed.length > 0 ? (
-                <section className="panel">
-                  <header className="panel__head">
-                    <h2 className="panel__title">Not shown</h2>
-                  </header>
-                  <ul className="notes">
-                    {edited.notShown.map((note) => (
-                      <li key={note}>{note}</li>
-                    ))}
-                    {notPreviewed.map((name) => (
-                      <li key={name}>
-                        <code>{name}</code> is not previewed on the stage. Its timing and curve can
-                        still be edited.
-                      </li>
-                    ))}
-                  </ul>
-                </section>
               ) : null}
             </div>
           </div>

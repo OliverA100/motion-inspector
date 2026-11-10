@@ -37,6 +37,9 @@ test.beforeEach(({}, testInfo) => {
 });
 
 const status = (panel: Page) => panel.locator('.xp__status');
+// Listening: the word heads the panel's middle while nothing is captured,
+// and starts the status line once something is.
+const listening = (panel: Page) => panel.getByText(/^Listening/).first();
 
 // A page to inspect and the panel beside it, each in its own tab.
 async function open(context: BrowserContext, extensionId: string, url: string) {
@@ -70,7 +73,8 @@ test('the capture script is not on the page until Pick element is pressed', asyn
   await expect(pickerOnPage).toHaveCount(0);
   await panel.getByRole('button', { name: 'Pick element' }).click();
   await expect(pickerOnPage).toHaveCount(1);
-  await expect(status(panel)).toContainText('Click an element on the page.');
+  await expect(panel.getByRole('heading', { name: 'Pick an element' })).toBeVisible();
+  await expect(status(panel)).toHaveText('Click it on the page. Esc cancels.');
   await expect(panel.getByRole('button', { name: 'Cancel' })).toBeVisible();
 });
 
@@ -85,7 +89,7 @@ test('pick, trigger, and the capture arrives in the panel and plays', async ({
   await site.bringToFront();
   await site.mouse.move(0, 0);
   await site.click('.fx-card');
-  await expect(status(panel)).toContainText('Listening…');
+  await expect(listening(panel)).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Stop' })).toBeVisible();
 
   // Picking by click leaves the pointer on the card, which is a hover of
@@ -105,7 +109,7 @@ test('pick, trigger, and the capture arrives in the panel and plays', async ({
   await expect(panel.locator('.mi__description')).toHaveText(
     'The element moves up 6 px and scales to 1.03 over 400 ms. It starts fast, overshoots by 10%, then settles.',
   );
-  await expect(status(panel)).toContainText('Listening…');
+  await expect(listening(panel)).toBeVisible();
   // The click landed on a part inside the card. The panel says that the
   // card itself is what is being watched.
   await expect(status(panel)).toContainText('Watching div.fx-card, the part that moves.');
@@ -148,7 +152,7 @@ test('closing the panel stops the picker on the page, and recording too', async 
   await second.getByRole('button', { name: 'Pick element' }).click();
   await site.bringToFront();
   await site.click('.fx-card');
-  await expect(status(second)).toContainText('Listening…');
+  await expect(listening(second)).toBeVisible();
   await second.close();
   await expect.poll(() => site.evaluate(() => 'motionInspectorSession' in window)).toBe(false);
 });
@@ -159,7 +163,7 @@ test('stop with nothing found says what the cause might be', async ({ context, e
   await site.bringToFront();
   // The page heading does not animate.
   await site.click('h1');
-  await expect(status(panel)).toContainText('Listening…');
+  await expect(listening(panel)).toBeVisible();
   await panel.getByRole('button', { name: 'Stop' }).click();
   await expect(panel.getByRole('heading', { name: 'No animation was found' })).toBeVisible();
   await expect(panel.getByText('Try its parent, or the part that moves')).toBeVisible();
@@ -177,11 +181,11 @@ test('after 5 seconds of listening with nothing found, it offers a tip', async (
   await panel.getByRole('button', { name: 'Pick element' }).click();
   await site.bringToFront();
   await site.click('h1');
-  await expect(status(panel)).toHaveText('Listening… Hover or click it on the page.');
-  await expect(status(panel)).toHaveText(
-    'Listening… Nothing yet: hover or click it, or play the hover.',
-    { timeout: 8000 },
-  );
+  await expect(panel.getByRole('heading', { name: 'Listening' })).toBeVisible();
+  await expect(status(panel)).toHaveText('Hover or click it on the page.');
+  await expect(status(panel)).toHaveText('Nothing yet. Hover or click it, or play the hover.', {
+    timeout: 8000,
+  });
 });
 
 test('a browser page cannot be inspected, and the panel says so plainly', async ({
@@ -204,7 +208,7 @@ test('takes are saved, and are there again after the panel is reopened', async (
   await site.bringToFront();
   await site.mouse.move(0, 0);
   await site.click('.fx-button');
-  await expect(status(panel)).toContainText('Listening…');
+  await expect(listening(panel)).toBeVisible();
   await site.mouse.move(0, 0);
   await site.hover('.fx-button');
   await expect(panel.locator('.xp__take').first()).toBeVisible();
@@ -256,7 +260,7 @@ test('several takes are listed, and any one can be opened', async ({ context, ex
   await site.bringToFront();
   // Pick the bounce fixture's stage, then play it twice.
   await site.click('.fx-bounce');
-  await expect(status(panel)).toContainText('Listening…');
+  await expect(listening(panel)).toBeVisible();
   await site.click('[data-fixture="bounce"] [data-trigger="play"]');
   await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 4000 });
   await site.click('[data-fixture="bounce"] [data-trigger="play"]');
@@ -283,7 +287,7 @@ test('recording stops by itself when the motion is done, and can record again', 
   // No Stop needed: the take is complete and the pointer is elsewhere.
   await expect(status(panel)).toContainText('Recording stopped by itself', { timeout: 5000 });
   await panel.getByRole('button', { name: 'Record again' }).click();
-  await expect(status(panel)).toContainText('Listening…');
+  await expect(listening(panel)).toBeVisible();
   await site.click('[data-fixture="bounce"] [data-trigger="play"]');
   await expect(panel.locator('.xp__take')).toHaveCount(2, { timeout: 4000 });
 });
