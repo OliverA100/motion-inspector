@@ -89,9 +89,11 @@ type NumberFieldProps = {
   unit: string;
   min?: number;
   onChange: (value: number) => void;
+  // Called when the field is left.
+  onDone?: () => void;
 };
 
-export function NumberField({ label, term, value, unit, min, onChange }: NumberFieldProps) {
+export function NumberField({ label, term, value, unit, min, onChange, onDone }: NumberFieldProps) {
   // While the field has focus it shows exactly what was typed, even when
   // that is not a number yet ("", "-", "1."). Without this it would snap
   // back to the last valid value on every keystroke, and could not be
@@ -114,7 +116,10 @@ export function NumberField({ label, term, value, unit, min, onChange }: NumberF
         }}
         // Leaving the field shows the real value again (it may have been
         // held to a limit).
-        onBlur={() => setDraft(null)}
+        onBlur={() => {
+          setDraft(null);
+          onDone?.();
+        }}
       />
       <span className="field__unit">{unit}</span>
       <code className="field__term">{term}</code>

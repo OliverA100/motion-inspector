@@ -3,7 +3,7 @@
 // This file and update.ts have no React and no DOM in them. They are plain
 // data and pure functions, so they can be tested alone and ported to Elm.
 
-import type { Capture, Easing } from '@motion-inspector/core';
+import type { Capture, Easing, ShapeId } from '@motion-inspector/core';
 
 export type Speed = 1 | 0.5 | 0.25 | 0.1;
 
@@ -35,6 +35,11 @@ export type Model = {
   // Whether unticking a row also takes it out of the original's preview.
   // Off by default: what I do to my version leaves the original alone.
   hideInOriginal: boolean;
+  // Faint copies of the selected shape at equal time steps.
+  ghostTrail: boolean;
+  // The shape under the pointer, on the preview or through a timeline row.
+  // Both views light it up, so it lives here and not in either of them.
+  hoveredShapeId: ShapeId | null;
 };
 
 export type Msg =
@@ -58,10 +63,15 @@ export type Msg =
   | { kind: 'compareSet'; compare: Compare }
   | { kind: 'originalShown'; show: boolean }
   | { kind: 'hideInOriginalSet'; on: boolean }
+  | { kind: 'ghostTrailSet'; on: boolean }
+  | { kind: 'shapeHovered'; shapeId: ShapeId | null }
   // Edits. Each one changes `edited` only.
   | { kind: 'easingChanged'; easing: Easing }
   | { kind: 'delayChanged'; trackIndex: number; delayMs: number }
   | { kind: 'durationChanged'; trackIndex: number; durationMs: number }
+  // Gives a track its own timing and curve, apart from the animation it
+  // came from.
+  | { kind: 'trackUnlinked'; trackIndex: number }
   // Resets, from small to large.
   | { kind: 'curveReset' }
   | { kind: 'trackReset'; trackIndex: number }

@@ -4,6 +4,7 @@
 import {
   delay,
   duration,
+  findShape,
   saturate,
   type Capture,
   type Easing,
@@ -39,6 +40,8 @@ export function init(capture: Capture): Model {
     showOriginal: true,
     hiddenTracks: [],
     hideInOriginal: false,
+    ghostTrail: false,
+    hoveredShapeId: null,
   };
 }
 
@@ -106,6 +109,19 @@ function resetTrack(model: Model, trackIndex: number): Model {
     return index === trackIndex || sameGroup ? (model.original.tracks[index] ?? track) : track;
   });
   return keepTimeInside({ ...model, edited: { ...model.edited, tracks } });
+}
+
+// ---------- For the history ----------
+
+// The part of the Model that undo and redo restore.
+export type Edits = { edited: Capture; hiddenTracks: number[] };
+
+export function editsOf(model: Model): Edits {
+  return { edited: model.edited, hiddenTracks: model.hiddenTracks };
+}
+
+export function withEdits(model: Model, edits: Edits): Model {
+  return keepTimeInside({ ...model, edited: edits.edited, hiddenTracks: edits.hiddenTracks });
 }
 
 // ---------- Playback ----------
@@ -197,6 +213,23 @@ export function update(model: Model, msg: Msg): Model {
 
     case 'hideInOriginalSet':
       return { ...model, hideInOriginal: msg.on };
+
+    case 'ghostTrailSet':
+      return { ...model, ghostTrail: msg.on };
+
+    case 'shapeHovered': {
+      const known = msg.shapeId === null || findShape(model.edited.root, msg.shapeId) !== null;
+      return known ? { ...model, hoveredShapeId: msg.shapeId } : model;
+    }
+
+    case 'trackUnlinked': {
+      const target = model.edited.tracks[msg.trackIndex];
+      if (target === undefined || target.groupId === null) return model;
+      const tracks = model.edited.tracks.map((track, index) =>
+        index === msg.trackIndex ? { ...track, groupId: null } : track,
+      );
+      return { ...model, edited: { ...model.edited, tracks } };
+    }
 
     case 'easingChanged':
       return changeEasing(model, msg.easing);

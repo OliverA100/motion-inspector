@@ -50,14 +50,17 @@ export function drawSpeed(context: CanvasRenderingContext2D, data: SpeedData, si
 
   context.fillStyle = theme.muted;
   context.font = `${theme.textSmall}px ${theme.fontUi}`;
-  // One label only, at the right end, where most curves have slowed down
-  // and leave room for it.
+  // The label for the "steady speed" line goes at whichever end the curve
+  // is further from that line, so the two do not sit on top of each other.
+  const gapAtStart = Math.abs((mine[0] ?? 1) - 1);
+  const gapAtEnd = Math.abs((mine[mine.length - 1] ?? 1) - 1);
+  const labelAtEnd = gapAtEnd >= gapAtStart;
   context.textBaseline = 'bottom';
-  context.textAlign = 'right';
-  context.fillText('steady speed', x(1), y(1) - 4);
-  context.textAlign = 'left';
+  context.textAlign = labelAtEnd ? 'right' : 'left';
+  context.fillText('steady speed', labelAtEnd ? x(1) : x(0), y(1) - 4);
+  context.textAlign = labelAtEnd ? 'left' : 'right';
   context.textBaseline = 'top';
-  context.fillText('faster', x(0), PADDING - 12);
+  context.fillText('faster', labelAtEnd ? x(0) : x(1), PADDING - 12);
 
   const stroke = (values: number[]): void => {
     context.beginPath();

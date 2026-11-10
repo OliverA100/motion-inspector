@@ -3,6 +3,7 @@ import './editor.css';
 export { Editor } from './Editor';
 export { Canvas } from './pieces/Canvas';
 export { CurveEditor } from './pieces/CurveEditor';
+export { ExportPanel } from './pieces/ExportPanel';
 export { Playback } from './pieces/Playback';
 export { SpeedGraph } from './pieces/SpeedGraph';
 export { Stage } from './pieces/Stage';

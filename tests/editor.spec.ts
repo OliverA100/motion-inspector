@@ -185,10 +185,15 @@ test('timing can be typed as numbers', async ({ page }) => {
 test('a number field can be cleared and retyped', async ({ page }) => {
   await openPaused(page, 'card-lift', 0, 400);
   const duration = page.getByRole('spinbutton', { name: /Duration/ });
-  await duration.click();
+  // Put the caret after the last digit, whatever the platform's End key does.
+  await duration.focus();
+  await duration.evaluate((input: HTMLInputElement) => {
+    input.type = 'text';
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.type = 'number';
+  });
   // Delete every digit one by one. The field must stay empty, not snap back.
-  await duration.press('End');
-  for (let index = 0; index < 3; index += 1) await duration.press('Backspace');
+  for (let index = 0; index < 3; index += 1) await page.keyboard.press('Backspace');
   await expect(duration).toHaveValue('');
   await duration.pressSequentially('250');
   await expect(time(page)).toHaveText('0 ms of 250 ms');

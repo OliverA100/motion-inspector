@@ -1,12 +1,29 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
-import { NAMED_EASINGS } from '@motion-inspector/core';
-import { bounce, buttonHover, cardLift, dots, loader } from '@motion-inspector/core/src/samples';
+import { NAMED_EASINGS, type ShapeId } from '@motion-inspector/core';
+import {
+  bounce,
+  buttonHover,
+  cardLift,
+  dots,
+  loader,
+  staggerList,
+} from '@motion-inspector/core/src/samples';
 import { capture, easing } from '../../core/test/arbitraries';
+import {
+  canRedo,
+  canUndo,
+  initHistory,
+  updateHistory,
+  type History,
+  type HistoryMsg,
+} from '../src/state/history';
 import type { Model, Msg } from '../src/state/model';
 import {
   curveFeel,
+  defaultSelection,
   easingAt,
+  linkedCount,
   plainName,
   takeLengthMs,
   withoutHidden,
@@ -50,6 +67,18 @@ const msg: fc.Arbitrary<Msg> = fc.oneof(
   fc.constant<Msg>({ kind: 'curveReset' }),
   fc.integer({ min: -2, max: 8 }).map((trackIndex): Msg => ({ kind: 'trackReset', trackIndex })),
   fc.constant<Msg>({ kind: 'allReset' }),
+  fc.boolean().map((on): Msg => ({ kind: 'ghostTrailSet', on })),
+  fc
+    .constantFrom('s0', 's0.0', 'nowhere', null)
+    .map((shapeId): Msg => ({ kind: 'shapeHovered', shapeId: shapeId as ShapeId | null })),
+  fc.integer({ min: -2, max: 8 }).map((trackIndex): Msg => ({ kind: 'trackUnlinked', trackIndex })),
+);
+
+const historyMsg: fc.Arbitrary<HistoryMsg> = fc.oneof(
+  { weight: 6, arbitrary: msg },
+  { weight: 2, arbitrary: fc.constant<HistoryMsg>({ kind: 'undone' }) },
+  { weight: 1, arbitrary: fc.constant<HistoryMsg>({ kind: 'redone' }) },
+  { weight: 1, arbitrary: fc.constant<HistoryMsg>({ kind: 'editEnded' }) },
 );
 
 function run(model: Model, messages: Msg[]): Model {
@@ -308,5 +337,148 @@ describe('reset', () => {
     ]);
     expect(model.edited).toEqual(buttonHover);
     expect(model.hiddenTracks).toEqual([1]);
+  });
+});
+
+function play(history: History, messages: HistoryMsg[]): History {
+  return messages.reduce(updateHistory, history);
+}
+
+describe('undo and redo', () => {
+  const slower: HistoryMsg = { kind: 'durationChanged', trackIndex: 0, durationMs: 900 };
+  const linear: HistoryMsg = { kind: 'easingChanged', easing: { kind: 'linear' } };
+
+  test('never produce an invalid Model, whatever messages they get', () => {
+    fc.assert(
+      fc.property(capture, fc.array(historyMsg, { maxLength: 40 }), (start, messages) => {
+        const result = validateModel(play(initHistory(start), messages).model);
+        expect(result.ok ? [] : result.errors).toEqual([]);
+      }),
+    );
+  });
+
+  test('undo then redo gives back the same edits, for any messages before', () => {
+    fc.assert(
+      fc.property(capture, fc.array(historyMsg, { maxLength: 30 }), (start, messages) => {
+        const before = play(initHistory(start), messages);
+        if (!canUndo(before)) return;
+        const after = play(before, [{ kind: 'undone' }, { kind: 'redone' }]);
+        expect(after.model.edited).toEqual(before.model.edited);
+        expect(after.model.hiddenTracks).toEqual(before.model.hiddenTracks);
+      }),
+    );
+  });
+
+  test('undo goes back one change, redo comes forward again', () => {
+    const edited = play(initHistory(cardLift), [slower, { kind: 'editEnded' }, linear]);
+    expect(edited.model.edited.tracks[0]?.timing).toMatchObject({
+      duration: 900,
+      easing: { kind: 'linear' },
+    });
+
+    const once = updateHistory(edited, { kind: 'undone' });
+    expect(once.model.edited.tracks[0]?.timing.duration).toBe(900);
+    expect(once.model.edited.tracks[0]?.timing.easing.kind).toBe('cubic-bezier');
+
+    const twice = updateHistory(once, { kind: 'undone' });
+    expect(twice.model.edited).toEqual(cardLift);
+    expect(canUndo(twice)).toBe(false);
+
+    const again = play(twice, [{ kind: 'redone' }, { kind: 'redone' }]);
+    expect(again.model.edited).toEqual(edited.model.edited);
+  });
+
+  test('a whole drag is one step, and the next drag is another', () => {
+    const drag = (values: number[]): HistoryMsg[] => [
+      ...values.map((durationMs): HistoryMsg => ({
+        kind: 'durationChanged',
+        trackIndex: 0,
+        durationMs,
+      })),
+      { kind: 'editEnded' },
+    ];
+    const history = play(initHistory(cardLift), [
+      ...drag([390, 380, 370, 360]),
+      ...drag([350, 340]),
+    ]);
+    expect(history.past).toHaveLength(2);
+    const undone = updateHistory(history, { kind: 'undone' });
+    expect(undone.model.edited.tracks[0]?.timing.duration).toBe(360);
+  });
+
+  test('playing, selecting and scrubbing are not steps', () => {
+    const history = play(initHistory(cardLift), [
+      { kind: 'playToggled' },
+      { kind: 'scrubbed', timeMs: 100 },
+      { kind: 'trackDeselected' },
+      { kind: 'compareSet', compare: 'side-by-side' },
+      { kind: 'ghostTrailSet', on: true },
+    ]);
+    expect(canUndo(history)).toBe(false);
+  });
+
+  test('undo leaves the playhead and the selection alone', () => {
+    const history = play(initHistory(cardLift), [
+      slower,
+      { kind: 'scrubbed', timeMs: 300 },
+      { kind: 'undone' },
+    ]);
+    expect(history.model).toMatchObject({ timeMs: 300, selectedTrack: 0 });
+  });
+
+  test('a new change after an undo drops the redo', () => {
+    const history = play(initHistory(cardLift), [slower, { kind: 'undone' }, linear]);
+    expect(canRedo(history)).toBe(false);
+  });
+
+  test('hiding a row and resets can be undone too', () => {
+    const history = play(initHistory(buttonHover), [
+      { kind: 'trackToggled', trackIndex: 1 },
+      slower,
+      { kind: 'allReset' },
+    ]);
+    expect(history.model.edited).toEqual(buttonHover);
+    const back = updateHistory(history, { kind: 'undone' });
+    expect(back.model.edited.tracks[0]?.timing.duration).toBe(900);
+    const start = play(back, [{ kind: 'undone' }, { kind: 'undone' }]);
+    expect(start.model.hiddenTracks).toEqual([]);
+  });
+});
+
+describe('linked tracks', () => {
+  test('unlinking gives a track its own timing', () => {
+    expect(linkedCount(dots, 0)).toBe(1);
+    const model = run(init(dots), [
+      { kind: 'trackUnlinked', trackIndex: 0 },
+      { kind: 'durationChanged', trackIndex: 0, durationMs: 600 },
+    ]);
+    expect(linkedCount(model.edited, 0)).toBe(0);
+    // Its partner (the same dot's opacity) keeps the old duration.
+    expect(model.edited.tracks.slice(0, 2).map((track) => track.timing.duration)).toEqual([
+      600, 1200,
+    ]);
+  });
+
+  test('reset row links it again', () => {
+    const model = run(init(dots), [
+      { kind: 'trackUnlinked', trackIndex: 0 },
+      { kind: 'trackReset', trackIndex: 0 },
+    ]);
+    expect(linkedCount(model.edited, 0)).toBe(1);
+  });
+});
+
+describe('the first selection', () => {
+  test('is the track with the biggest visible change', () => {
+    // Moving 2 px is a bigger change than a shadow with no numbers.
+    expect(buttonHover.tracks[defaultSelection(buttonHover) ?? -1]?.property).toBe('transform');
+    // Fading from 20% to 100% is a bigger change than moving 12 px.
+    expect(staggerList.tracks[defaultSelection(staggerList) ?? -1]?.property).toBe('opacity');
+    // A pulse that ends where it began still counts.
+    expect(defaultSelection(dots)).toBe(0);
+  });
+
+  test('is nothing when there are no tracks', () => {
+    expect(defaultSelection({ ...cardLift, tracks: [] })).toBeNull();
   });
 });

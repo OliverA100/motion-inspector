@@ -2,7 +2,7 @@
 // these, so a property test runs random messages through update and checks
 // the result with this. (In Elm, most of these become types.)
 
-import { failAll, ok, parseCapture, type Result } from '@motion-inspector/core';
+import { failAll, findShape, ok, parseCapture, type Result } from '@motion-inspector/core';
 import type { Model } from './model';
 import { takeLengthMs } from './selectors';
 
@@ -37,6 +37,9 @@ export function validateModel(model: Model): Result<Model> {
     ...(track !== null && track !== undefined && model.selectedSegment > track.keyframes.length - 2
       ? ['selectedSegment is past the last segment.']
       : []),
+    ...(model.hoveredShapeId === null || findShape(model.edited.root, model.hoveredShapeId) !== null
+      ? []
+      : ['hoveredShapeId does not point at a shape.']),
     ...(Number.isInteger(model.selectedSegment) && model.selectedSegment >= 0
       ? []
       : ['selectedSegment must be a whole number, zero or more.']),

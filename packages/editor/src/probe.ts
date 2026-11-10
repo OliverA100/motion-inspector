@@ -121,11 +121,32 @@ function individualTransform(property: string, value: string): DOMMatrix {
   return identity.scale(first, numbers[1] ?? first);
 }
 
-// A computed radius is "8px", "50%", or mid-way "calc(25% + 4px)".
-function radiusPx(value: string, size: number): number {
-  const percent = /(-?[\d.]+)%/.exec(value);
-  const px = /(-?[\d.]+)px/.exec(value);
-  return (Number(percent?.[1] ?? 0) / 100) * size + Number(px?.[1] ?? 0);
+// A computed corner radius. Chrome reports it in several forms:
+//   "8px"   "50%"   "calc(25% + 4px)"   "calc(-3.92px + 50%)"   "50% - 3.92px"
+// and, when the horizontal and vertical radius differ, two of them in a row.
+// Every form is a percentage part and a px part added together, each with
+// its own sign. Only the horizontal radius (the first value) is used.
+export function radiusPx(value: string, size: number): number {
+  const horizontal = firstValue(value);
+  // A sign can sit right before the number, or before it with a space
+  // ("50% - 3.92px"). Both are read.
+  const part = (unit: string): number => {
+    const match = new RegExp(`([+-]?)\\s*([\\d.]+(?:e[+-]?\\d+)?)${unit}`).exec(horizontal);
+    if (match === null) return 0;
+    return Number(match[2]) * (match[1] === '-' ? -1 : 1);
+  };
+  const radius = (part('%') / 100) * size + part('px');
+  // A radius cannot be negative, and the canvas throws if given one.
+  return Math.max(0, Number.isFinite(radius) ? radius : 0);
+}
+
+// The first of one or two values. A calc() has spaces inside it, so the
+// split is at the space after its closing bracket, not at the first space.
+function firstValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('calc(')) return trimmed.split(' ')[0] ?? '';
+  const close = trimmed.indexOf(')');
+  return close === -1 ? trimmed : trimmed.slice(0, close + 1);
 }
 
 // A computed box-shadow is "rgba(0, 0, 0, 0.25) 0px 6px 16px 0px".
@@ -173,7 +194,7 @@ function poseOf(shape: Shape, readings: Reading[]): Pose {
   ];
   const corner = (index: number): number => {
     const value = valueOf(corners[index] ?? '');
-    return value === null ? (shape.radius[index] ?? 0) : radiusPx(value.split(' ')[0] ?? '', side);
+    return value === null ? (shape.radius[index] ?? 0) : radiusPx(value, side);
   };
 
   const opacity = valueOf('opacity');

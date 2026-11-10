@@ -3,11 +3,18 @@
 
 import { StrictMode, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { NAMED_EASINGS, type Easing } from '@motion-inspector/core';
+import {
+  captureToCss,
+  copyForAiText,
+  NAMED_EASINGS,
+  type Easing,
+  type ShapeId,
+} from '@motion-inspector/core';
 import { bounce, cardLift, staggerList } from '@motion-inspector/core/src/samples';
 import {
   createProbe,
   CurveEditor,
+  ExportPanel,
   isPreviewed,
   plainName,
   Playback,
@@ -47,6 +54,15 @@ function StagePiece() {
   }, []);
   const mine = useMemo(() => probe?.poses(cardLift, timeMs) ?? [], [probe, timeMs]);
   const original = useMemo(() => probe?.poses(cardLift, 400) ?? [], [probe]);
+  const [ghostTrail, setGhostTrail] = useState(true);
+  const [hovered, setHovered] = useState<ShapeId | null>(null);
+  const ghosts = useMemo(
+    () =>
+      probe === null || !ghostTrail
+        ? []
+        : [0, 60, 120, 180, 240, 300, 400].map((time) => probe.poses(cardLift, time)),
+    [probe, ghostTrail],
+  );
   return (
     <>
       <Stage
@@ -56,7 +72,13 @@ function StagePiece() {
         showOriginal
         compare={compare}
         selectedShapeId={cardLift.root.id}
+        hoveredShapeId={hovered}
+        ghostTrail={ghostTrail}
+        ghosts={ghosts}
         onCompareChange={setCompare}
+        onGhostTrailChange={setGhostTrail}
+        onHover={setHovered}
+        onPick={() => {}}
       />
       <input
         style={{ width: '100%' }}
@@ -101,6 +123,8 @@ function TimelinePiece() {
     previewed: isPreviewed(row.property),
     shown: !hidden.includes(index),
     edited: false,
+    highlighted: false,
+    linkedCount: 0,
     delayMin: 0,
     delayTerm: 'transition-delay',
     durationTerm: 'transition-duration',
@@ -124,7 +148,10 @@ function TimelinePiece() {
       onDelayChange={() => {}}
       onDurationChange={() => {}}
       onReset={() => {}}
+      onUnlink={() => {}}
+      onHoverRow={() => {}}
       onCommit={() => {}}
+      onEditEnd={() => {}}
       onDragChange={() => {}}
     />
   );
@@ -175,6 +202,12 @@ function Pieces() {
           about="One row per shape and property. Click a row to select it, untick it to leave it out, and drag on the bars to move through time."
         >
           <TimelinePiece />
+        </Piece>
+        <Piece
+          name="ExportPanel"
+          about="Shows the CSS and copies it, or a spec for a coding assistant."
+        >
+          <ExportPanel css={captureToCss(cardLift)} aiText={copyForAiText(cardLift)} />
         </Piece>
         <Piece
           name="Playback"

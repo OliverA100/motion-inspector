@@ -333,3 +333,55 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** while a number field has focus it shows the typed text as it is. A valid number is applied at once. On leaving the field it shows the real value, which may have been held to a limit.
 **Why:** the field used to snap back to the last valid value on every keystroke, so it could not be cleared with backspace to type a new number.
 **Gave up:** for a moment the field can show a number larger than the limit that was applied.
+
+## Editor, part 2 (M4)
+
+### D63. Undo and redo are a stack around update
+**Chose:** `updateHistory` in `state/history.ts` wraps `update`. Every message goes through `update` first. If the edits changed, the state from before goes on a stack. Undo and redo restore only the edits: the edited capture and which rows are ticked. The playhead, the selection and the view choices are left as they are.
+**Why:** `update` stays unaware of history, so each can be read and tested alone. Undo that also moved the playhead or changed the selection would feel like losing your place.
+**Gave up:** a view choice (ghost trail, side by side) cannot be undone. Those are one click to change back.
+
+### D64. One drag is one undo step
+**Chose:** edits that arrive many times for one change (a handle drag, a bar drag, typing in a field) carry a key. While the key repeats, they are one step. The pieces say when a change is finished (pointer up, field left), and the next change starts a new step.
+**Why:** without this, undoing a drag would take a hundred presses.
+**Gave up:** the pieces have to report the end of a change. A property test checks that undo then redo always gives back the same edits.
+
+### D65. The exports use what is shown
+**Chose:** "Copy CSS" and "Copy for AI" are written by core from my version without the unticked rows, and the CSS is shown live in the Export panel.
+**Why:** what you see is what you copy. A row that was taken out of the preview should not come back in the export.
+**Gave up:** the JSON inside "Copy for AI" does not contain the unticked tracks, so it is not a full copy of the capture.
+
+### D66. A copy that fails says so and offers the text
+**Chose:** if the clipboard refuses, the Export panel says "Could not copy" and shows the text in a field, already selected, to copy by hand.
+**Why:** the clipboard can be refused (no permission, a page that is not secure). A copy button that silently does nothing is worse than none.
+**Gave up:** nothing.
+
+### D67. The hovered shape is in the Model
+**Chose:** `hoveredShapeId` is set by pointing at a shape on the preview or at a row on the timeline. Both views read it and light up.
+**Why:** it is shared by two pieces, so it cannot be local to either.
+**Gave up:** moving the pointer over the preview sends messages. They are only sent when the shape under the pointer changes, not on every pixel.
+
+### D68. Finding the shape under the pointer
+**Chose:** `shapeAt` in `draw/stage.ts` uses the same fitting function as the drawing, then walks the shapes in reverse drawing order, bringing the point into each shape's own space with the inverse of its transform.
+**Why:** a shape that is scaled or moved by the animation is hit where it is drawn, not where it rests.
+**Gave up:** it uses `DOMMatrix`, so it runs only in a browser, like the rest of the drawing.
+
+### D69. The ghost trail is worked out when the edits change, not every frame
+**Chose:** seven copies of the selected shape at equal time steps through its track, read from the probe when the edits or the selection change.
+**Why:** equal time steps make the spacing show speed: far apart is fast, close together is slow. Seven extra probe reads per edit cost nothing. Seven per frame would.
+**Gave up:** seven is a fixed number. A long, complex motion could use more.
+
+### D70. Bars snap to each other before they snap to 10 ms
+**Chose:** while dragging, a bar's start or end snaps to another bar's start or end when within 6 px. Otherwise it snaps to 10 ms. Alt turns both off.
+**Why:** lining things up with each other is the common case in a stagger.
+**Gave up:** with many bars close together, the nearest edge wins, which may not be the one meant.
+
+### D71. The first selection is the biggest visible change
+**Chose:** each track gets a rough score from the numbers in `Keyframe.parsed` (pixels moved, scale and opacity change, degrees turned, color difference), comparing the first keyframe with every other. The highest is selected when a capture loads.
+**Why:** the brief asks for it, and it puts the curve most worth looking at on screen first.
+**Gave up:** the score compares unlike things (pixels with opacity) by fixed weights. It is only used to pick a starting point.
+
+### D72. A computed radius is read in every form Chrome uses
+**Chose:** `radiusPx` reads a percentage part and a px part with their own signs, from `8px`, `50%`, `calc(25% + 4px)` or `calc(-3.92px + 50%)`, and never returns a negative number. The stage also holds radii and sizes at zero before drawing.
+**Why:** a real crash, found by the test that opens every sample. Part-way through a morph from `8px` to `50%`, Chrome reports the px part first and negative. The first version read only up to the first space, got -3.92, and the canvas threw.
+**Gave up:** nothing. It has a unit test for each form.

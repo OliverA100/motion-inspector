@@ -10,6 +10,7 @@ import {
   trackEndTime,
   type Capture,
   type Easing,
+  type ParsedValue,
   type Track,
 } from '@motion-inspector/core';
 import type { Model } from './model';
@@ -61,12 +62,69 @@ export function selectedTracks(model: Model): { mine: Track; original: Track } |
   return mine === undefined || original === undefined ? null : { mine, original };
 }
 
-// The track to select when a capture loads. For now: the first transform,
-// else the first track. M4 replaces this with "the biggest visible change".
+// How much a track visibly changes, as a rough number. Only used to
+// compare tracks with each other. It reads the numbers capture stored in
+// Keyframe.parsed, and compares the first keyframe with every other one,
+// so a pulse that returns to where it began still counts.
+function changeBetween(first: ParsedValue | null, other: ParsedValue | null): number {
+  if (first === null || other === null || first.kind !== other.kind) return 0;
+  if (first.kind === 'number' && other.kind === 'number')
+    return Math.abs(first.value - other.value) * 100;
+  if (first.kind === 'length' && other.kind === 'length') return Math.abs(first.px - other.px);
+  if (first.kind === 'percent' && other.kind === 'percent')
+    return Math.abs(first.value - other.value);
+  if (first.kind === 'color' && other.kind === 'color') {
+    return (
+      (Math.abs(first.r - other.r) + Math.abs(first.g - other.g) + Math.abs(first.b - other.b)) / 10
+    );
+  }
+  if (first.kind === 'transform' && other.kind === 'transform') {
+    const total = (value: ParsedValue & { kind: 'transform' }) =>
+      value.functions.reduce(
+        (sum, item) => {
+          if (item.fn === 'translate')
+            return { ...sum, move: sum.move + Math.abs(item.x) + Math.abs(item.y) };
+          if (item.fn === 'scale') return { ...sum, scale: sum.scale * item.x };
+          if (item.fn === 'rotate') return { ...sum, turn: sum.turn + item.deg };
+          return sum;
+        },
+        { move: 0, scale: 1, turn: 0 },
+      );
+    const from = total(first);
+    const to = total(other);
+    return (
+      Math.abs(from.move - to.move) +
+      Math.abs(from.scale - to.scale) * 100 +
+      Math.abs(from.turn - to.turn) / 2
+    );
+  }
+  return 0;
+}
+
+export function importance(track: Track): number {
+  const first = track.keyframes[0];
+  if (first === undefined) return 0;
+  const largest = Math.max(
+    ...track.keyframes.map((keyframe) => changeBetween(first.parsed, keyframe.parsed)),
+  );
+  // A value with no numbers still changes something. Count it as a little.
+  return largest > 0 ? largest : 1;
+}
+
+// The track to select when a capture loads: the one with the biggest
+// visible change. Ties go to the first.
 export function defaultSelection(capture: Capture): number | null {
   if (capture.tracks.length === 0) return null;
-  const transform = capture.tracks.findIndex((track) => track.property === 'transform');
-  return transform === -1 ? 0 : transform;
+  const scores = capture.tracks.map(importance);
+  return scores.indexOf(Math.max(...scores));
+}
+
+// How many other tracks share this track's timing, because they came from
+// the same animation.
+export function linkedCount(capture: Capture, trackIndex: number): number {
+  const groupId = capture.tracks[trackIndex]?.groupId ?? null;
+  if (groupId === null) return 0;
+  return capture.tracks.filter((track) => track.groupId === groupId).length - 1;
 }
 
 // ---------- Data for the pieces ----------

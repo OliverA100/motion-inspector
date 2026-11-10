@@ -42,6 +42,11 @@ export type TimelineTrack = {
   shown: boolean;
   // True when this row differs from the original.
   edited: boolean;
+  // True when the pointer is on this row's shape, here or on the preview.
+  highlighted: boolean;
+  // How many other rows share this row's timing, because they came from
+  // the same animation. 0 when it stands alone.
+  linkedCount: number;
   // The lowest delay this row may be given. Zero, or lower when the capture
   // itself has a negative delay (an animation that began before the take).
   delayMin: number;
@@ -69,8 +74,14 @@ type Props = {
   onDurationChange: (index: number, durationMs: number) => void;
   // Puts a row's timing and curve back to the original.
   onReset: (index: number) => void;
+  // Gives a row its own timing, apart from the rows it is linked with.
+  onUnlink: (index: number) => void;
+  // The pointer is on a row, or left the rows (null).
+  onHoverRow: (index: number | null) => void;
   // Called when a timing drag ends, so the preview can replay.
   onCommit: () => void;
+  // Called when a number field is left: typing in it was one change.
+  onEditEnd: () => void;
   onDragChange: (dragging: boolean) => void;
 };
 
@@ -109,9 +120,20 @@ function clamp(value: number, lowest: number, highest: number): number {
   return Math.min(Math.max(value, lowest), highest);
 }
 
-function snap(value: number, off: boolean): number {
-  return off ? value : Math.round(value / SNAP_MS) * SNAP_MS;
+// Snaps a value to the nearest of some preferred values if one is close
+// enough, and otherwise to a 10 ms step. Holding Alt turns both off.
+function snap(value: number, off: boolean, preferred: number[], reach: number): number {
+  if (off) return value;
+  const nearest = preferred.reduce(
+    (best, candidate) => (Math.abs(candidate - value) < Math.abs(best - value) ? candidate : best),
+    Infinity,
+  );
+  if (Math.abs(nearest - value) <= reach) return nearest;
+  return Math.round(value / SNAP_MS) * SNAP_MS;
 }
+
+// A bar snaps to another bar's start or end when within this many pixels.
+const EDGE_SNAP_PX = 6;
 
 const CURSORS: Record<TimelineHit['kind'], string> = {
   empty: 'col-resize',
@@ -255,10 +277,26 @@ export function Timeline(props: Props) {
     if (track === undefined) return;
     const scale = timelineScale(size.width, viewMs);
     const movedMs = scale.ms(event.clientX) - scale.ms(drag.startX);
-    const value = snap(drag.startValue + movedMs, event.altKey);
+    const bar = track.mine;
+    // The starts and ends of the other bars, to line this one up with.
+    const edges = tracks.flatMap((other, index) =>
+      index === drag.row
+        ? []
+        : [
+            other.mine.startMs + other.mine.delayMs,
+            other.mine.startMs + other.mine.delayMs + other.mine.durationMs,
+          ],
+    );
+    // What this bar's delay or duration would be for its start or end to
+    // sit on each of those edges.
+    const preferred =
+      drag.kind === 'delay'
+        ? edges.flatMap((edge) => [edge - bar.startMs, edge - bar.startMs - bar.durationMs])
+        : edges.map((edge) => edge - bar.startMs - bar.delayMs);
+    const reach = scale.ms(EDGE_SNAP_PX) - scale.ms(0);
+    const value = snap(drag.startValue + movedMs, event.altKey, preferred, reach);
     // A bar stays inside the timeline: it cannot start before the left edge
     // or end past the right one, however far the pointer goes.
-    const bar = track.mine;
     if (!drag.changed && movedMs !== 0) setDrag({ ...drag, changed: true });
     if (drag.kind === 'delay') {
       const latest = viewMs - bar.startMs - bar.durationMs;
@@ -292,6 +330,7 @@ export function Timeline(props: Props) {
   };
 
   const selected = selectedIndex === null ? null : (props.tracks[selectedIndex] ?? null);
+  const linked = selected !== null && selected.linkedCount > 0;
   const cursor =
     drag === null
       ? CURSORS[hover]
@@ -340,7 +379,13 @@ export function Timeline(props: Props) {
             return (
               <div
                 key={index}
-                className={isSelected ? 'timeline__row is-selected' : 'timeline__row'}
+                className={[
+                  'timeline__row',
+                  isSelected ? 'is-selected' : '',
+                  track.highlighted ? 'is-highlighted' : '',
+                ].join(' ')}
+                onPointerEnter={() => props.onHoverRow(index)}
+                onPointerLeave={() => props.onHoverRow(null)}
                 // In the stacked layout the row is taller than its label: the
                 // bar is drawn in the space underneath.
                 style={{ height: ROW_HEIGHT }}
@@ -426,6 +471,7 @@ export function Timeline(props: Props) {
           term={selected?.delayTerm ?? 'delay'}
           value={selected?.mine.delayMs ?? null}
           unit="ms"
+          onDone={props.onEditEnd}
           min={selected?.delayMin ?? 0}
           onChange={(value) =>
             selectedIndex !== null &&
@@ -438,6 +484,7 @@ export function Timeline(props: Props) {
           term={selected?.durationTerm ?? 'duration'}
           value={selected?.mine.durationMs ?? null}
           unit="ms"
+          onDone={props.onEditEnd}
           min={0}
           onChange={(value) =>
             selectedIndex !== null && props.onDurationChange(selectedIndex, value)
@@ -449,6 +496,19 @@ export function Timeline(props: Props) {
         >
           Reset this row
         </Button>
+        {/* Always in the layout, hidden when the row is not linked. */}
+        <p className={linked ? 'fields__link' : 'fields__link is-off'}>
+          <span>
+            Shares its timing and curve with {selected?.linkedCount ?? 0} other{' '}
+            {selected?.linkedCount === 1 ? 'row' : 'rows'} from the same animation.
+          </span>
+          <Button
+            disabled={!linked}
+            onClick={() => selectedIndex !== null && props.onUnlink(selectedIndex)}
+          >
+            Unlink this row
+          </Button>
+        </p>
       </div>
 
       <p className="panel__foot">

@@ -84,6 +84,12 @@ html {
   gap: var(--space-1);
 }
 
+.mi__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 /* ---------- Layout: one column, two on wide screens ---------- */
 
 .mi__grid {
@@ -234,6 +240,32 @@ html {
 
 .stage {
   background: var(--color-stage);
+}
+
+.stage.is-pointing {
+  cursor: pointer;
+}
+
+/* The export text: a fixed height, scrolling inside, so the panel is the
+   same size however long the CSS is. */
+.export__text {
+  display: block;
+  width: 100%;
+  height: 200px;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  font: var(--text-small) / 1.5 var(--font-mono);
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+  resize: none;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.export__text:focus-visible {
+  outline-offset: -2px;
 }
 
 /* ---------- Controls ---------- */
@@ -555,6 +587,12 @@ html {
   overflow: hidden;
 }
 
+/* The pointer is on this row's shape, here or on the preview. Only the
+   label is tinted: in the stacked layout the row lies over the bars. */
+.timeline__row.is-highlighted .timeline__label {
+  background: var(--color-accent-soft);
+}
+
 .timeline__edited {
   color: var(--color-accent);
 }
@@ -608,6 +646,25 @@ html {
   font-size: var(--text-small);
   font-weight: var(--weight-medium);
   overflow-wrap: anywhere;
+}
+
+.fields__link {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+}
+
+.fields__link.is-off {
+  visibility: hidden;
+}
+
+.fields .fields__link .btn {
+  grid-column: auto;
 }
 
 /* The CSS term always sits on its own line under the number. */

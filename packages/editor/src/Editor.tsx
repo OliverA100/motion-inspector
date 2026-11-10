@@ -5,9 +5,10 @@
 // plain data and callbacks. Nothing here knows about browser extensions.
 
 import { useEffect, useMemo, useReducer, useState } from 'react';
-import { describeCapture, type Capture } from '@motion-inspector/core';
+import { captureToCss, copyForAiText, describeCapture, type Capture } from '@motion-inspector/core';
 import { ErrorBoundary } from './ErrorBoundary';
 import { CurveEditor } from './pieces/CurveEditor';
+import { ExportPanel } from './pieces/ExportPanel';
 import { Button, Toggle } from './pieces/controls';
 import { FrameTime } from './pieces/FrameTime';
 import { Playback } from './pieces/Playback';
@@ -15,13 +16,14 @@ import { SpeedGraph } from './pieces/SpeedGraph';
 import { Stage } from './pieces/Stage';
 import { Timeline } from './pieces/Timeline';
 import { createProbe, isPreviewed, type Probe } from './probe';
-import type { Model, Msg, Speed } from './state/model';
+import type { Msg, Speed } from './state/model';
 import {
   curveDurationMs,
   curvePlayhead,
   easingAt,
   easingTerm,
   isAnythingEdited,
+  linkedCount,
   isTrackEdited,
   plainName,
   segmentLabels,
@@ -31,7 +33,7 @@ import {
   timingTerms,
   withoutHidden,
 } from './state/selectors';
-import { init, update } from './state/update';
+import { canRedo, canUndo, initHistory, updateHistory, type History } from './state/history';
 
 type Props = {
   capture: Capture;
@@ -44,9 +46,12 @@ type Props = {
 
 const SPEED_KEYS: Record<string, Speed> = { '1': 1, '2': 0.5, '3': 0.25, '4': 0.1 };
 
-function start(capture: Capture, initialMsgs: Msg[]): Model {
-  return initialMsgs.reduce(update, init(capture));
+function start(capture: Capture, initialMsgs: Msg[]): History {
+  return initialMsgs.reduce(updateHistory, initHistory(capture));
 }
+
+// How many copies the ghost trail shows.
+const GHOST_STEPS = 7;
 
 function hostOf(url: string): string {
   try {
@@ -75,7 +80,15 @@ export function Editor(props: Props) {
 }
 
 function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Props) {
-  const [model, dispatch] = useReducer(update, null, () => start(capture, initialMsgs));
+  // update changes the Model. updateHistory wraps it to add undo and redo.
+  const [history, dispatch] = useReducer(updateHistory, null, () => start(capture, initialMsgs));
+  const model = history.model;
+  // A change is finished: the next one is a new undo step, and the preview
+  // replays by itself.
+  const commit = (): void => {
+    dispatch({ kind: 'editEnded' });
+    dispatch({ kind: 'replayed' });
+  };
   const [dragging, setDragging] = useState(false);
 
   // A new capture replaces everything.
@@ -118,7 +131,13 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
       const tag = target?.tagName ?? '';
       // Typing in a field, or moving a slider, keeps its own keys.
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (event.metaKey || event.ctrlKey) return;
+      // Cmd+Z undoes, Shift+Cmd+Z redoes (Ctrl on Windows and Linux).
+      if (event.metaKey || event.ctrlKey) {
+        if (event.key.toLowerCase() !== 'z') return;
+        event.preventDefault();
+        dispatch({ kind: event.shiftKey ? 'redone' : 'undone' });
+        return;
+      }
       if (event.key === ' ' && tag !== 'BUTTON') {
         event.preventDefault();
         dispatch({ kind: 'playToggled' });
@@ -165,14 +184,35 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
         name: plainName(row.property),
         previewed: isPreviewed(row.property),
         shown: !hiddenTracks.includes(index),
+        highlighted:
+          model.hoveredShapeId !== null && edited.tracks[index]?.shapeId === model.hoveredShapeId,
+        linkedCount: linkedCount(edited, index),
         edited: isTrackEdited(model, index),
         delayMin: Math.min(0, row.original.delayMs),
         delayTerm: termsAt(edited, index).delay,
         durationTerm: termsAt(edited, index).duration,
       })),
-    // "model" is only read for original and edited, which are listed.
-    [original, edited, hiddenTracks],
+    // "model" is only read for the parts that are listed.
+    [original, edited, hiddenTracks, model.hoveredShapeId],
   );
+
+  // The ghost trail: where everything is at equal steps through the
+  // selected track. Worked out when the edits or the selection change, not
+  // on every frame.
+  const ghostTrack = model.ghostTrail ? (selectedTracks(model)?.mine ?? null) : null;
+  const ghosts = useMemo(() => {
+    if (probes === null || ghostTrack === null) return [];
+    const begin = ghostTrack.startOffset + Math.max(ghostTrack.timing.delay, 0);
+    return Array.from({ length: GHOST_STEPS }, (_item, step) =>
+      probes.mine.poses(
+        shownEdited,
+        begin + (ghostTrack.timing.duration * step) / (GHOST_STEPS - 1),
+      ),
+    );
+  }, [probes, ghostTrack, shownEdited]);
+
+  const exportCss = useMemo(() => captureToCss(shownEdited), [shownEdited]);
+  const exportForAi = useMemo(() => copyForAiText(shownEdited), [shownEdited]);
 
   // A capture with nothing to play shows no timeline and no curve.
   const hasTracks = edited.tracks.length > 0;
@@ -201,12 +241,20 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               checked={showOriginal}
               onChange={(show) => dispatch({ kind: 'originalShown', show })}
             />
-            <Button
-              disabled={!isAnythingEdited(model)}
-              onClick={() => dispatch({ kind: 'allReset' })}
-            >
-              Reset everything
-            </Button>
+            <div className="mi__buttons">
+              <Button disabled={!canUndo(history)} onClick={() => dispatch({ kind: 'undone' })}>
+                Undo
+              </Button>
+              <Button disabled={!canRedo(history)} onClick={() => dispatch({ kind: 'redone' })}>
+                Redo
+              </Button>
+              <Button
+                disabled={!isAnythingEdited(model)}
+                onClick={() => dispatch({ kind: 'allReset' })}
+              >
+                Reset everything
+              </Button>
+            </div>
             <Toggle
               label="Unticked rows also leave the original"
               checked={hideInOriginal}
@@ -224,7 +272,17 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               showOriginal={showOriginal}
               compare={model.compare}
               selectedShapeId={selected?.mine.shapeId ?? null}
+              hoveredShapeId={model.hoveredShapeId}
+              ghostTrail={model.ghostTrail}
+              ghosts={ghosts}
               onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
+              onGhostTrailChange={(on) => dispatch({ kind: 'ghostTrailSet', on })}
+              onHover={(shapeId) => dispatch({ kind: 'shapeHovered', shapeId })}
+              // Clicking a shape selects its first row on the timeline.
+              onPick={(shapeId) => {
+                const trackIndex = edited.tracks.findIndex((track) => track.shapeId === shapeId);
+                if (trackIndex !== -1) dispatch({ kind: 'trackSelected', trackIndex });
+              }}
             />
             {hasTracks ? (
               <Timeline
@@ -264,7 +322,16 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                   dispatch({ kind: 'durationChanged', trackIndex, durationMs })
                 }
                 onReset={(trackIndex) => dispatch({ kind: 'trackReset', trackIndex })}
-                onCommit={() => dispatch({ kind: 'replayed' })}
+                onUnlink={(trackIndex) => dispatch({ kind: 'trackUnlinked', trackIndex })}
+                onHoverRow={(trackIndex) =>
+                  dispatch({
+                    kind: 'shapeHovered',
+                    shapeId:
+                      trackIndex === null ? null : (edited.tracks[trackIndex]?.shapeId ?? null),
+                  })
+                }
+                onCommit={commit}
+                onEditEnd={() => dispatch({ kind: 'editEnded' })}
                 onDragChange={setDragging}
               />
             ) : (
@@ -311,7 +378,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                       }
                       onChange={(easing) => dispatch({ kind: 'easingChanged', easing })}
                       // Letting go replays the preview by itself.
-                      onCommit={() => dispatch({ kind: 'replayed' })}
+                      onCommit={commit}
                       onReset={() => dispatch({ kind: 'curveReset' })}
                       onDragChange={setDragging}
                     />
@@ -333,6 +400,8 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                 </div>
               </>
             ) : null}
+
+            {hasTracks ? <ExportPanel css={exportCss} aiText={exportForAi} /> : null}
 
             {edited.notShown.length > 0 || notPreviewed.length > 0 ? (
               <section className="panel">
