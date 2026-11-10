@@ -18,6 +18,8 @@ import { Stage } from './pieces/Stage';
 import { layoutReach } from './draw/stage';
 import { Timeline } from './pieces/Timeline';
 import { createProbe, isPreviewed, type Probe } from './probe';
+import { selfCheck, selfCheckWords } from './selfCheck';
+import { useFollowing, withFollows } from './following';
 import type { Msg, Speed } from './state/model';
 import {
   layoutName,
@@ -191,6 +193,21 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
         : (probes?.original.poses(shownOriginal, timeMs) ?? []),
     [probes, shownOriginal, shownEdited, minePoses, timeMs],
   );
+  // Parts that follow the pointer, placed where the pointer over the
+  // preview puts them. Both versions: following is not something to edit.
+  const following = useFollowing(original);
+  const follows = useMemo(() => original.follows ?? [], [original]);
+  const mineShown = useMemo(
+    () => withFollows(minePoses, follows, following.values),
+    [minePoses, follows, following.values],
+  );
+  const originalShown = useMemo(
+    () =>
+      originalPoses === minePoses
+        ? mineShown
+        : withFollows(originalPoses, follows, following.values),
+    [originalPoses, minePoses, mineShown, follows, following.values],
+  );
   const rows = useMemo(
     () =>
       timelineRows(original, edited).map((row, index) => ({
@@ -230,6 +247,16 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
     );
   }, [probes, ghostTrack, shownEdited]);
 
+  // The capture played against the film of the page. Worked out once per
+  // capture: edits change my version, not what the page did.
+  const checkWords = useMemo(
+    () =>
+      probes === null
+        ? null
+        : selfCheckWords(selfCheck(original, (time) => probes.original.poses(original, time))),
+    [probes, original],
+  );
+
   const copier = useCopy();
   const exportCss = useMemo(() => captureToCss(shownEdited), [shownEdited]);
   const exportForAi = useMemo(() => copyForAiText(shownEdited), [shownEdited]);
@@ -255,6 +282,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               {plural(edited.tracks.length, 'track')}
               {edited.notShown.length > 0 ? ` · ${edited.notShown.length} not shown` : ''}
             </p>
+            {checkWords === null ? null : <p className="mi__check">{checkWords}</p>}
           </div>
           <div className="mi__actions">
             <div className="mi__buttons">
@@ -294,8 +322,8 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
           <div className="mi__column">
             <Stage
               root={edited.root}
-              mine={minePoses}
-              original={originalPoses}
+              mine={mineShown}
+              original={originalShown}
               showOriginal={showOriginal}
               compare={model.compare}
               selectedShapeId={selected?.mine.shapeId ?? null}
@@ -319,6 +347,13 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                   />
                 ) : undefined
               }
+              onPointer={following.setPointer}
+              {...(follows.length > 0
+                ? {
+                    pointerHint:
+                      'Move the pointer over the preview: the parts that follow it on the page follow it here, with the same lag.',
+                  }
+                : {})}
               onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
               onGhostTrailChange={(on) => dispatch({ kind: 'ghostTrailSet', on })}
               onShowOriginalChange={(show) => dispatch({ kind: 'originalShown', show })}

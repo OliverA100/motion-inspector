@@ -189,16 +189,29 @@ Not tool problems, and left alone: Bulma's and w3schools' buttons sit under a pr
 
 Script-driven motion (inline styles changing every frame, no browser animation) was found on 3 elements in 23 sites. Animated SVG groups (Railway's trains) are listed as left out.
 
+## Sixth pass: script-driven motion and the self-check (D124 to D128)
+
+`node tests/script-sites.cjs` records pages whose motion a script makes, moving the pointer as a person would, and opens each take in the editor, whose self-check line says how close the preview is to the film of the page. Found and fixed:
+
+| # | Seen on | What was wrong | Fix |
+|---|---|---|---|
+| 39 | Fixture | A 3D tilt flattened to almost nothing: rotateY(8deg) and rotateY(-8deg) only made the card 1% narrower | The taper is filmed and drawn (D127) |
+| 40 | Fixture | Filmed in capture's frame callback, a script's motion came out one frame late | Filmed right after the script writes (D124) |
+| 41 | motion.dev | Parts that appear for the animation had no film, so no self-check | Filmed before they get a shape |
+| 42 | vanilla-tilt | The card's tilt was a chain of restarted transitions; the take kept the last one, 17 px off | Following the pointer replaces them (D126), and the film is kept across restarts (D128) |
+| 43 | vanilla-tilt | Coming on and following had different speeds; one lag could not match both | Two lags (D126) |
+
+Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 frames. vanilla-tilt's card is found following the pointer on every run ("turns toward it in 3D and grows, catching up in about 10 ms and easing in and out over about 70 ms"); its glare, which turns with the pointer's angle, is shown as measured and checks 52 px off, and its way back checks 9 px off. Atropos and react-spring did not load within 30 s in the harness.
+
 ## Known limits seen on real sites
 
-- **Siblings do not reflow.** When a panel grows, the items below it stay where they were in the preview. The preview has no layout engine.
-- **Images are flat gray**, so two slides of a carousel look the same. Image data is never copied. Gradients are drawn in their average color, without their direction.
+- **Images are flat gray**, so two slides of a carousel look the same. Image data is never copied.
 - **Text is drawn as bars.** Page text is never copied.
 - **A toggle's knob drawn as a background image** (Bootstrap's switch) is not shown.
-- **SVG animations (SMIL) and JavaScript-driven animations are not captured.**
+- **SVG animations (SMIL) are not captured.**
 - **Layout is measured, not computed** (D119): parts pushed or resized by an animation move as they did on the page, but only for the take as it was recorded. A pseudo-element in the flow of text (daisyUI's toggle knob) is still not measured.
 - **Click ripples** (MUI) are created and removed by script during the click, and are often gone before they can be measured.
 - **Menus and dialogs that open elsewhere** (a portal at the end of the page) are not part of the picked element. Pick them when open.
 - **A pseudo-element in the flow of text** (an inline arrow after a link) is listed, not drawn: its box cannot be measured.
-- **Motion driven by script frame by frame** (some Framer Motion or GSAP effects) is not captured: the browser does not report it as an animation.
+- **Motion driven by script frame by frame** is measured, not read (D124): transform and opacity only, fitted to keyframes. A rule that is not linear in the pointer's place (a glare that turns with its angle) is shown as measured over time.
 - **SVG masks and clips are not drawn.** Railway's moving trains are a mask; they are listed with that reason.

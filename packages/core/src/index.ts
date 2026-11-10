@@ -11,3 +11,5 @@ export * from './parse';
 export * from './exportCss';
 export * from './describe';
 export * from './copyForAi';
+export * from './fit';
+export * from './follow';

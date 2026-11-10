@@ -6,6 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { describeCapture } from '../packages/core/src/describe';
 import { captureToCss } from '../packages/core/src/exportCss';
 import { parseCapture } from '../packages/core/src/parse';
+import { sampleTrack } from '../packages/core/src/sample';
 import { flattenShapes } from '../packages/core/src/shapes';
 import type { Capture, Track } from '../packages/core/src/types';
 import { captureFixture, openFixtures, rootSelector, type Take } from './capture-helpers';
@@ -1163,4 +1164,87 @@ test('picker: the up arrow moves to the parent, the down arrow to the first chil
   await page.waitForTimeout(800);
   const takes = await page.evaluate(() => window.MotionCapture.stop());
   expect(captureOf(takes[0]).source.selector).toBe('div.fx-card');
+});
+
+test('a box moved by a script spring gets script tracks that match the film', async ({ page }) => {
+  const capture = onlyCapture(
+    await captureFixture(
+      page,
+      'spring',
+      async (p) => {
+        await click('spring', 'toggle')(p);
+        // However slow the frames, until it has settled.
+        await p.waitForFunction(
+          () =>
+            document.querySelector<HTMLElement>('.fx-spring__box')?.style.transform ===
+            'translateX(160px)',
+        );
+      },
+      400,
+    ),
+  );
+  const scripts = capture.tracks.filter((item) => item.origin === 'script');
+  expect(scripts.map((item) => item.property)).toEqual(['transform']);
+  const translate = scripts[0];
+  if (translate === undefined) throw new Error('no track');
+  const xOf = (value: string): number => parseFloat(value.replace('translate(', ''));
+  // It ends 160 px along and overshoots on the way.
+  expect(xOf(translate.keyframes.at(-1)?.value ?? '')).toBeCloseTo(160, 0);
+  expect(Math.max(...translate.keyframes.map((item) => xOf(item.value)))).toBeGreaterThan(161);
+  // The fitted track comes within half a pixel of every filmed frame.
+  const film = capture.measured?.find((item) => item.shapeId === translate.shapeId);
+  expect(film?.frames.length).toBeGreaterThan(10);
+  for (const frame of film?.frames ?? []) {
+    const at = sampleTrack(translate, frame.t);
+    if (at.kind !== 'active') continue;
+    const from = xOf(translate.keyframes[at.segmentIndex]?.value ?? '');
+    const next = translate.keyframes[at.segmentIndex + 1];
+    const to = next === undefined ? from : xOf(next.value);
+    expect(Math.abs(from + (to - from) * at.segmentProgress - frame.matrix[4])).toBeLessThan(0.55);
+  }
+  expect(describeCapture(capture)).toMatch(/script/);
+});
+
+test('a card that tilts toward the pointer is captured as following it, with its lag', async ({
+  page,
+}) => {
+  const takes = await captureFixture(
+    page,
+    'tilt',
+    async (p) => {
+      const card = p.locator('[data-fixture="tilt"] [data-root]');
+      // Far down the page: scrolled to while recording, which must not matter.
+      await card.scrollIntoViewIfNeeded();
+      const box = await card.boundingBox();
+      if (box === null) throw new Error('no card');
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      await p.mouse.move(box.x - 30, cy);
+      // Around the card, then off it.
+      for (let step = 0; step <= 60; step += 1) {
+        await p.mouse.move(
+          cx + Math.cos(step / 6) * box.width * 0.4,
+          cy + Math.sin(step / 4) * box.height * 0.4,
+        );
+        await p.waitForTimeout(16);
+      }
+      await p.mouse.move(box.x + box.width + 40, cy, { steps: 4 });
+    },
+    1200,
+  );
+  const captures = takes.flatMap((take) => (take.capture === null ? [] : [take.capture]));
+  expect(captures).toHaveLength(1);
+  const capture = captures[0];
+  const follow = capture?.follows?.[0];
+  expect(follow).toBeDefined();
+  if (follow === undefined || capture === undefined) return;
+  // The script covers 18% of the way each frame: about 85 ms to 63%.
+  expect(follow.lagMs).toBeGreaterThan(40);
+  expect(follow.lagMs).toBeLessThan(160);
+  // Turning about y tapers it left to right with the pointer's x.
+  const g = follow.channels.find((channel) => channel.name === 'g');
+  expect(Math.abs(g?.perX ?? 0)).toBeGreaterThan(0.0001);
+  expect(capture.tracks.filter((track) => track.origin === 'script')).toEqual([]);
+  expect(capture.notShown).toEqual([]);
+  expect(describeCapture(capture)).toMatch(/follows the pointer/);
 });

@@ -167,6 +167,11 @@ function triggerWords(take: StoredTake): string {
 }
 
 function lengthWords(take: StoredTake): string {
+  // A part that follows the pointer has no length: it moves for as long as
+  // the pointer does.
+  if (take.capture.tracks.length === 0 && (take.capture.follows ?? []).length > 0) {
+    return 'Follows the pointer';
+  }
   const ms = Math.round(takeLengthMs(take.capture));
   return ms >= 1000 ? `${Math.round(ms / 100) / 10} s` : `${ms} ms`;
 }

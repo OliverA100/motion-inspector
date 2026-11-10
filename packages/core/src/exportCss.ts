@@ -252,5 +252,12 @@ export function captureToCss(capture: Capture): string {
     ].join('\n');
   });
 
-  return sections.length === 0 ? '/* No animations to export. */' : sections.join('\n\n');
+  // A part that follows the pointer has no CSS. Said, not left out quietly.
+  const follows = (capture.follows ?? []).map((follow) => {
+    const label =
+      flattenShapes(capture.root).find((shape) => shape.id === follow.shapeId)?.label ?? 'A part';
+    return `/* ${safeInComment(label)} follows the pointer. CSS cannot do that alone: a script sets its transform each frame. "Copy for AI" has the rule. */`;
+  });
+  if (sections.length === 0 && follows.length === 0) return '/* No animations to export. */';
+  return [...sections, ...follows].join('\n\n');
 }

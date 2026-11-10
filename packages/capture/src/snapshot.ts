@@ -1484,6 +1484,101 @@ export function takeSnapshot(rootElement: Element): Snapshot {
   };
 }
 
+// ---------- Filming ----------
+
+// An element's whole transform now, in 3D: translate, rotate (about any
+// axis), scale and transform, in that order, as CSS applies them.
+function transformNow(style: CSSStyleDeclaration): DOMMatrix {
+  const numbers = (value: string): number[] =>
+    (value.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/g) ?? []).map(Number);
+  let matrix = new DOMMatrix();
+  try {
+    if (style.translate !== 'none' && style.translate !== '') {
+      const [x = 0, y = 0, z = 0] = numbers(style.translate);
+      matrix = matrix.translate(x, y, z);
+    }
+    if (style.rotate !== 'none' && style.rotate !== '') {
+      const parts = numbers(style.rotate);
+      matrix =
+        parts.length === 4
+          ? matrix.rotateAxisAngle(parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 1, parts[3] ?? 0)
+          : matrix.rotate(parts[0] ?? 0);
+    }
+    if (style.scale !== 'none' && style.scale !== '') {
+      const [x = 1, y = x, z = 1] = numbers(style.scale);
+      matrix = matrix.scale(x, y, z);
+    }
+    if (style.transform !== 'none' && style.transform !== '') {
+      matrix = matrix.multiply(new DOMMatrix(style.transform));
+    }
+  } catch {
+    return new DOMMatrix();
+  }
+  return matrix;
+}
+
+// A parent's perspective, as it applies to this element about the
+// element's transform origin. null when the parent has none, or where the
+// element sits in it cannot be read without transforms in the way.
+function parentPerspective(element: Element, style: CSSStyleDeclaration): DOMMatrix | null {
+  const parent = element.parentElement;
+  if (parent === null || !(element instanceof HTMLElement)) return null;
+  const parentStyle = getComputedStyle(parent);
+  const distance = parseFloat(parentStyle.perspective);
+  if (parentStyle.perspective === 'none' || !(distance > 0)) return null;
+  // The element's place in its parent, from layout (offsets ignore
+  // transforms).
+  let left: number;
+  let top: number;
+  if (element.offsetParent === parent) {
+    left = element.offsetLeft;
+    top = element.offsetTop;
+  } else if (parent instanceof HTMLElement && element.offsetParent === parent.offsetParent) {
+    left = element.offsetLeft - parent.offsetLeft - parent.clientLeft;
+    top = element.offsetTop - parent.offsetTop - parent.clientTop;
+  } else {
+    return null;
+  }
+  const [originX = 0, originY = 0] = style.transformOrigin.split(' ').map(parseFloat);
+  const [viewX = 0, viewY = 0] = parentStyle.perspectiveOrigin.split(' ').map(parseFloat);
+  const dx = viewX - (left + originX);
+  const dy = viewY - (top + originY);
+  const perspective = new DOMMatrix();
+  perspective.m34 = -1 / distance;
+  return new DOMMatrix().translate(dx, dy).multiply(perspective).translate(-dx, -dy);
+}
+
+// One frame of film: an element's transform now, as it looks on the page
+// (flat, plus how a 3D turn tapers it, its parent's perspective included),
+// and its opacity.
+export function frameNow(element: Element): {
+  matrix: [number, number, number, number, number, number];
+  taper: [number, number] | null;
+  opacity: number;
+} {
+  const style = getComputedStyle(element);
+  const opacity = parseFloat(style.opacity);
+  const own = transformNow(style);
+  const seen = parentPerspective(element, style)?.multiply(own) ?? own;
+  const w = seen.m44 === 0 ? 1 : seen.m44;
+  const matrix: [number, number, number, number, number, number] = [
+    seen.m11 / w,
+    seen.m12 / w,
+    seen.m21 / w,
+    seen.m22 / w,
+    seen.m41 / w,
+    seen.m42 / w,
+  ];
+  const g = seen.m14 / w;
+  const h = seen.m24 / w;
+  const flat = Math.abs(g) < 1e-9 && Math.abs(h) < 1e-9;
+  return {
+    matrix: matrix.every(Number.isFinite) ? matrix : [1, 0, 0, 1, 0, 0],
+    taper: flat || !Number.isFinite(g) || !Number.isFinite(h) ? null : [g, h],
+    opacity: Number.isFinite(opacity) ? opacity : 1,
+  };
+}
+
 // ---------- Layout while a take runs ----------
 
 // Where an element is laid out now, relative to the picked element, without

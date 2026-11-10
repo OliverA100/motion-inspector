@@ -491,6 +491,39 @@
             <button class="trigger" data-trigger="toggle" type="button">Open or close</button>
           </div>
         </section>
+
+        <section class="fixture" data-fixture="spring">
+          <header>
+            <h2>Script spring</h2>
+            <p>
+              A script moves the box with a spring, writing <code>style.transform</code> every
+              frame. No browser animation describes it
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-spring" data-root><div class="fx-spring__box"></div></div>
+          </div>
+          <div class="fixture__controls">
+            <button class="trigger" data-trigger="toggle" type="button">Move</button>
+          </div>
+        </section>
+
+        <section class="fixture" data-fixture="tilt">
+          <header>
+            <h2>Tilt card</h2>
+            <p>
+              A script turns the card toward the pointer in 3D and eases after it. Move the pointer
+              over it
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-tilt" data-root>
+              <div class="fx-tilt__bar"></div>
+              <div class="fx-tilt__bar fx-tilt__bar--short"></div>
+            </div>
+          </div>
+          <div class="fixture__controls">Follows the pointer</div>
+        </section>
       </div>
     </main>
 

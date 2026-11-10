@@ -17,6 +17,10 @@ export type Shadow = { color: string; x: number; y: number; blur: number };
 export type Pose = {
   shapeId: ShapeId;
   matrix: Matrix | null;
+  // How a turn in 3D narrows the shape away from the viewer: g and h of the
+  // projection (w = g x + h y + 1, about the transform origin). Goes with
+  // matrix. null when flat.
+  taper: [number, number] | null;
   opacity: number | null;
   fill: string | null;
   strokeColor: string | null;
@@ -134,6 +138,132 @@ function placement(shape: Shape, pose: Pose | null): DOMMatrix {
   return matrix;
 }
 
+// ---------- A shape turned in 3D ----------
+
+type Point = [number, number];
+
+// The affine map that takes three points to three others.
+function affineFrom(from: [Point, Point, Point], to: [Point, Point, Point]): DOMMatrix | null {
+  const [s0, s1, s2] = from;
+  const [d0, d1, d2] = to;
+  const ux = s1[0] - s0[0];
+  const uy = s1[1] - s0[1];
+  const vx = s2[0] - s0[0];
+  const vy = s2[1] - s0[1];
+  const det = ux * vy - vx * uy;
+  if (Math.abs(det) < 1e-9) return null;
+  const Ux = d1[0] - d0[0];
+  const Uy = d1[1] - d0[1];
+  const Vx = d2[0] - d0[0];
+  const Vy = d2[1] - d0[1];
+  // [U V] times the inverse of [u v].
+  const a = (Ux * vy - Vx * uy) / det;
+  const c = (Vx * ux - Ux * vx) / det;
+  const b = (Uy * vy - Vy * uy) / det;
+  const d = (Vy * ux - Uy * vx) / det;
+  return new DOMMatrix([a, b, c, d, d0[0] - a * s0[0] - c * s0[1], d0[1] - b * s0[0] - d * s0[1]]);
+}
+
+// A triangle grown by a little on every side, so neighbours overlap and
+// no background shows between their soft edges.
+function grown(triangle: [Point, Point, Point], by: number): Point[] {
+  const cx = (triangle[0][0] + triangle[1][0] + triangle[2][0]) / 3;
+  const cy = (triangle[0][1] + triangle[1][1] + triangle[2][1]) / 3;
+  return triangle.map(([x, y]): Point => {
+    const distance = Math.hypot(x - cx, y - cy) || 1;
+    return [x + ((x - cx) / distance) * by, y + ((y - cy) / distance) * by];
+  });
+}
+
+// Cells across the picture of a turned shape, each way. More is closer to
+// a true perspective; 6 keeps a straight line inside within a fraction of
+// a pixel for the tilts seen on real pages.
+const TAPER_CELLS = 6;
+
+// A shape turned in 3D cannot be drawn with one canvas transform: canvas
+// transforms keep parallel lines parallel, and a turned card narrows away
+// from the viewer. So its picture is cut into small triangles, and each is
+// drawn with the transform that puts its three corners exactly where the
+// 3D turn puts them. The picture covers more than the box, so a shadow or
+// overflowing content is drawn too.
+function taperedPieces(
+  shape: Shape,
+  pose: Pose | null,
+): { pieces: { region: Point[]; matrix: DOMMatrix }[]; area: Area } | null {
+  const taper = pose?.taper ?? null;
+  const matrix = pose?.matrix ?? null;
+  if (taper === null || matrix === null || shape.kind === 'path' || shape.kind === 'group') {
+    return null;
+  }
+  const [a, b, c, d, e, f] = matrix;
+  const [g, h] = taper;
+  const originX = shape.box.x + shape.transformOrigin.x;
+  const originY = shape.box.y + shape.transformOrigin.y;
+  const project = ([x, y]: Point): Point | null => {
+    const qx = x - originX;
+    const qy = y - originY;
+    const w = g * qx + h * qy + 1;
+    // Turned past edge-on: nothing sensible to draw.
+    if (w < 0.05) return null;
+    return [(a * qx + c * qy + e) / w + originX, (b * qx + d * qy + f) / w + originY];
+  };
+  const width = pose?.width ?? shape.box.width;
+  const height = pose?.height ?? shape.box.height;
+  const margin = Math.max(width, height) / 2 + 40;
+  const area: Area = {
+    x: shape.box.x - margin,
+    y: shape.box.y - margin,
+    width: width + margin * 2,
+    height: height + margin * 2,
+  };
+  // The grid's points, flat and turned.
+  const flat: Point[][] = [];
+  const seen: Point[][] = [];
+  for (let row = 0; row <= TAPER_CELLS; row += 1) {
+    const flatRow: Point[] = [];
+    const seenRow: Point[] = [];
+    for (let column = 0; column <= TAPER_CELLS; column += 1) {
+      const point: Point = [
+        area.x + (area.width * column) / TAPER_CELLS,
+        area.y + (area.height * row) / TAPER_CELLS,
+      ];
+      const turned = project(point);
+      if (turned === null) return null;
+      flatRow.push(point);
+      seenRow.push(turned);
+    }
+    flat.push(flatRow);
+    seen.push(seenRow);
+  }
+  const pieces: { region: Point[]; matrix: DOMMatrix }[] = [];
+  const at = (grid: Point[][], row: number, column: number): Point => grid[row]?.[column] ?? [0, 0];
+  for (let row = 0; row < TAPER_CELLS; row += 1) {
+    for (let column = 0; column < TAPER_CELLS; column += 1) {
+      const corners: [number, number][] = [
+        [row, column],
+        [row, column + 1],
+        [row + 1, column + 1],
+        [row + 1, column],
+      ];
+      for (const [p, q, r] of [
+        [0, 1, 2],
+        [0, 2, 3],
+      ] as const) {
+        const pick = (grid: Point[][]): [Point, Point, Point] => [
+          at(grid, ...(corners[p] ?? [0, 0])),
+          at(grid, ...(corners[q] ?? [0, 0])),
+          at(grid, ...(corners[r] ?? [0, 0])),
+        ];
+        const to = pick(seen);
+        const mapping = affineFrom(pick(flat), to);
+        if (mapping === null) return null;
+        pieces.push({ region: grown(to, 0.6), matrix: mapping });
+      }
+    }
+  }
+  return { pieces, area };
+}
+
 // Applies a shape's pose around its transform origin, then calls `paint`
 // for the shape and for each child. Children inherit the transform.
 // textColor is the nearest animated text color above this shape. CSS color
@@ -145,7 +275,15 @@ function walk(
   context: CanvasRenderingContext2D,
   shape: Shape,
   poses: Pose[],
-  paint: (shape: Shape, pose: Pose | null, textColor: string | null, alpha: number) => void,
+  // Gets the context to draw on: a shape turned in 3D is drawn on its own
+  // canvas first.
+  paint: (
+    shape: Shape,
+    pose: Pose | null,
+    textColor: string | null,
+    alpha: number,
+    context: CanvasRenderingContext2D,
+  ) => void,
   textColor: string | null = null,
   parentAlpha = 1,
 ): void {
@@ -154,38 +292,107 @@ function walk(
   // An animated opacity is the element's opacity at that moment. It
   // replaces the resting one, it does not multiply it.
   const alpha = pose?.visible === false ? 0 : parentAlpha * (pose?.opacity ?? shape.opacity);
-  context.save();
-  const placed = placement(shape, pose);
-  context.transform(placed.a, placed.b, placed.c, placed.d, placed.e, placed.f);
-  // A filter acts on the shape and everything inside it, as in CSS. An
-  // animated one replaces the resting one.
-  const filter = pose?.filter ?? shape.filter;
-  if (filter !== null && filter !== 'none') {
-    context.filter = context.filter === 'none' ? filter : `${context.filter} ${filter}`;
+  // The shape and what is inside it, once placed.
+  const drawPlaced = (context: CanvasRenderingContext2D): void => {
+    // A filter acts on the shape and everything inside it, as in CSS. An
+    // animated one replaces the resting one.
+    const filter = pose?.filter ?? shape.filter;
+    if (filter !== null && filter !== 'none') {
+      context.filter = context.filter === 'none' ? filter : `${context.filter} ${filter}`;
+    }
+    // A clip-path cuts the shape and everything inside it, as in CSS.
+    const clip = pose?.clipPath ?? shape.clipPath;
+    if (clip !== null && clip !== 'none') {
+      const box = {
+        x: shape.box.x,
+        y: shape.box.y,
+        width: pose?.width ?? shape.box.width,
+        height: pose?.height ?? shape.box.height,
+      };
+      const path = clipPathOf(clip, box);
+      if (path !== null) context.clip(path);
+    }
+    paint(shape, pose, inherited, alpha, context);
+    // A shape that cuts off its content, or whose size is animating, clips
+    // its children. The second case covers accordions and drawers: CSS adds
+    // overflow: hidden only while they animate, so it is not there when the
+    // element is picked, and a size animation shows nothing without it.
+    if (shape.children.length > 0 && (shape.clip || pose?.width != null || pose?.height != null)) {
+      shapePath(context, shape, pose);
+      context.clip();
+    }
+    for (const child of shape.children) walk(context, child, poses, paint, inherited, alpha);
+  };
+  const tapered = taperedPieces(shape, pose);
+  const flat = (): void => {
+    context.save();
+    const placed = placement(shape, pose);
+    context.transform(placed.a, placed.b, placed.c, placed.d, placed.e, placed.f);
+    drawPlaced(context);
+    context.restore();
+  };
+  if (tapered === null) {
+    flat();
+    return;
   }
-  // A clip-path cuts the shape and everything inside it, as in CSS.
-  const clip = pose?.clipPath ?? shape.clipPath;
-  if (clip !== null && clip !== 'none') {
-    const box = {
-      x: shape.box.x,
-      y: shape.box.y,
-      width: pose?.width ?? shape.box.width,
-      height: pose?.height ?? shape.box.height,
-    };
-    const path = clipPathOf(clip, box);
-    if (path !== null) context.clip(path);
+  // Drawn once, flat, on its own canvas at the stage's pixel size, then
+  // that one picture is put down piece by piece. Drawing the shape's
+  // layers in each piece would let them blend along the seams.
+  const { area, pieces } = tapered;
+  const now = context.getTransform();
+  const pixels = Math.sqrt(Math.abs(now.a * now.d - now.b * now.c)) || 1;
+  const picture = offscreen(Math.ceil(area.width * pixels), Math.ceil(area.height * pixels));
+  if (picture === null) {
+    flat();
+    return;
   }
-  paint(shape, pose, inherited, alpha);
-  // A shape that cuts off its content, or whose size is animating, clips
-  // its children. The second case covers accordions and drawers: CSS adds
-  // overflow: hidden only while they animate, so it is not there when the
-  // element is picked, and a size animation shows nothing without it.
-  if (shape.children.length > 0 && (shape.clip || pose?.width != null || pose?.height != null)) {
-    shapePath(context, shape, pose);
+  picture.context.setTransform(pixels, 0, 0, pixels, -area.x * pixels, -area.y * pixels);
+  picturesInUse += 1;
+  try {
+    drawPlaced(picture.context);
+  } finally {
+    picturesInUse -= 1;
+  }
+  for (const piece of pieces) {
+    context.save();
+    context.translate(pose?.dx ?? 0, pose?.dy ?? 0);
+    context.beginPath();
+    piece.region.forEach(([x, y], index) =>
+      index === 0 ? context.moveTo(x, y) : context.lineTo(x, y),
+    );
+    context.closePath();
     context.clip();
+    const { a, b, c, d, e, f } = piece.matrix;
+    context.transform(a, b, c, d, e, f);
+    context.drawImage(picture.canvas, area.x, area.y, area.width, area.height);
+    context.restore();
   }
-  for (const child of shape.children) walk(context, child, poses, paint, inherited, alpha);
-  context.restore();
+}
+
+// Canvases kept for drawing turned shapes on, one per level: a turned
+// shape inside a turned shape is drawn while its parent's canvas is still
+// in use.
+const pictures: { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D }[] = [];
+let picturesInUse = 0;
+function offscreen(
+  width: number,
+  height: number,
+): { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D } | null {
+  // Larger than this is not worth the memory: drawn flat instead.
+  if (width <= 0 || height <= 0 || width * height > 8_000_000) return null;
+  let found = pictures[picturesInUse];
+  if (found === undefined) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (context === null) return null;
+    found = { canvas, context };
+    pictures.push(found);
+  }
+  found.canvas.width = width;
+  found.canvas.height = height;
+  found.context.setTransform(1, 0, 0, 1, 0, 0);
+  found.context.clearRect(0, 0, width, height);
+  return found;
 }
 
 // Dashes like the browser's: dashes about three times the border's width,
@@ -424,7 +631,7 @@ function drawFilled(
   theme: Theme,
   scale: number,
 ): void {
-  walk(context, root, poses, (shape, pose, textColor, alpha) => {
+  walk(context, root, poses, (shape, pose, textColor, alpha, context) => {
     context.globalAlpha = alpha;
     if (shape.kind === 'text' && shape.words !== null) wordsPath(context, shape);
     else shapePath(context, shape, pose);
@@ -490,7 +697,7 @@ function drawFilled(
 // The original as a dashed outline of the animated shapes only, to stay
 // quiet. Shapes that do not move would only repeat what is already drawn.
 function drawOutline(context: CanvasRenderingContext2D, data: StageData, scale: number): void {
-  walk(context, data.root, data.original, (shape, pose) => {
+  walk(context, data.root, data.original, (shape, pose, _textColor, _alpha, context) => {
     if (pose === null) return;
     // Where the original is exactly where mine is, the outline adds nothing.
     const mine = data.mine.find((candidate) => candidate.shapeId === shape.id);
@@ -634,7 +841,7 @@ function mineArea(compare: StageData['compare'], size: Size): Area {
 // shows where it moves fast (far apart) and slow (close together).
 function drawGhosts(context: CanvasRenderingContext2D, data: StageData, scale: number): void {
   for (const poses of data.ghosts) {
-    walk(context, data.root, poses, (shape, pose) => {
+    walk(context, data.root, poses, (shape, pose, _textColor, _alpha, context) => {
       if (shape.id !== data.selectedShapeId) return;
       shapePath(context, shape, pose);
       context.globalAlpha = 0.1;
@@ -652,7 +859,7 @@ function drawGhosts(context: CanvasRenderingContext2D, data: StageData, scale: n
 // A light outline on the shape under the pointer.
 function drawHover(context: CanvasRenderingContext2D, data: StageData, scale: number): void {
   if (data.hoveredShapeId === null || data.hoveredShapeId === data.selectedShapeId) return;
-  walk(context, data.root, data.mine, (shape, pose) => {
+  walk(context, data.root, data.mine, (shape, pose, _textColor, _alpha, context) => {
     if (shape.id !== data.hoveredShapeId) return;
     shapePath(context, shape, pose);
     context.globalAlpha = 0.6;
@@ -695,22 +902,30 @@ function hitShape(shape: Shape, poses: Pose[], parent: DOMMatrix, point: DOMPoin
   return inside ? shape.id : null;
 }
 
+// A point on the canvas in the root's coordinates, where the shapes are.
+// In side by side, either half: both show the same root.
+export function pointInRoot(
+  point: { x: number; y: number },
+  data: Pick<StageData, 'root' | 'compare' | 'frame' | 'reach'>,
+  size: Size,
+): { x: number; y: number } {
+  const area =
+    data.compare === 'side-by-side' && point.x < size.width / 2
+      ? { x: 0, y: CAPTION_HEIGHT, width: size.width / 2, height: size.height - CAPTION_HEIGHT }
+      : mineArea(data.compare, size);
+  // The same fit the drawing uses, reach included.
+  const { scale, left, top, originX, originY } = fit(data.root, data.frame, area, data.reach);
+  return { x: (point.x - left) / scale + originX, y: (point.y - top) / scale + originY };
+}
+
 // The shape of my version under a point on the canvas, or null.
 export function shapeAt(
   point: { x: number; y: number },
   data: Pick<StageData, 'root' | 'mine' | 'compare' | 'frame' | 'reach'>,
   size: Size,
 ): ShapeId | null {
-  const { scale, left, top, originX, originY } = fit(
-    data.root,
-    data.frame,
-    mineArea(data.compare, size),
-  );
-  const inRoot = new DOMPoint(
-    (point.x - left) / scale + originX,
-    (point.y - top) / scale + originY,
-  );
-  return hitShape(data.root, data.mine, new DOMMatrix(), inRoot);
+  const inRoot = pointInRoot(point, data, size);
+  return hitShape(data.root, data.mine, new DOMMatrix(), new DOMPoint(inRoot.x, inRoot.y));
 }
 
 function caption(context: CanvasRenderingContext2D, theme: Theme, text: string, x: number): void {

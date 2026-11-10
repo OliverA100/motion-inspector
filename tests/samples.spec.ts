@@ -150,6 +150,19 @@ function normalized(capture: unknown): unknown {
   );
 }
 
+// What must not drift: everything but the film of the page and the
+// pointer's path. Those are measurements, taken at whatever moments the
+// frames came, and differ a little every run; the samples keep them so the
+// demo shows its self-check.
+function comparable(capture: unknown): unknown {
+  const value = capture as { measured?: unknown; follows?: { pointer: unknown }[] | null };
+  return {
+    ...value,
+    measured: null,
+    follows: value.follows?.map((follow) => ({ ...follow, pointer: [] })) ?? null,
+  };
+}
+
 // Written once, after every sample is recorded. The dev server reloads the
 // open pages when a file it serves changes, and a reload in the middle of a
 // recording loses it.
@@ -175,7 +188,9 @@ for (const sample of samples) {
       return;
     }
     if (sample.repeatable) {
-      expect(normalized(capture)).toEqual(JSON.parse(readFileSync(file, 'utf8')));
+      expect(comparable(normalized(capture))).toEqual(
+        comparable(JSON.parse(readFileSync(file, 'utf8'))),
+      );
     }
   });
 }

@@ -135,5 +135,156 @@
   "backdrop": "rgb(255, 255, 255)",
   "frame": null,
   "trigger": "hover",
+  "measured": [
+    {
+      "shapeId": "s0.1",
+      "frames": [
+        {
+          "t": -16.7,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 33.3,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -0.71
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 83.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -1.66
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 133.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -2.49
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 183.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -3.18
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 233.3,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -3.7
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 283.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -3.98
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 333.3,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -4
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 383.3,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -4
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 433.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -4
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 483.3,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            -4
+          ],
+          "taper": null,
+          "opacity": 1
+        }
+      ]
+    }
+  ],
+  "follows": null,
   "notShown": []
 }

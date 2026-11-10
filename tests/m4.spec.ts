@@ -428,3 +428,147 @@ test('items pushed down by the layout are drawn lower as the panel opens', async
   // 60 px of layout at the stage's scale: well over 30 canvas pixels.
   expect(end - start).toBeGreaterThan(30);
 });
+
+// The self-check: the preview played against the film of the page.
+for (const [name, trigger, waitMs] of [
+  ['spring', 'toggle', 1600],
+  ['card-lift', null, 700],
+  ['button-hover', null, 600],
+] as const) {
+  test(`the preview of "${name}" is checked against the page and matches it`, async ({ page }) => {
+    const takes = await captureFixture(
+      page,
+      name,
+      async (p) => {
+        if (trigger !== null) await p.click(`[data-fixture="${name}"] [data-trigger="${trigger}"]`);
+        else await p.hover(`[data-fixture="${name}"] [data-root]`);
+      },
+      waitMs,
+    );
+    const capture = takes.find((take) => take.capture !== null)?.capture;
+    expect(capture?.measured?.length).toBeGreaterThan(0);
+    await page.goto('/?quiet');
+    await page.evaluate(
+      (json) => sessionStorage.setItem('motion-inspector-capture', json),
+      JSON.stringify(capture),
+    );
+    await page.goto('/?capture=session&quiet&time=0');
+    await expect(page.locator('.mi__check')).toHaveText(/^Checked against the page: within/);
+  });
+}
+
+test('a preview that is wrong is reported as off, with the part and the time', async ({ page }) => {
+  const takes = await captureFixture(
+    page,
+    'card-lift',
+    (p) => p.hover('[data-fixture="card-lift"] [data-root]'),
+    700,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  if (capture === undefined || capture === null) throw new Error('no capture');
+  // Twice as slow as on the page.
+  const wrong = {
+    ...capture,
+    tracks: capture.tracks.map((track) => ({
+      ...track,
+      timing: { ...track.timing, duration: track.timing.duration * 2 },
+    })),
+  };
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(wrong),
+  );
+  await page.goto('/?capture=session&quiet&time=0');
+  await expect(page.locator('.mi__check')).toHaveText(
+    /^Checked against the page: off by up to [\d.]+ px and \d+% opacity, most on .+ at \d+ ms\.$/,
+  );
+});
+
+test('a tilt card follows the pointer in the preview, tapered as on the page', async ({ page }) => {
+  const takes = await captureFixture(
+    page,
+    'tilt',
+    async (p) => {
+      const card = p.locator('[data-fixture="tilt"] [data-root]');
+      await card.scrollIntoViewIfNeeded();
+      const box = await card.boundingBox();
+      if (box === null) throw new Error('no card');
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      for (let step = 0; step <= 40; step += 1) {
+        await p.mouse.move(
+          cx + Math.cos(step / 6) * box.width * 0.4,
+          cy + Math.sin(step / 4) * box.height * 0.4,
+        );
+        await p.waitForTimeout(16);
+      }
+      await p.mouse.move(box.x + box.width + 40, cy, { steps: 4 });
+    },
+    1200,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  expect(capture?.follows?.length).toBe(1);
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
+  await page.goto('/?capture=session&quiet');
+  await expect(page.locator('.mi__check')).toHaveText(/^Checked against the page: within/);
+  await expect(page.locator('.mi__description')).toContainText('follows the pointer');
+
+  // The height of the blue card at its left and right ends, on the canvas.
+  const ends = async (): Promise<[number, number]> =>
+    page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const context = canvas.getContext('2d');
+      if (context === null) return [0, 0];
+      const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+      const blue = (x: number, y: number): boolean => {
+        const index = (y * width + x) * 4;
+        return (
+          Math.abs((data[index] ?? 0) - 47) < 30 &&
+          Math.abs((data[index + 1] ?? 0) - 111) < 30 &&
+          Math.abs((data[index + 2] ?? 0) - 237) < 30
+        );
+      };
+      // Each column's blue from top to bottom (the white bars inside do
+      // not count against it).
+      const columns: number[] = [];
+      for (let x = 0; x < width; x += 1) {
+        let top = -1;
+        let bottom = -1;
+        for (let y = 0; y < height; y += 1) {
+          if (!blue(x, y)) continue;
+          if (top === -1) top = y;
+          bottom = y;
+        }
+        columns.push(top === -1 ? 0 : bottom - top + 1);
+      }
+      const filled = columns.flatMap((count, x) => (count > 4 ? [x] : []));
+      const left = filled[0] ?? 0;
+      const right = filled[filled.length - 1] ?? 0;
+      // A few columns in from each end, past the rounded corners.
+      const inset = Math.round((right - left) * 0.15);
+      return [columns[left + inset] ?? 0, columns[right - inset] ?? 0];
+    });
+  const [restLeft, restRight] = await ends();
+  expect(Math.abs(restLeft - restRight)).toBeLessThanOrEqual(2);
+
+  // The pointer near the right edge of the card in the preview.
+  const stage = await page.locator('.stage').boundingBox();
+  if (stage === null) throw new Error('no stage');
+  await page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2);
+  await page.mouse.move(stage.x + stage.width * 0.68, stage.y + stage.height / 2, { steps: 5 });
+  await page.waitForTimeout(600);
+  const [left, right] = await ends();
+  if (process.env.SHOT) await page.locator('.stage').screenshot({ path: process.env.SHOT });
+  // About 9 degrees of turn: the two ends differ by several pixels.
+  expect(Math.abs(left - right)).toBeGreaterThan(5);
+
+  // Off the preview, it turns back flat.
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(800);
+  const [backLeft, backRight] = await ends();
+  expect(Math.abs(backLeft - backRight)).toBeLessThanOrEqual(2);
+});

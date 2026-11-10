@@ -16,7 +16,7 @@ import {
   type PropertyGroup,
 } from './groups';
 import { flattenShapes } from './shapes';
-import type { Capture, Keyframe, ParsedValue, Shape, Track } from './types';
+import type { Capture, Follow, FollowChannel, Keyframe, ParsedValue, Shape, Track } from './types';
 
 // ---------- Words for numbers ----------
 
@@ -377,6 +377,48 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
   ].flatMap((sentence) => (sentence === null ? [] : [sentence]));
 }
 
+// ---------- Following the pointer ----------
+
+// What a part that follows the pointer does, in words: it turns toward the
+// pointer (tapers), slides with it or away from it, grows or fades while the
+// pointer is on it.
+function followSentence(capture: Capture, follow: Follow): string {
+  const label =
+    flattenShapes(capture.root).find((shape) => shape.id === follow.shapeId)?.label ?? 'A part';
+  const channel = (name: FollowChannel['name']): FollowChannel | undefined =>
+    follow.channels.find((item) => item.name === name);
+  // How much a number changes along its own direction: x for g and e
+  // (left to right), y for h and f (top to bottom).
+  const leans = (name: FollowChannel['name']): number => {
+    const found = channel(name);
+    return found === undefined ? 0 : name === 'g' || name === 'e' ? found.perX : found.perY;
+  };
+  const parts: string[] = [];
+  if (Math.abs(leans('g')) > 0.00002 || Math.abs(leans('h')) > 0.00002) {
+    parts.push('turns toward it in 3D');
+  }
+  const slide = leans('e') + leans('f');
+  if (Math.abs(leans('e')) >= 1 || Math.abs(leans('f')) >= 1) {
+    parts.push(slide >= 0 ? 'slides with it' : 'slides away from it');
+  }
+  const a = channel('a');
+  const grows = a === undefined ? 0 : a.base - a.rest;
+  if (Math.abs(grows) >= 0.01) parts.push(grows > 0 ? 'grows' : 'shrinks');
+  const opacity = channel('opacity');
+  if (opacity !== undefined && Math.abs(opacity.base - opacity.rest) >= 0.05) {
+    parts.push(opacity.base < opacity.rest ? 'fades' : 'brightens');
+  }
+  const what = parts.length === 0 ? 'moves with it' : parts.join(' and ');
+  const roughly = (ms: number): number => Math.max(10, Math.round(ms / 10) * 10);
+  const how =
+    follow.lagMs < 8
+      ? `following it at once and easing in and out over about ${roughly(follow.onLagMs)} ms`
+      : Math.abs(follow.onLagMs - follow.lagMs) <= 20
+        ? `catching up in about ${roughly(follow.lagMs)} ms`
+        : `catching up in about ${roughly(follow.lagMs)} ms and easing in and out over about ${roughly(follow.onLagMs)} ms`;
+  return `${label} follows the pointer: it ${what}, ${how}.`;
+}
+
 // ---------- Public function ----------
 
 const MAX_GROUPS_DESCRIBED = 5;
@@ -393,6 +435,10 @@ export function describeCapture(capture: Capture): string {
     capture.tracks.filter((track) => track.origin === 'layout').map((track) => track.shapeId),
   ).size;
 
+  const scripted = new Set(
+    capture.tracks.filter((track) => track.origin === 'script').map((track) => track.shapeId),
+  ).size;
+
   const keys = Array.from(new Set(motions.map(sameMotionKey)));
   const groups = keys.map((key) => motions.filter((motion) => sameMotionKey(motion) === key));
   const described = groups.slice(0, MAX_GROUPS_DESCRIBED).flatMap(sentencesFor);
@@ -400,8 +446,18 @@ export function describeCapture(capture: Capture): string {
   const notShown = capture.notShown.length;
 
   return [
-    ...(motions.length === 0 ? ['No animations were captured.'] : described),
+    ...(motions.length === 0 && (capture.follows ?? []).length === 0
+      ? ['No animations were captured.']
+      : described),
+    ...(capture.follows ?? []).map((follow) => followSentence(capture, follow)),
     ...(left === 0 ? [] : [left === 1 ? '1 more shape animates.' : `${left} more shapes animate.`]),
+    ...(scripted === 0
+      ? []
+      : [
+          scripted === 1
+            ? 'A script moves 1 part; its motion was measured from the page.'
+            : `A script moves ${scripted} parts; their motion was measured from the page.`,
+        ]),
     ...(moved === 0
       ? []
       : [moved === 1 ? '1 part moves with the layout.' : `${moved} parts move with the layout.`]),

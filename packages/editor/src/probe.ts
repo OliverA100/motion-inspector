@@ -257,7 +257,12 @@ function poseOf(
   }, new DOMMatrix());
   const transform = valueOf('transform');
   const full = transform === null ? matrix : matrix.multiply(matrixOf(transform));
-  const asMatrix: Matrix = [full.a, full.b, full.c, full.d, full.e, full.f];
+  // A turn in 3D with perspective() narrows away from the viewer: drawn as a
+  // taper. Everything else of the 3D matrix is what is seen flat.
+  const w = full.m44 === 0 ? 1 : full.m44;
+  const asMatrix: Matrix = [full.a / w, full.b / w, full.c / w, full.d / w, full.e / w, full.f / w];
+  const tapered = Math.abs(full.m14) > 1e-9 || Math.abs(full.m24) > 1e-9;
+  const taper: [number, number] | null = tapered ? [full.m14 / w, full.m24 / w] : null;
 
   // Position: a change in left or top moves the shape and what is inside
   // it. When both opposite sides move (an underline growing from its
@@ -308,6 +313,7 @@ function poseOf(
   return {
     shapeId: shape.id,
     matrix: has(['transform', 'translate', 'rotate', 'scale']) ? asMatrix : null,
+    taper: has(['transform']) ? taper : null,
     opacity: opacity === null ? null : Number.parseFloat(opacity),
     fill: shape.kind === 'path' ? valueOf('fill') : valueOf('background-color'),
     strokeColor: shape.kind === 'path' ? valueOf('stroke') : valueOf('border-top-color'),

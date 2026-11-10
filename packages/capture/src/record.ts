@@ -11,10 +11,16 @@
 // becomes one Capture.
 
 import {
+  FOLLOW_CHANNELS,
+  fitFollow,
+  fitMotion,
+  MOST_POINTER_SAMPLES,
   parseCapture,
   parseEasing,
   type Capture,
   type Easing,
+  type Follow,
+  type PointerSample,
   type ParsedValue,
   type TransformFunction,
   type Trigger,
@@ -29,6 +35,7 @@ import {
   labelOf,
   containingBlock,
   type Box,
+  frameNow,
   layoutNow,
   type RawShape,
   type Snapshot,
@@ -614,6 +621,289 @@ function layoutTracksFor(
   return tracks;
 }
 
+// ---------- Film: motion a script makes ----------
+
+type FilmFrame = {
+  time: number;
+  matrix: [number, number, number, number, number, number];
+  taper: [number, number] | null;
+  opacity: number;
+};
+type Film = Map<Element, FilmFrame[]>;
+
+// How often the page is filmed: about 25 times a second.
+const FILM_EVERY_MS = 38;
+const MOST_FRAMES = 400;
+// A script that keeps changing styles ends its take after this long.
+const LONGEST_SCRIPT_TAKE_MS = 4000;
+
+const round = (value: number, places: number): number =>
+  Math.round(value * 10 ** places) / 10 ** places;
+
+// A part moved by a script, with no browser animation of its own, from its
+// film: its transform (where it is, how far it turns, how large it is) and
+// how opaque,
+// each fitted to keyframes and a curve that match the film within half a
+// pixel, a tenth of a degree, half a percent of size, a percent of opacity.
+function scriptTracksFor(
+  snapshot: Snapshot,
+  take: Seen[],
+  film: Film,
+  scripted: Set<Element>,
+  takeStart: number,
+): unknown[] {
+  const tracks: unknown[] = [];
+  for (const [element, filmed] of film) {
+    const shapeId = snapshot.shapeIdOf.get(element);
+    const shape = snapshot.shapeOf.get(element);
+    if (
+      !scripted.has(element) ||
+      filmed.length < 3 ||
+      shapeId === undefined ||
+      shape === undefined
+    ) {
+      continue;
+    }
+    const animated = new Set(
+      take
+        .filter((seen) => seen.target === element && seen.pseudoElement === null)
+        .flatMap((seen) => seen.properties),
+    );
+    // Filmed every frame, up to 400: fitted from at most 120, evenly spread,
+    // the last one kept.
+    const every = Math.ceil(filmed.length / 120);
+    const frames = filmed.filter(
+      (_frame, index) => index % every === 0 || index === filmed.length - 1,
+    );
+    const times = frames.map((frame) => frame.time);
+    const span = Math.max((times[times.length - 1] ?? 0) - (times[0] ?? 0), 1);
+    // Rotation is kept continuous: 179 then -179 degrees is a 2 degree turn.
+    let turn = 0;
+    const angles = frames.map((frame, index) => {
+      const angle = (Math.atan2(frame.matrix[1], frame.matrix[0]) * 180) / Math.PI;
+      if (index === 0) {
+        turn = angle;
+        return angle;
+      }
+      let next = angle;
+      while (next - turn > 180) next -= 360;
+      while (next - turn < -180) next += 360;
+      turn = next;
+      return next;
+    });
+    const scaleX = frames.map((frame) => Math.hypot(frame.matrix[0], frame.matrix[1]));
+    const scaleY = frames.map((frame, index) => {
+      const [a, b, c, d] = frame.matrix;
+      return (a * d - b * c) / Math.max(scaleX[index] ?? 1, 1e-9);
+    });
+    // One transform track, not translate, rotate and scale: the film is the
+    // whole transform, and an animation of transform replaces the resting
+    // one, as on the page. Only the parts that change are written, the same
+    // parts in every keyframe so they can be blended.
+    const moves = (values: number[], tolerance: number): boolean =>
+      Math.max(...values) - Math.min(...values) >= tolerance;
+    const turns = moves(angles, 0.1);
+    const sizes = moves(scaleX, 0.005) || moves(scaleY, 0.005);
+    const groups: {
+      property: string;
+      channels: { values: number[]; tolerance: number }[];
+      write: (values: number[]) => string;
+    }[] = [
+      {
+        property: 'transform',
+        channels: [
+          { values: frames.map((frame) => frame.matrix[4]), tolerance: 0.5 },
+          { values: frames.map((frame) => frame.matrix[5]), tolerance: 0.5 },
+          ...(turns ? [{ values: angles, tolerance: 0.1 }] : []),
+          ...(sizes
+            ? [
+                { values: scaleX, tolerance: 0.005 },
+                { values: scaleY, tolerance: 0.005 },
+              ]
+            : []),
+        ],
+        write: (values) => {
+          const [x = 0, y = 0, ...rest] = values;
+          const angle = turns ? (rest.shift() ?? 0) : null;
+          const [sx = 1, sy = 1] = rest;
+          return [
+            `translate(${round(x, 2)}px, ${round(y, 2)}px)`,
+            ...(angle === null ? [] : [`rotate(${round(angle, 2)}deg)`]),
+            ...(sizes ? [`scale(${round(sx, 4)}, ${round(sy, 4)})`] : []),
+          ].join(' ');
+        },
+      },
+      {
+        property: 'opacity',
+        channels: [{ values: frames.map((frame) => frame.opacity), tolerance: 0.01 }],
+        write: ([value = 1]) => `${round(value, 3)}`,
+      },
+    ];
+    for (const group of groups) {
+      const own =
+        group.property === 'opacity'
+          ? animated.has('opacity')
+          : TRANSFORM_PROPERTIES.some((property) => animated.has(property));
+      if (own) continue;
+      const still = group.channels.every((channel) => {
+        const values = channel.values;
+        return Math.max(...values) - Math.min(...values) < channel.tolerance;
+      });
+      if (still) continue;
+      const fit = fitMotion(times, group.channels);
+      tracks.push({
+        shapeId,
+        property: group.property,
+        origin: 'script',
+        groupId: `script:${shapeId}`,
+        startOffset: Math.max(0, (times[0] ?? 0) - takeStart),
+        interrupted: false,
+        keyframes: fit.offsets.map((offset, index) => {
+          const value = group.write(fit.values.map((channel) => channel[index] ?? 0));
+          return {
+            offset: index === fit.offsets.length - 1 ? 1 : round(offset, 4),
+            value,
+            parsed: readValue(group.property, value, shape.box),
+            easing:
+              index === 0 && fit.easing.kind === 'cubic-bezier' ? fit.easing : { kind: 'linear' },
+            implicit: false,
+          };
+        }),
+        timing: {
+          delay: 0,
+          duration: span,
+          iterations: { kind: 'count', count: 1 },
+          direction: 'normal',
+          fill: 'both',
+          easing: { kind: 'linear' },
+        },
+      });
+    }
+  }
+  return tracks;
+}
+
+// The film, kept with the take, so the editor can check its preview
+// against the page.
+function measuredFor(snapshot: Snapshot, film: Film, takeStart: number): unknown[] {
+  return Array.from(film, ([element, frames]) => {
+    const shapeId = snapshot.shapeIdOf.get(element);
+    if (shapeId === undefined || frames.length < 2) return null;
+    return {
+      shapeId,
+      frames: frames.slice(0, MOST_FRAMES).map((frame) => ({
+        t: round(frame.time - takeStart, 1),
+        matrix: frame.matrix.map((value) => round(value, 4)),
+        taper: frame.taper === null ? null : frame.taper.map((value) => round(value, 8)),
+        opacity: round(frame.opacity, 4),
+      })),
+    };
+  }).filter((entry) => entry !== null);
+}
+
+// ---------- Following the pointer ----------
+
+// Where the root was on the page when it was picked: the pointer path is
+// kept in the root's coordinates, as the shapes are.
+const pickedAt = new WeakMap<Snapshot, { x: number; y: number }>();
+
+export const KEPT_MOVING_NOTE = `A script kept moving this part. The first ${LONGEST_SCRIPT_TAKE_MS / 1000} seconds are shown.`;
+
+// How far a fitted rule may miss the film and still be the rule: 2 px of
+// move, 3% of size or lean, 5% of opacity. Further than that, the motion is
+// shown on the timeline as measured instead.
+const FOLLOW_MISS: Record<string, number> = { e: 2, f: 2, g: 0.0001, h: 0.0001, opacity: 0.05 };
+const FOLLOW_MISS_OTHER = 0.03;
+
+// Parts moved by a script that follows the pointer, found by fitting the
+// rule that links the pointer to the film (see core's follow.ts).
+function followsFor(
+  snapshot: Snapshot,
+  take: Seen[],
+  film: Film,
+  scripted: Set<Element>,
+  takeStart: number,
+): { follows: Follow[]; followed: Set<Element> } {
+  const follows: Follow[] = [];
+  const followed = new Set<Element>();
+  const origin = pickedAt.get(snapshot) ?? { x: 0, y: 0 };
+  for (const [element, frames] of film) {
+    const shapeId = snapshot.shapeIdOf.get(element);
+    const shape = snapshot.shapeOf.get(element);
+    if (
+      !scripted.has(element) ||
+      frames.length < 8 ||
+      shapeId === undefined ||
+      shape === undefined
+    ) {
+      continue;
+    }
+    // A part with transitions of its own is still tried: tilt scripts
+    // often set a transition and restart it with every pointer move
+    // (vanilla-tilt, Atropos). The film is what the page showed; when the
+    // rule matches it, the rule replaces those transitions.
+    const first = frames[0]?.time ?? 0;
+    const last = frames[frames.length - 1]?.time ?? 0;
+    const moves = pointerPath.filter((move) => move.time >= first - 500 && move.time <= last);
+    const all: PointerSample[] = moves.map((move) => ({
+      t: round(move.time - takeStart, 1),
+      x: round(move.x - origin.x, 1),
+      y: round(move.y - origin.y, 1),
+      inside: move.kind === 'out' ? within(element, move.related) : within(element, move.target),
+    }));
+    // At most the samples the format holds, evenly spread.
+    const every = Math.ceil(all.length / MOST_POINTER_SAMPLES);
+    const pointer = all.filter((_sample, index) => index % every === 0 || index === all.length - 1);
+    const times = frames.map((frame) => frame.time - takeStart);
+    // a to f from the matrix, g and h from the taper, then opacity.
+    const channelOf = (frame: FilmFrame, index: number): number =>
+      index < 6
+        ? (frame.matrix[index] ?? 0)
+        : index < 8
+          ? (frame.taper?.[index - 6] ?? 0)
+          : frame.opacity;
+    const values = FOLLOW_CHANNELS.map((_name, index) =>
+      frames.map((frame) => channelOf(frame, index)),
+    );
+    const resting = shape.transform ?? [1, 0, 0, 1, 0, 0];
+    const rest = FOLLOW_CHANNELS.map((_name, index) =>
+      index < 6 ? (resting[index] ?? 0) : index < 8 ? 0 : shape.opacity,
+    );
+    const fit = fitFollow(shape.box, pointer, times, values, rest);
+    if (fit === null) continue;
+    const close = fit.errors.every(
+      (error, index) => error <= (FOLLOW_MISS[FOLLOW_CHANNELS[index] ?? ''] ?? FOLLOW_MISS_OTHER),
+    );
+    // It must follow the pointer, not just move while the pointer is there.
+    const leans = fit.channels.some((channel) => {
+      const size =
+        channel.name === 'e' || channel.name === 'f'
+          ? 1
+          : channel.name === 'g' || channel.name === 'h'
+            ? 0.00002
+            : 0.005;
+      return Math.abs(channel.perX) >= size || Math.abs(channel.perY) >= size;
+    });
+    if (!close || !leans) continue;
+    followed.add(element);
+    follows.push({
+      shapeId: shapeId as Follow['shapeId'],
+      onLagMs: Math.round(fit.onLagMs),
+      lagMs: Math.round(fit.lagMs),
+      channels: fit.channels.map((channel) => ({
+        name: channel.name,
+        // The taper is a small number: it keeps more places.
+        rest: round(channel.rest, channel.name === 'g' || channel.name === 'h' ? 9 : 5),
+        base: round(channel.base, channel.name === 'g' || channel.name === 'h' ? 9 : 5),
+        perX: round(channel.perX, channel.name === 'g' || channel.name === 'h' ? 9 : 5),
+        perY: round(channel.perY, channel.name === 'g' || channel.name === 'h' ? 9 : 5),
+      })),
+      pointer,
+    });
+  }
+  return { follows, followed };
+}
+
 // ---------- What set a take off ----------
 
 // What the person did on the page, kept for a few seconds: the pointer
@@ -627,6 +917,16 @@ type PageEvent = {
 };
 const pageEvents: PageEvent[] = [];
 let listening = false;
+
+type PointerMove = {
+  kind: 'move' | 'over' | 'out';
+  time: number;
+  x: number;
+  y: number;
+  target: EventTarget | null;
+  related: EventTarget | null;
+};
+const pointerPath: PointerMove[] = [];
 
 function listenToPage(): void {
   if (listening) return;
@@ -646,6 +946,26 @@ function listenToPage(): void {
   const options = { capture: true, passive: true };
   document.addEventListener('pointerover', note('over'), options);
   document.addEventListener('pointerout', note('out'), options);
+  // Where the pointer goes, for parts that follow it. Page coordinates, so
+  // scrolling between moves does not matter.
+  const path =
+    (kind: PointerMove['kind']) =>
+    (event: PointerEvent): void => {
+      pointerPath.push({
+        kind,
+        // When it happened. The timeline's time stands still between
+        // frames, and pointer moves come between them.
+        time: event.timeStamp,
+        x: event.clientX + window.scrollX,
+        y: event.clientY + window.scrollY,
+        target: event.target,
+        related: event.relatedTarget,
+      });
+      if (pointerPath.length > 3000) pointerPath.splice(0, 1500);
+    };
+  document.addEventListener('pointermove', path('move'), options);
+  document.addEventListener('pointerover', path('over'), options);
+  document.addEventListener('pointerout', path('out'), options);
   document.addEventListener('pointerdown', note('down'), options);
   document.addEventListener('keydown', note('key'), options);
   document.addEventListener('focusin', note('focus'), options);
@@ -659,15 +979,16 @@ function within(root: Element, target: EventTarget | null): boolean {
 // The last thing done on the page just before the take began, as a
 // trigger. Coming onto the picked element is a hover; moving between its
 // own parts is not.
-function triggerOf(root: Element, take: Seen[]): Trigger {
-  if (take.length === 0) return 'unknown';
-  if (take.every((seen) => seen.runningAtPick)) {
+function triggerOf(root: Element, take: Seen[], scriptStart: number | null = null): Trigger {
+  if (take.length === 0 && scriptStart === null) return 'unknown';
+  if (take.length > 0 && take.every((seen) => seen.runningAtPick)) {
     // Transitions already under way when recording began, with the pointer
     // on the element: the hover that picking by click started.
     const transitions = take.every((seen) => seen.origin === 'css-transition');
     return transitions && root.matches(':hover') ? 'hover' : 'running';
   }
-  const start = Math.min(...take.map((seen) => seen.startTime));
+  const start =
+    take.length > 0 ? Math.min(...take.map((seen) => seen.startTime)) : (scriptStart ?? 0);
   const near = pageEvents.filter((event) => event.time <= start + 50 && event.time >= start - 700);
   for (const event of [...near].reverse()) {
     const crosses = within(root, event.target) && !within(root, event.related);
@@ -688,6 +1009,8 @@ function buildTake(
   samples: LayoutSample[] = [],
   notes: string[] = [],
   trigger: Trigger | null = null,
+  film: Film = new Map(),
+  scripted: Set<Element> = new Set(),
 ): TakeResult {
   // Parts that were hidden at pick time and appeared for this animation get
   // their shapes now.
@@ -709,8 +1032,28 @@ function buildTake(
   );
   const fresh = drawable.filter((seen) => !seen.runningAtPick);
   const basis = fresh.length > 0 ? fresh : drawable.length > 0 ? drawable : take;
-  const takeStart = Math.min(...basis.map((seen) => seen.startTime));
-  const built = take.map((seen, index) =>
+  // A take moved only by a script starts with its first frame of film.
+  // A take moved by a script starts with its first frame of film, if that
+  // came before every animation in it.
+  const firstFrame = Math.min(
+    ...Array.from(film.values()).flatMap((frames) => frames.map((frame) => frame.time)),
+  );
+  const firstScripted = Math.min(
+    ...Array.from(film)
+      .filter(([element]) => scripted.has(element))
+      .flatMap(([, frames]) => frames.map((frame) => frame.time)),
+  );
+  const takeStart =
+    basis.length > 0 ? Math.min(...basis.map((seen) => seen.startTime), firstScripted) : firstFrame;
+  // Parts that follow the pointer, found first: their rule replaces the
+  // transform transitions a script restarted on them with every move.
+  const { follows, followed } = followsFor(snapshot, take, film, scripted, takeStart);
+  const replacedByRule = (seen: Seen): boolean =>
+    followed.has(seen.target) &&
+    seen.pseudoElement === null &&
+    seen.properties.every((property) => TRANSFORM_PROPERTIES.includes(property));
+  const kept = take.filter((seen) => !replacedByRule(seen));
+  const built = kept.map((seen, index) =>
     // Properties from one animation share its timing: one group.
     tracksFor(
       snapshot,
@@ -728,6 +1071,13 @@ function buildTake(
     groupId: string | null;
   }[];
   const layout = layoutTracksFor(snapshot, take, samples, takeStart) as typeof tracks;
+  const scripts = scriptTracksFor(
+    snapshot,
+    take,
+    film,
+    new Set(Array.from(scripted).filter((element) => !followed.has(element))),
+    takeStart,
+  ) as typeof tracks;
   tracks.forEach((track, index) => {
     const there = tracks
       .slice(0, index)
@@ -745,16 +1095,26 @@ function buildTake(
       capturedAt: new Date().toISOString(),
     },
     root: snapshot.root,
-    tracks: [...tracks, ...layout],
-    trigger: trigger ?? triggerOf(snapshot.rootElement, take),
+    tracks: [...tracks, ...layout, ...scripts],
+    measured: measuredFor(snapshot, film, takeStart),
+    follows: follows.length > 0 ? follows : null,
+    trigger: trigger ?? triggerOf(snapshot.rootElement, take, take.length === 0 ? takeStart : null),
     backdrop: snapshot.backdrop,
     frame: snapshot.frame,
     notShown: [
-      ...notes,
+      // A part that follows the pointer is not cut short: its rule is whole.
+      ...notes.filter(
+        (note) =>
+          (follows.length === 0 || note !== KEPT_MOVING_NOTE) &&
+          // "Restarted N times": the rule replaces those restarts.
+          !Array.from(followed).some((element) =>
+            note.startsWith(`The animation on ${labelOf(element)} was restarted`),
+          ),
+      ),
       ...snapshot.notes,
       ...built.flatMap((item) => item.notShown),
       // Something did run. Say so, rather than "nothing was captured".
-      ...(tracks.length === 0
+      ...(tracks.length + scripts.length + follows.length === 0
         ? Array.from(
             new Set(built.flatMap((item) => item.unchanged)),
             (what) => `The ${what} ends where it starts, so there is nothing to see.`,
@@ -901,6 +1261,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   const idleMs = options.idleMs ?? DEFAULT_IDLE_MS;
   const alreadySeen = new WeakSet<Animation>();
   listenToPage();
+  const rootRect = snapshot.rootElement.getBoundingClientRect();
+  pickedAt.set(snapshot, { x: rootRect.left + window.scrollX, y: rootRect.top + window.scrollY });
   let take: Seen[] = [];
   // When the last take was sent, for stopping by itself.
   let lastTakeEnd = 0;
@@ -909,6 +1271,66 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   let samples: LayoutSample[] = [];
   let previousSamples: LayoutSample[] = [];
   let lastActivity = performance.now();
+  // Film of the parts in the take, for motion no browser animation
+  // describes: a script writing inline styles frame by frame.
+  let film: Film = new Map();
+  let previousFilm: Film = new Map();
+  let scripted = new Set<Element>();
+  let lastFilmed = -Infinity;
+  let lastStyleChange = -Infinity;
+  // Parts a script never stops moving. One take of them is enough.
+  const endless = new WeakSet<Element>();
+  // A part a script moves is filmed as soon as the script has written its
+  // style: this runs right after the script, in the same frame. Filming in
+  // the recorder's own frame callback could come before the script's in
+  // that frame, and see every frame one frame late.
+  const watcher = new MutationObserver((records) => {
+    const time = asNumber(document.timeline.currentTime) ?? performance.now();
+    const changed = new Set<Element>();
+    for (const record of records) {
+      const target = record.target;
+      if (!(target instanceof Element) || endless.has(target)) continue;
+      if (!snapshot.shapeOf.has(target)) continue;
+      changed.add(target);
+    }
+    for (const element of changed) {
+      scripted.add(element);
+      lastStyleChange = performance.now();
+      const frames = film.get(element) ?? [];
+      // Written twice in one frame: the last one is what is seen.
+      if (frames[frames.length - 1]?.time === time) frames.pop();
+      if (frames.length < MOST_FRAMES) frames.push({ time, ...frameNow(element) });
+      film.set(element, frames);
+    }
+  });
+  watcher.observe(snapshot.rootElement, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style'],
+  });
+  // A script that changed a style without moving anything (a cursor, a
+  // CSS variable) leaves no take.
+  const hasFilm = (): boolean =>
+    Array.from(scripted).some((element) => {
+      const frames = film.get(element) ?? [];
+      const first = frames[0];
+      return (
+        frames.length >= 3 &&
+        first !== undefined &&
+        frames.some(
+          (item) =>
+            Math.abs(item.opacity - first.opacity) > 0.01 ||
+            item.matrix.some(
+              (value, index) => Math.abs(value - (first.matrix[index] ?? 0)) > 0.01,
+            ) ||
+            // A turn in 3D shows mostly as taper.
+            [0, 1].some(
+              (index) =>
+                Math.abs((item.taper?.[index] ?? 0) - (first.taper?.[index] ?? 0)) > 0.00002,
+            ),
+        )
+      );
+    });
   let frame = 0;
   let foundAnything = false;
   let stopped = false;
@@ -950,12 +1372,23 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // or more becomes one take, the last, with a note. Fewer are sent as
   // usual: a quick hover-out is still its own take.
   const QUICK_MS = 100;
-  let held: { take: Seen[]; samples: LayoutSample[] }[] = [];
+  let held: { take: Seen[]; samples: LayoutSample[]; film: Film; scripted: Set<Element> }[] = [];
+  const clearFilm = (): void => {
+    film = new Map();
+    scripted = new Set();
+    lastFilmed = -Infinity;
+  };
 
   const endTake = (quick = false): void => {
-    if (take.length === 0) return;
+    if (take.length === 0 && !hasFilm()) {
+      clearFilm();
+      return;
+    }
     if (quick) {
-      held.push({ take, samples });
+      // The film goes on: a restart is how a script drives the part, and
+      // splitting the film there would lose the motion before it (found on
+      // vanilla-tilt, which restarts a transition with every pointer move).
+      held.push({ take, samples, film: new Map(), scripted: new Set() });
       take = [];
       samples = [];
       return;
@@ -970,28 +1403,39 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     } else {
       const earlier = held;
       held = [];
-      const current = take;
-      const currentSamples = samples;
+      const current = { take, samples, film, scripted };
       for (const item of earlier) {
         take = item.take;
         samples = item.samples;
+        film = item.film;
+        scripted = item.scripted;
         sendTake([]);
       }
-      take = current;
-      samples = currentSamples;
+      take = current.take;
+      samples = current.samples;
+      film = current.film;
+      scripted = current.scripted;
     }
     sendTake(chainNote);
   };
 
   const sendTake = (chainNote: string[]): void => {
-    if (take.length === 0) return;
+    if (take.length === 0 && !hasFilm()) return;
     const finished = take;
     const finishedSamples = samples;
+    const finishedFilm = film;
+    const finishedScripted = scripted;
     take = [];
     samples = [];
+    clearFilm();
     // A hover and its leave are one motion: the leave is added to the take
     // it reverses, which is sent again to replace the first version.
-    if (previous !== null && isWayBackOf(previous, finished)) {
+    if (
+      previous !== null &&
+      previous.length > 0 &&
+      finished.length > 0 &&
+      isWayBackOf(previous, finished)
+    ) {
       const previousTake = previous;
       const back = afterAHold(previous, finished);
       const shift =
@@ -1002,8 +1446,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         ...previousSamples,
         ...finishedSamples.map((sample) => ({ ...sample, time: sample.time - shift })),
       ];
+      const mergedFilm: Film = new Map(previousFilm);
+      for (const [element, frames] of finishedFilm) {
+        const shifted = frames.map((item) => ({ ...item, time: item.time - shift }));
+        mergedFilm.set(element, [...(mergedFilm.get(element) ?? []), ...shifted]);
+      }
       previous = null;
       previousSamples = [];
+      previousFilm = new Map();
       const first = triggerOf(snapshot.rootElement, previousTake);
       const second = triggerOf(snapshot.rootElement, finished);
       const trigger: Trigger =
@@ -1012,15 +1462,37 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
           : first;
       lastTakeEnd = performance.now();
       options.onTake({
-        ...buildTake(snapshot, merged, mergedSamples, chainNote, trigger),
+        ...buildTake(
+          snapshot,
+          merged,
+          mergedSamples,
+          chainNote,
+          trigger,
+          mergedFilm,
+          new Set([...finishedScripted]),
+        ),
         replaces: true,
       });
       return;
     }
     previous = finished;
     previousSamples = finishedSamples;
+    previousFilm = finishedFilm;
     lastTakeEnd = performance.now();
-    options.onTake(buildTake(snapshot, finished, finishedSamples, chainNote));
+    const notes = [...chainNote];
+    const firstTimes = Array.from(finishedFilm.values()).map((frames) => frames[0]?.time ?? 0);
+    const lastTimes = Array.from(finishedFilm.values()).map(
+      (frames) => frames[frames.length - 1]?.time ?? 0,
+    );
+    if (
+      finishedScripted.size > 0 &&
+      Math.max(...lastTimes) - Math.min(...firstTimes) >= LONGEST_SCRIPT_TAKE_MS - FILM_EVERY_MS
+    ) {
+      notes.push(KEPT_MOVING_NOTE);
+    }
+    options.onTake(
+      buildTake(snapshot, finished, finishedSamples, notes, null, finishedFilm, finishedScripted),
+    );
   };
 
   const onFrame = (): void => {
@@ -1085,11 +1557,53 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       const parent = animatedParent(now);
       if (parent !== null) {
         stopped = true;
+        watcher.disconnect();
         options.onParentAnimation(parent);
         return;
       }
     }
     if (take.some(movesLayout) && samples.length < 600) samples.push(sampleLayout(snapshot));
+
+    // Film the parts that move: those a browser animation moves (to check
+    // the preview against) and those a script moves (to fit), about 25
+    // times a second.
+    // A part a script moves stays in the take while the pointer is on it:
+    // one that follows the pointer rests when the pointer does.
+    const scriptActive =
+      now - lastStyleChange < 150 ||
+      Array.from(scripted).some((element) => element.matches(':hover'));
+    const docNow = asNumber(document.timeline.currentTime) ?? now;
+    if (
+      (take.length > 0 || scriptActive || scripted.size > 0) &&
+      docNow - lastFilmed >= FILM_EVERY_MS
+    ) {
+      lastFilmed = docNow;
+      // Parts a browser animation moves. Its value for this frame is already
+      // worked out when frame callbacks run.
+      const filmed = new Set<Element>();
+      for (const seen of take) {
+        if (seen.pseudoElement === null) filmed.add(seen.target);
+      }
+      // Parts that appear for the animation have no shape yet: they get one
+      // when the take is built, and their film is matched to it then.
+      for (const element of filmed) {
+        const frames = film.get(element) ?? [];
+        if (frames.length >= MOST_FRAMES) continue;
+        // A script already wrote, and was filmed, in this frame.
+        if (frames[frames.length - 1]?.time === docNow) continue;
+        frames.push({ time: docNow, ...frameNow(element) });
+        film.set(element, frames);
+      }
+    }
+    if (scriptActive) {
+      lastActivity = now;
+      foundAnything = true;
+      const times = Array.from(film.values()).flatMap((frames) => frames.map((item) => item.time));
+      if (times.length > 0 && Math.max(...times) - Math.min(...times) >= LONGEST_SCRIPT_TAKE_MS) {
+        for (const element of scripted) endless.add(element);
+        endTake();
+      }
+    }
     // Done on its own: something was captured, nothing is open or held,
     // the pointer is off the element (a hover still has its way back to
     // come), and nothing has happened for a while.
@@ -1098,14 +1612,17 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       lastTakeEnd > 0 &&
       take.length === 0 &&
       held.length === 0 &&
+      !scriptActive &&
+      scripted.size === 0 &&
       now - lastTakeEnd > options.autoStopMs &&
       !snapshot.rootElement.matches(':hover')
     ) {
       stopped = true;
+      watcher.disconnect();
       options.onAutoStop?.();
       return;
     }
-    if (take.some(stillRunning)) lastActivity = now;
+    if (take.some(stillRunning) || scriptActive) lastActivity = now;
     else if (now - lastActivity > idleMs) endTake();
     frame = requestAnimationFrame(onFrame);
   };
@@ -1115,6 +1632,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     stop: () => {
       if (stopped) return;
       stopped = true;
+      watcher.disconnect();
       cancelAnimationFrame(frame);
       endTake();
     },

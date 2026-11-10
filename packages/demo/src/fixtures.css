@@ -952,3 +952,40 @@ fx-shadow-card {
 .fx-reflow.is-open .fx-reflow__panel {
   height: 60px;
 }
+
+/* 31. Script spring: moved by a script, frame by frame. */
+.fx-spring {
+  width: 220px;
+  height: 56px;
+  border-radius: 8px;
+  background: var(--fx-surface, #f2f2f2);
+}
+.fx-spring__box {
+  width: 40px;
+  height: 40px;
+  margin: 8px;
+  border-radius: 6px;
+  background: #2f6fed;
+}
+
+/* 32. Tilt card: turned toward the pointer by a script. */
+.fx-tilt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: flex-end;
+  width: 200px;
+  height: 120px;
+  padding: 16px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: #2f6fed;
+}
+.fx-tilt__bar {
+  height: 10px;
+  border-radius: 5px;
+  background: #ffffff;
+}
+.fx-tilt__bar--short {
+  width: 60%;
+}

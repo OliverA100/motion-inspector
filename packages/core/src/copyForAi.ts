@@ -9,7 +9,7 @@ import { effectiveDelay, groupByShorthand } from './groups';
 import { parseCaptureJson } from './parse';
 import { fail, ok, type Result } from './result';
 import { flattenShapes } from './shapes';
-import type { Capture } from './types';
+import type { Capture, Follow } from './types';
 
 const JSON_FENCE_START = '```json\n';
 const FENCE_END = '\n```';
@@ -49,8 +49,43 @@ function trackTable(capture: Capture): string[] {
 // The JSON block must survive any text in the capture. A backtick is the
 // one character that could end the code fence early, and JSON only ever has
 // backticks inside strings, where "`" means the same thing.
+//
+// The film of the page (measured) and the pointer's path are left out:
+// they are evidence for the self-check, hundreds of numbers each, not part
+// of the motion to build. Read back, the capture has no self-check.
 function captureJson(capture: Capture): string {
-  return JSON.stringify(capture, null, 2).replaceAll('`', '\\u0060');
+  const spec: Capture = {
+    ...capture,
+    measured: null,
+    follows:
+      capture.follows === null
+        ? null
+        : capture.follows.map((follow) => ({ ...follow, pointer: [] })),
+  };
+  return JSON.stringify(spec, null, 2).replaceAll('`', '\\u0060');
+}
+
+// A part that follows the pointer, as a rule a script can follow: where
+// its transform heads for, and how fast it gets there.
+function followSection(capture: Capture, follow: Follow): string[] {
+  const label =
+    flattenShapes(capture.root).find((shape) => shape.id === follow.shapeId)?.label ?? 'A part';
+  const number = (value: number | undefined): string =>
+    value === undefined ? '0' : String(Math.round(value * 1e9) / 1e9);
+  const rows = follow.channels.map(
+    (channel) =>
+      `| ${channel.name} | ${number(channel.base)} | ${number(channel.perX)} | ${number(channel.perY)} | ${number(channel.rest)} |`,
+  );
+  return [
+    `\`${label}\`: three values drive it, each moving 1 - exp(-dt / lag) of the way to its aim every frame (dt in ms). on aims for 1 while the pointer is on the part and 0 off it (lag ${formatNumber(follow.onLagMs)} ms). x and y aim for where the pointer is on it, from -1 at the left or top edge to 1 at the right or bottom (lag ${formatNumber(follow.lagMs)} ms; held while the pointer is off it; when the pointer arrives at a part at rest, they start there). Each number below is rest + on × (base − rest + perX × x + perY × y), and they make its transform, about its transform origin:`,
+    '',
+    `\`transform: matrix3d(a, b, 0, g, c, d, 0, h, 0, 0, 1, 0, e, f, 0, 1)\`; and \`opacity\`.`,
+    '',
+    '| Number | Base | Per x | Per y | Rest |',
+    '| --- | --- | --- | --- | --- |',
+    ...rows,
+    '',
+  ];
 }
 
 export function copyForAiText(capture: Capture): string {
@@ -65,6 +100,16 @@ export function copyForAiText(capture: Capture): string {
     '',
     ...trackTable(capture),
     '',
+    ...((capture.follows ?? []).length === 0
+      ? []
+      : [
+          '## Following the pointer',
+          '',
+          'CSS cannot do this alone: a script sets the transform each frame.',
+          '',
+          ...(capture.follows ?? []).flatMap((follow) => followSection(capture, follow)),
+          '',
+        ]),
     '## CSS',
     '',
     '```css',

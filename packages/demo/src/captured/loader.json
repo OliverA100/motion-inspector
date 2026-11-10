@@ -104,5 +104,78 @@
   "backdrop": "rgb(255, 255, 255)",
   "frame": null,
   "trigger": "running",
+  "measured": [
+    {
+      "shapeId": "s0",
+      "frames": [
+        {
+          "t": 66.7,
+          "matrix": [
+            0.89,
+            0.45,
+            -0.45,
+            0.89,
+            0,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 116.6,
+          "matrix": [
+            0.69,
+            0.73,
+            -0.73,
+            0.69,
+            0,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 166.6,
+          "matrix": [
+            0.4,
+            0.92,
+            -0.92,
+            0.4,
+            0,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 216.6,
+          "matrix": [
+            0.06,
+            1,
+            -1,
+            0.06,
+            0,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 266.7,
+          "matrix": [
+            -0.29,
+            0.96,
+            -0.96,
+            -0.29,
+            0,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        }
+      ]
+    }
+  ],
+  "follows": null,
   "notShown": []
 }

@@ -43,6 +43,14 @@ export type Capture = {
   // already running, or nothing seen (unknown). null in takes saved before
   // this was read.
   trigger: Trigger | null;
+  // The page filmed while the take ran: each moving part's transform (a b
+  // c d e f) and opacity, about 25 times a second, at t ms from the start
+  // of the take. The editor checks its preview against it. null in takes
+  // saved before this was read.
+  measured: Measured[] | null;
+  // Parts that follow the pointer. null when there are none. Older takes
+  // have no such field and load with null.
+  follows: Follow[] | null;
   // The color of the page behind the picked element, so a white button on
   // a dark page is previewed on dark. null when it could not be read.
   backdrop: string | null;
@@ -54,6 +62,49 @@ export type Capture = {
   // What the preview leaves out, each in plain words: animations we saw but
   // cannot draw, and things drawn more simply than on the page.
   notShown: string[];
+};
+
+export type Measured = {
+  shapeId: ShapeId;
+  frames: {
+    t: number;
+    matrix: [number, number, number, number, number, number];
+    // How a part turned in 3D narrows away from the viewer: the g and h of
+    // the projection (x', y' and w' = g x + h y + 1, with x' and y' from the
+    // matrix). null when flat. Older takes have none.
+    taper: [number, number] | null;
+    opacity: number;
+  }[];
+};
+
+// The pointer over the page while a take was recorded, in the root's
+// coordinates. inside: the pointer was on the part that follows it.
+export type PointerSample = { t: number; x: number; y: number; inside: boolean };
+
+// One number of a part's transform (a b c d e f, as in matrix(), and g h,
+// its taper when turned in 3D) or its opacity, and how it follows the pointer. While the pointer is on the part
+// it heads for base + perX * x + perY * y, with x and y from -1 at the
+// part's left or top edge to 1 at the right or bottom; off the part, back to
+// rest.
+export type FollowChannel = {
+  name: 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'opacity';
+  rest: number;
+  base: number;
+  perX: number;
+  perY: number;
+};
+
+// A part moved by a script that follows the pointer (a card that tilts
+// toward it). onLagMs: how long coming on and going off the part take to
+// cover 63% of the way; lagMs: the same for following the pointer while on
+// it (see follow.ts). pointer: the path recorded on the page, to check the
+// rule against the film.
+export type Follow = {
+  shapeId: ShapeId;
+  onLagMs: number;
+  lagMs: number;
+  channels: FollowChannel[];
+  pointer: PointerSample[];
 };
 
 export type Trigger =
@@ -181,7 +232,9 @@ export type Track = {
   // 'layout': not an animation on the page, but how a part moved or resized
   // because the layout around it changed while the take ran (an accordion
   // pushing the items below it down), measured there. Never exported.
-  origin: 'css-transition' | 'css-animation' | 'web-animation' | 'layout';
+  // 'script': moved by a script frame by frame (no browser animation),
+  // measured on the page and fitted to keyframes and a curve (see fit.ts).
+  origin: 'css-transition' | 'css-animation' | 'web-animation' | 'layout' | 'script';
   // Tracks that came from the same animation share a group id and are
   // retimed together. null means the track stands alone (or was unlinked).
   groupId: GroupId | null;

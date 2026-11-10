@@ -185,5 +185,7 @@
   "backdrop": "rgb(255, 255, 255)",
   "frame": null,
   "trigger": "hover",
+  "measured": [],
+  "follows": null,
   "notShown": []
 }

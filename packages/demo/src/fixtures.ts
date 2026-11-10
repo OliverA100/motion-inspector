@@ -144,3 +144,69 @@ const reflow = fixture('reflow');
 onTrigger(reflow, 'toggle', () => {
   inside(reflow, '.fx-reflow').classList.toggle('is-open');
 });
+
+// 31. Script spring. A damped spring, stepped every frame, written to the
+// inline style, as motion libraries do.
+const spring = fixture('spring');
+const springBox = inside(spring, '.fx-spring__box');
+let springTo = 0;
+let springRunning = false;
+onTrigger(spring, 'toggle', () => {
+  springTo = springTo === 0 ? 160 : 0;
+  if (springRunning) return;
+  springRunning = true;
+  let x = springTo === 160 ? 0 : 160;
+  let velocity = 0;
+  let last = performance.now();
+  const step = (now: number): void => {
+    const dt = Math.min(Math.max(now - last, 0) / 1000, 1 / 30);
+    last = now;
+    // Stiffness 170, damping 14: it overshoots a little and settles.
+    velocity += (170 * (springTo - x) - 14 * velocity) * dt;
+    x += velocity * dt;
+    const settled = Math.abs(springTo - x) < 0.1 && Math.abs(velocity) < 0.1;
+    if (settled) x = springTo;
+    springBox.style.transform = `translateX(${x.toFixed(2)}px)`;
+    if (settled) springRunning = false;
+    else requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+});
+
+// 32. Tilt card. The card turns toward where the pointer says, easing
+// after it with a lag of 85 ms (63% of the way in that time, whatever the
+// frame rate); off the card it turns back flat.
+const tilt = inside(fixture('tilt'), '.fx-tilt');
+const tiltTarget = { x: 0, y: 0 };
+const tiltNow = { x: 0, y: 0 };
+let tilting = false;
+let tiltLast = 0;
+const tiltStep = (now: number): void => {
+  // A frame's time is when the frame began, which can be before the
+  // pointer move that started this: never less than nothing.
+  const share = 1 - Math.exp(-Math.max(now - tiltLast, 0) / 85);
+  tiltLast = now;
+  tiltNow.x += (tiltTarget.x - tiltNow.x) * share;
+  tiltNow.y += (tiltTarget.y - tiltNow.y) * share;
+  tilt.style.transform = `perspective(600px) rotateX(${(-tiltNow.y * 10).toFixed(3)}deg) rotateY(${(tiltNow.x * 10).toFixed(3)}deg)`;
+  const settled =
+    Math.abs(tiltTarget.x - tiltNow.x) < 0.001 && Math.abs(tiltTarget.y - tiltNow.y) < 0.001;
+  if (settled) tilting = false;
+  else requestAnimationFrame(tiltStep);
+};
+const tiltTo = (x: number, y: number): void => {
+  tiltTarget.x = x;
+  tiltTarget.y = y;
+  if (tilting) return;
+  tilting = true;
+  tiltLast = performance.now();
+  requestAnimationFrame(tiltStep);
+};
+tilt.addEventListener('pointermove', (event) => {
+  const box = tilt.getBoundingClientRect();
+  tiltTo(
+    ((event.clientX - box.left) / box.width) * 2 - 1,
+    ((event.clientY - box.top) / box.height) * 2 - 1,
+  );
+});
+tilt.addEventListener('pointerleave', () => tiltTo(0, 0));

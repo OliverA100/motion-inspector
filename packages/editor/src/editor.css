@@ -77,6 +77,13 @@ html {
   overflow-wrap: anywhere;
 }
 
+/* How close the preview is to the page, measured. */
+.mi__check {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+}
+
 .mi__top > div:first-child {
   min-width: 0;
 }

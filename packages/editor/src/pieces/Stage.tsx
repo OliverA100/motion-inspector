@@ -4,7 +4,7 @@
 
 import { useCallback, useState, type PointerEvent, type ReactNode } from 'react';
 import type { Shape, ShapeId } from '@motion-inspector/core';
-import { drawStage, shapeAt, type Pose } from '../draw/stage';
+import { drawStage, pointInRoot, shapeAt, type Pose } from '../draw/stage';
 import type { Compare } from '../state/model';
 import { useTheme } from '../theme';
 import { Canvas, type Draw, type Size } from './Canvas';
@@ -39,6 +39,11 @@ type Props = {
   onHover: (shapeId: ShapeId | null) => void;
   // A shape was clicked.
   onPick: (shapeId: ShapeId) => void;
+  // Where the pointer is over the preview, in the root's coordinates, for
+  // parts that follow it. null when it leaves.
+  onPointer?: (point: { x: number; y: number } | null) => void;
+  // Said above the preview when parts follow the pointer.
+  pointerHint?: string;
 };
 
 const COMPARE_OPTIONS: { value: Compare; text: string }[] = [
@@ -105,6 +110,16 @@ export function Stage(props: Props) {
     ],
   );
 
+  const inRoot = (event: PointerEvent<HTMLDivElement>): { x: number; y: number } | null => {
+    if (size === null) return null;
+    const box = event.currentTarget.getBoundingClientRect();
+    return pointInRoot(
+      { x: event.clientX - box.left, y: event.clientY - box.top },
+      { root, compare, frame, reach },
+      size,
+    );
+  };
+
   const under = (event: PointerEvent<HTMLDivElement>): ShapeId | null => {
     if (size === null) return null;
     const box = event.currentTarget.getBoundingClientRect();
@@ -140,8 +155,8 @@ export function Stage(props: Props) {
         </div>
       </header>
       <p className="panel__hint">
-        Point at a part to find it on the timeline, click to select it. Ghost trail: equal time
-        steps, so far apart is fast.
+        {props.pointerHint ??
+          'Point at a part to find it on the timeline, click to select it. Ghost trail: equal time steps, so far apart is fast.'}
       </p>
       <div
         className={hoveredShapeId === null ? 'stage' : 'stage is-pointing'}
@@ -151,8 +166,12 @@ export function Stage(props: Props) {
           const shapeId = under(event);
           // Only say so when it changes, not on every pixel of movement.
           if (shapeId !== hoveredShapeId) props.onHover(shapeId);
+          props.onPointer?.(inRoot(event));
         }}
-        onPointerLeave={() => hoveredShapeId !== null && props.onHover(null)}
+        onPointerLeave={() => {
+          if (hoveredShapeId !== null) props.onHover(null);
+          props.onPointer?.(null);
+        }}
         onClick={(event) => {
           const shapeId = under(event as unknown as PointerEvent<HTMLDivElement>);
           if (shapeId !== null) props.onPick(shapeId);

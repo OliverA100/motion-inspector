@@ -165,5 +165,260 @@
   "backdrop": "rgb(255, 255, 255)",
   "frame": null,
   "trigger": "hover",
+  "measured": [
+    {
+      "shapeId": "s0.1",
+      "frames": [
+        {
+          "t": -16.6,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 33.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            11.18,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 83.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            31.05,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 133.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            55.43,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 183.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            79.81,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 233.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            99.46,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 283.3,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            110.13,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 333.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            107.76,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 383.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            103.19,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 433.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            98.92,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 483.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            95.5,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 533.3,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            94.37,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 583.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            94.86,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 633.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            95.35,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 683.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            95.84,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 733.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            96,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 783.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            96,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 833.4,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            96,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        },
+        {
+          "t": 883.3,
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            96,
+            0
+          ],
+          "taper": null,
+          "opacity": 1
+        }
+      ]
+    }
+  ],
+  "follows": null,
   "notShown": []
 }

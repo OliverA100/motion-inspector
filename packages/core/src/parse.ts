@@ -25,6 +25,11 @@ import type {
   Gradient,
   GroupId,
   IconPath,
+  Measured,
+  Follow,
+  FollowChannel,
+  PointerSample,
+  ShapeId,
   Iterations,
   Keyframe,
   ParsedValue,
@@ -292,7 +297,7 @@ const TRIGGERS = [
   'unknown',
 ] as const;
 
-const ORIGINS = ['css-transition', 'css-animation', 'web-animation', 'layout'] as const;
+const ORIGINS = ['css-transition', 'css-animation', 'web-animation', 'layout', 'script'] as const;
 
 function parseGroupId(value: unknown): Result<GroupId | null> {
   if (value === null) return ok(null);
@@ -744,15 +749,145 @@ function parseSource(value: unknown): Result<Capture['source']> {
   });
 }
 
+export const MOST_MEASURED_FRAMES = 400;
+
+function parseFrame(value: unknown): Result<Measured['frames'][number]> {
+  return andThen(fields(value), (source) => {
+    const t = at('t', number(get(source, 't')));
+    const matrix = at('matrix', parseMatrix(get(source, 'matrix')));
+    const opacity = at('opacity', number(get(source, 'opacity')));
+    const taper = at(
+      'taper',
+      optional(get(source, 'taper'), (value) =>
+        andThen(listOf(value, number), (list) => {
+          const [g, h] = list;
+          return list.length === 2 && g !== undefined && h !== undefined
+            ? ok<[number, number]>([g, h])
+            : fail('Must be two numbers.');
+        }),
+      ),
+    );
+    if (!t.ok || !matrix.ok || !opacity.ok || !taper.ok) {
+      return failAll([t, matrix, opacity, taper].flatMap(errorsOf));
+    }
+    return ok({ t: t.value, matrix: matrix.value, taper: taper.value, opacity: opacity.value });
+  });
+}
+
+function parseMeasured(value: unknown): Result<Measured> {
+  return andThen(fields(value), (source) => {
+    const id = at('shapeId', andThen(text(get(source, 'shapeId')), shapeId));
+    const frames = at(
+      'frames',
+      andThen(listOf(get(source, 'frames'), parseFrame), (list) =>
+        list.length > MOST_MEASURED_FRAMES
+          ? fail(`At most ${MOST_MEASURED_FRAMES} frames.`)
+          : ok(list),
+      ),
+    );
+    if (!id.ok || !frames.ok) return failAll([id, frames].flatMap(errorsOf));
+    return ok({ shapeId: id.value, frames: frames.value });
+  });
+}
+
+function parseMeasuredList(value: unknown): Result<Measured[]> {
+  return listOf(value, parseMeasured);
+}
+
+export const MOST_POINTER_SAMPLES = 600;
+const FOLLOW_CHANNEL_NAMES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'opacity'] as const;
+
+function parsePointerSample(value: unknown): Result<PointerSample> {
+  return andThen(fields(value), (source) => {
+    const t = at('t', number(get(source, 't')));
+    const x = at('x', number(get(source, 'x')));
+    const y = at('y', number(get(source, 'y')));
+    const inside = at('inside', boolean(get(source, 'inside')));
+    if (!t.ok || !x.ok || !y.ok || !inside.ok) return failAll([t, x, y, inside].flatMap(errorsOf));
+    return ok({ t: t.value, x: x.value, y: y.value, inside: inside.value });
+  });
+}
+
+function parseFollowChannel(value: unknown): Result<FollowChannel> {
+  return andThen(fields(value), (source) => {
+    const name = at('name', oneOf(get(source, 'name'), FOLLOW_CHANNEL_NAMES));
+    const rest = at('rest', number(get(source, 'rest')));
+    const base = at('base', number(get(source, 'base')));
+    const perX = at('perX', number(get(source, 'perX')));
+    const perY = at('perY', number(get(source, 'perY')));
+    if (!name.ok || !rest.ok || !base.ok || !perX.ok || !perY.ok) {
+      return failAll([name, rest, base, perX, perY].flatMap(errorsOf));
+    }
+    return ok({
+      name: name.value,
+      rest: rest.value,
+      base: base.value,
+      perX: perX.value,
+      perY: perY.value,
+    });
+  });
+}
+
+function parseFollow(value: unknown): Result<Follow> {
+  return andThen(fields(value), (source) => {
+    const id = at('shapeId', andThen(text(get(source, 'shapeId')), shapeId));
+    const lag = (key: string): Result<number> =>
+      at(
+        key,
+        andThen(number(get(source, key)), (value) =>
+          value < 0 ? fail('Must be 0 or more.') : ok(value),
+        ),
+      );
+    const onLagMs = lag('onLagMs');
+    const lagMs = lag('lagMs');
+    const channels = at(
+      'channels',
+      andThen(listOf(get(source, 'channels'), parseFollowChannel), (list) =>
+        list.map((channel) => channel.name).join(' ') === FOLLOW_CHANNEL_NAMES.join(' ')
+          ? ok(list)
+          : fail(`Must be ${FOLLOW_CHANNEL_NAMES.join(', ')}, in that order.`),
+      ),
+    );
+    const pointer = at(
+      'pointer',
+      andThen(listOf(get(source, 'pointer'), parsePointerSample), (list) =>
+        list.length > MOST_POINTER_SAMPLES
+          ? fail(`At most ${MOST_POINTER_SAMPLES} samples.`)
+          : ok(list),
+      ),
+    );
+    if (!id.ok || !onLagMs.ok || !lagMs.ok || !channels.ok || !pointer.ok) {
+      return failAll([id, onLagMs, lagMs, channels, pointer].flatMap(errorsOf));
+    }
+    return ok({
+      shapeId: id.value,
+      onLagMs: onLagMs.value,
+      lagMs: lagMs.value,
+      channels: channels.value,
+      pointer: pointer.value,
+    });
+  });
+}
+
+function parseFollowList(value: unknown): Result<Follow[]> {
+  return listOf(value, parseFollow);
+}
+
 // Rules that involve more than one part of the capture.
 function checkReferences(capture: Capture): Result<Capture> {
   const ids = flattenShapes(capture.root).map((shape) => shape.id);
   const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
-  const unknown = capture.tracks.flatMap((track, index) =>
-    ids.includes(track.shapeId)
-      ? []
-      : [`tracks[${index}].shapeId: No shape has the id "${track.shapeId}".`],
-  );
+  const unknownIn = (where: string, list: { shapeId: string }[]): string[] =>
+    list.flatMap((item, index) =>
+      ids.includes(item.shapeId as ShapeId)
+        ? []
+        : [`${where}[${index}].shapeId: No shape has the id "${item.shapeId}".`],
+    );
+  const unknown = [
+    ...unknownIn('tracks', capture.tracks),
+    ...unknownIn('measured', capture.measured ?? []),
+    ...unknownIn('follows', capture.follows ?? []),
+  ];
   const errors = [
     ...Array.from(new Set(duplicates)).map((id) => `root: The shape id "${id}" is used twice.`),
     ...unknown,
@@ -770,6 +905,8 @@ export function parseCapture(value: unknown): Result<Capture> {
     const rawBackdrop = get(source, 'backdrop');
     const backdrop = at('backdrop', rawBackdrop === undefined ? ok(null) : parseFill(rawBackdrop));
     const frame = at('frame', optional(get(source, 'frame'), parseBox));
+    const measured = at('measured', optional(get(source, 'measured'), parseMeasuredList));
+    const follows = at('follows', optional(get(source, 'follows'), parseFollowList));
     const trigger = at(
       'trigger',
       optional(get(source, 'trigger'), (value) => oneOf(value, TRIGGERS)),
@@ -781,10 +918,22 @@ export function parseCapture(value: unknown): Result<Capture> {
       !notShown.ok ||
       !backdrop.ok ||
       !frame.ok ||
-      !trigger.ok
+      !trigger.ok ||
+      !measured.ok ||
+      !follows.ok
     ) {
       return failAll(
-        [captureSource, root, tracks, notShown, backdrop, frame, trigger].flatMap(errorsOf),
+        [
+          captureSource,
+          root,
+          tracks,
+          notShown,
+          backdrop,
+          frame,
+          trigger,
+          measured,
+          follows,
+        ].flatMap(errorsOf),
       );
     }
     return checkReferences({
@@ -794,6 +943,8 @@ export function parseCapture(value: unknown): Result<Capture> {
       backdrop: backdrop.value,
       frame: frame.value,
       trigger: trigger.value,
+      measured: measured.value,
+      follows: follows.value,
       notShown: notShown.value,
     });
   });
