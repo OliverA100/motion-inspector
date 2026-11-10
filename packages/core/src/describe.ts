@@ -8,7 +8,13 @@
 
 import { evaluateEasing } from './easing';
 import { formatNumber } from './format';
-import { effectiveDelay, groupByShorthand, type PropertyGroup } from './groups';
+import {
+  effectiveDelay,
+  firstOfEach,
+  groupByShorthand,
+  waysBack,
+  type PropertyGroup,
+} from './groups';
 import { flattenShapes } from './shapes';
 import type { Capture, Keyframe, ParsedValue, Shape, Track } from './types';
 
@@ -245,6 +251,9 @@ type ShapeMotion = {
   delayMs: number;
   mainTrack: Track;
   interrupted: boolean;
+  // True when the take also holds the way back (a hover's leave).
+  goesBack: boolean;
+  backCutShort: boolean;
 };
 
 // Movement is named first, because it is what the eye follows.
@@ -255,7 +264,10 @@ function movementFirst(groups: PropertyGroup[]): PropertyGroup[] {
 }
 
 function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
-  const tracks = capture.tracks.filter((track) => track.shapeId === shape.id);
+  const all = capture.tracks.filter((track) => track.shapeId === shape.id);
+  // The way back of a hover is described in one sentence of its own.
+  const tracks = firstOfEach(all);
+  const back = waysBack(all);
   // The sentence about pacing uses the transform if there is one, because
   // movement is what the eye follows.
   const mainTrack =
@@ -269,6 +281,8 @@ function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
     delayMs: Math.min(...tracks.map(effectiveDelay)),
     mainTrack,
     interrupted: tracks.some((track) => track.interrupted),
+    goesBack: back.length > 0,
+    backCutShort: back.some((track) => track.interrupted),
   };
 }
 
@@ -281,6 +295,7 @@ function sameMotionKey(motion: ShapeMotion): string {
     motion.durationMs,
     motion.mainTrack.timing.iterations,
     motion.mainTrack.timing.direction,
+    motion.goesBack,
     easingSentence(motion.mainTrack, ''),
   ]);
 }
@@ -317,6 +332,11 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
     `${subject} ${joinWithAnd(first.phrases)} over ${rounded(first.durationMs)} ms${delays}.`,
     easingSentence(first.mainTrack, pronoun),
     repeatSentence(first.mainTrack, pronoun),
+    first.goesBack
+      ? first.backCutShort
+        ? 'Then it goes back. The browser shortened the way back, because it started before the first part had finished.'
+        : 'Then it goes back.'
+      : null,
     motions.some((motion) => motion.interrupted)
       ? 'The browser shortened this transition, because it reversed one that was still running.'
       : null,

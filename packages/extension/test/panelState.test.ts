@@ -57,7 +57,7 @@ describe('the states of the side panel', () => {
       showTip(
         run(
           [
-            { kind: 'takeArrived', take: take('a') },
+            { kind: 'takeArrived', take: take('a'), replaced: false },
             { kind: 'waited', ms: 9000 },
           ],
           waited,
@@ -66,22 +66,35 @@ describe('the states of the side panel', () => {
     ).toBe(false);
   });
 
+  test('a take that completes the shown one replaces it, and is not counted again', () => {
+    const panel = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked' },
+      { kind: 'takeArrived', take: take('hover'), replaced: false },
+      { kind: 'pointerMoved', inPanel: true },
+      { kind: 'takeArrived', take: { id: 'hover', capture: loader }, replaced: true },
+    ]);
+    expect(panel.takes.map((item) => item.id)).toEqual(['hover']);
+    expect(selectedTake(panel)?.capture).toBe(loader);
+    expect(panel.status).toMatchObject({ kind: 'listening', found: 1 });
+  });
+
   test('a take that arrives while the pointer is in the panel is listed, not shown', () => {
     // The hover-out that plays as the user moves to the panel must not
     // replace the hover they just captured.
     const panel = run([
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },
-      { kind: 'takeArrived', take: take('hover') },
+      { kind: 'takeArrived', take: take('hover'), replaced: false },
       { kind: 'pointerMoved', inPanel: true },
-      { kind: 'takeArrived', take: take('hover-out') },
+      { kind: 'takeArrived', take: take('hover-out'), replaced: false },
     ]);
     expect(panel.takes.map((item) => item.id)).toEqual(['hover-out', 'hover']);
     expect(selectedTake(panel)?.id).toBe('hover');
     // With nothing shown yet, a take is shown wherever the pointer is.
     const empty = run([
       { kind: 'pointerMoved', inPanel: true },
-      { kind: 'takeArrived', take: take('x') },
+      { kind: 'takeArrived', take: take('x'), replaced: false },
     ]);
     expect(selectedTake(empty)?.id).toBe('x');
   });
@@ -99,8 +112,8 @@ describe('the states of the side panel', () => {
     const panel = run([
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },
-      { kind: 'takeArrived', take: take('a') },
-      { kind: 'takeArrived', take: take('b') },
+      { kind: 'takeArrived', take: take('a'), replaced: false },
+      { kind: 'takeArrived', take: take('b'), replaced: false },
     ]);
     expect(panel.takes.map((item) => item.id)).toEqual(['b', 'a']);
     expect(selectedTake(panel)?.id).toBe('b');
@@ -112,7 +125,7 @@ describe('the states of the side panel', () => {
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },
       { kind: 'movedToParent', label: 'div.card' },
-      { kind: 'takeArrived', take: take('a') },
+      { kind: 'takeArrived', take: take('a'), replaced: false },
     ]);
     expect(panel.status).toEqual({ kind: 'listening', waitedMs: 0, found: 1, movedTo: 'div.card' });
   });
@@ -141,7 +154,7 @@ describe('the states of the side panel', () => {
     const panel = run([
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },
-      { kind: 'takeArrived', take: take('a') },
+      { kind: 'takeArrived', take: take('a'), replaced: false },
       { kind: 'stopped' },
     ]);
     expect(panel.status).toEqual({ kind: 'idle' });
@@ -152,7 +165,7 @@ describe('the states of the side panel', () => {
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },
       { kind: 'stopped' },
-      { kind: 'takeArrived', take: take('late') },
+      { kind: 'takeArrived', take: take('late'), replaced: false },
     ]);
     expect(panel.status).toEqual({ kind: 'idle' });
     expect(selectedTake(panel)?.id).toBe('late');
@@ -173,7 +186,7 @@ describe('the states of the side panel', () => {
 
   test('a save that fails leaves a message, and the take stays open', () => {
     const panel = run([
-      { kind: 'takeArrived', take: take('a') },
+      { kind: 'takeArrived', take: take('a'), replaced: false },
       { kind: 'saveFailed', why: 'storage is full' },
     ]);
     expect(panel.notice).toContain('could not be saved (storage is full)');
@@ -187,6 +200,7 @@ describe('the list of takes', () => {
     const many = Array.from({ length: 25 }, (_item, index): PanelMsg => ({
       kind: 'takeArrived',
       take: take(`take-${index}`),
+      replaced: false,
     }));
     const panel = run(many);
     expect(panel.takes).toHaveLength(MOST_TAKES);
@@ -203,14 +217,17 @@ describe('the list of takes', () => {
 
   test('selecting a take that is not there is ignored', () => {
     const panel = run([
-      { kind: 'takeArrived', take: take('a') },
+      { kind: 'takeArrived', take: take('a'), replaced: false },
       { kind: 'takeSelected', id: 'gone' },
     ]);
     expect(panel.selectedId).toBe('a');
   });
 
   test('clearing removes them all', () => {
-    const panel = run([{ kind: 'takeArrived', take: take('a') }, { kind: 'takesCleared' }]);
+    const panel = run([
+      { kind: 'takeArrived', take: take('a'), replaced: false },
+      { kind: 'takesCleared' },
+    ]);
     expect(panel).toMatchObject({ takes: [], selectedId: null });
   });
 });

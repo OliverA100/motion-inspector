@@ -14,7 +14,7 @@ declare const MotionCapture: {
   stop: () => unknown[];
 };
 
-type TakeResult = { capture: unknown; problems: string[]; raw: unknown };
+type TakeResult = { capture: unknown; problems: string[]; raw: unknown; replaces: boolean };
 
 type Session = { end: () => void };
 

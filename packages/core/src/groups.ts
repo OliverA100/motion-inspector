@@ -80,3 +80,27 @@ export function groupByShorthand(tracks: Track[]): PropertyGroup[] {
 export function effectiveDelay(track: Track): number {
   return track.startOffset + track.timing.delay;
 }
+
+// ---------- In and back ----------
+
+// A hover plays one way on enter and back on leave. Capture puts both in
+// one take: the second track for the same shape and property is the way
+// back. These split a list of tracks into the first of each, and the rest.
+
+function key(track: Track): string {
+  return `${track.shapeId}|${track.property}`;
+}
+
+export function isWayBack(tracks: Track[], index: number): boolean {
+  const track = tracks[index];
+  if (track === undefined) return false;
+  return tracks.slice(0, index).some((earlier) => key(earlier) === key(track));
+}
+
+export function firstOfEach(tracks: Track[]): Track[] {
+  return tracks.filter((_track, index) => !isWayBack(tracks, index));
+}
+
+export function waysBack(tracks: Track[]): Track[] {
+  return tracks.filter((_track, index) => isWayBack(tracks, index));
+}

@@ -42,6 +42,8 @@ export type TimelineTrack = {
   shown: boolean;
   // True when this row differs from the original.
   edited: boolean;
+  // True for the way back of a hover (the leave), after the way there.
+  back: boolean;
   // True when the pointer is on this row's shape, here or on the preview.
   highlighted: boolean;
   // How many other rows share this row's timing, because they came from
@@ -413,6 +415,7 @@ export function Timeline(props: Props) {
                       <span className="timeline__name">{track.name}</span>
                     ) : null}
                     <code>{track.property}</code>
+                    {track.back ? <span className="timeline__back">back</span> : null}
                     {/* Always in the layout, only hidden when the row is not
                         edited. If it came and went, the label column would
                         change width and the bars would move under the pointer. */}

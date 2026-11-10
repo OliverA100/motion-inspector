@@ -379,7 +379,48 @@ test('text kept only for screen readers is not drawn', async ({ page }) => {
 
 // ---------- Takes ----------
 
-test('an interrupted hover is two takes, and the shortened one is marked', async ({ page }) => {
+// A hover and its leave are one motion: one take, with the way there and
+// the way back (asked for after the first real use).
+
+test('a hover and its leave are one take, with the way there and the way back', async ({
+  page,
+}) => {
+  const takes = await captureFixture(
+    page,
+    'button-hover',
+    async (page, selector) => {
+      await page.hover(selector);
+      // Stay well past the 180 ms, then leave.
+      await page.waitForTimeout(1200);
+      await page.mouse.move(0, 0);
+    },
+    700,
+  );
+
+  expect(takes).toHaveLength(1);
+  const capture = captureOf(takes[0]);
+  const moves = capture.tracks.filter((item) => item.property === 'transform');
+  expect(moves.map((item) => [item.keyframes[0]?.value, item.keyframes[1]?.value])).toEqual([
+    ['none', 'translateY(-2px)'],
+    ['translateY(-2px)', 'none'],
+  ]);
+  // The pointer stayed about a second. The way back is placed after a short
+  // rest instead, so the timeline is not mostly empty.
+  const [there, back] = moves;
+  expect((back?.startOffset ?? 0) - ((there?.startOffset ?? 0) + 180)).toBeLessThanOrEqual(401);
+  // The two directions are one transition: linked.
+  expect(back?.groupId).not.toBeNull();
+  expect(back?.groupId).toBe(there?.groupId);
+  expect(describeCapture(capture)).toBe(
+    'The element moves up 2 px and changes its shadow over 180 ms. It starts fast and slows down. Then it goes back.',
+  );
+  // Exported as one transition, as it was written.
+  expect(captureToCss(capture).match(/transform 180ms/g)).toHaveLength(1);
+});
+
+test('a leave before the hover finished: one take, and the shortened way back is marked', async ({
+  page,
+}) => {
   const takes = await captureFixture(
     page,
     'button-hover',
@@ -398,23 +439,21 @@ test('an interrupted hover is two takes, and the shortened one is marked', async
     600,
   );
 
-  expect(takes).toHaveLength(2);
-  const hoverIn = captureOf(takes[0]);
-  const hoverOut = captureOf(takes[1]);
-  expect(track(hoverIn, 'transform')).toMatchObject({ interrupted: false });
-  expect(track(hoverIn, 'transform').timing.duration).toBe(180);
-
-  const back = track(hoverOut, 'transform');
-  expect(back.interrupted).toBe(true);
-  expect(back.timing.duration).toBeGreaterThan(0);
-  expect(back.timing.duration).toBeLessThan(180);
+  expect(takes).toHaveLength(1);
+  const capture = captureOf(takes[0]);
+  const [there, back] = capture.tracks.filter((item) => item.property === 'transform');
+  expect(there).toMatchObject({ interrupted: false });
+  expect(there?.timing.duration).toBe(180);
+  expect(back?.interrupted).toBe(true);
+  expect(back?.timing.duration).toBeGreaterThan(0);
+  expect(back?.timing.duration).toBeLessThan(180);
   // It starts from where the first one had got to.
-  expect(back.keyframes[0]?.value).toMatch(/^translateY\(-[\d.]+px\)$/);
-  expect(back.keyframes[1]?.value).toBe('none');
-  expect(describeCapture(hoverOut)).toContain('The browser shortened this transition');
+  expect(back?.keyframes[0]?.value).toMatch(/^translateY\(-[\d.]+px\)$/);
+  expect(back?.keyframes[1]?.value).toBe('none');
+  expect(describeCapture(capture)).toContain('The browser shortened the way back');
 });
 
-test('a hover already under way when recording starts, and its hover-out, are two takes', async ({
+test('a hover already under way when recording starts still ends as one take with its leave', async ({
   page,
 }) => {
   await openFixtures(page);
@@ -427,10 +466,13 @@ test('a hover already under way when recording starts, and its hover-out, are tw
   await page.mouse.move(0, 0);
   await page.waitForTimeout(700);
   const takes = await page.evaluate(() => window.MotionCapture.stop());
-  // Never one take holding both the hover and its hover-out.
+  // Never a take holding two tracks for one value that are not a way there
+  // and its way back.
   for (const take of takes) {
-    const transforms = captureOf(take).tracks.filter((item) => item.property === 'transform');
-    expect(transforms.length).toBeLessThanOrEqual(1);
+    const moves = captureOf(take).tracks.filter((item) => item.property === 'transform');
+    expect(moves.length).toBeLessThanOrEqual(2);
+    if (moves.length === 2)
+      expect(moves[1]?.keyframes.at(-1)?.value).toBe(moves[0]?.keyframes[0]?.value);
   }
 });
 

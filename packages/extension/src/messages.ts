@@ -8,7 +8,8 @@ export type FromPage =
   | { type: 'cancelled' }
   // One take. `capture` has already passed core's checks in the page, and
   // the panel checks it again: it does not trust what a page sends.
-  | { type: 'take'; capture: unknown; problems: string[]; raw: unknown }
+  // replaces: true when it is the previous take with its way back added.
+  | { type: 'take'; capture: unknown; problems: string[]; raw: unknown; replaces: boolean }
   // Recording moved to a parent of what was picked, because that is the
   // element that animates. `label` names it, such as "div.card".
   | { type: 'moved'; label: string }

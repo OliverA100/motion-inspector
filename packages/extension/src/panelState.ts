@@ -49,7 +49,9 @@ export type PanelMsg =
   | { kind: 'elementPicked' }
   // Time passed while listening.
   | { kind: 'waited'; ms: number }
-  | { kind: 'takeArrived'; take: StoredTake }
+  // replaced: true when it completes a take that has already arrived (a
+  // hover's leave added to the hover). It keeps that take's id.
+  | { kind: 'takeArrived'; take: StoredTake; replaced: boolean }
   | { kind: 'movedToParent'; label: string }
   // The capture script sent something core rejected.
   | { kind: 'takeRejected'; problems: string[] }
@@ -120,7 +122,11 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
       // A take can arrive just after Stop, as the last one is flushed.
       const status: Status =
         panel.status.kind === 'listening'
-          ? { ...panel.status, waitedMs: 0, found: panel.status.found + 1 }
+          ? {
+              ...panel.status,
+              waitedMs: 0,
+              found: msg.replaced ? panel.status.found : panel.status.found + 1,
+            }
           : panel.status.kind === 'nothing-found'
             ? { kind: 'idle' }
             : panel.status;

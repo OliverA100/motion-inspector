@@ -31,7 +31,7 @@ type Sample = {
   fixture: string;
   trigger: (page: Page, selector: string) => Promise<void>;
   recordMs: number;
-  // Which take to keep. The interrupted hover is the second.
+  // Which take to keep.
   take: number;
   // False for a capture whose numbers depend on timing, so cannot be
   // compared exactly from run to run.
@@ -123,7 +123,8 @@ const samples: Sample[] = [
       await page.mouse.move(0, 0);
     },
     recordMs: 600,
-    take: 1,
+    // The hover and its shortened way back, one take.
+    take: 0,
     // How far the hover got before it was interrupted differs every time.
     repeatable: false,
   },
@@ -140,6 +141,17 @@ function normalized(capture: unknown): unknown {
   );
 }
 
+// Written once, after every sample is recorded. The dev server reloads the
+// open pages when a file it serves changes, and a reload in the middle of a
+// recording loses it.
+const toWrite = new Map<string, string>();
+
+test.afterAll(() => {
+  if (toWrite.size === 0) return;
+  mkdirSync(folder, { recursive: true });
+  for (const [file, text] of toWrite) writeFileSync(file, text);
+});
+
 for (const sample of samples) {
   test(`sample "${sample.id}" is what capture produces today`, async ({ page }, testInfo) => {
     // One browser is enough, and text is measured a hair differently in each.
@@ -150,8 +162,7 @@ for (const sample of samples) {
     const file = resolve(folder, `${sample.id}.json`);
 
     if (updating || !existsSync(file)) {
-      mkdirSync(folder, { recursive: true });
-      writeFileSync(file, `${JSON.stringify(normalized(capture), null, 2)}\n`);
+      toWrite.set(file, `${JSON.stringify(normalized(capture), null, 2)}\n`);
       return;
     }
     if (sample.repeatable) {

@@ -1,6 +1,7 @@
 // Pure questions about a Model or a Capture. No React, no DOM.
 
 import {
+  isWayBack,
   easingSpeed,
   evaluateEasing,
   findShape,
@@ -133,6 +134,8 @@ export function linkedCount(capture: Capture, trackIndex: number): number {
 export type TimelineRowData = {
   shapeLabel: string;
   property: string;
+  // True for the way back of a hover: a second track for the same value.
+  back: boolean;
   mine: { startMs: number; delayMs: number; durationMs: number };
   original: { startMs: number; delayMs: number; durationMs: number };
 };
@@ -149,6 +152,7 @@ export function timelineRows(original: Capture, edited: Capture): TimelineRowDat
   return edited.tracks.map((track, index) => ({
     shapeLabel: findShape(edited.root, track.shapeId)?.label ?? '',
     property: track.property,
+    back: isWayBack(edited.tracks, index),
     mine: barOf(track),
     original: barOf(original.tracks[index] ?? track),
   }));

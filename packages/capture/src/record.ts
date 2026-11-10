@@ -21,6 +21,9 @@ export type TakeResult = {
   problems: string[];
   // The data as it was handed to core, for the debug report.
   raw: unknown;
+  // True when this take replaces the one before it: it is that take with
+  // its way back added (a hover, then its leave).
+  replaces: boolean;
 };
 
 export type RecorderOptions = {
@@ -327,6 +330,24 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
       takeStart,
     ),
   );
+  // The way there and the way back of one property share a group, so an
+  // edit to its curve or duration applies to both, as one CSS transition
+  // does. Unlinking separates them.
+  const tracks = built.flatMap((item) => item.tracks) as {
+    shapeId: unknown;
+    property: unknown;
+    groupId: string | null;
+  }[];
+  tracks.forEach((track, index) => {
+    const there = tracks
+      .slice(0, index)
+      .find((earlier) => earlier.shapeId === track.shapeId && earlier.property === track.property);
+    if (there !== undefined && there.groupId === null && track.groupId === null) {
+      const group = `${String(track.shapeId)}:${String(track.property)}`;
+      there.groupId = group;
+      track.groupId = group;
+    }
+  });
   const raw = {
     source: {
       url: window.location.href,
@@ -334,14 +355,61 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
       capturedAt: new Date().toISOString(),
     },
     root: snapshot.root,
-    tracks: built.flatMap((item) => item.tracks),
+    tracks,
     notShown: [...snapshot.notes, ...built.flatMap((item) => item.notShown)],
   };
   // Core checks everything. Nothing reaches the editor without passing.
   const parsed = parseCapture(raw);
   return parsed.ok
-    ? { capture: parsed.value, problems: [], raw }
-    : { capture: null, problems: parsed.errors, raw };
+    ? { capture: parsed.value, problems: [], raw, replaces: false }
+    : { capture: null, problems: parsed.errors, raw, replaces: false };
+}
+
+// ---------- In and back ----------
+
+// How long the motion rests between going and coming back, at most. The
+// real wait is however long the pointer stayed, which can be seconds of
+// nothing on the timeline.
+const HOLD_MS = 400;
+
+function sameProperties(first: Seen, second: Seen): boolean {
+  return (
+    first.properties.length === second.properties.length &&
+    first.properties.every((property) => second.properties.includes(property))
+  );
+}
+
+// Is `next` the way back of `previous`? Every animation in it must undo
+// one in `previous`: same element and properties, ending where that one
+// began. A hover's leave is exactly this.
+function isWayBackOf(previous: Seen[], next: Seen[]): boolean {
+  if (next.length === 0) return false;
+  if (previous.some((seen) => !Number.isFinite(seen.timing.endTime))) return false;
+  return next.every((back) =>
+    previous.some(
+      (there) =>
+        there.target === back.target &&
+        there.pseudoElement === back.pseudoElement &&
+        sameProperties(there, back) &&
+        back.properties.every((property) => {
+          const began = valuesOf(there, property)[0]?.value;
+          const ends = valuesOf(back, property).at(-1)?.value;
+          return began !== undefined && began === ends;
+        }),
+    ),
+  );
+}
+
+// The way back, moved earlier so it starts at most HOLD_MS after the way
+// there ends. A way back that started sooner (the pointer left early) keeps
+// its real start.
+function afterAHold(previous: Seen[], back: Seen[]): Seen[] {
+  const thereEnds = Math.max(
+    ...previous.map((seen) => seen.startTime + Math.max(seen.timing.endTime, 0)),
+  );
+  const backStarts = Math.min(...back.map((seen) => seen.startTime));
+  const shift = Math.max(0, backStarts - thereEnds - HOLD_MS);
+  return back.map((seen) => ({ ...seen, startTime: seen.startTime - shift }));
 }
 
 // ---------- The recorder ----------
@@ -390,10 +458,23 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     return null;
   };
 
+  // The last take that was sent on its own, in case the next one is its
+  // way back.
+  let previous: Seen[] | null = null;
+
   const endTake = (): void => {
     if (take.length === 0) return;
     const finished = take;
     take = [];
+    // A hover and its leave are one motion: the leave is added to the take
+    // it reverses, which is sent again to replace the first version.
+    if (previous !== null && isWayBackOf(previous, finished)) {
+      const merged = [...previous, ...afterAHold(previous, finished)];
+      previous = null;
+      options.onTake({ ...buildTake(snapshot, merged), replaces: true });
+      return;
+    }
+    previous = finished;
     options.onTake(buildTake(snapshot, finished));
   };
 

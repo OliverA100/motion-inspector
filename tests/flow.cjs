@@ -50,7 +50,16 @@ const out = resolve(__dirname, '../screenshots/flow');
   await log('after moving the mouse to the panel');
   await shot('2-after-leaving-the-card');
 
-  // 3. Where are the things the user wants next?
+  // 3. Scroll down to tweak the curve. Is the motion still in view?
+  await panel.getByRole('button', { name: 'Slow start', exact: true }).scrollIntoViewIfNeeded();
+  await panel.waitForTimeout(300);
+  await shot('3-scrolled-to-the-curve');
+  await panel.getByRole('button', { name: 'Slow start', exact: true }).click();
+  await panel.waitForTimeout(250);
+  await shot('4-curve-changed-and-replaying');
+
+  // Where are the things the user wants next?
+  await panel.evaluate(() => window.scrollTo(0, 0));
   const where = await panel.evaluate(() =>
     ['.mi__description', '.stage', '.timeline', '.curve', 'pre.export__text']
       .map((sel) => {

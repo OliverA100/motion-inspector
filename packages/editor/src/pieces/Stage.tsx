@@ -38,12 +38,17 @@ const COMPARE_OPTIONS: { value: Compare; text: string }[] = [
 ];
 
 const HEIGHT = 240;
+const NARROW_HEIGHT = 140;
+const NARROW_PX = 560;
 
 export function Stage(props: Props) {
   const { root, mine, original, showOriginal, compare, selectedShapeId, hoveredShapeId, ghosts } =
     props;
   const theme = useTheme();
   const [size, setSize] = useState<Size | null>(null);
+  // Shorter on a narrow panel, where it stays at the top while the rest
+  // scrolls, so it must not fill the screen.
+  const height = size !== null && size.width < NARROW_PX ? NARROW_HEIGHT : HEIGHT;
   const draw = useCallback<Draw>(
     (context, canvasSize) =>
       drawStage(
@@ -75,7 +80,8 @@ export function Stage(props: Props) {
   };
 
   return (
-    <section className="panel">
+    // panel--stage: on one column it stays in view while the rest scrolls.
+    <section className="panel panel--stage">
       <header className="panel__head">
         <h2 className="panel__title">Preview</h2>
         <div className="panel__tools">
@@ -103,6 +109,8 @@ export function Stage(props: Props) {
       </p>
       <div
         className={hoveredShapeId === null ? 'stage' : 'stage is-pointing'}
+        // On a narrow panel the hint above is hidden. It stays here.
+        title="Point at a part to find it on the timeline, click to select it."
         onPointerMove={(event) => {
           const shapeId = under(event);
           // Only say so when it changes, not on every pixel of movement.
@@ -116,7 +124,7 @@ export function Stage(props: Props) {
       >
         <Canvas
           label="Preview of the captured component"
-          height={HEIGHT}
+          height={height}
           draw={draw}
           onSize={setSize}
         />

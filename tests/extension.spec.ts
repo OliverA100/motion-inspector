@@ -197,10 +197,7 @@ test('takes are saved, and are there again after the panel is reopened', async (
   await expect(panel.getByRole('heading', { name: 'Three steps' })).toBeVisible();
 });
 
-test('moving the mouse off the element does not replace what was captured', async ({
-  context,
-  extensionId,
-}) => {
+test('a hover and its leave are one take in the panel', async ({ context, extensionId }) => {
   const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
   await panel.getByRole('button', { name: 'Pick element' }).click();
   await site.bringToFront();
@@ -211,16 +208,15 @@ test('moving the mouse off the element does not replace what was captured', asyn
   const before = await panel.locator('.xp__take').count();
   await site.hover('.fx-button');
   await expect(panel.locator('.xp__take')).toHaveCount(before + 1);
-  const shown = await panel.locator('.mi__description').innerText();
-  // The user moves to the panel. Leaving the button plays its hover-out:
-  // a new take, listed, but not shown.
+  await site.waitForTimeout(600);
+  // The user moves to the panel. Leaving the button plays its hover-out,
+  // which completes the take instead of adding another.
   await site.mouse.move(0, 0);
-  // The pointer enters the panel. A test's mouse never leaves its own tab,
-  // so the event a real pointer causes is sent by hand.
   await panel.locator('html').dispatchEvent('mouseenter');
-  await expect(panel.locator('.xp__take')).toHaveCount(before + 2);
-  await expect(panel.locator('.xp__take').first()).toContainText('Moves down 2 px');
-  await expect(panel.locator('.mi__description')).toHaveText(shown);
+  await expect(panel.locator('.mi__description')).toContainText('Then it goes back.');
+  await expect(panel.locator('.xp__take')).toHaveCount(before + 1);
+  await expect(panel.locator('.xp__take').first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('.timeline__back')).toHaveCount(2);
 });
 
 test('several takes are listed, and any one can be opened', async ({ context, extensionId }) => {

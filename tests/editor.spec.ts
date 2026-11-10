@@ -377,17 +377,21 @@ const BLOCKS = '.mi__top, .mi__column > *';
 // The parts inside the blocks that a pointer aims at.
 const PARTS = '.timeline__bars, .timeline__labels, .curve, .stage, .fields, .playback';
 
+// Measured from the top of the page, where the preview is not yet stuck,
+// so a scroll during the test does not count as a shift.
 async function layout(page: Page, selector = `${BLOCKS}, ${PARTS}`): Promise<string> {
-  return page.evaluate(
-    (query) =>
-      Array.from(document.querySelectorAll(query))
-        .map((element) => {
-          const box = element.getBoundingClientRect();
-          return [box.x, box.y + window.scrollY, box.width, box.height].map(Math.round).join(',');
-        })
-        .join(' | '),
-    selector,
-  );
+  return page.evaluate((query) => {
+    const scroll = window.scrollY;
+    window.scrollTo(0, 0);
+    const measured = Array.from(document.querySelectorAll(query))
+      .map((element) => {
+        const box = element.getBoundingClientRect();
+        return [box.x, box.y + window.scrollY, box.width, box.height].map(Math.round).join(',');
+      })
+      .join(' | ');
+    window.scrollTo(0, scroll);
+    return measured;
+  }, selector);
 }
 
 for (const width of [1280, 360]) {
@@ -466,4 +470,19 @@ test('a linear() easing is read-only until it is converted to a bezier', async (
   await page.getByRole('button', { name: 'Convert to a curve with handles' }).click();
   await expect(handles(page)).toHaveCount(2);
   await expect(curveText(page)).toContainText('cubic-bezier(');
+});
+
+test('on one column, the preview stays in view while scrolling down to the curve', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 760 });
+  await openPaused(page, 'card-lift', 0, 400);
+  await page.getByRole('button', { name: 'Slow start', exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.locator('.stage canvas')).toBeInViewport();
+  await expect(page.getByRole('button', { name: 'Slow start', exact: true })).toBeInViewport();
+  // And it does not cover what is being tweaked.
+  const stage = await page.locator('.panel--stage').boundingBox();
+  const preset = await page.getByRole('button', { name: 'Slow start', exact: true }).boundingBox();
+  if (stage === null || preset === null) throw new Error('Not found');
+  expect(preset.y).toBeGreaterThanOrEqual(stage.y + stage.height);
 });

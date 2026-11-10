@@ -274,9 +274,27 @@ export function createProbe(): Probe {
   return {
     poses: (capture, timeMs) => {
       sync(capture);
-      const active = capture.tracks.filter(
+      const candidates = capture.tracks.filter(
         (track) => isPreviewed(track.property) && hasEffect(track, timeMs),
       );
+      // A hover and its way back are two tracks for one value. The one that
+      // started most recently decides it; before either has started, the
+      // first one does.
+      const startOf = (track: Track): number => track.startOffset + Math.max(track.timing.delay, 0);
+      const active = candidates.filter((track) => {
+        const rivals = candidates.filter(
+          (other) => other.shapeId === track.shapeId && other.property === track.property,
+        );
+        if (rivals.length === 1) return true;
+        const begun = rivals.filter((other) => startOf(other) <= timeMs);
+        const pool = begun.length > 0 ? begun : rivals;
+        const pick = pool.reduce((best, other) =>
+          (begun.length > 0 ? startOf(other) > startOf(best) : startOf(other) < startOf(best))
+            ? other
+            : best,
+        );
+        return pick === track;
+      });
       for (const track of active) seek(track, timeMs);
       const readings = active.flatMap((track): Reading[] => {
         const value = read(track);

@@ -2,7 +2,7 @@
 
 import { easingToCss } from './easingCss';
 import { formatMs, formatNumber } from './format';
-import { effectiveDelay, groupByShorthand, type PropertyGroup } from './groups';
+import { effectiveDelay, firstOfEach, groupByShorthand, type PropertyGroup } from './groups';
 import { flattenShapes } from './shapes';
 import type { Capture, Easing, Keyframe, Shape, Track } from './types';
 
@@ -199,7 +199,11 @@ export function captureToCss(capture: Capture): string {
       const tracks = capture.tracks.filter((track) => track.shapeId === shape.id);
       return {
         selector: selectorFor(capture, shape),
-        transitions: groupByShorthand(tracks.filter((track) => track.origin === 'css-transition')),
+        // One transition runs both ways, so the way back of a hover is
+        // already in it. Only the first track of each property is written.
+        transitions: groupByShorthand(
+          firstOfEach(tracks).filter((track) => track.origin === 'css-transition'),
+        ),
         units: animationUnits(
           shape,
           tracks.filter((track) => track.origin !== 'css-transition'),

@@ -62,13 +62,13 @@
       "shapeId": "s0",
       "property": "box-shadow",
       "origin": "css-transition",
-      "groupId": null,
+      "groupId": "s0:box-shadow",
       "startOffset": 0,
-      "interrupted": true,
+      "interrupted": false,
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.22) 0px 3.07629px 7.8136px 0px",
+          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -77,7 +77,7 @@
         },
         {
           "offset": 1,
-          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
+          "value": "rgba(0, 0, 0, 0.25) 0px 6px 16px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -87,7 +87,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 74.75,
+        "duration": 180,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -107,20 +107,122 @@
       "shapeId": "s0",
       "property": "transform",
       "origin": "css-transition",
-      "groupId": null,
+      "groupId": "s0:transform",
       "startOffset": 0,
-      "interrupted": true,
+      "interrupted": false,
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.830514px)",
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "translateY(-2px)",
           "parsed": {
             "kind": "transform",
             "functions": [
               {
                 "fn": "translate",
                 "x": 0,
-                "y": -0.83
+                "y": -2
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 180,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0",
+      "property": "box-shadow",
+      "origin": "css-transition",
+      "groupId": "s0:box-shadow",
+      "startOffset": 66.7,
+      "interrupted": true,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "rgba(0, 0, 0, 0.227) 0px 3.67535px 9.49098px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 96.31,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": "s0:transform",
+      "startOffset": 66.7,
+      "interrupted": true,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateY(-1.07014px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": -1.07
               }
             ]
           },
@@ -144,7 +246,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 74.75,
+        "duration": 96.31,
         "iterations": {
           "kind": "count",
           "count": 1

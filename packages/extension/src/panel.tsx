@@ -166,6 +166,20 @@ function PanelApp() {
   // The tab being inspected, and what the capture script sent, as it sent it.
   const tabId = useRef<number | null>(null);
   const rawTakes = useRef<unknown[]>([]);
+  // The id of the last take, so a take that completes it can replace it.
+  const lastTakeId = useRef<string | null>(null);
+  // The bar is pinned at the top. The editor's preview pins itself just
+  // under it, so it needs the bar's height, which changes with the status.
+  const barRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const bar = barRef.current;
+    if (bar === null) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--mi-sticky-top', `${bar.offsetHeight}px`);
+    });
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
   const loaded = useRef(false);
   const [copied, setCopied] = useState('');
 
@@ -213,10 +227,13 @@ function PanelApp() {
         // Checked again here. The panel does not trust what a page sends.
         const parsed = parseCapture(message.capture);
         if (parsed.ok) {
-          dispatch({
-            kind: 'takeArrived',
-            take: { id: crypto.randomUUID(), capture: parsed.value },
-          });
+          // A take that adds a hover's leave replaces the hover's take, and
+          // keeps its id, so it stays selected and in its place in the list.
+          const previousId = lastTakeId.current;
+          const replaced = message.replaces === true && previousId !== null;
+          const id = replaced && previousId !== null ? previousId : crypto.randomUUID();
+          lastTakeId.current = id;
+          dispatch({ kind: 'takeArrived', take: { id, capture: parsed.value }, replaced });
         } else {
           dispatch({
             kind: 'takeRejected',
@@ -306,7 +323,7 @@ function PanelApp() {
 
   return (
     <div className="xp">
-      <header className="xp__bar">
+      <header className="xp__bar" ref={barRef}>
         <span className="xp__name">Motion Inspector</span>
         <div className="xp__buttons">
           {status.kind === 'picking' ? (

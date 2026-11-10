@@ -35,7 +35,8 @@ export function record(
   const watch = (watched: Element): void => {
     recorder = startRecording(takeSnapshot(watched), {
       onTake: (result) => {
-        takes = [...takes, result];
+        // A take that adds the way back replaces the take it completes.
+        takes = result.replaces ? [...takes.slice(0, -1), result] : [...takes, result];
         onTake?.(result);
       },
       onParentAnimation: (parent) => {

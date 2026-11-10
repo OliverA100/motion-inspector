@@ -115,6 +115,35 @@ html {
   }
 }
 
+/* One column: the preview stays at the top while the timeline, the curve
+   and the rest scroll under it, so the motion is in view while tweaking.
+   The columns step aside (display: contents) so every panel is a sibling
+   and the preview stays stuck all the way down, not only past the timeline.
+   --mi-sticky-top is set by a host with a bar of its own (the extension). */
+@media (max-width: 959px) {
+  .mi__column {
+    display: contents;
+  }
+
+  .panel--stage {
+    position: sticky;
+    top: var(--mi-sticky-top, 0px);
+    z-index: 5;
+    box-shadow: 0 1px 0 var(--color-border);
+  }
+
+  .panel--stage .panel__hint,
+  .panel--stage .panel__title {
+    display: none;
+  }
+
+  /* Keyboard focus and scrolling into view stop below the stuck preview,
+     never under it. */
+  html {
+    scroll-padding-top: calc(var(--mi-sticky-top, 0px) + 220px);
+  }
+}
+
 /* ---------- Panels ---------- */
 
 .panel {
@@ -594,6 +623,14 @@ html {
    label is tinted: in the stacked layout the row lies over the bars. */
 .timeline__row.is-highlighted .timeline__label {
   background: var(--color-accent-soft);
+}
+
+.timeline__back {
+  padding: 0 var(--space-1);
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-1);
 }
 
 .timeline__edited {

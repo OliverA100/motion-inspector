@@ -124,6 +124,7 @@ function TimelinePiece() {
     previewed: isPreviewed(row.property),
     shown: !hidden.includes(index),
     edited: false,
+    back: false,
     highlighted: false,
     linkedCount: 0,
     delayMin: 0,
