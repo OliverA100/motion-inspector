@@ -182,6 +182,41 @@ test('timing can be typed as numbers', async ({ page }) => {
   await expect(page.locator('.mi__description')).toContainText('over 250 ms');
 });
 
+test('a number field can be cleared and retyped', async ({ page }) => {
+  await openPaused(page, 'card-lift', 0, 400);
+  const duration = page.getByRole('spinbutton', { name: /Duration/ });
+  await duration.click();
+  // Delete every digit one by one. The field must stay empty, not snap back.
+  await duration.press('End');
+  for (let index = 0; index < 3; index += 1) await duration.press('Backspace');
+  await expect(duration).toHaveValue('');
+  await duration.pressSequentially('250');
+  await expect(time(page)).toHaveText('0 ms of 250 ms');
+});
+
+test('clicking a bar without moving it does not restart playback', async ({ page }) => {
+  await openPaused(page, 'card-lift', 100, 400);
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  const box = await page.locator('.timeline__bars').boundingBox();
+  if (box === null) throw new Error('No bars');
+  await page.mouse.click(box.x + 80, box.y + 26);
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+  await expect(time(page)).toHaveText('100 ms of 400 ms');
+});
+
+for (const width of [360, 1280]) {
+  test(`the bars get most of the timeline's width at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openPaused(page, 'stagger-list', 0, 480);
+    const panel = await page.locator('.timeline').boundingBox();
+    const bars = await page.locator('.timeline__bars').boundingBox();
+    if (panel === null || bars === null) throw new Error('No timeline');
+    // On the narrow side panel the label sits above its bar, so the bar
+    // has the whole width. Beside it, there were about 50 px left.
+    expect(bars.width / panel.width).toBeGreaterThan(width === 360 ? 0.95 : 0.4);
+  });
+}
+
 test('reset: the curve, one row, or everything', async ({ page }) => {
   await openPaused(page, 'card-lift', 0, 400);
   const resetCurve = page.getByRole('button', { name: 'Reset curve' });

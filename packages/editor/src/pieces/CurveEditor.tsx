@@ -224,7 +224,9 @@ export function CurveEditor(props: Props) {
           Curve <code className="panel__term">{props.term}</code>
         </h2>
         <Button
-          disabled={easingDistance(original, mine) === 0 && original.kind === mine.kind}
+          // Compared as data, not by shape: two different steps easings can
+          // happen to agree at every point that is sampled.
+          disabled={JSON.stringify(original) === JSON.stringify(mine)}
           onClick={() => {
             props.onReset();
             onCommit();

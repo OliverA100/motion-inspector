@@ -15,11 +15,11 @@
       "pseudoElement": null,
       "timelineType": "DocumentTimeline",
       "playState": "running",
-      "startTime": null,
-      "currentTime": 0,
+      "startTime": 29.264000004332047,
+      "currentTime": 16.667999995667955,
       "firstSeenAtMs": 0.3999999985098839,
-      "timelineTimeAtFirstSight": 25.9,
-      "startTimeWhenReady": 25.845999996818136,
+      "timelineTimeAtFirstSight": 45.932,
+      "startTimeWhenReady": 29.264000004332047,
       "keyframes": [
         {
           "offset": 0,
@@ -110,8 +110,8 @@
         "activeDuration": "Infinity",
         "currentIteration": 0,
         "endTime": "Infinity",
-        "localTime": 0,
-        "progress": 0
+        "localTime": 16.667999995667955,
+        "progress": 0.018519999995186616
       },
       "transitionStyle": {
         "property": "all",
@@ -123,8 +123,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(1, 0, 0, 1, 0, 0)",
-            "computed": "rotate(0deg)"
+            "resolved": "matrix(0.993237, 0.116102, -0.116102, 0.993237, 0, 0)",
+            "computed": "rotate(6.6672deg)"
           }
         },
         {
@@ -223,21 +223,13 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(1, 0, 0, 1, 0, 0)",
-            "computed": "rotate(0deg)"
+            "resolved": "matrix(0.993237, 0.116102, -0.116102, 0.993237, 0, 0)",
+            "computed": "rotate(6.6672deg)"
           }
         }
       ],
       "readAfterFinish": null
     }
   ],
-  "events": [
-    {
-      "type": "animationstart",
-      "name": "fx-spin",
-      "elapsedTime": 0,
-      "atMs": 2.899999998509884,
-      "targetClassName": "fx-loader"
-    }
-  ]
+  "events": []
 }

@@ -318,3 +318,18 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** for `steps()`, the curve panel shows the number of steps and when each jump happens (end of each step, start, both, neither). A "Steps" button beside the ready-made curves turns a smooth curve into steps, and "Change to a smooth curve" goes back. `linear()` is still read-only with a convert button.
 **Why:** a steps easing has no handles, but it has two settings, and both are easy to offer.
 **Gave up:** "Neither" needs at least 2 steps, so choosing it with 1 step sets 2.
+
+### D60. The timeline's rows scroll inside a box, with the ruler pinned
+**Chose:** the rows live in a box that is at most about eight rows tall, and never so tall that the whole timeline panel cannot fit in the window. More rows scroll inside it. The ruler is a second canvas pinned to the top of that box.
+**Why:** with many rows the page grew to several screens. The play controls scrolled away above and the Delay and Duration fields below, so editing a row far down meant scrolling back and forth.
+**Gave up:** two canvases where there was one. They share one scale function, so a tick in the ruler lines up with its grid line in the rows.
+
+### D61. On a narrow panel, a row's label sits above its bar
+**Chose:** below 560 px of panel width, each label is on top of its row and the bar is drawn underneath, across the full width. Above that, labels sit beside the bars as before. The panel's own width decides, not the window's.
+**Why:** at 360 px, the width of the browser side panel, the labels took more than half the row and left the bars about 50 px wide: unreadable and impossible to drag. This was the main target width, and I had only looked closely at the wide layout.
+**Gave up:** rows are taller on a narrow panel (84 px against 52), so fewer fit in the box.
+
+### D62. A number field shows what was typed until it is left
+**Chose:** while a number field has focus it shows the typed text as it is. A valid number is applied at once. On leaving the field it shows the real value, which may have been held to a limit.
+**Why:** the field used to snap back to the last valid value on every keystroke, so it could not be cleared with backspace to type a new number.
+**Gave up:** for a moment the field can show a number larger than the limit that was applied.

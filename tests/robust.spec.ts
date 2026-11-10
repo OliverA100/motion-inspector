@@ -54,10 +54,25 @@ for (const width of [360, 1280]) {
 
 test('100 tracks: the list is folded, and can be unfolded', async ({ page }) => {
   const errors = watchForErrors(page);
+  // A laptop-sized window.
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/?sample=hundred&time=0&quiet');
   await expect(page.locator('.timeline__row')).toHaveCount(8);
   await page.getByRole('button', { name: 'Show 92 more rows' }).click();
   await expect(page.locator('.timeline__row')).toHaveCount(100);
+  // The rows scroll inside the timeline. The page does not grow, and the
+  // controls around the rows stay on screen.
+  const rowsBox = page.locator('.timeline');
+  await rowsBox.evaluate((element) => {
+    element.closest('.panel')?.scrollIntoView({ block: 'start' });
+    element.scrollTo(0, element.scrollHeight);
+  });
+  // Scrolled to the last row, and the whole control panel is still there.
+  await expect(page.locator('.timeline__row').last()).toBeInViewport();
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeInViewport();
+  await expect(page.getByRole('slider', { name: 'Time' })).toBeInViewport();
+  await expect(page.getByRole('spinbutton', { name: /Duration/ })).toBeInViewport();
+
   // A row far down the list can still be selected and edited.
   await page.locator('.timeline__label').nth(97).click();
   await page.getByRole('spinbutton', { name: /Duration/ }).fill('250');
@@ -89,6 +104,10 @@ test('a typed duration far too large is held to the limit', async ({ page }) => 
   await page.goto('/?sample=card-lift&time=0&quiet');
   const duration = page.getByRole('spinbutton', { name: /Duration/ });
   await duration.fill('99999999999');
+  // The limit applies at once. The field shows it after it is left; while
+  // typing it shows exactly what was typed.
+  await expect(time(page)).toHaveText('0 ms of 600000 ms');
+  await duration.blur();
   await expect(duration).toHaveValue('600000');
   await duration.fill('-50');
   // A duration cannot be negative. The last valid value stays.

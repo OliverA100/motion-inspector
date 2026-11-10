@@ -1,6 +1,6 @@
 // Small shared controls. Plain HTML elements, styled in editor.css.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 type ButtonProps = {
   children: ReactNode;
@@ -92,19 +92,29 @@ type NumberFieldProps = {
 };
 
 export function NumberField({ label, term, value, unit, min, onChange }: NumberFieldProps) {
+  // While the field has focus it shows exactly what was typed, even when
+  // that is not a number yet ("", "-", "1."). Without this it would snap
+  // back to the last valid value on every keystroke, and could not be
+  // cleared to type a new number.
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = value === null ? '' : String(Math.round(value * 100) / 100);
   return (
     <label className="field">
       <span className="field__label">{label}</span>
       <input
         type="number"
-        value={value === null ? '' : Math.round(value * 100) / 100}
+        value={draft ?? shown}
         step={10}
         min={min}
         disabled={value === null}
         onChange={(event) => {
+          setDraft(event.target.value);
           // An empty or half-typed field is not a number yet. Wait for one.
           if (Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber);
         }}
+        // Leaving the field shows the real value again (it may have been
+        // held to a limit).
+        onBlur={() => setDraft(null)}
       />
       <span className="field__unit">{unit}</span>
       <code className="field__term">{term}</code>

@@ -409,10 +409,86 @@ html {
 .timeline {
   display: grid;
   grid-template-columns: fit-content(55%) minmax(0, 1fr);
+  /* At most about eight rows, and never so tall that the whole timeline
+     panel (play controls above, Delay and Duration below) cannot fit in
+     the window at once. More rows than that scroll inside this box. */
+  max-height: max(160px, min(448px, 100vh - 380px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The ruler, and the empty corner beside it, stay at the top while the
+   rows scroll underneath. */
+.timeline__corner,
+.timeline__ruler {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-surface);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+
+.timeline__corner {
+  border-right: var(--hairline) solid var(--color-border);
+}
+
+.timeline__ruler {
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.timeline__ruler:focus-visible {
+  outline-offset: -2px;
+}
+
+.timeline__row:first-child {
+  border-top: 0;
 }
 
 .timeline__labels {
   border-right: var(--hairline) solid var(--color-border);
+}
+
+/* Narrow panel: labels and bars share one column. Each label sits at the
+   top of its row and the bar is drawn below it, across the full width.
+   The label layer lets presses through everywhere except on the labels
+   themselves, so the bars underneath can still be dragged. */
+.timeline.is-stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.timeline.is-stacked .timeline__corner {
+  display: none;
+}
+
+.timeline.is-stacked .timeline__ruler {
+  grid-area: 1 / 1;
+}
+
+.timeline.is-stacked .timeline__labels,
+.timeline.is-stacked .timeline__bars {
+  grid-area: 2 / 1;
+}
+
+.timeline.is-stacked .timeline__labels {
+  z-index: 1;
+  border-right: 0;
+  pointer-events: none;
+}
+
+.timeline.is-stacked .timeline__row {
+  align-items: flex-start;
+  border-top-color: transparent;
+}
+
+.timeline.is-stacked .timeline__row > * {
+  pointer-events: auto;
+}
+
+.timeline.is-stacked .timeline__row:hover {
+  background: transparent;
 }
 
 .timeline__row {
@@ -426,7 +502,6 @@ html {
 .timeline__row input {
   flex: none;
   width: 14px;
-  height: 14px;
   margin: 0;
   accent-color: var(--color-accent);
   cursor: pointer;

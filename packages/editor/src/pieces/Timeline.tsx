@@ -10,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent,
   type MouseEvent,
@@ -18,9 +19,9 @@ import {
 } from 'react';
 import { formatNumber } from '@motion-inspector/core';
 import {
+  drawRuler,
   drawTimeline,
   hitTest,
-  timelineHeight,
   timelineScale,
   type Bar,
   type TimelineHit,
@@ -73,9 +74,14 @@ type Props = {
   onDragChange: (dragging: boolean) => void;
 };
 
-// Room for three lines of text per row: the name and CSS term, then the
-// shape's name, which may need two lines when it is long.
-const ROW_HEIGHT = 52;
+// Two layouts, chosen by the width of the panel.
+// Wide: the label beside its bar. Room for three lines of text per row:
+// the name and CSS term, then the shape's name, which may need two lines.
+const SIDE = { rowHeight: 52, labelHeight: 52, barOffset: 26 };
+// Narrow (the side panel): the label above its bar, so the bar gets the
+// whole width. Beside it, the bars were left about 50 px wide.
+const STACKED = { rowHeight: 84, labelHeight: 50, barOffset: 64 };
+const STACK_BELOW_PX = 560;
 const RULER_HEIGHT = 28;
 // A capture can have a hundred tracks. Show the first few and fold the rest.
 const ROWS_WHEN_FOLDED = 8;
@@ -89,7 +95,15 @@ const SNAP_MS = 10;
 
 type Drag =
   | { kind: 'scrub'; left: number }
-  | { kind: 'delay' | 'duration'; row: number; startX: number; startValue: number };
+  | {
+      kind: 'delay' | 'duration';
+      row: number;
+      startX: number;
+      startValue: number;
+      // Whether the value has changed yet. A press and release without
+      // moving is not an edit, and must not restart playback.
+      changed: boolean;
+    };
 
 function clamp(value: number, lowest: number, highest: number): number {
   return Math.min(Math.max(value, lowest), highest);
@@ -130,7 +144,27 @@ export function Timeline(props: Props) {
     if (drag === null && totalMs * 1.05 > viewMs) setViewMs(totalMs * HEADROOM);
   }, [drag, totalMs, viewMs]);
 
-  const height = timelineHeight(tracks.length, ROW_HEIGHT, RULER_HEIGHT);
+  // The panel's own width decides the layout, not the window's.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [stacked, setStacked] = useState(false);
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (wrapper === null) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width !== undefined) setStacked(width < STACK_BELOW_PX);
+    });
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, []);
+  const layout = stacked ? STACKED : SIDE;
+  const ROW_HEIGHT = layout.rowHeight;
+
+  const height = tracks.length * ROW_HEIGHT;
+  const drawRulerNow = useCallback<Draw>(
+    (context, canvasSize) => drawRuler(context, { totalMs: viewMs, playheadMs, theme }, canvasSize),
+    [viewMs, playheadMs, theme],
+  );
   const draw = useCallback<Draw>(
     (context, canvasSize) =>
       drawTimeline(
@@ -146,13 +180,13 @@ export function Timeline(props: Props) {
           totalMs: viewMs,
           playheadMs,
           rowHeight: ROW_HEIGHT,
-          rulerHeight: RULER_HEIGHT,
+          barOffset: layout.barOffset,
           showOriginal,
           theme,
         },
         canvasSize,
       ),
-    [tracks, selectedIndex, viewMs, playheadMs, showOriginal, theme],
+    [tracks, selectedIndex, viewMs, playheadMs, showOriginal, theme, layout],
   );
 
   const hitAt = (x: number, y: number): TimelineHit =>
@@ -164,7 +198,6 @@ export function Timeline(props: Props) {
           size.width,
           viewMs,
           ROW_HEIGHT,
-          RULER_HEIGHT,
         );
 
   const scrubTo = (clientX: number, left: number): void => {
@@ -193,7 +226,17 @@ export function Timeline(props: Props) {
       row: hit.row,
       startX: event.clientX,
       startValue: hit.kind === 'bar' ? bar.delayMs : bar.durationMs,
+      changed: false,
     });
+  };
+
+  // A press on the ruler always moves the playhead.
+  const onRulerDown = (event: PointerEvent<HTMLDivElement>): void => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const left = event.currentTarget.getBoundingClientRect().left;
+    setDrag({ kind: 'scrub', left });
+    onDragChange(true);
+    scrubTo(event.clientX, left);
   };
 
   const onMove = (event: PointerEvent<HTMLDivElement>): void => {
@@ -216,6 +259,7 @@ export function Timeline(props: Props) {
     // A bar stays inside the timeline: it cannot start before the left edge
     // or end past the right one, however far the pointer goes.
     const bar = track.mine;
+    if (!drag.changed && movedMs !== 0) setDrag({ ...drag, changed: true });
     if (drag.kind === 'delay') {
       const latest = viewMs - bar.startMs - bar.durationMs;
       props.onDelayChange(drag.row, clamp(value, track.delayMin, Math.max(track.delayMin, latest)));
@@ -227,7 +271,7 @@ export function Timeline(props: Props) {
 
   const onUp = (): void => {
     if (drag === null) return;
-    const wasEdit = drag.kind !== 'scrub';
+    const wasEdit = drag.kind !== 'scrub' && drag.changed;
     setDrag(null);
     onDragChange(false);
     if (wasEdit) props.onCommit();
@@ -266,9 +310,30 @@ export function Timeline(props: Props) {
         runs. Drag the bar to change the delay, or the grip at its right end to change the duration.
         Drag the ruler to move through time.
       </p>
-      <div className="timeline">
+      {/* The rows scroll inside this box. The ruler is pinned to its top, so
+          the play controls above and the timing fields below stay in view
+          however many rows there are. */}
+      <div ref={wrapperRef} className={stacked ? 'timeline is-stacked' : 'timeline'}>
+        <div className="timeline__corner" style={{ height: RULER_HEIGHT }} />
+        <div
+          className="timeline__ruler"
+          role="slider"
+          tabIndex={0}
+          aria-label="Time"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(totalMs)}
+          aria-valuenow={Math.round(playheadMs)}
+          aria-valuetext={`${formatNumber(Math.round(playheadMs))} ms`}
+          onPointerDown={onRulerDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onUp}
+          onLostPointerCapture={onUp}
+          onKeyDown={onKey}
+        >
+          <Canvas label="Time ruler" height={RULER_HEIGHT} draw={drawRulerNow} />
+        </div>
         <div className="timeline__labels">
-          <div style={{ height: RULER_HEIGHT }} />
           {tracks.map((track, index) => {
             const isSelected = index === selectedIndex;
             const title = track.name ?? track.property;
@@ -276,10 +341,13 @@ export function Timeline(props: Props) {
               <div
                 key={index}
                 className={isSelected ? 'timeline__row is-selected' : 'timeline__row'}
+                // In the stacked layout the row is taller than its label: the
+                // bar is drawn in the space underneath.
                 style={{ height: ROW_HEIGHT }}
               >
                 <input
                   type="checkbox"
+                  style={{ height: layout.labelHeight }}
                   aria-label={`Show ${title} on ${track.shapeLabel}`}
                   checked={track.shown}
                   onChange={() => props.onToggle(index)}
@@ -287,6 +355,7 @@ export function Timeline(props: Props) {
                 <button
                   type="button"
                   className="timeline__label"
+                  style={{ height: layout.labelHeight }}
                   aria-pressed={isSelected}
                   // The full text, for the rare name too long even for two lines.
                   title={`${track.property} on ${track.shapeLabel}`}
@@ -318,13 +387,6 @@ export function Timeline(props: Props) {
         <div
           className="timeline__bars"
           style={{ cursor }}
-          role="slider"
-          tabIndex={0}
-          aria-label="Time"
-          aria-valuemin={0}
-          aria-valuemax={Math.round(totalMs)}
-          aria-valuenow={Math.round(playheadMs)}
-          aria-valuetext={`${formatNumber(Math.round(playheadMs))} ms`}
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
@@ -333,7 +395,6 @@ export function Timeline(props: Props) {
           // dialog), the drag ends cleanly instead of sticking.
           onLostPointerCapture={onUp}
           onDoubleClick={onDoubleClick}
-          onKeyDown={onKey}
         >
           <Canvas
             label="Bars showing when each track is delayed and when it runs"

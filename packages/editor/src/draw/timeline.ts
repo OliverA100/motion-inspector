@@ -24,7 +24,9 @@ export type TimelineData = {
   totalMs: number;
   playheadMs: number;
   rowHeight: number;
-  rulerHeight: number;
+  // How far below the top of its row the middle of a bar is. Half the row
+  // height when labels sit beside the bars. Lower when they sit above.
+  barOffset: number;
   showOriginal: boolean;
   theme: Theme;
 };
@@ -79,21 +81,16 @@ export function hitTest(
   width: number,
   totalMs: number,
   rowHeight: number,
-  rulerHeight: number,
 ): TimelineHit {
-  const row = Math.floor((point.y - rulerHeight) / rowHeight);
+  const row = Math.floor(point.y / rowHeight);
   const bar = bars[row];
-  if (point.y < rulerHeight || bar === undefined) return { kind: 'empty' };
+  if (point.y < 0 || bar === undefined) return { kind: 'empty' };
   const scale = timelineScale(width, totalMs);
   const start = Math.max(scale.x(bar.startMs + bar.delayMs), scale.x(0));
   const end = Math.max(start + 2, scale.x(bar.startMs + bar.delayMs + bar.durationMs));
   if (Math.abs(point.x - end) <= EDGE_GRAB) return { kind: 'bar-end', row };
   if (point.x >= start && point.x <= end) return { kind: 'bar', row };
   return { kind: 'empty' };
-}
-
-export function timelineHeight(rowCount: number, rowHeight: number, rulerHeight: number): number {
-  return rulerHeight + rowCount * rowHeight;
 }
 
 function ms(value: number): string {
@@ -133,7 +130,7 @@ function drawRow(
 ): void {
   const theme = data.theme;
   const scale = timelineScale(width, data.totalMs);
-  const middle = top + data.rowHeight / 2;
+  const middle = top + data.barOffset;
   const barTop = Math.round(middle - BAR_HEIGHT / 2);
   const laneLeft = scale.x(0);
   const laneRight = scale.x(data.totalMs);
@@ -246,47 +243,44 @@ function drawRow(
   }
 }
 
-export function drawTimeline(
-  context: CanvasRenderingContext2D,
-  data: TimelineData,
-  size: Size,
-): void {
+// The ruler and the rows are drawn on two canvases, so the rows can scroll
+// while the ruler stays in view. Both use the same scale, so a tick in the
+// ruler lines up with its grid line in the rows.
+
+export type RulerData = Pick<TimelineData, 'totalMs' | 'playheadMs' | 'theme'>;
+
+// The ruler: a tick and a label at each step, and the playhead's grip.
+// Every number has a unit.
+export function drawRuler(context: CanvasRenderingContext2D, data: RulerData, size: Size): void {
   const theme = data.theme;
   const x = timelineScale(size.width, data.totalMs).x;
-
-  // Ruler: a tick and a label at each step. Every number has a unit.
   const step = rulerStep(data.totalMs);
   context.font = `${theme.textSmall}px ${theme.fontMono}`;
   context.textBaseline = 'middle';
+  context.textAlign = 'left';
   context.lineWidth = 1;
   // Where the last label ended, so the next one is skipped if it would
   // touch it (a short timeline on a narrow panel).
   let labelEnd = -Infinity;
   for (let ms = 0; ms <= data.totalMs; ms += step) {
     const tickX = Math.round(x(ms)) + 0.5;
-    context.strokeStyle = theme.grid;
+    context.strokeStyle = theme.border;
     context.beginPath();
     context.moveTo(tickX, 6);
     context.lineTo(tickX, size.height);
     context.stroke();
-    // Labels sit just right of their tick, like a ruler. One that would run
-    // off the right edge, or into the label before it, is left out.
+    // Labels sit just right of their tick. One that would run off the right
+    // edge, or into the label before it, is left out.
     const label = ms === 0 ? '0 ms' : `${ms} ms`;
-    context.fillStyle = theme.muted;
-    context.textAlign = 'left';
     const labelStart = x(ms) + 4;
     const labelWidth = context.measureText(label).width;
     if (labelStart >= labelEnd + 8 && labelStart + labelWidth <= size.width) {
-      context.fillText(label, labelStart, data.rulerHeight / 2);
+      context.fillStyle = theme.muted;
+      context.fillText(label, labelStart, size.height / 2);
       labelEnd = labelStart + labelWidth;
     }
   }
 
-  data.rows.forEach((row, index) => {
-    drawRow(context, data, row, data.rulerHeight + index * data.rowHeight, size.width);
-  });
-
-  // Playhead: a line through every row, with a grip in the ruler.
   const playheadX = Math.round(x(data.playheadMs)) + 0.5;
   context.strokeStyle = theme.text;
   context.beginPath();
@@ -297,4 +291,36 @@ export function drawTimeline(
   context.beginPath();
   context.arc(playheadX, 6, 4, 0, Math.PI * 2);
   context.fill();
+}
+
+// The rows: a grid line under each ruler tick, one row per track, and the
+// playhead's line through all of them.
+export function drawTimeline(
+  context: CanvasRenderingContext2D,
+  data: TimelineData,
+  size: Size,
+): void {
+  const theme = data.theme;
+  const x = timelineScale(size.width, data.totalMs).x;
+  const step = rulerStep(data.totalMs);
+  context.lineWidth = 1;
+  context.strokeStyle = theme.grid;
+  context.beginPath();
+  for (let ms = 0; ms <= data.totalMs; ms += step) {
+    const tickX = Math.round(x(ms)) + 0.5;
+    context.moveTo(tickX, 0);
+    context.lineTo(tickX, size.height);
+  }
+  context.stroke();
+
+  data.rows.forEach((row, index) => {
+    drawRow(context, data, row, index * data.rowHeight, size.width);
+  });
+
+  const playheadX = Math.round(x(data.playheadMs)) + 0.5;
+  context.strokeStyle = theme.text;
+  context.beginPath();
+  context.moveTo(playheadX, 0);
+  context.lineTo(playheadX, size.height);
+  context.stroke();
 }
