@@ -101,6 +101,7 @@ function TimelinePiece() {
     previewed: isPreviewed(row.property),
     shown: !hidden.includes(index),
     edited: false,
+    delayMin: 0,
     delayTerm: 'transition-delay',
     durationTerm: 'transition-duration',
   }));

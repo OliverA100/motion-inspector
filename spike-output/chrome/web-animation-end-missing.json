@@ -17,9 +17,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 76.80000000447035,
-      "timelineTimeAtFirstSight": 92.7,
-      "startTimeWhenReady": 109.36700000456767,
+      "firstSeenAtMs": 77,
+      "timelineTimeAtFirstSight": 122.7,
+      "startTimeWhenReady": 139.37600000645034,
       "keyframes": [
         {
           "offset": 0,

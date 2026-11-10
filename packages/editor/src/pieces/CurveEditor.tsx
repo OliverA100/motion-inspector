@@ -20,7 +20,9 @@ import {
   fitBezier,
   formatNumber,
   nearestNamedEasing,
+  steps,
   type Easing,
+  type StepPosition,
 } from '@motion-inspector/core';
 import {
   curvePlot,
@@ -33,7 +35,7 @@ import {
 import { curveFeel } from '../state/selectors';
 import { useTheme } from '../theme';
 import { Canvas, type Draw, type Size } from './Canvas';
-import { Button, Segmented } from './controls';
+import { Button, NumberField, Segmented } from './controls';
 
 type Props = {
   original: Easing;
@@ -75,6 +77,23 @@ const PRESETS: { name: string; values: [number, number, number, number] }[] = [
   { name: 'Pull back', values: [0.36, 0, 0.66, -0.56] },
   { name: 'Both', values: [0.68, -0.6, 0.32, 1.6] },
 ];
+
+// Where a steps easing jumps, in plain words.
+const STEP_POSITIONS: { value: StepPosition; text: string }[] = [
+  { value: 'end', text: 'End of each step' },
+  { value: 'start', text: 'Start of each step' },
+  { value: 'jump-both', text: 'Both' },
+  { value: 'jump-none', text: 'Neither' },
+];
+
+// What a curve becomes when "Steps" is picked.
+const DEFAULT_STEPS = 5;
+const MOST_STEPS = 100;
+
+function stepped(count: number, position: StepPosition): Easing | null {
+  const result = steps(Math.round(count), position);
+  return result.ok ? result.value : null;
+}
 
 function bezier(handles: Handles): Easing | null {
   const result = cubicBezier(handles.x1, handles.y1, handles.x2, handles.y2);
@@ -269,8 +288,17 @@ export function CurveEditor(props: Props) {
       {/* Three lines, each always present, so nothing below ever moves. */}
       <div className="readout">
         <p className="readout__feel">
-          Starts <strong>{feel.start}</strong>, ends <strong>{feel.end}</strong>
-          {feel.extra !== null ? <>, {feel.extra}</> : null}.
+          {mine.kind === 'steps' ? (
+            <>
+              Moves in <strong>{mine.count}</strong> {mine.count === 1 ? 'jump' : 'jumps'}, and
+              holds still in between.
+            </>
+          ) : (
+            <>
+              Starts <strong>{feel.start}</strong>, ends <strong>{feel.end}</strong>
+              {feel.extra !== null ? <>, {feel.extra}</> : null}.
+            </>
+          )}
         </p>
         <p className="readout__css" title={easingToCss(mine)}>
           <code>{easingToCss(mine)}</code>
@@ -288,12 +316,50 @@ export function CurveEditor(props: Props) {
       </div>
 
       <div className="curve__help">
-        {handles === null ? (
+        {mine.kind === 'steps' ? (
+          <>
+            <p>A steps easing jumps from one position to the next, with no motion in between.</p>
+            <div className="steps">
+              <NumberField
+                label="Steps"
+                term="steps()"
+                unit=""
+                min={1}
+                value={mine.count}
+                onChange={(count) => {
+                  const easing = stepped(Math.min(Math.max(count, 1), MOST_STEPS), mine.position);
+                  if (easing !== null) onChange(easing);
+                }}
+              />
+              <div className="steps__position">
+                <span className="field__label">Jumps at</span>
+                <Segmented
+                  label="When each jump happens"
+                  options={STEP_POSITIONS}
+                  value={mine.position}
+                  onChange={(position) => {
+                    // "Neither" needs at least 2 steps, or there is nowhere to go.
+                    const count = position === 'jump-none' ? Math.max(mine.count, 2) : mine.count;
+                    const easing = stepped(count, position);
+                    if (easing !== null) onChange(easing);
+                    onCommit();
+                  }}
+                />
+              </div>
+            </div>
+            <Button
+              onClick={() => {
+                onChange(fitBezier(mine));
+                onCommit();
+              }}
+            >
+              Change to a smooth curve
+            </Button>
+          </>
+        ) : handles === null ? (
           <>
             <p>
-              {mine.kind === 'steps'
-                ? 'This is a steps easing: it jumps from one position to the next. It has no handles to drag.'
-                : 'This is a linear() easing: a curve made of straight pieces. It has no handles to drag.'}
+              This is a linear() easing: a curve made of straight pieces. It has no handles to drag.
             </p>
             <Button
               onClick={() => {
@@ -330,6 +396,16 @@ export function CurveEditor(props: Props) {
                   </Button>
                 );
               })}
+              {/* Not a curve at all: jumps. */}
+              <Button
+                onClick={() => {
+                  const easing = stepped(DEFAULT_STEPS, 'end');
+                  if (easing !== null) onChange(easing);
+                  onCommit();
+                }}
+              >
+                Steps
+              </Button>
             </div>
           </>
         )}

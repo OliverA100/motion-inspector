@@ -303,3 +303,18 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** `tests/robust.spec.ts` opens every sample at 360 and 1280 px and fails on any console error, page error, or content wider than the window. It also covers 100 tracks, a capture with nothing to play, absurd typed values, and six runs of 80 random actions each (clicks on any button or checkbox, drags that leave the page, key presses, bad numbers) with fixed seeds so a failure can be replayed.
 **Why:** the bugs found in this pass were all in combinations nobody would write a test for by hand.
 **Gave up:** about 12 seconds of test time.
+
+### D57. Timeline bars are drawn as clips, and a drag cannot leave the timeline
+**Chose:** each row is a lane with a lighter block for the delay and a solid bar for the duration, each with its value written on it, and a grip at the bar's right end. A drag stops at both edges: the delay cannot go below zero and the bar cannot pass the right edge. The timeline shows a quarter more time than the take needs, so there is always room to move a bar later or make it longer, and it makes more room after a drag that used it up. This replaces the thin line and thin bar of D48.
+**Why:** the first version looked unfinished, and a bar could be dragged off the canvas or to a negative delay, where it could no longer be seen or grabbed.
+**Gave up:** a negative delay cannot be made by hand. A captured one is kept and can be restored by reset: the lowest delay a row may be given is zero or its original delay, whichever is lower. Such a bar is drawn cut off at the left edge, with "already 320 ms in" written on it when there is room.
+
+### D58. The timing settings are called Delay and Duration
+**Chose:** "Delay" and "Duration", with the CSS term under each, and a title that names the row they belong to.
+**Why:** "Starts after" and "Lasts" were my attempt at plainer words, and they hid the two settings people look for by name.
+**Gave up:** nothing. Delay and duration are plain words already.
+
+### D59. A steps easing is edited with a number and a choice
+**Chose:** for `steps()`, the curve panel shows the number of steps and when each jump happens (end of each step, start, both, neither). A "Steps" button beside the ready-made curves turns a smooth curve into steps, and "Change to a smooth curve" goes back. `linear()` is still read-only with a convert button.
+**Why:** a steps easing has no handles, but it has two settings, and both are easy to offer.
+**Gave up:** "Neither" needs at least 2 steps, so choosing it with 1 step sets 2.

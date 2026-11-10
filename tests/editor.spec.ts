@@ -71,10 +71,11 @@ test('the timeline is the scrubber: drag on it to move through time', async ({ p
   const box = await bars.boundingBox();
   if (box === null) throw new Error('No timeline');
 
-  // Press on the ruler, in the middle: the playhead jumps there.
+  // The timeline shows the 400 ms take plus a quarter more, 500 ms in all.
+  // Press on the ruler, in the middle: the playhead jumps to 250 ms.
   await page.mouse.move(box.x + box.width / 2, box.y + 10);
   await page.mouse.down();
-  await expect(time(page)).toHaveText('200 ms of 400 ms');
+  await expect(time(page)).toHaveText('250 ms of 400 ms');
   // Drag far past the right edge, off the timeline: it follows, and stops at the end.
   await page.mouse.move(box.x + box.width + 500, box.y - 300, { steps: 4 });
   await expect(time(page)).toHaveText('400 ms of 400 ms');
@@ -87,8 +88,8 @@ test('dragging a bar changes its delay, and its right edge changes its duration'
   page,
 }) => {
   await openPaused(page, 'card-lift', 0, 400);
-  const delay = page.getByRole('spinbutton', { name: /Starts after/ });
-  const duration = page.getByRole('spinbutton', { name: /Lasts/ });
+  const delay = page.getByRole('spinbutton', { name: /Delay/ });
+  const duration = page.getByRole('spinbutton', { name: /Duration/ });
   await expect(delay).toHaveValue('0');
   await expect(duration).toHaveValue('400');
 
@@ -99,10 +100,13 @@ test('dragging a bar changes its delay, and its right edge changes its duration'
   if (box === null) throw new Error('No timeline');
   const rowY = box.y + 28 + 26;
 
-  // The right edge of the bar is at 400 ms, the right end of the timeline.
-  await page.mouse.move(box.x + box.width - 12, rowY);
+  // The timeline shows 500 ms across its width, less 12 px at each side.
+  // The bar's right edge is at 400 ms.
+  const perMs = (box.width - 24) / 500;
+  const edge = box.x + 12 + 400 * perMs;
+  await page.mouse.move(edge, rowY);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width - 12 - (box.width - 24) / 4, rowY, { steps: 5 });
+  await page.mouse.move(edge - 100 * perMs, rowY, { steps: 5 });
   await page.mouse.up();
   await expect(duration).toHaveValue('300');
   // The original is still 400 ms, so the row is marked as edited.
@@ -123,10 +127,57 @@ test('dragging a bar changes its delay, and its right edge changes its duration'
   expect(delayed % 10).toBe(0);
 });
 
+test('a bar cannot be dragged out of view or below zero', async ({ page }) => {
+  await openPaused(page, 'card-lift', 0, 400);
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  const delay = page.getByRole('spinbutton', { name: /Delay/ });
+  const duration = page.getByRole('spinbutton', { name: /Duration/ });
+  const bars = page.getByRole('slider', { name: 'Time' });
+  const box = await bars.boundingBox();
+  if (box === null) throw new Error('No timeline');
+  const rowY = box.y + 28 + 26;
+
+  // Drag the bar far to the left, off the page: the delay stops at 0.
+  await page.mouse.move(box.x + 60, rowY);
+  await page.mouse.down();
+  await page.mouse.move(box.x - 900, rowY, { steps: 4 });
+  await expect(delay).toHaveValue('0');
+  // Far to the right, off the page: the bar stops with its end at the edge.
+  await page.mouse.move(box.x + box.width + 900, rowY, { steps: 4 });
+  await page.mouse.up();
+  // The timeline shows 500 ms (the take plus a quarter). 400 ms of bar fits
+  // with at most 100 ms of delay.
+  await expect(delay).toHaveValue('100');
+  await expect(duration).toHaveValue('400');
+});
+
+test('a steps easing can be edited: how many steps, and when they jump', async ({ page }) => {
+  await openPaused(page, 'steps', 0, 1000);
+  await expect(curveText(page)).toHaveText('steps(5)');
+  await expect(page.locator('.readout__feel')).toHaveText(
+    'Moves in 5 jumps, and holds still in between.',
+  );
+  await page.getByRole('spinbutton', { name: /Steps/ }).fill('8');
+  await expect(curveText(page)).toHaveText('steps(8)');
+  await page.getByRole('radio', { name: 'Start of each step' }).click();
+  await expect(curveText(page)).toHaveText('steps(8, start)');
+  await page.getByRole('button', { name: 'Reset curve' }).click();
+  await expect(curveText(page)).toHaveText('steps(5)');
+});
+
+test('a smooth curve can be changed to steps, and back', async ({ page }) => {
+  await openPaused(page, 'card-lift', 0, 400);
+  await page.getByRole('button', { name: 'Steps', exact: true }).click();
+  await expect(curveText(page)).toHaveText('steps(5)');
+  await expect(handles(page)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Change to a smooth curve' }).click();
+  await expect(handles(page)).toHaveCount(2);
+});
+
 test('timing can be typed as numbers', async ({ page }) => {
   await openPaused(page, 'card-lift', 0, 400);
-  await page.getByRole('spinbutton', { name: /Lasts/ }).fill('250');
-  await page.getByRole('spinbutton', { name: /Starts after/ }).fill('120');
+  await page.getByRole('spinbutton', { name: /Duration/ }).fill('250');
+  await page.getByRole('spinbutton', { name: /Delay/ }).fill('120');
   await expect(time(page)).toHaveText('0 ms of 370 ms');
   await expect(page.locator('.mi__description')).toContainText('over 250 ms');
 });
@@ -142,17 +193,17 @@ test('reset: the curve, one row, or everything', async ({ page }) => {
   await expect(resetAll).toBeDisabled();
 
   await page.getByRole('button', { name: 'Slow start', exact: true }).click();
-  await page.getByRole('spinbutton', { name: /Lasts/ }).fill('250');
+  await page.getByRole('spinbutton', { name: /Duration/ }).fill('250');
   await expect(curveText(page)).toHaveText('ease-in');
 
   // Reset curve: the curve goes back, the timing stays.
   await resetCurve.click();
   await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
-  await expect(page.getByRole('spinbutton', { name: /Lasts/ })).toHaveValue('250');
+  await expect(page.getByRole('spinbutton', { name: /Duration/ })).toHaveValue('250');
 
   // Reset this row: the timing goes back too.
   await resetRow.click();
-  await expect(page.getByRole('spinbutton', { name: /Lasts/ })).toHaveValue('400');
+  await expect(page.getByRole('spinbutton', { name: /Duration/ })).toHaveValue('400');
   await expect(resetAll).toBeDisabled();
 
   await page.getByRole('button', { name: 'Slow end', exact: true }).click();
@@ -343,7 +394,7 @@ for (const width of [1280, 360]) {
     await same();
 
     // Change the timing and reset it.
-    await page.getByRole('spinbutton', { name: /Lasts/ }).fill('250');
+    await page.getByRole('spinbutton', { name: /Duration/ }).fill('250');
     await same();
     await page.getByRole('button', { name: 'Reset everything' }).click();
     await same();

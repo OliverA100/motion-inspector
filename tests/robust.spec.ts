@@ -60,7 +60,7 @@ test('100 tracks: the list is folded, and can be unfolded', async ({ page }) => 
   await expect(page.locator('.timeline__row')).toHaveCount(100);
   // A row far down the list can still be selected and edited.
   await page.locator('.timeline__label').nth(97).click();
-  await page.getByRole('spinbutton', { name: /Lasts/ }).fill('250');
+  await page.getByRole('spinbutton', { name: /Duration/ }).fill('250');
   await expect(page.locator('.timeline__row').nth(97).locator('.timeline__edited')).toBeVisible();
   await page.getByRole('button', { name: 'Show fewer rows' }).click();
   await expect(page.locator('.timeline__row')).toHaveCount(8);
@@ -87,7 +87,7 @@ test('nothing captured: it says so, lists what could not be shown, and nothing b
 
 test('a typed duration far too large is held to the limit', async ({ page }) => {
   await page.goto('/?sample=card-lift&time=0&quiet');
-  const duration = page.getByRole('spinbutton', { name: /Lasts/ });
+  const duration = page.getByRole('spinbutton', { name: /Duration/ });
   await duration.fill('99999999999');
   await expect(duration).toHaveValue('600000');
   await duration.fill('-50');

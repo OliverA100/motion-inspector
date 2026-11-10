@@ -41,6 +41,9 @@ export type TimelineTrack = {
   shown: boolean;
   // True when this row differs from the original.
   edited: boolean;
+  // The lowest delay this row may be given. Zero, or lower when the capture
+  // itself has a negative delay (an animation that began before the take).
+  delayMin: number;
   // The CSS terms for this row's delay and duration.
   delayTerm: string;
   durationTerm: string;
@@ -76,6 +79,11 @@ const ROW_HEIGHT = 52;
 const RULER_HEIGHT = 28;
 // A capture can have a hundred tracks. Show the first few and fold the rest.
 const ROWS_WHEN_FOLDED = 8;
+// The timeline always shows this much more time than the take needs, so
+// there is room to drag a bar later or longer. A drag stops at that edge.
+const HEADROOM = 1.25;
+// The shortest duration a drag can give. Shorter bars cannot be grabbed.
+const SHORTEST_MS = 10;
 // Bars snap to 10 ms steps. Holding Alt turns it off.
 const SNAP_MS = 10;
 
@@ -116,9 +124,10 @@ export function Timeline(props: Props) {
   // The time at the right edge of the bars. It only grows, and never while
   // something is being dragged, so a bar does not rescale under the pointer
   // as its own length changes the length of the take.
-  const [viewMs, setViewMs] = useState(Math.max(totalMs, props.originalTotalMs));
+  const [viewMs, setViewMs] = useState(Math.max(totalMs, props.originalTotalMs) * HEADROOM);
   useEffect(() => {
-    if (drag === null && totalMs > viewMs) setViewMs(totalMs);
+    // Once the take has used up most of the room, make more.
+    if (drag === null && totalMs * 1.05 > viewMs) setViewMs(totalMs * HEADROOM);
   }, [drag, totalMs, viewMs]);
 
   const height = timelineHeight(tracks.length, ROW_HEIGHT, RULER_HEIGHT);
@@ -199,11 +208,21 @@ export function Timeline(props: Props) {
       return;
     }
     if (size === null) return;
+    const track = tracks[drag.row];
+    if (track === undefined) return;
     const scale = timelineScale(size.width, viewMs);
     const movedMs = scale.ms(event.clientX) - scale.ms(drag.startX);
     const value = snap(drag.startValue + movedMs, event.altKey);
-    if (drag.kind === 'delay') props.onDelayChange(drag.row, value);
-    else props.onDurationChange(drag.row, Math.max(0, value));
+    // A bar stays inside the timeline: it cannot start before the left edge
+    // or end past the right one, however far the pointer goes.
+    const bar = track.mine;
+    if (drag.kind === 'delay') {
+      const latest = viewMs - bar.startMs - bar.durationMs;
+      props.onDelayChange(drag.row, clamp(value, track.delayMin, Math.max(track.delayMin, latest)));
+    } else {
+      const longest = viewMs - bar.startMs - bar.delayMs;
+      props.onDurationChange(drag.row, clamp(value, SHORTEST_MS, Math.max(SHORTEST_MS, longest)));
+    }
   };
 
   const onUp = (): void => {
@@ -243,8 +262,9 @@ export function Timeline(props: Props) {
         {props.controls}
       </header>
       <p className="panel__hint">
-        When each property animates. Drag a bar to start it earlier or later, and its right edge to
-        make it longer or shorter. Drag the ruler or an empty spot to move through time.
+        When each property animates. The lighter block is its delay, the solid bar is how long it
+        runs. Drag the bar to change the delay, or the grip at its right end to change the duration.
+        Drag the ruler to move through time.
       </p>
       <div className="timeline">
         <div className="timeline__labels">
@@ -336,17 +356,24 @@ export function Timeline(props: Props) {
           panel keeps its height. */}
       <div className="fields">
         <span className="fields__title">
-          {selected === null ? 'Select a row to change its timing' : 'Timing of the selected row'}
+          {selected === null
+            ? 'Select a row to set its delay and duration'
+            : `Timing of ${selected.name ?? selected.property} on ${selected.shapeLabel}`}
         </span>
         <NumberField
-          label="Starts after"
+          label="Delay"
           term={selected?.delayTerm ?? 'delay'}
           value={selected?.mine.delayMs ?? null}
           unit="ms"
-          onChange={(value) => selectedIndex !== null && props.onDelayChange(selectedIndex, value)}
+          min={selected?.delayMin ?? 0}
+          onChange={(value) =>
+            selectedIndex !== null &&
+            selected !== null &&
+            props.onDelayChange(selectedIndex, Math.max(value, selected.delayMin))
+          }
         />
         <NumberField
-          label="Lasts"
+          label="Duration"
           term={selected?.durationTerm ?? 'duration'}
           value={selected?.mine.durationMs ?? null}
           unit="ms"

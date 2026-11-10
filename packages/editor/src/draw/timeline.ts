@@ -1,6 +1,7 @@
 // Draws the bars of the timeline: one row per shape and property.
 // The row labels are HTML beside the canvas, so they are real text.
 
+import { formatNumber } from '@motion-inspector/core';
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
 
@@ -41,7 +42,10 @@ export function timelineScale(width: number, totalMs: number): TimelineScale {
 }
 
 const SIDE_PADDING = 12;
-const BAR_HEIGHT = 12;
+const BAR_HEIGHT = 22;
+const BAR_RADIUS = 4;
+// A label is only written where it fits with this much room to spare.
+const LABEL_PADDING = 8;
 
 function sameBar(first: Bar, second: Bar): boolean {
   return (
@@ -68,7 +72,7 @@ export type TimelineHit =
   | { kind: 'bar-end'; row: number };
 
 const EDGE_GRAB = 8;
-// Bars are 12 px tall. The grab area is the whole row, which is taller.
+// The grab area is the whole height of the row, not only the bar.
 export function hitTest(
   point: { x: number; y: number },
   bars: Bar[],
@@ -81,8 +85,8 @@ export function hitTest(
   const bar = bars[row];
   if (point.y < rulerHeight || bar === undefined) return { kind: 'empty' };
   const scale = timelineScale(width, totalMs);
-  const start = scale.x(bar.startMs + bar.delayMs);
-  const end = start + Math.max(2, scale.x(bar.durationMs) - scale.x(0));
+  const start = Math.max(scale.x(bar.startMs + bar.delayMs), scale.x(0));
+  const end = Math.max(start + 2, scale.x(bar.startMs + bar.delayMs + bar.durationMs));
   if (Math.abs(point.x - end) <= EDGE_GRAB) return { kind: 'bar-end', row };
   if (point.x >= start && point.x <= end) return { kind: 'bar', row };
   return { kind: 'empty' };
@@ -90,6 +94,156 @@ export function hitTest(
 
 export function timelineHeight(rowCount: number, rowHeight: number, rulerHeight: number): number {
   return rulerHeight + rowCount * rowHeight;
+}
+
+function ms(value: number): string {
+  return `${formatNumber(Math.round(value))} ms`;
+}
+
+// Writes a label inside a block, centered, only if it fits.
+// Says whether it did, so a shorter label can be tried.
+function labelInside(
+  context: CanvasRenderingContext2D,
+  text: string,
+  left: number,
+  width: number,
+  middle: number,
+  color: string,
+): boolean {
+  if (context.measureText(text).width + LABEL_PADDING * 2 > width) return false;
+  context.fillStyle = color;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(text, left + width / 2, middle + 0.5);
+  return true;
+}
+
+// One row: a lane, a soft block for the delay, and a solid bar for the
+// duration, each with its value written on it.
+//
+//   |  lane                                              |
+//   |[ delay 60 ms ][====== 300 ms ======||]             |
+//                                         ^ grip: drag to change the duration
+function drawRow(
+  context: CanvasRenderingContext2D,
+  data: TimelineData,
+  row: TimelineRow,
+  top: number,
+  width: number,
+): void {
+  const theme = data.theme;
+  const scale = timelineScale(width, data.totalMs);
+  const middle = top + data.rowHeight / 2;
+  const barTop = Math.round(middle - BAR_HEIGHT / 2);
+  const laneLeft = scale.x(0);
+  const laneRight = scale.x(data.totalMs);
+
+  // Hairline above the row.
+  context.lineWidth = 1;
+  context.strokeStyle = theme.border;
+  context.beginPath();
+  context.moveTo(0, top + 0.5);
+  context.lineTo(width, top + 0.5);
+  context.stroke();
+
+  // The lane: where a bar can be.
+  context.fillStyle = theme.grid;
+  context.beginPath();
+  context.roundRect(laneLeft, barTop, laneRight - laneLeft, BAR_HEIGHT, BAR_RADIUS);
+  context.fill();
+
+  const begin = scale.x(row.mine.startMs);
+  const barStart = scale.x(row.mine.startMs + row.mine.delayMs);
+  const barEnd = scale.x(row.mine.startMs + row.mine.delayMs + row.mine.durationMs);
+  // A negative delay means the animation began before the take. Only the
+  // part from time 0 on is drawn, with a flat left edge to show the cut.
+  const startsEarlier = barStart < laneLeft;
+  const barLeft = Math.round(Math.max(barStart, laneLeft));
+  const barWidth = Math.max(2, Math.round(barEnd) - barLeft);
+  const corners = startsEarlier ? [0, BAR_RADIUS, BAR_RADIUS, 0] : BAR_RADIUS;
+
+  context.font = `${theme.textSmall}px ${theme.fontMono}`;
+
+  // The original, as a dashed outline, only where mine differs. Drawn
+  // first, so my bar and its values sit on top of it.
+  if (data.showOriginal && row.shown && !sameBar(row.mine, row.original)) {
+    const originalStart = scale.x(row.original.startMs + row.original.delayMs);
+    const originalLeft = Math.max(originalStart, laneLeft);
+    const originalEnd = scale.x(
+      row.original.startMs + row.original.delayMs + row.original.durationMs,
+    );
+    context.strokeStyle = theme.original;
+    context.setLineDash([3, 3]);
+    context.beginPath();
+    context.roundRect(
+      Math.round(originalLeft) + 0.5,
+      barTop - 2.5,
+      Math.max(2, Math.round(originalEnd - originalLeft)),
+      BAR_HEIGHT + 5,
+      BAR_RADIUS + 2,
+    );
+    context.stroke();
+    context.setLineDash([]);
+  }
+
+  if (!row.shown) {
+    // Taken out of the preview: an outline, and no values.
+    context.strokeStyle = row.selected ? theme.accent : theme.original;
+    context.beginPath();
+    context.roundRect(barLeft + 0.5, barTop + 0.5, barWidth - 1, BAR_HEIGHT - 1, corners);
+    context.stroke();
+    return;
+  }
+
+  // Delay: a soft block from the start of the track to the start of the bar.
+  if (barStart > begin) {
+    const delayLeft = Math.round(begin);
+    const delayWidth = barLeft - delayLeft;
+    context.fillStyle = row.selected ? theme.accentSoft : theme.border;
+    context.beginPath();
+    context.roundRect(delayLeft, barTop, delayWidth + BAR_RADIUS, BAR_HEIGHT, BAR_RADIUS);
+    context.fill();
+    labelInside(context, ms(row.mine.delayMs), delayLeft, delayWidth, middle, theme.muted);
+  }
+
+  // Duration: the bar.
+  context.globalAlpha = row.previewed ? 1 : 0.55;
+  context.fillStyle = row.selected ? theme.accent : theme.shape;
+  context.beginPath();
+  context.roundRect(barLeft, barTop, barWidth, BAR_HEIGHT, corners);
+  context.fill();
+  context.globalAlpha = 1;
+
+  const onBar = row.selected ? theme.onAccent : theme.text;
+  const gripRoom = barWidth > 28 ? 12 : 0;
+  const duration = ms(row.mine.durationMs);
+  const labelWidth = barWidth - gripRoom;
+  // For a bar cut off at the left, also say how far in it already is, if
+  // there is room. Otherwise the duration alone.
+  const wroteLong =
+    startsEarlier &&
+    labelInside(
+      context,
+      `${duration}, already ${ms(-row.mine.delayMs)} in`,
+      barLeft,
+      labelWidth,
+      middle,
+      onBar,
+    );
+  if (!wroteLong) labelInside(context, duration, barLeft, labelWidth, middle, onBar);
+
+  // The grip at the right end: two short lines that say "drag me".
+  if (gripRoom > 0) {
+    context.strokeStyle = onBar;
+    context.globalAlpha = 0.6;
+    context.beginPath();
+    for (const offset of [5.5, 8.5]) {
+      context.moveTo(barLeft + barWidth - offset, barTop + 6);
+      context.lineTo(barLeft + barWidth - offset, barTop + BAR_HEIGHT - 6);
+    }
+    context.stroke();
+    context.globalAlpha = 1;
+  }
 }
 
 export function drawTimeline(
@@ -129,70 +283,7 @@ export function drawTimeline(
   }
 
   data.rows.forEach((row, index) => {
-    const top = data.rulerHeight + index * data.rowHeight;
-    const middle = top + data.rowHeight / 2;
-
-    // Hairline above each row.
-    context.strokeStyle = theme.border;
-    context.beginPath();
-    context.moveTo(0, top + 0.5);
-    context.lineTo(size.width, top + 0.5);
-    context.stroke();
-
-    // The original, as a dashed outline, only where mine differs.
-    if (data.showOriginal && row.shown && !sameBar(row.mine, row.original)) {
-      const start = x(row.original.startMs + row.original.delayMs);
-      context.strokeStyle = theme.original;
-      context.setLineDash([3, 3]);
-      context.beginPath();
-      context.roundRect(
-        Math.round(start) + 0.5,
-        Math.round(middle - BAR_HEIGHT / 2) + 0.5,
-        Math.round(x(row.original.durationMs) - x(0)),
-        BAR_HEIGHT,
-        3,
-      );
-      context.stroke();
-      context.setLineDash([]);
-    }
-
-    // Delay: a thin line leading into the bar.
-    const begin = x(row.mine.startMs);
-    const barStart = x(row.mine.startMs + row.mine.delayMs);
-    if (row.mine.delayMs > 0 && row.shown) {
-      context.strokeStyle = row.selected ? theme.accent : theme.original;
-      context.beginPath();
-      context.moveTo(begin, Math.round(middle) + 0.5);
-      context.lineTo(barStart, Math.round(middle) + 0.5);
-      context.stroke();
-    }
-
-    // Duration: the bar. A track taken out of the preview is an outline.
-    const barWidth = Math.max(2, Math.round(x(row.mine.durationMs) - x(0)));
-    context.beginPath();
-    if (row.shown) {
-      context.globalAlpha = row.previewed ? 1 : 0.5;
-      context.fillStyle = row.selected ? theme.accent : theme.shape;
-      context.roundRect(
-        Math.round(barStart),
-        Math.round(middle - BAR_HEIGHT / 2),
-        barWidth,
-        BAR_HEIGHT,
-        3,
-      );
-      context.fill();
-      context.globalAlpha = 1;
-    } else {
-      context.strokeStyle = row.selected ? theme.accent : theme.shape;
-      context.roundRect(
-        Math.round(barStart) + 0.5,
-        Math.round(middle - BAR_HEIGHT / 2) + 0.5,
-        barWidth - 1,
-        BAR_HEIGHT - 1,
-        3,
-      );
-      context.stroke();
-    }
+    drawRow(context, data, row, data.rulerHeight + index * data.rowHeight, size.width);
   });
 
   // Playhead: a line through every row, with a grip in the ruler.

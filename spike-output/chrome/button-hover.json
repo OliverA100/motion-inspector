@@ -17,9 +17,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 91,
-      "timelineTimeAtFirstSight": 150.3,
-      "startTimeWhenReady": 183.61900000309106,
+      "firstSeenAtMs": 104.5,
+      "timelineTimeAtFirstSight": 126.5,
+      "startTimeWhenReady": 176.5120000054594,
       "keyframes": [
         {
           "offset": 0,
@@ -215,9 +215,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 91.20000000298023,
-      "timelineTimeAtFirstSight": 150.3,
-      "startTimeWhenReady": 183.61900000309106,
+      "firstSeenAtMs": 104.79999999701977,
+      "timelineTimeAtFirstSight": 126.5,
+      "startTimeWhenReady": 176.5120000054594,
       "keyframes": [
         {
           "offset": 0,
@@ -438,42 +438,42 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 90.60000000149012,
+      "atMs": 104.09999999403954,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 90.60000000149012,
+      "atMs": 104.09999999403954,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 90.60000000149012,
+      "atMs": 104.09999999403954,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 90.60000000149012,
+      "atMs": 104.09999999403954,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
       "elapsedTime": 0.18,
-      "atMs": 272.70000000298023,
+      "atMs": 284.8999999985099,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.18,
-      "atMs": 272.70000000298023,
+      "atMs": 285,
       "targetClassName": "fx-button"
     }
   ]

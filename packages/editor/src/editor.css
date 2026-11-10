@@ -354,11 +354,12 @@ html {
 }
 
 .field__label {
-  min-width: 72px;
+  min-width: 64px;
+  font-weight: var(--weight-medium);
 }
 
 .field input {
-  width: 64px;
+  width: 84px;
   height: var(--control-height);
   padding: 0 var(--space-2);
   font: var(--text-small) var(--font-mono);
@@ -530,7 +531,8 @@ html {
 
 .fields__title {
   font-size: var(--text-small);
-  color: var(--color-text-muted);
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
 }
 
 /* The CSS term always sits on its own line under the number. */
@@ -665,6 +667,18 @@ html {
 
 .curve__help p {
   margin: 0;
+}
+
+.steps {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.steps__position {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .guide {

@@ -166,6 +166,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
         previewed: isPreviewed(row.property),
         shown: !hiddenTracks.includes(index),
         edited: isTrackEdited(model, index),
+        delayMin: Math.min(0, row.original.delayMs),
         delayTerm: termsAt(edited, index).delay,
         durationTerm: termsAt(edited, index).duration,
       })),

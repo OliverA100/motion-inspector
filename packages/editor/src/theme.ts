@@ -11,6 +11,7 @@ export type Theme = {
   muted: string;
   shape: string;
   accent: string;
+  onAccent: string;
   accentSoft: string;
   original: string;
   grid: string;
@@ -30,6 +31,7 @@ export function readTheme(): Theme {
     muted: token('--color-text-muted'),
     shape: token('--color-shape'),
     accent: token('--color-accent'),
+    onAccent: token('--color-on-accent'),
     accentSoft: token('--color-accent-soft'),
     original: token('--color-original'),
     grid: token('--color-grid'),

@@ -53,6 +53,7 @@ export function widenRange(range: CurveRange, easings: Easing[]): CurveRange {
 
 const PADDING = 16;
 const SAMPLES = 96;
+const STEP_SAMPLES = 1200;
 const HANDLE_RADIUS = 5;
 
 // Where the plot sits inside the canvas. Shared with pointer handling later.
@@ -77,9 +78,12 @@ export function curvePlot(size: Size, range: CurveRange): CurvePlot {
 }
 
 function strokeCurve(context: CanvasRenderingContext2D, plot: CurvePlot, easing: Easing): void {
+  // A steps easing jumps. It needs many more points, or each jump would be
+  // drawn as a slope.
+  const samples = easing.kind === 'steps' ? STEP_SAMPLES : SAMPLES;
   context.beginPath();
-  for (let index = 0; index <= SAMPLES; index += 1) {
-    const input = index / SAMPLES;
+  for (let index = 0; index <= samples; index += 1) {
+    const input = index / samples;
     const x = plot.x(input);
     const y = plot.y(evaluateEasing(easing, input));
     if (index === 0) context.moveTo(x, y);
