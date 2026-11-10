@@ -46,6 +46,7 @@ export const PREVIEWED_PROPERTIES = [
   'width',
   'height',
   'box-shadow',
+  'color',
 ];
 
 export function isPreviewed(property: string): boolean {
@@ -209,6 +210,7 @@ function poseOf(shape: Shape, readings: Reading[]): Pose {
     width: poseWidth,
     height: poseHeight,
     shadow: shadow === null ? null : shadowOf(shadow),
+    textColor: valueOf('color'),
   };
 }
 

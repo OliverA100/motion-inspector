@@ -34,3 +34,5 @@ The extension asks for four permissions and no access to any site up front: `act
 - **Access is per site.** Clicking the toolbar icon gives access to the tab you are on. On another tab, or after the tab goes to another site, "Pick element" asks for access to that one site.
 - **Browser pages, the Chrome Web Store and PDF files cannot be inspected.** Chrome does not allow it. The panel says so.
 - **Iframes are not looked into.** Only the top document and open shadow roots.
+- **The preview has no layout.** When a panel grows, the items below it do not move down in the preview as they do on the page.
+- **Images and gradients are drawn flat gray.**

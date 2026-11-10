@@ -58,6 +58,9 @@ export type Shape = {
   stroke: { color: string; width: number } | null;
   opacity: UnitInterval;
   transformOrigin: { x: number; y: number };
+  // True when the shape cuts off what is inside it (CSS overflow other than
+  // visible). A carousel hides the slides outside its frame this way.
+  clip: boolean;
   children: Shape[];
 };
 

@@ -30,6 +30,7 @@
       "x": 16,
       "y": 16
     },
+    "clip": false,
     "children": []
   },
   "tracks": [

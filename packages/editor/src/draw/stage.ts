@@ -22,6 +22,8 @@ export type Pose = {
   width: number | null;
   height: number | null;
   shadow: Shadow | null;
+  // The animated text color. Applies to the text bars inside this shape.
+  textColor: string | null;
 };
 
 export type StageData = {
@@ -63,13 +65,17 @@ function shapePath(context: CanvasRenderingContext2D, shape: Shape, pose: Pose |
 
 // Applies a shape's pose around its transform origin, then calls `paint`
 // for the shape and for each child. Children inherit the transform.
+// textColor is the nearest animated text color above this shape. CSS color
+// is inherited, so a text bar takes it from whichever parent animates it.
 function walk(
   context: CanvasRenderingContext2D,
   shape: Shape,
   poses: Pose[],
-  paint: (shape: Shape, pose: Pose | null) => void,
+  paint: (shape: Shape, pose: Pose | null, textColor: string | null) => void,
+  textColor: string | null = null,
 ): void {
   const pose = poses.find((candidate) => candidate.shapeId === shape.id) ?? null;
+  const inherited = pose?.textColor ?? textColor;
   context.save();
   if (pose !== null && pose.matrix !== null) {
     const originX = shape.box.x + shape.transformOrigin.x;
@@ -78,8 +84,16 @@ function walk(
     context.transform(...pose.matrix);
     context.translate(-originX, -originY);
   }
-  paint(shape, pose);
-  for (const child of shape.children) walk(context, child, poses, paint);
+  paint(shape, pose, inherited);
+  // A shape that cuts off its content, or whose size is animating, clips
+  // its children. The second case covers accordions and drawers: CSS adds
+  // overflow: hidden only while they animate, so it is not there when the
+  // element is picked, and a size animation shows nothing without it.
+  if (shape.children.length > 0 && (shape.clip || pose?.width != null || pose?.height != null)) {
+    shapePath(context, shape, pose);
+    context.clip();
+  }
+  for (const child of shape.children) walk(context, child, poses, paint, inherited);
   context.restore();
 }
 
@@ -91,10 +105,13 @@ function drawFilled(
   theme: Theme,
   scale: number,
 ): void {
-  walk(context, root, poses, (shape, pose) => {
-    context.globalAlpha = shape.opacity * (pose?.opacity ?? 1);
+  walk(context, root, poses, (shape, pose, textColor) => {
+    // An animated opacity is the element's opacity at that moment. It
+    // replaces the resting one, it does not multiply it.
+    context.globalAlpha = pose?.opacity ?? shape.opacity;
     shapePath(context, shape, pose);
-    const fill = pose?.fill ?? shape.fill;
+    const fill =
+      shape.kind === 'text' && textColor !== null ? textColor : (pose?.fill ?? shape.fill);
     if (fill !== null) {
       if (pose !== null && pose.shadow !== null) {
         // Canvas shadows ignore the current transform, so scale by hand.

@@ -53,6 +53,7 @@ function box(
     stroke: null,
     opacity: 1,
     transformOrigin: { x: width / 2, y: height / 2 },
+    clip: false,
     children,
   };
 }

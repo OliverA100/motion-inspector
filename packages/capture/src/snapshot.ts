@@ -47,6 +47,7 @@ export type RawShape = {
   stroke: { color: string; width: number } | null;
   opacity: number;
   transformOrigin: { x: number; y: number };
+  clip: boolean;
   children: RawShape[];
 };
 
@@ -61,6 +62,14 @@ export type Snapshot = {
   // Properties that were already animating when the element was picked.
   // Their resting values cannot be trusted.
   animatingAtPick: Map<Element, Set<string>>;
+  // Every animation that already existed when the element was picked.
+  runningAtPick: WeakSet<Animation>;
+  // The shape made for each element, so shapes can be added later.
+  shapeOf: Map<Element, RawShape>;
+  // Where each visible element was at pick time, shape or not.
+  boxAtPick: Map<Element, Box>;
+  // The element each shape was made for. For a text bar, its parent element.
+  ownerOf: Map<RawShape, Element>;
   // Open shadow roots inside the element. Their animations have to be
   // asked for separately (docs/chrome-findings.md).
   shadowRoots: ShadowRoot[];
@@ -171,6 +180,15 @@ type Walk = {
   unevenBorder: boolean;
   // The shape made for each element, to adjust after the walk.
   shapeOf: Map<Element, RawShape>;
+  // How many shapes may be made in this walk.
+  limit: number;
+  // False for shapes added after pick time, whose "resting" values would
+  // be read when the animation has already happened.
+  readsResting: boolean;
+  // Elements that already have a shape are skipped (for shapes added later).
+  skip: Set<Element>;
+  boxAtPick: Map<Element, Box>;
+  ownerOf: Map<RawShape, Element>;
   snapshot: Pick<Snapshot, 'shapeIdOf' | 'resting' | 'shadowRoots'>;
 };
 
@@ -238,6 +256,7 @@ function boxShape(
         : null,
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
     transformOrigin: { x: origin[0] ?? rect.width / 2, y: origin[1] ?? rect.height / 2 },
+    clip: style.overflowX !== 'visible' || style.overflowY !== 'visible',
     children: [],
   };
 }
@@ -259,42 +278,54 @@ function textBars(
   range.selectNodeContents(node);
   return Array.from(range.getClientRects()).flatMap((rect, index): RawShape[] => {
     if (rect.width === 0 || rect.height === 0) return [];
-    if (walk.count >= MOST_SHAPES) {
+    if (walk.count >= walk.limit) {
       walk.leftOut += 1;
       return [];
     }
     walk.count += 1;
     // A bar half as tall as the line, in the middle of it.
     const height = rect.height / 2;
-    return [
-      {
-        id: `${parentId}.t${walk.count}-${index}`,
-        label: 'text',
-        kind: 'text',
-        box: {
-          x: parent.box.x + (rect.left - drawnParent.left),
-          y: parent.box.y + (rect.top - drawnParent.top) + height / 2,
-          width: rect.width,
-          height,
-        },
-        radius: [height / 2, height / 2, height / 2, height / 2],
-        fill: color,
-        stroke: null,
-        opacity: 1,
-        transformOrigin: { x: rect.width / 2, y: height / 2 },
-        children: [],
+    const bar: RawShape = {
+      id: `${parentId}.t${walk.count}-${index}`,
+      label: 'text',
+      kind: 'text',
+      box: {
+        x: parent.box.x + (rect.left - drawnParent.left),
+        y: parent.box.y + (rect.top - drawnParent.top) + height / 2,
+        width: rect.width,
+        height,
       },
-    ];
+      radius: [height / 2, height / 2, height / 2, height / 2],
+      fill: color,
+      stroke: null,
+      opacity: 1,
+      transformOrigin: { x: rect.width / 2, y: height / 2 },
+      clip: false,
+      children: [],
+    };
+    walk.ownerOf.set(bar, parent.element);
+    return [bar];
   });
 }
 
 // Returns the shapes this element adds to its parent shape: itself (with
 // its descendants inside), or just its descendants if it has no shape.
-function shapesFor(walk: Walk, element: Element, parentId: string, isRoot: boolean): RawShape[] {
+function shapesFor(
+  walk: Walk,
+  element: Element,
+  parentId: string,
+  isRoot: boolean,
+  force = false,
+): RawShape[] {
+  if (walk.skip.has(element)) return [];
   const style = getComputedStyle(element);
   if (style.display === 'none' || style.visibility === 'hidden') return [];
   const rect = layoutBox(element, walk);
   if (rect.width === 0 || rect.height === 0) return [];
+  // Text kept only for screen readers is squeezed into a 1 px box. Its
+  // lines still measure as wide as the text, so they would be drawn.
+  if (!isRoot && rect.width <= 2 && rect.height <= 2) return [];
+  walk.boxAtPick.set(element, rect);
   if (element.shadowRoot !== null) walk.snapshot.shadowRoots.push(element.shadowRoot);
 
   const isImage = IMAGE_TAGS.includes(element.tagName.toLowerCase());
@@ -303,9 +334,14 @@ function shapesFor(walk: Walk, element: Element, parentId: string, isRoot: boole
     isVisibleColor(style.backgroundColor) ||
     style.backgroundImage !== 'none' ||
     parseFloat(style.borderTopWidth) > 0;
-  const getsShape = isRoot || paints || mayAnimate(style);
+  // An element that cuts off its content gets a shape even if it paints
+  // nothing, or the cut would be lost (a carousel's frame, a menu's panel).
+  const clips =
+    (style.overflowX !== 'visible' || style.overflowY !== 'visible') &&
+    element.childElementCount > 0;
+  const getsShape = isRoot || force || paints || clips || mayAnimate(style);
 
-  if (getsShape && walk.count >= MOST_SHAPES) {
+  if (getsShape && walk.count >= walk.limit) {
     walk.leftOut += 1;
     return [];
   }
@@ -315,7 +351,8 @@ function shapesFor(walk: Walk, element: Element, parentId: string, isRoot: boole
     walk.count += 1;
     walk.snapshot.shapeIdOf.set(element, id);
     walk.shapeOf.set(element, shape);
-    walk.snapshot.resting.set(element, readResting(element));
+    walk.ownerOf.set(shape, element);
+    if (walk.readsResting) walk.snapshot.resting.set(element, readResting(element));
   }
 
   // What is inside an image is not drawn.
@@ -373,6 +410,11 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     flattenedBackground: false,
     unevenBorder: false,
     shapeOf: new Map(),
+    limit: MOST_SHAPES,
+    readsResting: true,
+    skip: new Set(),
+    boxAtPick: new Map(),
+    ownerOf: new Map(),
     snapshot: { shapeIdOf: new Map(), resting: new Map(), shadowRoots: [] },
   };
   const root = shapesFor(walk, rootElement, '', true)[0];
@@ -382,7 +424,9 @@ export function takeSnapshot(rootElement: Element): Snapshot {
 
   // What is already animating right now? Those resting values are not at rest.
   const animatingAtPick = new Map<Element, Set<string>>();
+  const runningAtPick = new WeakSet<Animation>();
   for (const animation of animationsUnder(rootElement, walk.snapshot.shadowRoots)) {
+    runningAtPick.add(animation);
     const effect = animation.effect;
     if (!(effect instanceof KeyframeEffect) || effect.target === null) continue;
     if (animation.playState !== 'running' && !animation.pending) continue;
@@ -403,6 +447,10 @@ export function takeSnapshot(rootElement: Element): Snapshot {
   return {
     root,
     rootElement,
+    runningAtPick,
+    shapeOf: walk.shapeOf,
+    boxAtPick: walk.boxAtPick,
+    ownerOf: walk.ownerOf,
     selector: selectorOf(rootElement),
     ...walk.snapshot,
     animatingAtPick,
@@ -422,4 +470,87 @@ export function takeSnapshot(rootElement: Element): Snapshot {
         : []),
     ],
   };
+}
+
+// ---------- Shapes for parts that appear later ----------
+
+// An element that was hidden when the element was picked has no shape: an
+// accordion's panel, a tab pane, the next slide of a carousel. They appear
+// as their animation starts, and that animation is often the main one.
+// This adds a shape for such an element, measured now, when the take ends,
+// and puts it inside the shape of its nearest parent that has one.
+// Returns false if it cannot be drawn (it is hidden again, or not inside).
+const LATE_SHAPES = 15;
+
+function parentAcrossShadow(element: Element): Element | null {
+  if (element.parentElement !== null) return element.parentElement;
+  const root = element.getRootNode();
+  return root instanceof ShadowRoot ? root.host : null;
+}
+
+function lateWalk(snapshot: Snapshot): Walk {
+  const count = snapshot.shapeIdOf.size;
+  return {
+    rootElement: snapshot.rootElement,
+    rootRect: snapshot.rootElement.getBoundingClientRect(),
+    count,
+    leftOut: 0,
+    flattenedBackground: false,
+    unevenBorder: false,
+    shapeOf: snapshot.shapeOf,
+    limit: count + LATE_SHAPES,
+    readsResting: false,
+    skip: new Set(snapshot.shapeIdOf.keys()),
+    boxAtPick: snapshot.boxAtPick,
+    ownerOf: snapshot.ownerOf,
+    snapshot,
+  };
+}
+
+function isInside(owner: Element, element: Element): boolean {
+  return owner === element || element.contains(owner);
+}
+
+export function addLateShape(snapshot: Snapshot, element: Element): boolean {
+  if (snapshot.shapeIdOf.has(element)) return true;
+  let parent = parentAcrossShadow(element);
+  while (parent !== null && !snapshot.shapeOf.has(parent)) {
+    if (parent === snapshot.rootElement) return false;
+    parent = parentAcrossShadow(parent);
+  }
+  const parentShape = parent === null ? undefined : snapshot.shapeOf.get(parent);
+  if (parentShape === undefined) return false;
+  const walk = lateWalk(snapshot);
+  const boxAtPick = snapshot.boxAtPick.get(element);
+
+  // Visible at pick time, but it had no shape of its own: its content was
+  // drawn as part of its parent (an accordion panel that is about to close).
+  // Give it a shape where it was then, and move its content into it, so the
+  // content follows it. Drawing it again would draw it twice.
+  if (boxAtPick !== undefined) {
+    const style = getComputedStyle(element);
+    const id = `${parentShape.id}.late${walk.count}`;
+    const shape = boxShape(walk, element, style, boxAtPick, id, false);
+    const moved = parentShape.children.filter((child) => {
+      const owner = snapshot.ownerOf.get(child);
+      return owner !== undefined && isInside(owner, element);
+    });
+    const at =
+      moved.length === 0
+        ? parentShape.children.length
+        : parentShape.children.indexOf(moved[0] as RawShape);
+    parentShape.children = parentShape.children.filter((child) => !moved.includes(child));
+    shape.children = moved;
+    parentShape.children.splice(at, 0, shape);
+    snapshot.shapeIdOf.set(element, id);
+    snapshot.shapeOf.set(element, shape);
+    snapshot.ownerOf.set(shape, element);
+    return true;
+  }
+
+  // Hidden at pick time (a panel about to open, the next slide): it has to
+  // be measured now, as it is at the end of its animation.
+  const added = shapesFor(walk, element, `${parentShape.id}.late`, false, true);
+  parentShape.children.push(...added);
+  return snapshot.shapeIdOf.has(element);
 }

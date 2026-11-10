@@ -183,3 +183,29 @@ test('rows from one animation move together until one is unlinked', async ({ pag
   await page.locator('.timeline__label').nth(0).click();
   await expect(duration(page)).toHaveValue('900');
 });
+
+test('a fade is drawn to its full value, whatever the resting opacity', async ({ page }) => {
+  // The list items rest at opacity 0.2 and fade to 1. The preview once
+  // multiplied the two, and the items never got past 0.2.
+  // Of the pixels that are painted at all, how many are almost fully
+  // opaque. At the end the rows are at opacity 1: nearly all of them (98%
+  // when measured). With the bug the rows stop at opacity 0.2: almost none
+  // (2%). Comparing the start with the end is not enough: the bug also makes
+  // the end more opaque than the start.
+  await page.goto('/?sample=stagger-list&time=480&quiet');
+  await page.waitForTimeout(200);
+  const share = await page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+    const context = canvas.getContext('2d');
+    if (context === null) return 0;
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let painted = 0;
+    let solid = 0;
+    for (let index = 3; index < data.length; index += 4) {
+      const alpha = data[index] ?? 0;
+      if (alpha > 0) painted += 1;
+      if (alpha > 200) solid += 1;
+    }
+    return solid / Math.max(painted, 1);
+  });
+  expect(share).toBeGreaterThan(0.9);
+});

@@ -45,9 +45,11 @@ export async function captureFixture(
   fixture: string,
   trigger: (page: Page, selector: string) => Promise<void>,
   recordMs: number,
+  // False when the test has already opened the page and changed it.
+  open = true,
 ): Promise<Take[]> {
   const selector = rootSelector(fixture);
-  await openFixtures(page);
+  if (open) await openFixtures(page);
   await page.evaluate((target) => window.MotionCapture.record(target), selector);
   await trigger(page, selector);
   await page.waitForTimeout(recordMs);

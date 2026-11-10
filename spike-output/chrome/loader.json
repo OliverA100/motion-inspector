@@ -16,11 +16,11 @@
       "pseudoElement": null,
       "timelineType": "DocumentTimeline",
       "playState": "running",
-      "startTime": 59.59599999914644,
-      "currentTime": 50.03600000085355,
+      "startTime": 33.093000005465,
+      "currentTime": 50.004999994535005,
       "firstSeenAtMs": 0.3999999985098839,
-      "timelineTimeAtFirstSight": 109.632,
-      "startTimeWhenReady": 59.59599999914644,
+      "timelineTimeAtFirstSight": 83.098,
+      "startTimeWhenReady": 33.093000005465,
       "keyframes": [
         {
           "offset": 0,
@@ -111,8 +111,8 @@
         "activeDuration": "Infinity",
         "currentIteration": 0,
         "endTime": "Infinity",
-        "localTime": 50.03600000085355,
-        "progress": 0.055595555556503945
+        "localTime": 50.004999994535005,
+        "progress": 0.05556111110503889
       },
       "transitionStyle": {
         "property": "all",
@@ -124,8 +124,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.939607, 0.342256, -0.342256, 0.939607, 0, 0)",
-            "computed": "rotate(20.0144deg)"
+            "resolved": "matrix(0.939681, 0.342053, -0.342053, 0.939681, 0, 0)",
+            "computed": "rotate(20.002deg)"
           }
         },
         {
@@ -224,8 +224,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.939607, 0.342256, -0.342256, 0.939607, 0, 0)",
-            "computed": "rotate(20.0144deg)"
+            "resolved": "matrix(0.939681, 0.342053, -0.342053, 0.939681, 0, 0)",
+            "computed": "rotate(20.002deg)"
           }
         }
       ],

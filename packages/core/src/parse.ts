@@ -396,6 +396,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const stroke = at('stroke', parseStroke(get(source, 'stroke')));
     const opacity = at('opacity', andThen(number(get(source, 'opacity')), unitInterval));
     const transformOrigin = at('transformOrigin', parsePoint2d(get(source, 'transformOrigin')));
+    const clip = at('clip', boolean(get(source, 'clip')));
     const children = at(
       'children',
       listOf(get(source, 'children'), (child) => parseShapeAtDepth(child, depth + 1)),
@@ -410,12 +411,23 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !stroke.ok ||
       !opacity.ok ||
       !transformOrigin.ok ||
+      !clip.ok ||
       !children.ok
     ) {
       return failAll(
-        [id, label, kind, box, radius, fill, stroke, opacity, transformOrigin, children].flatMap(
-          errorsOf,
-        ),
+        [
+          id,
+          label,
+          kind,
+          box,
+          radius,
+          fill,
+          stroke,
+          opacity,
+          transformOrigin,
+          clip,
+          children,
+        ].flatMap(errorsOf),
       );
     }
     return ok({
@@ -428,6 +440,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       stroke: stroke.value,
       opacity: opacity.value,
       transformOrigin: transformOrigin.value,
+      clip: clip.value,
       children: children.value,
     });
   });

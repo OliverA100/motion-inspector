@@ -27,6 +27,7 @@
       "x": 20,
       "y": 20
     },
+    "clip": false,
     "children": []
   },
   "tracks": [

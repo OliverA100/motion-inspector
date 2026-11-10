@@ -18,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 51.600000001490116,
-      "timelineTimeAtFirstSight": 122.9,
-      "startTimeWhenReady": 122.91499999992084,
+      "firstSeenAtMs": 51.70000000298023,
+      "timelineTimeAtFirstSight": 123.3,
+      "startTimeWhenReady": 123.24800000351388,
       "keyframes": [
         {
           "offset": 0,
@@ -218,8 +218,8 @@
       "startTime": null,
       "currentTime": 0,
       "firstSeenAtMs": 51.899999998509884,
-      "timelineTimeAtFirstSight": 122.9,
-      "startTimeWhenReady": 122.91499999992084,
+      "timelineTimeAtFirstSight": 123.3,
+      "startTimeWhenReady": 123.24800000351388,
       "keyframes": [
         {
           "offset": 0,
@@ -440,42 +440,42 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 51.399999998509884,
+      "atMs": 51.29999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 51.399999998509884,
+      "atMs": 51.29999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 51.399999998509884,
+      "atMs": 51.29999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 51.399999998509884,
+      "atMs": 51.29999999701977,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
       "elapsedTime": 0.18,
-      "atMs": 234.69999999552965,
+      "atMs": 233.89999999850988,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.18,
-      "atMs": 234.69999999552965,
+      "atMs": 233.89999999850988,
       "targetClassName": "fx-button"
     }
   ]

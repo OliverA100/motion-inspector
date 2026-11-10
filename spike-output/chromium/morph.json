@@ -18,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.400000005960464,
-      "timelineTimeAtFirstSight": 122.3,
-      "startTimeWhenReady": 122.35800000053132,
+      "firstSeenAtMs": 54.5,
+      "timelineTimeAtFirstSight": 103.9,
+      "startTimeWhenReady": 103.94499999529216,
       "keyframes": [
         {
           "offset": 0,
@@ -217,9 +217,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.5,
-      "timelineTimeAtFirstSight": 122.3,
-      "startTimeWhenReady": 122.35800000053132,
+      "firstSeenAtMs": 54.599999994039536,
+      "timelineTimeAtFirstSight": 103.9,
+      "startTimeWhenReady": 103.94499999529216,
       "keyframes": [
         {
           "offset": 0,
@@ -416,9 +416,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.600000001490116,
-      "timelineTimeAtFirstSight": 122.3,
-      "startTimeWhenReady": 122.35800000053132,
+      "firstSeenAtMs": 54.69999999552965,
+      "timelineTimeAtFirstSight": 103.9,
+      "startTimeWhenReady": 103.94499999529216,
       "keyframes": [
         {
           "offset": 0,
@@ -615,9 +615,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.600000001490116,
-      "timelineTimeAtFirstSight": 122.3,
-      "startTimeWhenReady": 122.35800000053132,
+      "firstSeenAtMs": 54.79999999701977,
+      "timelineTimeAtFirstSight": 103.9,
+      "startTimeWhenReady": 103.94499999529216,
       "keyframes": [
         {
           "offset": 0,
@@ -814,9 +814,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.600000001490116,
-      "timelineTimeAtFirstSight": 122.3,
-      "startTimeWhenReady": 122.35800000053132,
+      "firstSeenAtMs": 54.79999999701977,
+      "timelineTimeAtFirstSight": 103.9,
+      "startTimeWhenReady": 103.94499999529216,
       "keyframes": [
         {
           "offset": 0,
@@ -1003,105 +1003,105 @@
       "type": "transitionrun",
       "name": "background-color",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.099999994039536,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "background-color",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.099999994039536,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionrun",
       "name": "border-top-left-radius",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.099999994039536,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "border-top-left-radius",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.099999994039536,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionrun",
       "name": "border-top-right-radius",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.099999994039536,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "border-top-right-radius",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.099999994039536,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionrun",
       "name": "border-bottom-left-radius",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.099999994039536,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "border-bottom-left-radius",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.19999999552965,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionrun",
       "name": "border-bottom-right-radius",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.19999999552965,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "border-bottom-right-radius",
       "elapsedTime": 0,
-      "atMs": 56,
+      "atMs": 54.19999999552965,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "background-color",
       "elapsedTime": 0.5,
-      "atMs": 555.8000000044703,
+      "atMs": 570.0999999940395,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "border-bottom-left-radius",
       "elapsedTime": 0.5,
-      "atMs": 555.8000000044703,
+      "atMs": 570.0999999940395,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "border-bottom-right-radius",
       "elapsedTime": 0.5,
-      "atMs": 555.8000000044703,
+      "atMs": 570.0999999940395,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "border-top-left-radius",
       "elapsedTime": 0.5,
-      "atMs": 555.8000000044703,
+      "atMs": 570.0999999940395,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "border-top-right-radius",
       "elapsedTime": 0.5,
-      "atMs": 555.8000000044703,
+      "atMs": 570.0999999940395,
       "targetClassName": "fx-morph"
     }
   ]

@@ -30,6 +30,7 @@
       "x": 70,
       "y": 49
     },
+    "clip": false,
     "children": [
       {
         "id": "s0.1",
@@ -54,6 +55,7 @@
           "x": 57,
           "y": 20
         },
+        "clip": false,
         "children": []
       },
       {
@@ -79,6 +81,7 @@
           "x": 57,
           "y": 4
         },
+        "clip": false,
         "children": []
       },
       {
@@ -104,6 +107,7 @@
           "x": 34.2,
           "y": 4
         },
+        "clip": false,
         "children": []
       }
     ]

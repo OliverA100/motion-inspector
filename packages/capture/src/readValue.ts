@@ -53,8 +53,27 @@ function degrees(value: CSSNumericValue): number | null {
   }
 }
 
+// 3D forms that do nothing in 3D: translate3d(x, y, 0), translateZ(0),
+// scale3d(x, y, 1), rotate3d(0, 0, 1, a). Animation libraries write these
+// to get the browser to use the GPU. They are read as the 2D form.
+function isFlat(component: CSSTransformComponent): boolean {
+  if (component.is2D) return true;
+  if (component instanceof CSSTranslate) return px(component.z, 0) === 0;
+  // Scaling depth does nothing to a flat element: scale3d(0.1, 0.1, 0.1)
+  // looks the same as scale(0.1).
+  if (component instanceof CSSScale) return true;
+  if (component instanceof CSSRotate) {
+    return (
+      plainNumber(component.x) === 0 &&
+      plainNumber(component.y) === 0 &&
+      (plainNumber(component.z) ?? 0) > 0
+    );
+  }
+  return false;
+}
+
 function readFunction(component: CSSTransformComponent, box: BoxSize): TransformFunction | null {
-  if (!component.is2D) return null;
+  if (!isFlat(component)) return null;
   if (component instanceof CSSTranslate) {
     const x = px(component.x, box.width);
     const y = px(component.y, box.height);
@@ -108,9 +127,35 @@ function readTransform(property: string, value: string, box: BoxSize): ParsedVal
 
 // ---------- Everything else ----------
 
+// Newer color spaces (oklab, oklch, lab, hsl...) are turned into sRGB by
+// painting one pixel with the color and reading it back. Tailwind 4 and
+// daisyUI write every color this way.
+const OTHER_COLOR = /^(oklab|oklch|lab|lch|hsla?|hwb|color)\(/;
+let pixel: CanvasRenderingContext2D | null = null;
+
+function colorThroughCanvas(value: string): (ParsedValue & { kind: 'color' }) | null {
+  if (!OTHER_COLOR.test(value)) return null;
+  pixel ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  if (pixel === null) return null;
+  // The alpha is read from the text: read back from a pixel it is rounded
+  // to 1/255, and very faint colors lose their hue.
+  const alphaMatch =
+    /\/\s*([\d.]+)(%?)\s*\)$/.exec(value) ??
+    /^hsla\([^,]+,[^,]+,[^,]+,\s*([\d.]+)(%?)\)$/.exec(value);
+  const alpha = alphaMatch === null ? 1 : Number(alphaMatch[1]) / (alphaMatch[2] === '%' ? 100 : 1);
+  // Painted fully opaque, so the color itself comes back exactly.
+  const opaque = alphaMatch === null ? value : value.replace(/\s*\/\s*[\d.]+%?\s*\)$/, ')');
+  pixel.clearRect(0, 0, 1, 1);
+  pixel.fillStyle = '#000000';
+  pixel.fillStyle = opaque;
+  pixel.fillRect(0, 0, 1, 1);
+  const [r = 0, g = 0, b = 0] = pixel.getImageData(0, 0, 1, 1).data;
+  return { kind: 'color', r, g, b, a: Math.min(Math.max(alpha, 0), 1) };
+}
+
 export function readColor(value: string): (ParsedValue & { kind: 'color' }) | null {
   const match = COLOR.exec(value.trim());
-  if (match === null) return null;
+  if (match === null) return colorThroughCanvas(value.trim());
   const alpha = match[4] === undefined ? 1 : Number(match[4]) / (match[5] === '%' ? 100 : 1);
   const channel = (text: string | undefined): number => Math.min(Math.max(Number(text), 0), 255);
   return {

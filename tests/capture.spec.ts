@@ -308,6 +308,75 @@ test('a scroll-driven animation is listed, not drawn', async ({ page }) => {
   ]);
 });
 
+// ---------- Parts that appear and disappear (found on real sites) ----------
+
+test('a panel that was hidden when picked gets a shape when it opens', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'panel', click('panel', 'toggle'), 900));
+  const panelShape = flattenShapes(capture.root).find((shape) => shape.label === 'div.fx-panel');
+  expect(panelShape).toBeDefined();
+  // Its lines are inside it, so they are cut off as it grows.
+  expect(panelShape?.children.map((shape) => shape.label)).toEqual([
+    'div.fx-panel__line',
+    'div.fx-panel__line',
+    'div.fx-panel__line',
+  ]);
+  const height = capture.tracks.find((item) => item.property === 'height');
+  expect(height?.shapeId).toBe(panelShape?.id);
+  expect(height?.keyframes.map((keyframe) => keyframe.value)).toEqual(['0px', '64px']);
+  // Nothing about the panel is left out.
+  expect(capture.notShown).toEqual([]);
+});
+
+test('a panel that closes keeps its content inside it, drawn once', async ({ page }) => {
+  await openFixtures(page);
+  await page.click('[data-fixture="panel"] [data-trigger="toggle"]');
+  await page.waitForTimeout(500);
+  await page.evaluate((target) => window.MotionCapture.record(target), rootSelector('panel'));
+  await page.click('[data-fixture="panel"] [data-trigger="toggle"]');
+  await page.waitForTimeout(800);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+
+  const height = capture.tracks.find((item) => item.property === 'height');
+  expect(height?.keyframes.map((keyframe) => keyframe.value)).toEqual(['64px', '0px']);
+  const panelShape = flattenShapes(capture.root).find((shape) => shape.id === height?.shapeId);
+  expect(panelShape?.label).toBe('div.fx-panel');
+  expect(panelShape?.box.height).toBe(64);
+  expect(panelShape?.children).toHaveLength(3);
+  // The lines appear once in the whole drawing, inside the panel.
+  const lines = flattenShapes(capture.root).filter((shape) => shape.label === 'div.fx-panel__line');
+  expect(lines).toHaveLength(3);
+});
+
+test('modern colors and flat 3D transforms are read as numbers', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'panel', click('panel', 'toggle'), 900));
+  const slide = capture.tracks.find((item) => item.property === 'transform');
+  // translate3d(-12px, 0, 0) scale3d(0.8, 0.8, 0.8) is a 2D move and scale.
+  expect(slide?.keyframes[0]?.parsed).toEqual({
+    kind: 'transform',
+    functions: [
+      { fn: 'translate', x: -12, y: 0 },
+      { fn: 'scale', x: 0.8, y: 0.8 },
+    ],
+  });
+  // The panel's oklch background is read as an sRGB color.
+  const panelShape = flattenShapes(capture.root).find((shape) => shape.label === 'div.fx-panel');
+  expect(panelShape?.fill).toMatch(/^oklch\(/);
+  expect(describeCapture(capture)).toContain('moves right 12 px and scales from 0.8 to 1');
+});
+
+test('text kept only for screen readers is not drawn', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const hidden = document.createElement('span');
+    hidden.textContent = 'Loading...';
+    hidden.style.cssText =
+      'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';
+    document.querySelector('.fx-loader')?.append(hidden);
+  });
+  const capture = onlyCapture(await captureFixture(page, 'loader', nothing, 500, false));
+  expect(flattenShapes(capture.root).map((shape) => shape.kind)).toEqual(['box']);
+});
+
 // ---------- Takes ----------
 
 test('an interrupted hover is two takes, and the shortened one is marked', async ({ page }) => {

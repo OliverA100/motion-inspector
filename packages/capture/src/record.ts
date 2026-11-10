@@ -12,7 +12,7 @@
 
 import { parseCapture, parseEasing, type Capture, type Easing } from '@motion-inspector/core';
 import { readValue } from './readValue';
-import { animationsUnder, cssName, labelOf, type Snapshot } from './snapshot';
+import { addLateShape, animationsUnder, cssName, labelOf, type Snapshot } from './snapshot';
 
 export type TakeResult = {
   // The capture, or null if what was recorded did not pass core's checks.
@@ -86,6 +86,8 @@ type Seen = {
   ended: 'finished' | 'cancelled' | null;
   // True when the browser shortened it because it reversed a running one.
   interrupted: boolean;
+  // True when it already existed when the element was picked (a loader).
+  runningAtPick: boolean;
 };
 
 function asNumber(value: unknown): number | null {
@@ -138,6 +140,7 @@ function read(animation: Animation): Seen | null {
     startTime: asNumber(animation.startTime) ?? now - (asNumber(animation.currentTime) ?? 0),
     ended: null,
     interrupted: false,
+    runningAtPick: false,
   };
   animation.ready.then(
     () => {
@@ -222,7 +225,9 @@ function tracksFor(
   const reason = whyNotShown(snapshot, seen, label);
   if (reason !== null) return { tracks: [], notShown: [reason] };
 
-  const box = seen.target.getBoundingClientRect();
+  // Percentages are measured against the shape's own size. The element may
+  // be hidden by now (a panel that closed), and then measures 0.
+  const box = snapshot.shapeOf.get(seen.target)?.box ?? seen.target.getBoundingClientRect();
   const resting = snapshot.resting.get(seen.target);
   const movingAtPick = snapshot.animatingAtPick.get(seen.target);
   const notShown: string[] = [];
@@ -276,7 +281,10 @@ function tracksFor(
           implicit: item.implicit,
         })),
         timing: {
-          delay: seen.timing.delay,
+          // An animation that began before the take (one that was already
+          // running when picked) keeps its phase through a negative delay,
+          // which is how CSS says "already this far in".
+          delay: seen.timing.delay + Math.min(0, seen.startTime - takeStart),
           duration: seen.timing.duration,
           iterations: Number.isFinite(seen.timing.iterations)
             ? { kind: 'count', count: seen.timing.iterations }
@@ -292,7 +300,24 @@ function tracksFor(
 }
 
 function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
-  const takeStart = Math.min(...take.map((seen) => seen.startTime));
+  // Parts that were hidden at pick time and appeared for this animation get
+  // their shapes now.
+  for (const seen of take) {
+    const inside =
+      snapshot.rootElement.contains(seen.target) ||
+      snapshot.shadowRoots.some((root) => root.contains(seen.target));
+    if (seen.pseudoElement === null && seen.onDocumentTimeline && inside)
+      addLateShape(snapshot, seen.target);
+  }
+  // The take starts with the first animation that is new and can be drawn.
+  // One that was already running (a loader beside a hovered button) would
+  // otherwise put seconds of nothing at the start of the timeline.
+  const drawable = take.filter(
+    (seen) => whyNotShown(snapshot, seen, labelOf(seen.target)) === null,
+  );
+  const fresh = drawable.filter((seen) => !seen.runningAtPick);
+  const basis = fresh.length > 0 ? fresh : drawable.length > 0 ? drawable : take;
+  const takeStart = Math.min(...basis.map((seen) => seen.startTime));
   const built = take.map((seen, index) =>
     // Properties from one animation share its timing: one group.
     tracksFor(
@@ -382,6 +407,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         if (alreadySeen.has(animation)) return [];
         alreadySeen.add(animation);
         const seen = read(animation);
+        if (seen !== null) seen.runningAtPick = snapshot.runningAtPick.has(animation);
         return seen === null ? [] : [seen];
       },
     );

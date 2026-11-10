@@ -162,6 +162,7 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
     stroke: fc.oneof(fc.constant(null), fc.record({ color: fc.string(), width: zeroOrMore })),
     opacity: zeroToOne,
     transformOrigin: fc.record({ x: anyNumber, y: anyNumber }),
+    clip: fc.boolean(),
     children,
   });
 }

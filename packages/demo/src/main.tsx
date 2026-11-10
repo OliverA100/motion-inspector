@@ -2,6 +2,7 @@
 
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { parseCapture, type Capture } from '@motion-inspector/core';
 import { Editor, type Msg } from '@motion-inspector/editor';
 import { DemoBar } from './DemoBar';
 import './demo.css';
@@ -19,6 +20,23 @@ const initialMsgs: Msg[] = [
     : []),
   ...(startTime === null ? [] : [{ kind: 'scrubbed', timeMs: Number(startTime) } satisfies Msg]),
 ];
+
+// Dev only: "?capture=session" opens a capture saved in sessionStorage under
+// this key, instead of a sample. The real-site checks use it to show a
+// capture from a real page in the editor.
+const SESSION_KEY = 'motion-inspector-capture';
+
+function sessionCapture(): Capture | null {
+  if (!import.meta.env.DEV || params.get('capture') !== 'session') return null;
+  try {
+    const parsed = parseCapture(JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? 'null'));
+    return parsed.ok ? parsed.value : null;
+  } catch {
+    return null;
+  }
+}
+
+const fromSession = sessionCapture();
 
 function Demo() {
   const [sampleId, setSampleId] = useState(sampleById(params.get('sample')).id);
@@ -38,7 +56,7 @@ function Demo() {
         </label>
       </DemoBar>
       <Editor
-        capture={sample.capture}
+        capture={fromSession ?? sample.capture}
         initialMsgs={initialMsgs}
         showFrameTime={import.meta.env.DEV && !params.has('quiet')}
       />

@@ -471,3 +471,23 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Why:** the first real test. With Chrome opening the panel by itself, every page said "Motion Inspector has no access to this tab yet". The icon click that Chrome handles does not grant `activeTab`. A click the extension handles does. This was the one thing M6 could not test, and it was wrong.
 **Gave up:** access is per tab. To inspect a different tab, the icon has to be clicked once on that tab too. The panel says so when it happens.
 **Verified by hand, not by a test:** a test cannot click a toolbar icon. Confirmed working in installed Chrome on 2026-11-13: after clicking the icon on a tab, "Pick element" works on that tab.
+
+### D89. Shape.clip
+**Chose:** a boolean on every shape, true when CSS `overflow` is not `visible`. The preview clips the shape's children to it. A shape whose width or height is animating clips too, even when `clip` is false.
+**Why:** found on real sites: carousels and accordions depend on it, and without it the preview showed content the page hides. The second rule is because frameworks add `overflow: hidden` only during the animation, after the element was picked.
+**Gave up:** the format changed after it was locked, for the second time (after `label`). Saved takes from before this change no longer load.
+
+### D90. Shapes are added when a take ends, for parts that had none
+**Chose:** see REAL_SITES.md, problem 2. A part that was visible at pick time gets a shape where it was then, and the shapes of its content move inside it. A part that was hidden is measured when the take ends.
+**Why:** the main animation of accordions, tabs, carousels, dropdowns and modals is on a part that is hidden or paints nothing when picked.
+**Gave up:** a part measured when the take ends is measured at its end state. Resting values are not read for it, so a missing keyframe on such a part is listed under "not shown".
+
+### D91. The take starts with the first new animation
+**Chose:** see REAL_SITES.md, problem 4. An animation that was already running keeps its phase as a negative delay.
+**Why:** a loader running beside a hovered button put seconds of nothing at the start of the timeline.
+**Gave up:** nothing.
+
+### D92. The real-site pass is run by scripts, and judged by looking
+**Chose:** `tests/real-sites.cjs` for breadth, `tests/compare.cjs` to put the page's frames beside the preview's. Both stay out of the regular test run: they depend on sites that change, and the comparison needs eyes.
+**Why:** tests that only check data passed while the preview drew fades at a fifth of their strength. Looking at the frames found it in the first minute.
+**Gave up:** the comparison is not automatic. A regression test was added for each bug it found, on a fixture that does not change.

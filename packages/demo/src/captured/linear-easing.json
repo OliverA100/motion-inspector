@@ -27,6 +27,7 @@
       "x": 72,
       "y": 24
     },
+    "clip": false,
     "children": [
       {
         "id": "s0.1",
@@ -51,6 +52,7 @@
           "x": 16,
           "y": 16
         },
+        "clip": false,
         "children": []
       }
     ]

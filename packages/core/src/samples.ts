@@ -69,6 +69,7 @@ function shape(
     stroke: look.stroke === undefined ? null : { color: look.stroke, width: 1 },
     opacity: 1,
     transformOrigin: { x: width / 2, y: height / 2 },
+    clip: false,
     children,
   };
 }

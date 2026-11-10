@@ -448,3 +448,56 @@ fx-shadow-card {
     transform: scaleX(1);
   }
 }
+
+/* ---------- 15. Panel: opens and closes like Bootstrap's collapse ---------- */
+/* The panel is display: none when closed. Script gives it a height
+   transition and overflow: hidden only while it moves, as Bootstrap does.
+   Its color is written in oklch, and its lines slide in with translate3d. */
+
+.fx-panel-box {
+  width: 180px;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-2);
+}
+
+.fx-panel-box__head {
+  height: 28px;
+  border-radius: var(--radius-2) var(--radius-2) 0 0;
+  background: var(--color-shape);
+}
+
+.fx-panel {
+  display: none;
+  background: oklch(0.62 0.17 262);
+}
+
+/* flow-root keeps the lines' margins inside the panel, so its height is
+   the same whether it is measured opening or closing. */
+.fx-panel.is-open {
+  display: flow-root;
+}
+
+.fx-panel.is-moving {
+  overflow: hidden;
+  transition: height 300ms ease;
+}
+
+.fx-panel__line {
+  height: 8px;
+  margin: 10px 12px;
+  border-radius: var(--radius-1);
+  background: oklch(0.98 0 0 / 0.8);
+}
+
+.fx-panel.is-open .fx-panel__line {
+  animation: fx-slide-in 300ms ease-out;
+}
+
+@keyframes fx-slide-in {
+  from {
+    transform: translate3d(-12px, 0, 0) scale3d(0.8, 0.8, 0.8);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}

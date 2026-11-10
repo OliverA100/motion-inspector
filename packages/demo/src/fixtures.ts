@@ -101,3 +101,26 @@ class ShadowCard extends HTMLElement {
   }
 }
 customElements.define('fx-shadow-card', ShadowCard);
+
+// 15. Panel. The same steps Bootstrap's collapse takes: show it, animate
+// its height from 0 to its full height with overflow hidden, then clean up.
+const panelFixture = fixture('panel');
+const panel = inside(panelFixture, '.fx-panel');
+onTrigger(panelFixture, 'toggle', () => {
+  const opening = !panel.classList.contains('is-open');
+  const done = (): void => {
+    panel.classList.remove('is-moving');
+    if (!opening) panel.classList.remove('is-open');
+    panel.style.height = '';
+  };
+  if (opening) {
+    panel.classList.add('is-open');
+    panel.style.height = '0px';
+  } else {
+    panel.style.height = `${panel.offsetHeight}px`;
+  }
+  void panel.offsetWidth;
+  panel.classList.add('is-moving');
+  panel.style.height = opening ? `${panel.scrollHeight}px` : '0px';
+  panel.addEventListener('transitionend', done, { once: true });
+});

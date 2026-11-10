@@ -27,6 +27,7 @@
       "x": 47.88,
       "y": 18.15
     },
+    "clip": false,
     "children": [
       {
         "id": "s0.t2-0",
@@ -51,6 +52,7 @@
           "x": 31.88,
           "y": 4.25
         },
+        "clip": false,
         "children": []
       }
     ]
@@ -66,7 +68,7 @@
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.22) 0px 3.07941px 7.82234px 0px",
+          "value": "rgba(0, 0, 0, 0.22) 0px 3.07629px 7.8136px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -85,7 +87,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 74.86,
+        "duration": 74.75,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -111,7 +113,7 @@
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.831763px)",
+          "value": "translateY(-0.830514px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -142,7 +144,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 74.86,
+        "duration": 74.75,
         "iterations": {
           "kind": "count",
           "count": 1

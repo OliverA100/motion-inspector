@@ -33,7 +33,10 @@ function valueInWords(keyframe: Keyframe): string {
       return `${rounded(parsed.px)} px`;
     case 'percent':
       return `${rounded(parsed.value)}%`;
-    case 'color':
+    case 'color': {
+      const channels = [parsed.r, parsed.g, parsed.b].map(Math.round).join(', ');
+      return parsed.a < 1 ? `rgba(${channels}, ${rounded(parsed.a)})` : `rgb(${channels})`;
+    }
     case 'transform':
       return keyframe.value;
   }
