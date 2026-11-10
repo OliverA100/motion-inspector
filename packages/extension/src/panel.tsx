@@ -161,6 +161,7 @@ const TRIGGER_WORDS: { trigger: Trigger; words: string }[] = [
   { trigger: 'key', words: 'Key press' },
   { trigger: 'loop', words: 'Loops' },
   { trigger: 'running', words: 'Already running' },
+  { trigger: 'scroll', words: 'On scroll' },
   { trigger: 'unknown', words: 'On its own' },
 ];
 

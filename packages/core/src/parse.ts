@@ -301,6 +301,7 @@ const TRIGGERS = [
   'key',
   'loop',
   'running',
+  'scroll',
   'unknown',
 ] as const;
 
@@ -330,7 +331,9 @@ export function parseTrack(value: unknown): Result<Track> {
       andThen(listOf(get(source, 'keyframes'), parseKeyframe), checkKeyframeOrder),
     );
     const timing = at('timing', parseTiming(get(source, 'timing')));
+    const scroll = at('scroll', optional(get(source, 'scroll'), parseScrollDriven));
     if (
+      !scroll.ok ||
       !id.ok ||
       !property.ok ||
       !origin.ok ||
@@ -341,7 +344,7 @@ export function parseTrack(value: unknown): Result<Track> {
       !timing.ok
     ) {
       return failAll(
-        [id, property, origin, group, startOffset, interrupted, keyframes, timing].flatMap(
+        [id, property, origin, group, startOffset, interrupted, keyframes, timing, scroll].flatMap(
           errorsOf,
         ),
       );
@@ -355,7 +358,17 @@ export function parseTrack(value: unknown): Result<Track> {
       interrupted: interrupted.value,
       keyframes: keyframes.value,
       timing: timing.value,
+      scroll: scroll.value,
     });
+  });
+}
+
+function parseScrollDriven(value: unknown): Result<NonNullable<Track['scroll']>> {
+  return andThen(fields(value), (source) => {
+    const timeline = at('timeline', text(get(source, 'timeline')));
+    const range = at('range', text(get(source, 'range')));
+    if (!timeline.ok || !range.ok) return failAll([timeline, range].flatMap(errorsOf));
+    return ok({ timeline: timeline.value, range: range.value });
   });
 }
 

@@ -150,7 +150,8 @@
           "x2": 0.58,
           "y2": 1
         }
-      }
+      },
+      "scroll": null
     },
     {
       "shapeId": "s0",
@@ -207,19 +208,20 @@
           "x2": 0.58,
           "y2": 1
         }
-      }
+      },
+      "scroll": null
     },
     {
       "shapeId": "s0",
       "property": "transform",
       "origin": "css-transition",
       "groupId": "s0:transform",
-      "startOffset": 33.36,
+      "startOffset": 33.3,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.574817px)",
+          "value": "translateY(-0.573826px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -250,7 +252,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.73,
+        "duration": 51.64,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -264,19 +266,20 @@
           "x2": 0.58,
           "y2": 1
         }
-      }
+      },
+      "scroll": null
     },
     {
       "shapeId": "s0",
       "property": "box-shadow",
       "origin": "css-transition",
       "groupId": "s0:box-shadow",
-      "startOffset": 49.96,
+      "startOffset": 50,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.216) 0px 2.43704px 6.02372px 0px",
+          "value": "rgba(0, 0, 0, 0.216) 0px 2.43456px 6.01678px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -295,7 +298,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.73,
+        "duration": 51.64,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -309,7 +312,8 @@
           "x2": 0.58,
           "y2": 1
         }
-      }
+      },
+      "scroll": null
     }
   ],
   "backdrop": "rgb(255, 255, 255)",
@@ -320,7 +324,7 @@
       "shapeId": "s0",
       "frames": [
         {
-          "t": -16.7,
+          "t": -16.6,
           "matrix": [
             1,
             0,
@@ -333,7 +337,7 @@
           "opacity": 1
         },
         {
-          "t": 33.4,
+          "t": 33.3,
           "matrix": [
             1,
             0,
@@ -346,7 +350,7 @@
           "opacity": 1
         },
         {
-          "t": 83.4,
+          "t": 83.3,
           "matrix": [
             1,
             0,
@@ -372,7 +376,7 @@
           "opacity": 1
         },
         {
-          "t": 183.4,
+          "t": 183.3,
           "matrix": [
             1,
             0,
@@ -385,7 +389,7 @@
           "opacity": 1
         },
         {
-          "t": 233.4,
+          "t": 233.3,
           "matrix": [
             1,
             0,

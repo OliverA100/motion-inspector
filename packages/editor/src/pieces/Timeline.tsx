@@ -45,6 +45,9 @@ export type TimelineTrack = {
   edited: boolean;
   // True for the way back of a hover (the leave), after the way there.
   back: boolean;
+  // True when it follows the scroll: its bar is a nominal second, not a
+  // time that can be changed.
+  scroll: boolean;
   // True when the pointer is on this row's shape, here or on the preview.
   highlighted: boolean;
   // How many other rows share this row's timing, because they came from
@@ -249,6 +252,13 @@ export function Timeline(props: Props) {
     if (bar === undefined) return;
     // Grabbing a bar also selects its row, so its curve and numbers show.
     if (hit.row !== selectedIndex) props.onSelect(hit.row);
+    // A row that follows the scroll has no time to drag: it moves the
+    // playhead instead.
+    if (tracks[hit.row]?.scroll === true) {
+      setDrag({ kind: 'scrub', left: box.left });
+      scrubTo(event.clientX, box.left);
+      return;
+    }
     setDrag({
       kind: hit.kind === 'bar' ? 'delay' : 'duration',
       row: hit.row,
@@ -418,6 +428,7 @@ export function Timeline(props: Props) {
                     ) : null}
                     <code>{track.property}</code>
                     {track.back ? <span className="timeline__back">back</span> : null}
+                    {track.scroll ? <span className="timeline__back">scroll</span> : null}
                     {/* Always in the layout, only hidden when the row is not
                         edited. If it came and went, the label column would
                         change width and the bars would move under the pointer. */}
@@ -477,6 +488,7 @@ export function Timeline(props: Props) {
           term={selected?.delayTerm ?? 'delay'}
           value={selected?.mine.delayMs ?? null}
           unit="ms"
+          disabled={selected?.scroll === true}
           onDone={props.onEditEnd}
           min={selected?.delayMin ?? 0}
           onChange={(value) =>
@@ -490,6 +502,7 @@ export function Timeline(props: Props) {
           term={selected?.durationTerm ?? 'duration'}
           value={selected?.mine.durationMs ?? null}
           unit="ms"
+          disabled={selected?.scroll === true}
           onDone={props.onEditEnd}
           min={0}
           onChange={(value) =>
@@ -509,9 +522,11 @@ export function Timeline(props: Props) {
                 the panel would change height. */}
             {selected === null
               ? '\u00a0'
-              : linked
-                ? `Timing and curve shared with ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}.`
-                : 'Its own timing and curve.'}
+              : selected.scroll
+                ? 'Follows the scroll: 0 to 100% of its range, shown over 1 s. Its curve can be edited.'
+                : linked
+                  ? `Timing and curve shared with ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}.`
+                  : 'Its own timing and curve.'}
           </span>
           <Button
             disabled={!linked}

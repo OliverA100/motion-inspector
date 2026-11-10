@@ -158,9 +158,20 @@ type NumberFieldProps = {
   onChange: (value: number) => void;
   // Called when the field is left.
   onDone?: () => void;
+  // Shown, but not to be changed (a row that follows the scroll).
+  disabled?: boolean;
 };
 
-export function NumberField({ label, term, value, unit, min, onChange, onDone }: NumberFieldProps) {
+export function NumberField({
+  label,
+  term,
+  value,
+  unit,
+  min,
+  onChange,
+  onDone,
+  disabled = false,
+}: NumberFieldProps) {
   // While the field has focus it shows exactly what was typed, even when
   // that is not a number yet ("", "-", "1."). Without this it would snap
   // back to the last valid value on every keystroke, and could not be
@@ -175,7 +186,7 @@ export function NumberField({ label, term, value, unit, min, onChange, onDone }:
         value={draft ?? shown}
         step={10}
         min={min}
-        disabled={value === null}
+        disabled={value === null || disabled}
         onChange={(event) => {
           setDraft(event.target.value);
           // An empty or half-typed field is not a number yet. Wait for one.

@@ -327,14 +327,6 @@ test('an animation inside an open shadow root is captured', async ({ page }) => 
   expect(lift.keyframes[1]?.value).toBe('translateY(-4px)');
 });
 
-test('a scroll-driven animation is listed, not drawn', async ({ page }) => {
-  const capture = onlyCapture(await captureFixture(page, 'scroll', nothing, 500));
-  expect(capture.tracks).toEqual([]);
-  expect(capture.notShown).toEqual([
-    'A scroll-driven animation on div.fx-scroll__bar is not shown, because it follows the scroll position, not time.',
-  ]);
-});
-
 // ---------- Parts that appear and disappear (found on real sites) ----------
 
 test('a panel that was hidden when picked gets a shape when it opens', async ({ page }) => {
@@ -713,7 +705,7 @@ test('a ::before fill sweeps behind the label, drawn before it', async ({ page }
   expect(tracksOn(capture, fill.id).map((item) => item.keyframes.map((k) => k.value))).toEqual([
     ['scaleX(0)', 'scaleX(1)'],
   ]);
-  expect(describeCapture(capture)).toContain('scales from 0 wide by 1 tall to full size');
+  expect(describeCapture(capture)).toContain('widens from nothing to its full width');
 });
 
 test('perspective(1px) translateZ(0) is read as flat, so a grow reads as a scale', async ({
@@ -1430,4 +1422,18 @@ test('a menu a button opens at the end of the page is what gets recorded', async
   const properties = capture?.tracks.map((track) => track.property) ?? [];
   expect(properties).toContain('opacity');
   expect(properties).toContain('transform');
+});
+
+test('an animation that follows the scroll is listed when picked, shown over a second', async ({
+  page,
+}) => {
+  const takes = await captureFixture(page, 'scroll', async () => {}, 600);
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  expect(capture?.trigger).toBe('scroll');
+  const track = capture?.tracks.find((item) => item.property === 'transform');
+  // Chrome writes scroll(nearest) as scroll(), its default.
+  expect(track?.scroll).toEqual({ timeline: 'scroll()', range: 'normal' });
+  expect(track?.timing.duration).toBe(1000);
+  expect(track?.keyframes.map((keyframe) => keyframe.value)).toEqual(['scaleX(0)', 'scaleX(1)']);
+  expect(capture?.notShown.join(' ')).not.toContain('scroll');
 });

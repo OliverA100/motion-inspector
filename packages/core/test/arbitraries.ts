@@ -189,6 +189,13 @@ function rawTrack(shapeIds: string[]): fc.Arbitrary<unknown> {
     interrupted: fc.boolean(),
     keyframes: rawKeyframes,
     timing: rawTiming,
+    scroll: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        timeline: fc.constantFrom('scroll()', 'view()', '--hero'),
+        range: fc.constantFrom('normal', 'entry 0% cover 50%'),
+      }),
+    ),
   });
 }
 

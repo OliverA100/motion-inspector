@@ -117,6 +117,9 @@ export type Trigger =
   | 'key'
   | 'loop'
   | 'running'
+  // Animations that follow the page's scroll, listed when the element is
+  // picked.
+  | 'scroll'
   | 'unknown';
 
 // ---------- Shapes ----------
@@ -283,7 +286,16 @@ export type Track = {
   // At least 2. Offsets sorted. The first is 0 and the last is 1.
   keyframes: Keyframe[];
   timing: Timing;
+  // Driven by scrolling, not time (CSS animation-timeline): its progress,
+  // 0 to 100% of its scroll range, is shown over timing.duration, a nominal
+  // second. null: driven by time. Older takes have none.
+  scroll: ScrollDriven | null;
 };
+
+// timeline: CSS animation-timeline as computed ("scroll()", "view()", or a
+// named one such as "--hero"). range: animation-range as computed
+// ("normal", "entry 0% cover 50%").
+export type ScrollDriven = { timeline: string; range: string };
 
 export type Keyframe = {
   offset: Offset;

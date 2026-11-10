@@ -227,6 +227,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
             ? layoutName(row.property)
             : plainName(row.property),
         previewed: isPreviewed(row.property),
+        scroll: edited.tracks[index]?.scroll != null,
         shown: !hiddenTracks.includes(index),
         highlighted:
           model.hoveredShapeId !== null && edited.tracks[index]?.shapeId === model.hoveredShapeId,

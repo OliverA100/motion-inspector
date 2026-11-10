@@ -217,7 +217,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 49 | Chakra | A collapsed panel hidden with display: none was filmed as fully visible | A part with no box is filmed as unseen (D134) |
 | 50 | daisyUI | A card flip lost its front face's turn: rotateY(180deg) to rotateY(0deg) was taken as no change, 129 px off | Transforms must also agree as 3D matrices to be "no change" (D134) |
 
-## Eighth pass: speed while recording, the parent's perspective, Vercel's peel, and new kinds of sites (D135 to D139)
+## Eighth pass: speed while recording, the parent's perspective, Vercel's peel, and new kinds of sites (D135 to D142)
 
 `node tests/freeze-sites.cjs` records real pages as the extension does (whole pages picked too) and times their frames; with PROFILE=1 it says which capture functions took the time.
 
@@ -237,6 +237,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 62 | shadcn, MUI | A dropdown or dialog opens in a portal at the end of the page: picking its button captured nothing of it | Recording moves to what the press opened; each is one "Click" take within 0 px (D141) |
 | 63 | shadcn | The portal's host is an empty box: moving to it failed, and recording stopped without a word | The outermost new part with a size is recorded; a failed move goes on where it was (D141) |
 | 64 | MUI | An empty "nothing to see" take after the menu's real one | Not sent once a take with motion is in (D141) |
+| 65 | scroll-driven-animations.style | Scroll-driven animations were listed as "not shown" | Listed when picked, shown over a nominal second, exported with their timeline and range (D142) |
 
 ## Known limits seen on real sites
 

@@ -93,6 +93,7 @@ function canShareRule(tracks: Track[]): boolean {
   const sameTiming = tracks.every(
     (track) =>
       JSON.stringify(track.timing) === JSON.stringify(first.timing) &&
+      JSON.stringify(track.scroll) === JSON.stringify(first.scroll) &&
       track.startOffset === first.startOffset,
   );
   const easingAt = (track: Track, offset: number): string | null => {
@@ -171,11 +172,14 @@ function animationPart(name: string, unit: AnimationUnit): string {
   const timing = track.timing;
   const iterations =
     timing.iterations.kind === 'infinite' ? 'infinite' : formatNumber(timing.iterations.count);
+  // One that follows the scroll has no time of its own: "auto", and its
+  // timeline after the shorthand.
+  const scroll = track.scroll !== null;
   return [
     name,
-    formatMs(timing.duration),
+    scroll ? 'auto' : formatMs(timing.duration),
     'linear',
-    formatMs(effectiveDelay(track)),
+    scroll ? '0ms' : formatMs(effectiveDelay(track)),
     iterations,
     timing.direction,
     timing.fill,
@@ -246,6 +250,30 @@ export function captureToCss(capture: Capture): string {
       ...declaration(
         'animation',
         entry.units.map((unit) => animationPart(nameOf(unit), unit)),
+      ),
+      // After the shorthand, which would reset them.
+      ...(entry.units.some((unit) => unit.tracks[0]?.scroll != null)
+        ? declaration(
+            'animation-timeline',
+            entry.units.map((unit) => unit.tracks[0]?.scroll?.timeline ?? 'auto'),
+          )
+        : []),
+      ...(entry.units.some((unit) => (unit.tracks[0]?.scroll?.range ?? 'normal') !== 'normal')
+        ? declaration(
+            'animation-range',
+            entry.units.map((unit) => unit.tracks[0]?.scroll?.range ?? 'normal'),
+          )
+        : []),
+      // A named timeline is made by a scroller elsewhere on the page.
+      ...Array.from(
+        new Set(
+          entry.units.flatMap((unit) => {
+            const timeline = unit.tracks[0]?.scroll?.timeline ?? '';
+            return timeline.startsWith('--') ? [timeline] : [];
+          }),
+        ),
+        (name) =>
+          `  /* ${safeInComment(name)} is a timeline named by a scroller on the page (scroll-timeline-name or view-timeline-name). Give the same name to the element that scrolls. */`,
       ),
       '}',
       ...(entry.transitions.length > 0 ? transitionValuesComment(entry.transitions) : []),

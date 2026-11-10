@@ -118,6 +118,10 @@ type Seen = {
   origin: 'css-transition' | 'css-animation' | 'web-animation';
   // False for scroll-driven animations.
   onDocumentTimeline: boolean;
+  // For one that follows the scroll: its timeline and range as CSS writes
+  // them. null for one that runs in time, or one whose timeline cannot be
+  // said in CSS.
+  scroll: { timeline: string; range: string } | null;
   properties: string[];
   keyframes: {
     offset: number;
@@ -179,6 +183,7 @@ function read(animation: Animation): Seen | null {
     animation,
     target: effect.target,
     pseudoElement: effect.pseudoElement,
+    scroll: animation.timeline instanceof DocumentTimeline ? null : scrollOf(animation),
     origin: originOf(animation),
     onDocumentTimeline: animation.timeline instanceof DocumentTimeline,
     properties: Array.from(
@@ -246,6 +251,62 @@ function valuesOf(
   });
 }
 
+// How long a scroll-driven animation is shown for: its progress, 0 to 100%
+// of its scroll range, over one second.
+const SCROLL_SHOWN_MS = 1000;
+
+// A scroll-driven animation's timeline and range, as CSS writes them. A CSS
+// animation's are its element's computed animation-timeline and
+// animation-range, at the place of its name in animation-name. One made by
+// script has a timeline object: view() or scroll(), and its range.
+function scrollOf(animation: Animation): { timeline: string; range: string } | null {
+  const effect = animation.effect;
+  if (!(effect instanceof KeyframeEffect) || effect.target === null) return null;
+  if (animation instanceof CSSAnimation) {
+    const style = getComputedStyle(effect.target, effect.pseudoElement);
+    const names = style.animationName.split(',').map((name) => name.trim());
+    const index = Math.max(0, names.lastIndexOf(animation.animationName));
+    const pick = (list: string): string => {
+      const items = topLevelList(list);
+      return items[index % Math.max(items.length, 1)] ?? '';
+    };
+    const timeline = pick(style.getPropertyValue('animation-timeline'));
+    const rangeStart = pick(style.getPropertyValue('animation-range-start')) || 'normal';
+    const rangeEnd = pick(style.getPropertyValue('animation-range-end')) || 'normal';
+    if (timeline === '' || timeline === 'auto') return null;
+    return {
+      timeline,
+      range:
+        rangeStart === 'normal' && rangeEnd === 'normal' ? 'normal' : `${rangeStart} ${rangeEnd}`,
+    };
+  }
+  const timeline =
+    typeof ViewTimeline !== 'undefined' && animation.timeline instanceof ViewTimeline
+      ? 'view()'
+      : typeof ScrollTimeline !== 'undefined' && animation.timeline instanceof ScrollTimeline
+        ? 'scroll()'
+        : null;
+  return timeline === null ? null : { timeline, range: 'normal' };
+}
+
+// A comma list, split where the commas are not inside brackets.
+function topLevelList(text: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '(') depth += 1;
+    else if (character === ')') depth -= 1;
+    else if (character === ',' && depth === 0) {
+      parts.push(text.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  parts.push(text.slice(start).trim());
+  return parts;
+}
+
 function easingData(text: string): Easing | null {
   const parsed = parseEasing(text);
   return parsed.ok ? parsed.value : null;
@@ -256,8 +317,8 @@ function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | nu
   if (seen.pseudoElement !== null && partOf(snapshot, seen) === null) {
     return `An animation on ${seen.pseudoElement} of ${label} is not shown, because that pseudo-element sits in the flow of text, so its box cannot be measured. Only absolutely positioned ones are drawn.`;
   }
-  if (!seen.onDocumentTimeline) {
-    return `A scroll-driven animation on ${label} is not shown, because it follows the scroll position, not time.`;
+  if (!seen.onDocumentTimeline && seen.scroll === null) {
+    return `A scroll-driven animation on ${label} is not shown, because its timeline could not be read.`;
   }
   // Railway's logo moves trains inside an SVG mask: a cut-out that reveals
   // the logo, not something drawn.
@@ -283,7 +344,10 @@ function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | nu
   if (seen.timing.iterationStart !== 0 || seen.timing.endDelay !== 0) {
     return `An animation on ${label} is not shown, because it uses a start position or end delay that CSS cannot express.`;
   }
-  if (seen.timing.duration === null || easingData(seen.timing.easing) === null) {
+  if (
+    (seen.timing.duration === null && seen.scroll === null) ||
+    easingData(seen.timing.easing) === null
+  ) {
     return `An animation on ${label} is not shown, because its timing could not be read.`;
   }
   return null;
@@ -531,8 +595,11 @@ function tracksFor(
         property,
         origin: seen.origin,
         groupId,
-        startOffset: Math.max(0, seen.startTime - takeStart),
+        // One that follows the scroll has no time of its own: it is shown
+        // from the start of the take, over SCROLL_SHOWN_MS.
+        startOffset: seen.scroll === null ? Math.max(0, seen.startTime - takeStart) : 0,
         interrupted: seen.interrupted,
+        scroll: seen.scroll,
         keyframes: filled.map((item, index) => ({
           offset: item.offset,
           value: item.value,
@@ -544,8 +611,9 @@ function tracksFor(
           // An animation that began before the take (one that was already
           // running when picked) keeps its phase through a negative delay,
           // which is how CSS says "already this far in".
-          delay: seen.timing.delay + Math.min(0, seen.startTime - takeStart),
-          duration: seen.timing.duration,
+          delay:
+            seen.scroll === null ? seen.timing.delay + Math.min(0, seen.startTime - takeStart) : 0,
+          duration: seen.scroll === null ? seen.timing.duration : SCROLL_SHOWN_MS,
           iterations: Number.isFinite(seen.timing.iterations)
             ? { kind: 'count', count: seen.timing.iterations }
             : { kind: 'infinite' },
@@ -1215,6 +1283,7 @@ function within(root: Element, target: EventTarget | null): boolean {
 // own parts is not.
 function triggerOf(root: Element, take: Seen[], scriptStart: number | null = null): Trigger {
   if (take.length === 0 && scriptStart === null) return 'unknown';
+  if (take.length > 0 && take.every((seen) => seen.scroll !== null)) return 'scroll';
   if (take.length > 0 && take.every((seen) => seen.runningAtPick)) {
     // Transitions already under way when recording began, with the pointer
     // on the element: the hover that picking by click started.
@@ -2129,7 +2198,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       // worked out when frame callbacks run.
       const filmed = new Set<Element>();
       for (const seen of take) {
-        if (seen.pseudoElement === null) filmed.add(seen.target);
+        // One that follows the scroll does not move while the take runs:
+        // its film would only say it stood still.
+        if (seen.pseudoElement === null && seen.scroll === null) filmed.add(seen.target);
       }
       // Parts a CSS variable moves, filmed too.
       const throughVariables = new Set<Element>();

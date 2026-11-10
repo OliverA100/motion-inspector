@@ -22,6 +22,22 @@ describe('captureToCss', () => {
     );
   });
 
+  test('an animation that follows the scroll: auto, then its timeline and range', () => {
+    const scrolled = {
+      ...bounce,
+      tracks: bounce.tracks.map((track) => ({
+        ...track,
+        scroll: { timeline: '--hero', range: 'entry 25% cover 50%' },
+      })),
+    };
+    const css = captureToCss(scrolled);
+    expect(css).toMatch(/animation: motion-1 auto linear 0ms/);
+    // After the shorthand, which would reset them.
+    expect(css.indexOf('animation-timeline: --hero;')).toBeGreaterThan(css.indexOf('animation:'));
+    expect(css).toContain('animation-range: entry 25% cover 50%;');
+    expect(css).toContain('--hero is a timeline named by a scroller on the page');
+  });
+
   test('four equal corner tracks are written as border-radius', () => {
     expect(captureToCss(morph)).toContain('    border-radius 500ms ease-in-out;');
     expect(captureToCss(morph)).not.toContain('border-top-left-radius');

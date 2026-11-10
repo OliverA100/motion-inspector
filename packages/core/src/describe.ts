@@ -114,19 +114,37 @@ function movePhrases(from: Pose, to: Pose): string[] {
 
   const scales = differs(from.scaleX, to.scaleX) || differs(from.scaleY, to.scaleY);
   const uniform = !differs(from.scaleX, from.scaleY) && !differs(to.scaleX, to.scaleY);
+  // Only one way: a bar that sweeps across widens, it does not "scale from
+  // 0 wide by 1 tall".
+  const onlyX = !differs(from.scaleY, to.scaleY) && !differs(from.scaleY, 1);
+  const onlyY = !differs(from.scaleX, to.scaleX) && !differs(from.scaleX, 1);
+  const share = (value: number, side: string): string =>
+    !differs(value, 1)
+      ? `its full ${side}`
+      : !differs(value, 0)
+        ? 'nothing'
+        : `${rounded(value)} of its ${side}`;
   const scale = !scales
     ? []
-    : !uniform
-      ? // A sweep that grows from scaleX(0) reads "scales from 0 wide by 1 tall to
-        // full size", not "scales to 1 wide by 1 tall".
-        differs(from.scaleX, 1) || differs(from.scaleY, 1)
+    : onlyX
+      ? [
+          `${to.scaleX > from.scaleX ? 'widens' : 'narrows'} from ${share(from.scaleX, 'width')} to ${share(to.scaleX, 'width')}`,
+        ]
+      : onlyY
         ? [
-            `scales from ${sizeInWords(from.scaleX, from.scaleY)} to ${sizeInWords(to.scaleX, to.scaleY)}`,
+            `${to.scaleY > from.scaleY ? 'gets taller' : 'gets shorter'} from ${share(from.scaleY, 'height')} to ${share(to.scaleY, 'height')}`,
           ]
-        : [`scales to ${sizeInWords(to.scaleX, to.scaleY)}`]
-      : differs(from.scaleX, 1)
-        ? [`scales from ${rounded(from.scaleX)} to ${rounded(to.scaleX)}`]
-        : [`scales to ${rounded(to.scaleX)}`];
+        : !uniform
+          ? // A sweep that grows from scaleX(0) reads "scales from 0 wide by 1 tall to
+            // full size", not "scales to 1 wide by 1 tall".
+            differs(from.scaleX, 1) || differs(from.scaleY, 1)
+            ? [
+                `scales from ${sizeInWords(from.scaleX, from.scaleY)} to ${sizeInWords(to.scaleX, to.scaleY)}`,
+              ]
+            : [`scales to ${sizeInWords(to.scaleX, to.scaleY)}`]
+          : differs(from.scaleX, 1)
+            ? [`scales from ${rounded(from.scaleX)} to ${rounded(to.scaleX)}`]
+            : [`scales to ${rounded(to.scaleX)}`];
 
   const turn = to.degrees - from.degrees;
   const rotate = differs(turn, 0)
@@ -192,6 +210,11 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe, backdrop:
   const quotable =
     fromWords.length <= SHORT_ENOUGH_TO_QUOTE && toWords.length <= SHORT_ENOUGH_TO_QUOTE;
   return quotable ? `changes ${property} from ${fromWords} to ${toWords}` : `changes ${property}`;
+}
+
+// When a motion follows the scroll, instead of how long it takes.
+function scrollWords(scroll: NonNullable<Track['scroll']>): string {
+  return scroll.timeline.startsWith('view(') ? 'as it scrolls into view' : 'as the page scrolls';
 }
 
 // ---------- Colors in words ----------
@@ -477,7 +500,9 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
   const delays = staggerWords(motions.map((motion) => motion.delayMs));
 
   return [
-    `${subject} ${joinWithAnd(first.phrases)} over ${ms(first.durationMs)} ms${delays}.`,
+    first.mainTrack.scroll !== null
+      ? `${subject} ${joinWithAnd(first.phrases)} ${scrollWords(first.mainTrack.scroll)}.`
+      : `${subject} ${joinWithAnd(first.phrases)} over ${ms(first.durationMs)} ms${delays}.`,
     easingSentence(first.mainTrack, pronoun),
     repeatSentence(first.mainTrack, pronoun),
     first.goesBack

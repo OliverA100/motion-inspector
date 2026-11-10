@@ -128,6 +128,7 @@ function TimelinePiece() {
     shown: !hidden.includes(index),
     edited: false,
     back: false,
+    scroll: false,
     highlighted: false,
     linkedCount: 0,
     delayMin: 0,

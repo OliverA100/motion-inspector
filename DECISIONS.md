@@ -804,3 +804,13 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - The parts of a movement join the list of changes ("moves down 8 px, scales from 0.95 to 1 and fades"), instead of "and ... and ...".
 **Why:** shadcn's dropdown and dialog, and MUI's menu, open in a portal: picking their button captured nothing of them. Now each is one "Click" take, within 0 px of the page. Fixture 38 covers it.
 **Gave up:** a portal that existed at pick time and was only hidden (a Bootstrap dropdown kept in the page) is not followed this way; it is usually inside the picked element's parent, where the nearby-parent rule finds it.
+
+### D142. Animations that follow the scroll
+**Chose:**
+- A track may follow the scroll instead of time: `Track.scroll`, a new optional field, holds its CSS animation-timeline ("scroll()", "view()", or a name such as "--page-scroll") and animation-range ("entry 25% cover 50%"), as computed. null for time (and in older takes). A new trigger, "scroll", names a take of them ("On scroll" in the panel).
+- They exist from the moment the page loads, so they are listed as soon as the element is picked, as one take. Their progress, 0 to 100% of their range, is shown over a nominal second: the preview, the timeline and the curve all work on that second. Delay and duration are shown but cannot be changed (they do not exist for scroll); the curve can. A row says "scroll", and its timing line says what the second stands for. Dragging its bar moves the playhead.
+- The CSS export writes duration "auto", then animation-timeline and animation-range after the animation shorthand, which would otherwise reset them. A named timeline gets a comment: the scroller that names it is elsewhere on the page.
+- The description says "as the page scrolls" or "as it scrolls into view" instead of a duration. They are not filmed: they stand still while the take runs.
+- A scale in one direction only is said as such: "widens from nothing to its full width", not "scales from 0 wide by 1 tall to full size".
+**Why:** scroll-driven animations were listed as "not shown". Checked on scroll-driven-animations.style: a reading-progress bar on a named timeline, an image revealed over "entry 25% cover 50%", a contact list fading in and out with view().
+**Gave up:** the preview does not scroll; it plays the range over time. A timeline made by script (a ScrollTimeline object) is written as scroll() or view(), without its source or axis.
