@@ -67,6 +67,10 @@ export type RecorderOptions = {
   // animation runs on a nearby parent of it. People often click a part
   // inside the thing that moves: the image in a card, the text in a button.
   onParentAnimation?: (parent: Element) => void;
+  // True when recording moved here from what was picked, because this is
+  // what moves: what is already happening is what was asked for, not the
+  // pick's own hover.
+  moved?: boolean;
 };
 
 // How far up to look for a parent that animates. Further up are things like
@@ -1153,6 +1157,14 @@ function followsFor(
       y: round(move.y - origin.y, 1),
       inside: move.kind === 'out' ? within(element, move.related) : within(element, move.target),
     }));
+    // Following the pointer needs the pointer on it while the take runs:
+    // a way out, with the pointer gone, is motion settling back, measured
+    // as it is (Aceternity's 3D card: a follow fitted to its leave started
+    // at rest, where the card was still turned).
+    const insideDuring = moves.filter(
+      (move, index) => move.time >= first && all[index]?.inside === true,
+    ).length;
+    if (insideDuring < 3) continue;
     // At most the samples the format holds, evenly spread.
     const every = Math.ceil(all.length / MOST_POINTER_SAMPLES);
     const pointer = all.filter((_sample, index) => index % every === 0 || index === all.length - 1);
@@ -1296,6 +1308,9 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
       .reverse()
       .find((event) => event.type === 'down' || event.type === 'key');
     if (press !== undefined) return press.type === 'down' ? 'click' : 'key';
+    // Running when picked and never ending: a loop (a spinner, a marquee),
+    // not something that was set off.
+    if (take.every((seen) => !Number.isFinite(seen.timing.endTime))) return 'loop';
     const transitions = take.every((seen) => seen.origin === 'css-transition');
     return transitions && root.matches(':hover') ? 'hover' : 'running';
   }
@@ -1665,7 +1680,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // left the pointer on the element, the motion before it first leaves is
   // dropped: it began before recording, so its start was missed.
   const recordingStarted = asNumber(document.timeline.currentTime) ?? 0;
-  const onAtStart = snapshot.rootElement.matches(':hover');
+  const onAtStart = options.moved !== true && snapshot.rootElement.matches(':hover');
   let crossedYet = false;
   const crossingsHandled = new WeakSet<PageEvent>();
   // Where each part a script moved came to rest when its last take ended,
@@ -1814,6 +1829,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   let previousScripted = false;
   // Whether a take with motion has been sent.
   let shownMotion = false;
+  // The name of the take a crossing is ending, while it is sent.
+  let cutTrigger: Trigger | null = null;
 
   // Takes cut off by a restart of the same property almost at once. A run
   // of them is a script restarting a transition every frame (found on
@@ -2007,7 +2024,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       finished,
       finishedSamples,
       notes,
-      null,
+      cutTrigger,
       finishedFilm,
       finishedScripted,
     );
@@ -2028,7 +2045,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // Ends the take at a crossing of the element's edge (at `time`), when a
   // script is moving parts. Its film goes up to the crossing; the next
   // take's starts with the last frame before it.
-  const cutAt = (time: number): void => {
+  const cutAt = (time: number, crossing: 'over' | 'out'): void => {
     // The next take starts from the state just before the crossing: a
     // millisecond earlier, so a script's first write in the same frame is
     // kept after it rather than written over it.
@@ -2072,7 +2089,12 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       film = before;
       // Kept apart: neither is the way back of the other in one take.
       previous = null;
+      // Named by how it ended: the pointer leaving ends a hover, coming
+      // back ends a leave. The crossing that ended it is the event nearest
+      // its start otherwise, and named it wrongly.
+      cutTrigger = crossing === 'out' ? 'hover' : 'leave';
       endTake();
+      cutTrigger = null;
     }
     previous = null;
     film = after;
@@ -2090,7 +2112,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         within(snapshot.rootElement, event.target) &&
         !within(snapshot.rootElement, event.related)
       ) {
-        cutAt(event.time);
+        cutAt(event.time, event.type);
       }
     }
     // Read everything new first. Several animations often start in the same

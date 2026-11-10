@@ -814,3 +814,17 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - A scale in one direction only is said as such: "widens from nothing to its full width", not "scales from 0 wide by 1 tall to full size".
 **Why:** scroll-driven animations were listed as "not shown". Checked on scroll-driven-animations.style: a reading-progress bar on a named timeline, an image revealed over "entry 25% cover 50%", a contact list fading in and out with view().
 **Gave up:** the preview does not scroll; it plays the range over time. A timeline made by script (a ScrollTimeline object) is written as scroll() or view(), without its source or axis.
+
+### D143. Decorative loops: conic gradients, stacking order, plain sizes
+**Chose:**
+- Conic gradients are read and drawn: a new gradient kind, "conic", with its start angle (as CSS: 0 up, clockwise), its center as a share of the image, and stops as shares of a turn. Canvas draws it from 3 o'clock, CSS from 12: a quarter turn back. A spinning border light (Magic UI's shimmer button) was a flat average color.
+- Parts are drawn in their stacking order: each part's children are sorted by the z-index of the outermost positioned element they belong to (0 when none), keeping document order otherwise. Magic UI's label (z-index 10) was hidden under the black panel after it (-30).
+- Lengths in calc() are worked out against the box when a value is read, as they already were when filming: a marquee's translateX(calc(-100% - 16px)) "moves left 816 px".
+- Animations running when picked that never end are named "Loops", not "Already running".
+- Times from a second up are said in seconds ("over 1.2 s", "over 20 s"). Width and height changes are said as "widens", "narrows", "grows taller", "gets shorter"; visibility as "appears" and "disappears".
+**Why:** Magic UI's components (shimmer button, marquee, animated gradient text, ripple) and product sites' navigation (Apple's flyout). All matched the page; what they said and showed did not.
+- Parts are named by a class that names something: utility variants and arbitrary values ("focus-visible:outline-2") and hashes ("css-1lf4hs") are passed over for the next class. The name is still a real class, so it still works as a selector in the export.
+- A take cut where the pointer crosses the edge is named by how it ended: the pointer leaving ends a hover, coming back ends a leave. The nearest event to its start had named a hover "leave".
+- Recording that moved to a parent (because that is what moves) keeps what is already happening: only a recording started by a pick drops the pick's own hover.
+- A part follows the pointer only if the pointer was on it while the take ran: a way out with the pointer gone is motion settling back, measured as it is. A follow fitted to it started at rest, where the card was still turned.
+**Gave up:** a negative z-index part is drawn above its parent's own background, not under it. Aceternity's 3D card: its hover follows the pointer (2.2 px), its leave settles back (0 px).

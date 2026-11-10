@@ -702,11 +702,27 @@ test('edges are drawn: a one-sided border, an inner shadow, a ring', async ({ pa
       if (Math.abs(r - 16) < 20 && Math.abs(g - 163) < 20 && Math.abs(b - 127) < 20) green += 1;
       if (Math.abs(r - 207) < 25 && Math.abs(g - 237) < 18 && Math.abs(b - 229) < 18) lines += 1;
     }
+    // The conic: its red starts at 3 o'clock, its blue is at 9.
+    const sideOf = (r: number, g: number, b: number): number => {
+      let sum = 0;
+      let count = 0;
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const [pr = 0, pg = 0, pb = 0] = at(x, y);
+          if (Math.abs(pr - r) < 10 && Math.abs(pg - g) < 10 && Math.abs(pb - b) < 10) {
+            sum += x;
+            count += 1;
+          }
+        }
+      }
+      return count === 0 ? -1 : sum / count;
+    };
     return {
       line: { width: right - left, height: bottom - top },
       well: { darkest, lightest },
       pink,
       grid: { green, lines },
+      conic: { red: sideOf(239, 68, 68), blue: sideOf(59, 130, 246) },
     };
   });
   expect(found).not.toBeNull();
@@ -717,6 +733,8 @@ test('edges are drawn: a one-sided border, an inner shadow, a ring', async ({ pa
   expect(found?.pink ?? 0).toBeGreaterThan(50);
   expect(found?.grid.green ?? 0).toBeGreaterThan(500);
   expect(found?.grid.lines ?? 0).toBeGreaterThan((found?.grid.green ?? 0) / 10);
+  expect(found?.conic.blue ?? -1).toBeGreaterThan(0);
+  expect(found?.conic.red ?? 0).toBeGreaterThan(found?.conic.blue ?? 0);
 });
 
 test("a card flip is drawn through its parent's perspective, each face only from the front", async ({

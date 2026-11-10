@@ -407,7 +407,7 @@ function parseTile(value: unknown): Result<NonNullable<Gradient['tile']>> {
 
 function parseGradient(value: unknown): Result<Gradient> {
   return andThen(fields(value), (source): Result<Gradient> => {
-    const kind = at('kind', oneOf(get(source, 'kind'), ['linear', 'radial'] as const));
+    const kind = at('kind', oneOf(get(source, 'kind'), ['linear', 'radial', 'conic'] as const));
     const stops = at(
       'stops',
       andThen(listOf(get(source, 'stops'), parseStop), (list) =>
@@ -422,6 +422,17 @@ function parseGradient(value: unknown): Result<Gradient> {
     if (kind.value === 'radial')
       return ok({ kind: 'radial', stops: stops.value, tile: tile.value });
     const angle = at('angle', number(get(source, 'angle')));
+    if (kind.value === 'conic') {
+      const center = at('center', parsePoint2d(get(source, 'center')));
+      if (!angle.ok || !center.ok) return failAll([angle, center].flatMap(errorsOf));
+      return ok({
+        kind: 'conic',
+        angle: angle.value,
+        center: center.value,
+        stops: stops.value,
+        tile: tile.value,
+      });
+    }
     return angle.ok
       ? ok({ kind: 'linear', angle: angle.value, stops: stops.value, tile: tile.value })
       : angle;

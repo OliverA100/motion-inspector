@@ -37,6 +37,12 @@ function ms(value: number): string {
   return formatNumber(Math.round(value));
 }
 
+// A time as a person says it: "400 ms", "1.2 s", "20 s".
+function time(value: number): string {
+  if (Math.abs(value) < 1000) return `${ms(value)} ms`;
+  return `${formatNumber(Math.round(value / 100) / 10)} s`;
+}
+
 // Between the parts of one change that read as separate changes ("moves
 // down 8 px", "scales to 1"), so they join the list with the others.
 const PART = '\u0001';
@@ -204,8 +210,28 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe, backdrop:
   if (EDGES.includes(property)) {
     return `moves its ${property} edge from ${fromWords} to ${toWords}`;
   }
+  if (
+    (property === 'width' || property === 'height') &&
+    from.parsed?.kind === 'length' &&
+    to.parsed?.kind === 'length'
+  ) {
+    const grows = to.parsed.px > from.parsed.px;
+    const verb =
+      property === 'width'
+        ? grows
+          ? 'widens'
+          : 'narrows'
+        : grows
+          ? 'grows taller'
+          : 'gets shorter';
+    return `${verb}, from ${fromWords} to ${toWords}`;
+  }
   if (property === 'width' || property === 'height') {
     return `changes its ${property} from ${fromWords} to ${toWords}`;
+  }
+  if (property === 'visibility') {
+    if (to.value === 'visible') return 'appears';
+    if (to.value === 'hidden' || to.value === 'collapse') return 'disappears';
   }
   const quotable =
     fromWords.length <= SHORT_ENOUGH_TO_QUOTE && toWords.length <= SHORT_ENOUGH_TO_QUOTE;
@@ -478,12 +504,14 @@ function staggerWords(delays: number[]): string {
   const highest = sorted[sorted.length - 1] ?? 0;
   if (gaps.every((gap) => !differs(gap, 0))) {
     // Under a millisecond is no delay anyone would write.
-    return lowest >= 1 ? ` after a ${ms(lowest)} ms delay` : '';
+    return lowest >= 1 ? ` after a ${time(lowest)} delay` : '';
   }
   if (gaps.every((gap) => !differs(gap, firstGap))) {
-    return `, one after another, ${ms(firstGap)} ms apart`;
+    return `, one after another, ${time(firstGap)} apart`;
   }
-  return `, with delays from ${ms(lowest)} to ${ms(highest)} ms`;
+  return highest < 1000
+    ? `, with delays from ${ms(lowest)} to ${ms(highest)} ms`
+    : `, with delays from ${time(lowest)} to ${time(highest)}`;
 }
 
 function sentencesFor(motions: ShapeMotion[]): string[] {
@@ -502,7 +530,7 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
   return [
     first.mainTrack.scroll !== null
       ? `${subject} ${joinWithAnd(first.phrases)} ${scrollWords(first.mainTrack.scroll)}.`
-      : `${subject} ${joinWithAnd(first.phrases)} over ${ms(first.durationMs)} ms${delays}.`,
+      : `${subject} ${joinWithAnd(first.phrases)} over ${time(first.durationMs)}${delays}.`,
     easingSentence(first.mainTrack, pronoun),
     repeatSentence(first.mainTrack, pronoun),
     first.goesBack

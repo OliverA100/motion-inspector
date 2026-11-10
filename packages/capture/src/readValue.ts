@@ -30,6 +30,44 @@ function asTransformText(property: string, value: string): string | null {
 // A length in px. A percentage is measured against the element's own box,
 // as CSS does for translate.
 function px(value: CSSNumericValue, size: number): number | null {
+  // calc(): its parts worked out against the box, so a marquee's
+  // translateX(calc(-100% - 16px)) is a number of px (found on Magic UI).
+  if (value instanceof CSSMathSum) {
+    let total = 0;
+    for (const part of value.values) {
+      const each = px(part, size);
+      if (each === null) return null;
+      total += each;
+    }
+    return total;
+  }
+  if (value instanceof CSSMathNegate) {
+    const inner = px(value.value, size);
+    return inner === null ? null : -inner;
+  }
+  if (value instanceof CSSMathProduct) {
+    // A length times plain numbers.
+    let product = 1;
+    let lengths = 0;
+    for (const part of value.values) {
+      const number = part instanceof CSSUnitValue && part.unit === 'number' ? part.value : null;
+      if (number !== null) {
+        product *= number;
+        continue;
+      }
+      const length = px(part, size);
+      if (length === null) return null;
+      product *= length;
+      lengths += 1;
+    }
+    return lengths === 1 ? product : null;
+  }
+  if (value instanceof CSSMathMin || value instanceof CSSMathMax) {
+    const parts = Array.from(value.values, (part) => px(part, size));
+    if (parts.some((part) => part === null)) return null;
+    const numbers = parts as number[];
+    return value instanceof CSSMathMin ? Math.min(...numbers) : Math.max(...numbers);
+  }
   if (!(value instanceof CSSUnitValue)) return null;
   if (value.unit === 'px') return value.value;
   if (value.unit === 'percent') return (value.value / 100) * size;

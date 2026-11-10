@@ -14,8 +14,18 @@ const anyNumber = fc.double({ noNaN: true, noDefaultInfinity: true });
 const zeroOrMore = fc.double({ min: 0, noNaN: true, noDefaultInfinity: true });
 const zeroToOne = fc.double({ min: 0, max: 1, noNaN: true });
 
-// One gradient layer, linear or radial.
+// One gradient layer, linear, radial or conic.
 const anyGradient = fc.oneof(
+  fc.record({
+    kind: fc.constant('conic'),
+    angle: anyNumber,
+    center: fc.record({ x: zeroToOne, y: zeroToOne }),
+    stops: fc.array(fc.record({ color: fc.string(), at: zeroToOne }), {
+      minLength: 2,
+      maxLength: 4,
+    }),
+    tile: fc.constant(null),
+  }),
   fc.record({
     kind: fc.constant('linear'),
     angle: anyNumber,

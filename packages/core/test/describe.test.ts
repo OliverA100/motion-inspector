@@ -47,7 +47,7 @@ describe('describeCapture on the sample captures', () => {
 
   test('dots: a pulse goes out and back, and negative delays still read as a stagger', () => {
     expect(describeCapture(dots)).toBe(
-      'Each of the 3 "span" shapes scales from 0.4 to 1 and back and fades from 40% to 100% and back over 1200 ms, one after another, 160 ms apart. Each repeats forever.',
+      'Each of the 3 "span" shapes scales from 0.4 to 1 and back and fades from 40% to 100% and back over 1.2 s, one after another, 160 ms apart. Each repeats forever.',
     );
   });
 
@@ -59,7 +59,7 @@ describe('describeCapture on the sample captures', () => {
 
   test('steps', () => {
     expect(describeCapture(stepsSample)).toBe(
-      'The "div.fx-steps__dot" shape moves right 120 px over 1000 ms. It jumps in 5 steps.',
+      'The "div.fx-steps__dot" shape moves right 120 px over 1 s. It jumps in 5 steps.',
     );
   });
 

@@ -238,6 +238,9 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 63 | shadcn | The portal's host is an empty box: moving to it failed, and recording stopped without a word | The outermost new part with a size is recorded; a failed move goes on where it was (D141) |
 | 64 | MUI | An empty "nothing to see" take after the menu's real one | Not sent once a take with motion is in (D141) |
 | 65 | scroll-driven-animations.style | Scroll-driven animations were listed as "not shown" | Listed when picked, shown over a nominal second, exported with their timeline and range (D142) |
+| 66 | Magic UI | A spinning border light (conic gradient) was a flat color; the button's label hid under a black panel after it (z-index); a marquee read "changes transform to translateX(calc(-100% - 16px))"; loops were "Already running" | Conic gradients, stacking order, calc() lengths, "Loops" (D143) |
+| 67 | Aceternity | The 3D card's hover was dropped after recording moved to its parent, and its leave was fitted as a follow from rest (5.8 px) | A moved recording keeps what is happening; a follow needs the pointer on it (D143). 2.2 px and 0 px |
+| 68 | Mantine, Ant Design | Accordions, collapse, modal | Within 0 px. Ant's modal: only its mask is followed (its dialog sits beside it in an empty container) |
 
 ## Known limits seen on real sites
 

@@ -795,6 +795,19 @@ function fillOneTile(
     }
     return canvasGradient;
   };
+  if (gradient.kind === 'conic') {
+    // CSS starts at 12 o'clock, the canvas at 3: a quarter turn back.
+    const start = ((gradient.angle - 90) * Math.PI) / 180;
+    context.fillStyle = addStops(
+      context.createConicGradient(
+        start,
+        left + width * gradient.center.x,
+        top + height * gradient.center.y,
+      ),
+    );
+    context.fill();
+    return;
+  }
   if (gradient.kind === 'linear') {
     const radians = (gradient.angle * Math.PI) / 180;
     const length = Math.abs(width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));

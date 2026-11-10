@@ -42,9 +42,10 @@ export function record(
   recorder?.stop();
   takes = [];
   lastElement = element;
-  const watch = (watched: Element): void => {
+  const watch = (watched: Element, moved = false): void => {
     lastElement = watched;
     recorder = startRecording(takeSnapshot(watched), {
+      moved,
       ...(onStopped === undefined
         ? {}
         : {
@@ -64,7 +65,7 @@ export function record(
         // it in its first frame. Nothing has to be triggered again. If it
         // cannot be drawn after all, recording goes on where it was.
         try {
-          watch(parent);
+          watch(parent, true);
           onMoved?.(labelOf(parent));
         } catch {
           watch(watched);

@@ -5,8 +5,9 @@
 // The input is Chrome's computed form, for example
 //   "linear-gradient(to right, rgb(32, 152, 209), oklch(0.6 0.2 260) 30%, rgba(0, 0, 0, 0))"
 //   "radial-gradient(rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 80%)"
-// Every layer is read, each on its own tile. Repeating and conic gradients
-// are not drawn with their pattern; they still give an average color.
+// Every layer is read, each on its own tile: linear, radial and conic.
+// Repeating gradients are not drawn with their pattern; they still give an
+// average color.
 
 import { readValue } from './readValue';
 
@@ -14,7 +15,14 @@ export type RawStop = { color: string; at: number };
 export type RawTile = { x: number; y: number; width: number; height: number; repeat: boolean };
 export type RawGradient =
   | { kind: 'linear'; angle: number; stops: RawStop[]; tile: RawTile | null }
-  | { kind: 'radial'; stops: RawStop[]; tile: RawTile | null };
+  | { kind: 'radial'; stops: RawStop[]; tile: RawTile | null }
+  | {
+      kind: 'conic';
+      angle: number;
+      center: { x: number; y: number };
+      stops: RawStop[];
+      tile: RawTile | null;
+    };
 
 type Size = { width: number; height: number };
 
@@ -217,6 +225,7 @@ function readLayer(layerText: string, box: Size, sizing: Sizing | null): RawGrad
   // Directions and px stops are measured on the image, which is the tile.
   if (tile !== null) box = { width: tile.width, height: tile.height };
   const layer = layerParts(layerText);
+  if (layer !== null && layer.name === 'conic-gradient') return readConic(layer.inside, box, tile);
   if (layer === null || (layer.name !== 'linear-gradient' && layer.name !== 'radial-gradient')) {
     return null;
   }
@@ -256,6 +265,54 @@ function readLayer(layerText: string, box: Size, sizing: Sizing | null): RawGrad
   return layer.name === 'linear-gradient'
     ? { kind: 'linear', angle, stops: placed, tile }
     : { kind: 'radial', stops: placed, tile };
+}
+
+// A conic gradient: "from 90deg at 30% 50%, red, blue 120deg, red". Stops
+// at an angle (deg, turn) or a share of the turn (%).
+function readConic(inside: string, box: Size, tile: RawTile | null): RawGradient | null {
+  const parts = topLevel(inside);
+  let angle = 0;
+  let center = { x: 0.5, y: 0.5 };
+  const head = parts[0]?.trim() ?? '';
+  if (head.startsWith('from ') || head.startsWith('at ')) {
+    parts.shift();
+    const from = /from\s+(\S+)/.exec(head)?.[1];
+    if (from !== undefined) {
+      const read = angleOf(from, box);
+      if (read === null) return null;
+      angle = read;
+    }
+    const where = /at\s+(.+)$/.exec(head)?.[1]?.trim().split(/\s+/);
+    if (where !== undefined) {
+      const share = (text: string | undefined, size: number): number | null => {
+        if (text === undefined || text === 'center') return 0.5;
+        if (text === 'left' || text === 'top') return 0;
+        if (text === 'right' || text === 'bottom') return 1;
+        if (text.endsWith('%')) return parseFloat(text) / 100;
+        if (text.endsWith('px')) return size > 0 ? parseFloat(text) / size : null;
+        return null;
+      };
+      const x = share(where[0], box.width);
+      const y = share(where[1] ?? where[0], box.height);
+      if (x === null || y === null) return null;
+      center = { x, y };
+    }
+  }
+  const stops: { color: string; at: number | null }[] = [];
+  for (const part of parts) {
+    const stop = stopParts(part);
+    if (stop === null) return null;
+    const positions = stop.positions.map((position) => {
+      if (position.endsWith('%')) return parseFloat(position) / 100;
+      const turn = angleOf(position, box);
+      return turn === null ? null : turn / 360;
+    });
+    if (positions.some((position) => position === null || !Number.isFinite(position))) return null;
+    if (positions.length === 0) stops.push({ color: stop.color, at: null });
+    for (const position of positions) stops.push({ color: stop.color, at: position });
+  }
+  if (stops.length < 2 || stops.length > 32) return null;
+  return { kind: 'conic', angle, center, stops: placeStops(stops), tile };
 }
 
 // The average color of a gradient's stops, all layers, weighted by how

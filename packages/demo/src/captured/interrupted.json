@@ -216,12 +216,12 @@
       "property": "transform",
       "origin": "css-transition",
       "groupId": "s0:transform",
-      "startOffset": 33.3,
+      "startOffset": 33.33,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.573826px)",
+          "value": "translateY(-0.574273px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -252,7 +252,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.64,
+        "duration": 51.68,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -274,12 +274,12 @@
       "property": "box-shadow",
       "origin": "css-transition",
       "groupId": "s0:box-shadow",
-      "startOffset": 50,
+      "startOffset": 50.03,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.216) 0px 2.43456px 6.01678px 0px",
+          "value": "rgba(0, 0, 0, 0.216) 0px 2.43568px 6.01991px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -298,7 +298,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.64,
+        "duration": 51.68,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -324,7 +324,7 @@
       "shapeId": "s0",
       "frames": [
         {
-          "t": -16.6,
+          "t": -16.7,
           "matrix": [
             1,
             0,
@@ -402,7 +402,7 @@
           "opacity": 1
         },
         {
-          "t": 283.4,
+          "t": 283.3,
           "matrix": [
             1,
             0,

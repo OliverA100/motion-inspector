@@ -145,9 +145,23 @@ export type Snapshot = {
 
 // ---------- Small readers ----------
 
+// A class worth naming a part by. Left out: utility variants and arbitrary
+// values ("focus-visible:outline-2", "[transform-style:preserve-3d]"),
+// and names made of a hash ("css-1lf4hs", "m_3f35ae96"). They are still
+// real classes, so a name made from the others is still a selector.
+function namesSomething(name: string): boolean {
+  return (
+    !/[:[\]\/()!%@.]/.test(name) && !/^(css|sc|jsx|m|e)[-_](?=[a-z0-9]*\d)[a-z0-9]{5,}$/i.test(name)
+  );
+}
+
+function namingClasses(element: Element): string[] {
+  return Array.from(element.classList).filter(namesSomething);
+}
+
 export function labelOf(element: Element): string {
   const tag = element.tagName.toLowerCase();
-  const firstClass = element.classList[0];
+  const firstClass = namingClasses(element)[0];
   return firstClass === undefined ? tag : `${tag}.${firstClass}`;
 }
 
@@ -155,7 +169,7 @@ export function labelOf(element: Element): string {
 export function selectorOf(element: Element): string {
   const tag = element.tagName.toLowerCase();
   if (element.id !== '') return `${tag}#${element.id}`;
-  const classes = Array.from(element.classList).slice(0, 2);
+  const classes = namingClasses(element).slice(0, 2);
   return classes.length === 0 ? tag : `${tag}.${classes.join('.')}`;
 }
 
@@ -1390,11 +1404,36 @@ function shapesFor(
       });
 
   const after = pseudo('::after');
-  const all = [...before, ...inside, ...after];
-  if (shape === null) return all;
+  const all = byStacking([...before, ...inside, ...after]);
+  // A positioned element with a z-index is one layer among its siblings,
+  // everything drawn inside it included.
+  const z = zIndexOf(style);
+  const result = shape === null ? all : [shape];
+  if (z !== null) for (const made of result) stackingOf.set(made, z);
+  if (shape === null) return result;
   // An icon already holds its parts.
   shape.children = [...shape.children, ...all];
   return [shape];
+}
+
+// The order parts are drawn in among their siblings: their z-index, 0 when
+// none. Document order otherwise. Magic UI's shimmer button puts its label
+// at z-index 10 over a black panel at -30 that comes after it.
+const stackingOf = new WeakMap<RawShape, number>();
+
+function zIndexOf(style: CSSStyleDeclaration): number | null {
+  if (style.position === 'static' || style.zIndex === 'auto') return null;
+  const z = Number.parseInt(style.zIndex, 10);
+  return Number.isFinite(z) ? z : null;
+}
+
+function byStacking(shapes: RawShape[]): RawShape[] {
+  if (shapes.every((made) => (stackingOf.get(made) ?? 0) === 0)) return shapes;
+  // Sorted without losing document order where the z-index is the same.
+  return shapes
+    .map((made, index) => ({ made, index, z: stackingOf.get(made) ?? 0 }))
+    .sort((first, second) => first.z - second.z || first.index - second.index)
+    .map((item) => item.made);
 }
 
 // ---------- Public function ----------

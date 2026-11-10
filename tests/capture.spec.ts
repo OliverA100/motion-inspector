@@ -1296,6 +1296,19 @@ test('edges: every shadow layer with its spread and inset, and a border on one s
     offset: 4,
     style: 'dashed',
   });
+  // Drawn in stacking order: the cover first, the label (higher z-index) over it.
+  const order = shapes.map((shape) => shape.label);
+  expect(order.indexOf('div.fx-edges__cover')).toBeGreaterThan(-1);
+  expect(order.indexOf('div.fx-edges__label')).toBeGreaterThan(
+    order.indexOf('div.fx-edges__cover'),
+  );
+  const conic = shapes.find((shape) => shape.label.includes('fx-edges__conic'));
+  expect(conic?.gradient?.kind).toBe('conic');
+  if (conic?.gradient?.kind === 'conic') {
+    expect(conic.gradient.angle).toBe(90);
+    expect(conic.gradient.center).toEqual({ x: 0.5, y: 0.5 });
+    expect(conic.gradient.stops.map((stop) => stop.at)).toEqual([0, 0.5, 1]);
+  }
   const tab = shapes.find((shape) => shape.label.includes('fx-edges__tab'));
   expect(tab?.stroke?.width).toBe(3);
   // Only the bottom side shows.
@@ -1436,4 +1449,22 @@ test('an animation that follows the scroll is listed when picked, shown over a s
   expect(track?.timing.duration).toBe(1000);
   expect(track?.keyframes.map((keyframe) => keyframe.value)).toEqual(['scaleX(0)', 'scaleX(1)']);
   expect(capture?.notShown.join(' ')).not.toContain('scroll');
+});
+
+test('parts are named by a class that names something, not a utility variant or a hash', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  const takes = await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.className = 'focus-visible:outline-2 css-1ab2cd card';
+    host.style.cssText =
+      'position: fixed; left: 20px; top: 20px; width: 40px; height: 40px; background: #ccc';
+    document.body.append(host);
+    window.MotionCapture.record(host);
+    host.animate({ opacity: [1, 0.5] }, 200);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    return window.MotionCapture.stop();
+  });
+  expect(captureOf(takes[0]).root.label).toBe('div.card');
 });

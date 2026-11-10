@@ -228,7 +228,18 @@ export type Shape = {
 // shimmer slides a tile twice the box's width across it. null: the box.
 export type Gradient =
   | { kind: 'linear'; angle: number; stops: GradientStop[]; tile: GradientTile | null }
-  | { kind: 'radial'; stops: GradientStop[]; tile: GradientTile | null };
+  | { kind: 'radial'; stops: GradientStop[]; tile: GradientTile | null }
+  // A conic gradient turns around a center: angle is where it starts, in
+  // degrees as CSS measures them (0 up, clockwise), center is a share of
+  // the image's width and height, and each stop's "at" a share of a turn.
+  // A spinning border light is one. Older takes have none.
+  | {
+      kind: 'conic';
+      angle: number;
+      center: { x: number; y: number };
+      stops: GradientStop[];
+      tile: GradientTile | null;
+    };
 
 // repeat: whether copies of the tile fill the rest of the box, side by side
 // and above and below (background-repeat), as they do unless "no-repeat".
