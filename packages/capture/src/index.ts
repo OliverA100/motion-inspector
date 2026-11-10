@@ -60,10 +60,15 @@ export function record(
         onTake?.(result);
       },
       onParentAnimation: (parent) => {
-        onMoved?.(labelOf(parent));
         // The parent's animation is still running, so the new recorder sees
-        // it in its first frame. Nothing has to be triggered again.
-        watch(parent);
+        // it in its first frame. Nothing has to be triggered again. If it
+        // cannot be drawn after all, recording goes on where it was.
+        try {
+          watch(parent);
+          onMoved?.(labelOf(parent));
+        } catch {
+          watch(watched);
+        }
       },
     });
   };

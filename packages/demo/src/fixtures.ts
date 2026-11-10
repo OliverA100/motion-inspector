@@ -251,3 +251,22 @@ ripple.addEventListener('click', () => {
   ripple.append(wave);
   setTimeout(() => wave.remove(), 400);
 });
+
+// 38. Menu at the end of the page. The button adds a menu to the body, under
+// itself, and takes it away on the next click.
+const menuButton = inside(fixture('menu'), '.fx-menu-button');
+let openMenu: HTMLElement | null = null;
+menuButton.addEventListener('click', () => {
+  if (openMenu !== null) {
+    openMenu.remove();
+    openMenu = null;
+    return;
+  }
+  const box = menuButton.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.className = 'fx-menu';
+  menu.style.left = `${box.left}px`;
+  menu.style.top = `${box.bottom + 6}px`;
+  document.body.append(menu);
+  openMenu = menu;
+});

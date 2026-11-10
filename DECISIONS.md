@@ -793,3 +793,14 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - A description longer than about three lines shows its first three, and More. The whole text stays in the page for screen readers.
 **Why:** the side panel on Vercel's card read "changes clip-path through 22 keyframes over 549.9 ms... moves 311.34 px left... from rgba(0, 0, 0, 0.08) to rgba(0, 0, 0, 0.21)", over eight rows, four of them one border.
 **Gave up:** a color's name is approximate, by hue ranges.
+
+### D141. Menus and dialogs that open at the end of the page
+**Chose:**
+- When a press or a key on the picked element is followed, within 600 ms, by an animation on a part that was not in the page when the element was picked, that part was opened by it: a menu, a dialog or a popover put at the end of the body (a portal). Recording moves to it, as it moves to a nearby parent, and the panel says "Watching div.isolate, the part that moves." The part recorded is the outermost new one that has a size: a portal's host is often an empty box with the menu fixed inside it (shadcn).
+- A take whose animations were already running when recording moved is named by a press or key just before them ("Click"), ahead of hover: a menu often opens under the pointer.
+- If recording cannot move after all (the part cannot be drawn), it goes on where it was, instead of stopping without a word.
+- A take whose only content is "ends where it starts, nothing to see" is not sent once a take with motion has been: it only adds a row (MUI's menu paper settling back).
+- A filter of functions that change nothing (blur(0px), brightness(1)) is none: "changes filter from blur(0px) to none" is no change.
+- The parts of a movement join the list of changes ("moves down 8 px, scales from 0.95 to 1 and fades"), instead of "and ... and ...".
+**Why:** shadcn's dropdown and dialog, and MUI's menu, open in a portal: picking their button captured nothing of them. Now each is one "Click" take, within 0 px of the page. Fixture 38 covers it.
+**Gave up:** a portal that existed at pick time and was only hidden (a Bootstrap dropdown kept in the page) is not followed this way; it is usually inside the picked element's parent, where the nearby-parent rule finds it.

@@ -101,6 +101,10 @@ function nearbyParentHolding(target: Element, picked: Element): Element | null {
 // is part of what was picked (found on a real site).
 const SAME_TRIGGER_MS = 150;
 
+// A part that appears elsewhere this soon after a press on the picked
+// element was opened by it.
+const OPENED_WITHIN_MS = 600;
+
 export type Recorder = { stop: () => void };
 
 const DEFAULT_IDLE_MS = 200;
@@ -1214,6 +1218,15 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
   if (take.length > 0 && take.every((seen) => seen.runningAtPick)) {
     // Transitions already under way when recording began, with the pointer
     // on the element: the hover that picking by click started.
+    // Opened by a press just before recording moved to it (a menu at the
+    // end of the page, which may open under the pointer). The press that
+    // picked never reaches this list.
+    const began = Math.min(...take.map((seen) => seen.startTime));
+    const press = pageEvents
+      .filter((event) => event.time <= began + 50 && event.time >= began - 700)
+      .reverse()
+      .find((event) => event.type === 'down' || event.type === 'key');
+    if (press !== undefined) return press.type === 'down' ? 'click' : 'key';
     const transitions = take.every((seen) => seen.origin === 'css-transition');
     return transitions && root.matches(':hover') ? 'hover' : 'running';
   }
@@ -1443,6 +1456,11 @@ function asMatrix(functions: TransformFunction[]): DOMMatrix {
 
 function sameValue(property: string, first: string, second: string, element: Element): boolean {
   if (first === second) return true;
+  // A filter of functions that change nothing (blur(0px), brightness(1))
+  // is none (found on shadcn's menu: blur(0px) to none).
+  if (property === 'filter' || property === 'backdrop-filter') {
+    return plainFilter(first) === plainFilter(second);
+  }
   // A transform is compared as the browser's own 3D matrix: a turn about y
   // (a card flip, rotateY(180deg)) is not "none" (found on daisyUI's swap,
   // whose front face lost its turn).
@@ -1474,6 +1492,16 @@ function sameValue(property: string, first: string, second: string, element: Ele
     );
   }
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+// A filter with the functions that change nothing left out.
+const NO_CHANGE =
+  /^(blur\(0(px)?\)|(brightness|contrast|opacity|saturate)\(1\)|(grayscale|invert|sepia)\(0\)|hue-rotate\(0(deg)?\))$/;
+function plainFilter(value: string): string {
+  const parts = (value.match(/[a-z-]+\([^()]*(\([^()]*\)[^()]*)*\)/g) ?? []).filter(
+    (part) => !NO_CHANGE.test(part),
+  );
+  return parts.length === 0 ? 'none' : parts.join(' ');
 }
 
 // How long the motion rests between going and coming back, at most. The
@@ -1661,12 +1689,47 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // A nearby parent that holds a new animation outside the picked element:
   // either the picked element has nothing of its own, or the animation
   // started at the same moment as one inside it.
+  // A menu, a dialog or a tooltip that a press on the picked element
+  // opened at the end of the page (a portal): what was picked is its
+  // button, what moves is over there. The new part's top under the body
+  // (with its overlay, for a dialog) is recorded instead.
+  const inDocumentAtPick = new WeakSet<Element>(Array.from(document.querySelectorAll('*')));
+  const openedElsewhere = (target: Element): Element | null => {
+    const docNow = asNumber(document.timeline.currentTime) ?? 0;
+    const pressed = pageEvents.some(
+      (event) =>
+        (event.type === 'down' || event.type === 'key') &&
+        within(snapshot.rootElement, event.target) &&
+        event.time >= docNow - OPENED_WITHIN_MS,
+    );
+    if (!pressed || inDocumentAtPick.has(target)) return null;
+    // The new parts above it, up to the portal's own container.
+    const chain: Element[] = [target];
+    for (
+      let parent = target.parentElement;
+      parent !== null && parent !== document.body && !inDocumentAtPick.has(parent);
+      parent = parent.parentElement
+    ) {
+      chain.unshift(parent);
+    }
+    // The outermost that has a size: a portal's host is often an empty box
+    // with the menu fixed inside it (found on shadcn).
+    return (
+      chain.find((part) => {
+        const box = part.getBoundingClientRect();
+        return part.isConnected && box.width > 0 && box.height > 0;
+      }) ?? null
+    );
+  };
+
   const animatedParent = (now: number): Element | null => {
     for (const animation of document.getAnimations()) {
       if (parentsChecked.has(animation)) continue;
       parentsChecked.add(animation);
       const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
       if (target === null || snapshot.rootElement.contains(target)) continue;
+      const opened = openedElsewhere(target);
+      if (opened !== null) return opened;
       const together = now - lastPickedStart <= SAME_TRIGGER_MS;
       if (foundAnything && !together) continue;
       const parent = nearbyParentHolding(target, snapshot.rootElement);
@@ -1680,6 +1743,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   let previous: Seen[] | null = null;
   // Whether that take had parts a script moved.
   let previousScripted = false;
+  // Whether a take with motion has been sent.
+  let shownMotion = false;
 
   // Takes cut off by a restart of the same property almost at once. A run
   // of them is a script restarting a transition every frame (found on
@@ -1868,9 +1933,27 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     ) {
       notes.push(KEPT_MOVING_NOTE);
     }
-    options.onTake(
-      buildTake(snapshot, finished, finishedSamples, notes, null, finishedFilm, finishedScripted),
+    const result = buildTake(
+      snapshot,
+      finished,
+      finishedSamples,
+      notes,
+      null,
+      finishedFilm,
+      finishedScripted,
     );
+    const capture = result.capture;
+    const moves = capture !== null && (capture.tracks.length > 0 || capture.follows !== null);
+    // "Ends where it starts, nothing to see" says why a take is empty. Once
+    // a take with motion is in, another such note is only noise (found on
+    // MUI's menu: its paper's transform settles back after opening).
+    const nothingToSee =
+      capture !== null &&
+      !moves &&
+      capture.notShown.every((note) => note.endsWith('so there is nothing to see.'));
+    if (nothingToSee && shownMotion) return;
+    if (moves) shownMotion = true;
+    options.onTake(result);
   };
 
   // Ends the take at a crossing of the element's edge (at `time`), when a

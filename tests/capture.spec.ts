@@ -1415,3 +1415,19 @@ test('parts moved through a CSS variable are measured, the variable itself not l
   expect(moved(capture.root.children[0]?.id ?? '')).toBeCloseTo(90, 0);
   expect(describeCapture(capture)).toContain('was measured from the page');
 });
+
+test('a menu a button opens at the end of the page is what gets recorded', async ({ page }) => {
+  const takes = await captureFixture(
+    page,
+    'menu',
+    (p) => p.click('[data-fixture="menu"] [data-root]'),
+    700,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  // Recording moved from the button to the menu it opened.
+  expect(capture?.root.label).toBe('div.fx-menu');
+  expect(capture?.trigger).toBe('click');
+  const properties = capture?.tracks.map((track) => track.property) ?? [];
+  expect(properties).toContain('opacity');
+  expect(properties).toContain('transform');
+});

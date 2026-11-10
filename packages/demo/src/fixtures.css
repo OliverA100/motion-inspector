@@ -1186,3 +1186,34 @@ fx-shadow-card {
     opacity: 0.5;
   }
 }
+
+/* 38. Menu at the end of the page: a portal opened by a button. */
+.fx-menu-button {
+  padding: 8px 14px;
+  font: inherit;
+  color: #ffffff;
+  background: #111827;
+  border: 0;
+  border-radius: 8px;
+}
+.fx-menu {
+  position: fixed;
+  z-index: 10;
+  width: 160px;
+  height: 120px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  transform-origin: top left;
+  animation: fx-menu-open 200ms ease-out both;
+}
+@keyframes fx-menu-open {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

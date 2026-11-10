@@ -234,6 +234,9 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 59 | NumberFlow | Digits rolled by animating CSS variables: 415 px and 100% opacity off | Parts moved through a variable are filmed and measured: within 1.2 px (D139) |
 | 60 | MUI | The tab's click ripple stayed drawn after it was taken off the page: 100% opacity off | Parts taken off the page are hidden from then on (D139) |
 | 61 | Fine | Hamburger icons (spin, elastic), Radix and Mantine switches, GSAP hover | All within 0.1 px of the page |
+| 62 | shadcn, MUI | A dropdown or dialog opens in a portal at the end of the page: picking its button captured nothing of it | Recording moves to what the press opened; each is one "Click" take within 0 px (D141) |
+| 63 | shadcn | The portal's host is an empty box: moving to it failed, and recording stopped without a word | The outermost new part with a size is recorded; a failed move goes on where it was (D141) |
+| 64 | MUI | An empty "nothing to see" take after the menu's real one | Not sent once a take with motion is in (D141) |
 
 ## Known limits seen on real sites
 

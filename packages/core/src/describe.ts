@@ -37,6 +37,10 @@ function ms(value: number): string {
   return formatNumber(Math.round(value));
 }
 
+// Between the parts of one change that read as separate changes ("moves
+// down 8 px", "scales to 1"), so they join the list with the others.
+const PART = '\u0001';
+
 function joinWithAnd(parts: string[]): string {
   if (parts.length <= 1) return parts.join('');
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
@@ -163,7 +167,8 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe, backdrop:
   const toPose = poseOf(to.parsed);
   if (TRANSFORM_PROPERTIES.includes(property) && fromPose !== null && toPose !== null) {
     const phrases = movePhrases(fromPose, toPose);
-    if (phrases.length > 0) return joinWithAnd(phrases);
+    // Kept apart, so they join the other changes in one list.
+    if (phrases.length > 0) return phrases.join(PART);
   }
 
   const fromWords = valueInWords(from);
@@ -312,14 +317,14 @@ function changePhrase(group: PropertyGroup, backdrop: Rgb): string {
     const farthest = keyframes.reduce((best, keyframe) =>
       distance(first, keyframe) > distance(first, best) ? keyframe : best,
     );
-    return `${phraseBetween(group.property, first, farthest, backdrop)} and back`;
+    return `${joinWithAnd(phraseBetween(group.property, first, farthest, backdrop).split(PART))} and back`;
   }
   const phrase = phraseBetween(group.property, first, last, backdrop);
   // Keyframes an author wrote say the motion has stages (a bounce). Those
   // fitted to measured motion are only how closely it was followed.
   const measured = group.tracks[0]?.origin === 'script';
   return keyframes.length > 2 && !measured
-    ? `${phrase} through ${keyframes.length} keyframes`
+    ? `${joinWithAnd(phrase.split(PART))} through ${keyframes.length} keyframes`
     : phrase;
 }
 
@@ -416,8 +421,8 @@ function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
   return {
     shape,
     isRoot: shape.id === capture.root.id,
-    phrases: movementFirst(groupByShorthand(tracks)).map((group) =>
-      changePhrase(group, backdropOf(capture)),
+    phrases: movementFirst(groupByShorthand(tracks)).flatMap((group) =>
+      changePhrase(group, backdropOf(capture)).split(PART),
     ),
     durationMs: Math.max(...tracks.map((track) => track.timing.duration)),
     delayMs: Math.min(...tracks.map(effectiveDelay)),
