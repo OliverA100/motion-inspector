@@ -30,6 +30,8 @@
     "clip": false,
     "transform": null,
     "shadow": null,
+    "shadows": null,
+    "outline": null,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -63,6 +65,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -153,7 +157,7 @@
           "opacity": 1
         },
         {
-          "t": 33.4,
+          "t": 33.3,
           "matrix": [
             1,
             0,
@@ -166,7 +170,7 @@
           "opacity": 1
         },
         {
-          "t": 83.4,
+          "t": 83.3,
           "matrix": [
             1,
             0,
@@ -179,7 +183,7 @@
           "opacity": 1
         },
         {
-          "t": 133.4,
+          "t": 133.3,
           "matrix": [
             1,
             0,
@@ -192,7 +196,7 @@
           "opacity": 1
         },
         {
-          "t": 183.4,
+          "t": 183.3,
           "matrix": [
             1,
             0,
@@ -205,7 +209,7 @@
           "opacity": 1
         },
         {
-          "t": 233.4,
+          "t": 233.3,
           "matrix": [
             1,
             0,
@@ -218,7 +222,7 @@
           "opacity": 1
         },
         {
-          "t": 283.4,
+          "t": 283.3,
           "matrix": [
             1,
             0,
@@ -231,7 +235,7 @@
           "opacity": 1
         },
         {
-          "t": 333.4,
+          "t": 333.3,
           "matrix": [
             1,
             0,
@@ -244,7 +248,7 @@
           "opacity": 1
         },
         {
-          "t": 383.4,
+          "t": 383.3,
           "matrix": [
             1,
             0,

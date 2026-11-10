@@ -203,7 +203,24 @@ Script-driven motion (inline styles changing every frame, no browser animation) 
 
 Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 frames. vanilla-tilt's card is found following the pointer on every run ("turns toward it in 3D and grows, catching up in about 10 ms and easing in and out over about 70 ms"); its glare, which turns with the pointer's angle, is shown as measured and checks 52 px off, and its way back checks 9 px off. Atropos and react-spring did not load within 30 s in the harness.
 
+## Seventh pass: every element checked against the page (D133 to D135)
+
+`node tests/sweep.cjs` now records each element twice: once paused, for the photographs, and once untouched, whose capture is shown and checked. Each line of the summary carries the editor's self-check against the page. 32 sites, about 250 elements: almost all within 0 px. Found and fixed:
+
+| # | Seen on | What was wrong | Fix |
+|---|---|---|---|
+| 44 | Linear | A focus ring left by a click was not drawn | Outlines are read and drawn (D133) |
+| 45 | Fixture | A card edge drawn as a "0 0 0 1px" ring shadow, layered and inner shadows, a tab with only a bottom border were missing or drawn as a box | Every shadow layer, borders per side (D133) |
+| 46 | Extension | The hover that picking started began before the take: its row had a delay of -716 ms and an empty bar | A finite transition already under way starts the take (D134) |
+| 47 | shadcn | The switch's thumb was filmed 86 px off: "translate: calc(100% - 2px)" was read as 100 px and 2 px | Percentages and calc() in translate are resolved against the element's box (D134) |
+| 48 | MUI | The accordion was invisible: a fade-in running at pick, not part of the take, left it at its starting opacity | Each take shows such a fade where it was going, unless it has the fade (D134) |
+| 49 | Chakra | A collapsed panel hidden with display: none was filmed as fully visible | A part with no box is filmed as unseen (D134) |
+| 50 | daisyUI | A card flip lost its front face's turn: rotateY(180deg) to rotateY(0deg) was taken as no change, 129 px off | Transforms must also agree as 3D matrices to be "no change" (D134). Now 16 px off: see the limits |
+
 ## Known limits seen on real sites
+
+- **A parent's perspective is not in the preview.** A flip turning inside a parent with `perspective` narrows on the page and is drawn flat in the preview (daisyUI's swap, 16 px off mid-turn). Perspective written in the element's own transform is drawn.
+- **Pseudo-elements are not filmed**, so a take that only moves ::before or ::after has no self-check badge.
 
 - **Images are flat gray**, so two slides of a carousel look the same. Image data is never copied.
 - **Text is drawn as bars.** Page text is never copied.

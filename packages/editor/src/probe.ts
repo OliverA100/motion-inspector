@@ -13,6 +13,7 @@ import {
   findShape,
   sampleTrack,
   type Capture,
+  type ShadowLayer,
   type Shape,
   type Track,
 } from '@motion-inspector/core';
@@ -183,6 +184,21 @@ function shadowOf(value: string): Shadow | null {
   return { color, x, y, blur };
 }
 
+// Every layer of a computed box-shadow, as Chrome writes it: "rgba(0, 0, 0,
+// 0.1) 0px 2px 4px 0px, rgba(…) 0px 0px 0px 1px inset".
+function shadowLayersOf(value: string): ShadowLayer[] | null {
+  if (value === 'none') return null;
+  const layers = value.split(/,(?![^(]*\))/).flatMap((one): ShadowLayer[] => {
+    const color = /^\s*(rgba?\([^)]*\)|\S+)/.exec(one)?.[1];
+    if (color === undefined) return [];
+    const [x = 0, y = 0, blur = 0, spread = 0] = numbersIn(
+      one.slice(one.indexOf(color) + color.length),
+    );
+    return [{ color, x, y, blur: Math.max(blur, 0), spread, inset: /\binset\b/.test(one) }];
+  });
+  return layers.length === 0 ? null : layers;
+}
+
 // ---------- Size and position ----------
 
 // A keyframe's value in px, from what capture read, or null.
@@ -329,6 +345,7 @@ function poseOf(
     width: poseWidth,
     height: poseHeight,
     shadow: shadow === null ? null : shadowOf(shadow),
+    shadows: shadow === null ? null : shadowLayersOf(shadow),
     textColor: valueOf('color'),
   };
 }

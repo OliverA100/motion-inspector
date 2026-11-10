@@ -377,10 +377,14 @@ function tracksFor(
     // Transforms are compared as their list of functions here, never as
     // matrices: rotate(0deg) to rotate(360deg) is a full turn.
     const firstValue = filled[0]?.value ?? '';
+    // A 3D turn (rotateY) is not in the list of functions, so the
+    // browser's own 3D matrix must agree as well (found on daisyUI's swap:
+    // rotateY(180deg) to rotateY(0deg) was dropped as no change).
     const changesNothing = filled.every((item) =>
       TRANSFORM_PROPERTIES.includes(property)
         ? JSON.stringify(readValue(property, item.value, box)) ===
-          JSON.stringify(readValue(property, firstValue, box))
+            JSON.stringify(readValue(property, firstValue, box)) &&
+          (property !== 'transform' || sameValue(property, item.value, firstValue, seen.target))
         : sameValue(property, item.value, firstValue, seen.target),
     );
     if (changesNothing) {
@@ -1102,7 +1106,12 @@ function buildTake(
   const drawable = take.filter(
     (seen) => whyNotShown(snapshot, seen, labelOf(seen.target)) === null,
   );
-  const fresh = drawable.filter((seen) => !seen.runningAtPick);
+  // A finite one already under way (the hover that picking by click
+  // started) does count: it is short, and starting the take after it
+  // left its bar before 0 on the timeline, with a negative delay.
+  const fresh = drawable.filter(
+    (seen) => !seen.runningAtPick || Number.isFinite(seen.timing.endTime),
+  );
   const basis = fresh.length > 0 ? fresh : drawable.length > 0 ? drawable : take;
   // A take moved only by a script starts with its first frame of film.
   // A take moved by a script starts with its first frame of film, if that
@@ -1160,6 +1169,19 @@ function buildTake(
       track.groupId = group;
     }
   });
+  // A part that was fading when picked: drawn from where the fade started
+  // when this take has the fade, or where it was going when it does not
+  // (found on MUI's accordion: a fade-in running at pick, not in the take,
+  // left the whole accordion invisible in the preview).
+  for (const [element, fade] of snapshot.fadingAtPick) {
+    const shape = snapshot.shapeOf.get(element);
+    const id = snapshot.shapeIdOf.get(element);
+    if (shape === undefined || id === undefined) continue;
+    const fades = [...tracks, ...scripts].some(
+      (track) => track.shapeId === id && track.property === 'opacity',
+    );
+    shape.opacity = fades ? fade.from : fade.to;
+  }
   const raw = {
     source: {
       url: window.location.href,
@@ -1236,6 +1258,18 @@ function asMatrix(functions: TransformFunction[]): DOMMatrix {
 
 function sameValue(property: string, first: string, second: string, element: Element): boolean {
   if (first === second) return true;
+  // A transform is compared as the browser's own 3D matrix: a turn about y
+  // (a card flip, rotateY(180deg)) is not "none" (found on daisyUI's swap,
+  // whose front face lost its turn).
+  if (property === 'transform') {
+    try {
+      const m = new DOMMatrix(first === 'none' ? '' : first).toFloat64Array();
+      const n = new DOMMatrix(second === 'none' ? '' : second).toFloat64Array();
+      return m.every((value, index) => Math.abs(value - (n[index] ?? 0)) < SAME);
+    } catch {
+      // A value DOMMatrix cannot read (a percentage): compared as before.
+    }
+  }
   const box = element.getBoundingClientRect();
   const a = readValue(property, first, box);
   const b = readValue(property, second, box);

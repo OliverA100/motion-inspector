@@ -5,6 +5,7 @@
 // images become flat boxes. Only shapes are kept: never text content or
 // image data from the page.
 
+import type { ShadowLayer } from '@motion-inspector/core';
 import { gradientColor, readGradient, type RawGradient } from './gradient';
 import { readColor, readValue } from './readValue';
 
@@ -68,6 +69,13 @@ export type RawShape = {
   // when there is none.
   transform: [number, number, number, number, number, number] | null;
   shadow: { color: string; x: number; y: number; blur: number } | null;
+  shadows: ShadowLayer[] | null;
+  outline: {
+    color: string;
+    width: number;
+    offset: number;
+    style: 'solid' | 'dashed' | 'dotted';
+  } | null;
   clipPath: string | null;
   filter: string | null;
   inSvg: [number, number, number, number, number, number] | null;
@@ -119,6 +127,10 @@ export type Snapshot = {
   boxAtPick: Map<Element, Box>;
   // The element each shape was made for. For a text bar, its parent element.
   ownerOf: Map<RawShape, Element>;
+  // Parts whose opacity was fading when picked: where the fade started and
+  // where it was going. A take with that fade draws it from the start; a
+  // take without it shows the part where the fade was going.
+  fadingAtPick: Map<Element, { from: number; to: number }>;
   // Open shadow roots inside the element. Their animations have to be
   // asked for separately (docs/chrome-findings.md).
   shadowRoots: ShadowRoot[];
@@ -272,7 +284,10 @@ type Walk = {
   skip: Set<Element>;
   boxAtPick: Map<Element, Box>;
   ownerOf: Map<RawShape, Element>;
-  snapshot: Pick<Snapshot, 'shapeIdOf' | 'resting' | 'shadowRoots' | 'pseudoParts'>;
+  snapshot: Pick<
+    Snapshot,
+    'shapeIdOf' | 'resting' | 'shadowRoots' | 'pseudoParts' | 'fadingAtPick'
+  >;
 };
 
 function readResting(element: Element): Map<string, string> {
@@ -409,7 +424,10 @@ function iconPart(part: Element, textColor: string): IconPart | null | 'hidden' 
     register: true,
     groups: movingGroups(part),
     origin: { x: reference.x + originX, y: reference.y + originY },
-    transform: restingTransform(style),
+    transform: restingTransform(
+      style,
+      part instanceof SVGGraphicsElement ? part.getBBox() : { width: 0, height: 0 },
+    ),
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
     path: {
       d,
@@ -572,6 +590,8 @@ function groupShape(walk: Walk, group: SVGGElement, box: Box, id: string): RawSh
     clip: false,
     transform: [local.a, local.b, local.c, local.d, local.e, local.f],
     shadow: null,
+    shadows: null,
+    outline: null,
     clipPath: null,
     filter: null,
     inSvg: [outer.a, outer.b, outer.c, outer.d, outer.e, outer.f],
@@ -634,6 +654,8 @@ function partShape(walk: Walk, part: IconPart, box: Box, id: string): RawShape {
     clip: false,
     transform: part.transform,
     shadow: null,
+    shadows: null,
+    outline: null,
     clipPath: null,
     filter: null,
     inSvg: null,
@@ -718,8 +740,10 @@ function iconShape(
       opacity,
       transformOrigin: originOf(style, rect),
       clip: false,
-      transform: restingTransform(style),
+      transform: restingTransform(style, rect),
       shadow: null,
+      shadows: null,
+      outline: null,
       clipPath: null,
       filter: null,
       inSvg: null,
@@ -761,6 +785,8 @@ function iconShape(
     clip: false,
     transform: null,
     shadow: null,
+    shadows: null,
+    outline: null,
     clipPath: null,
     filter: null,
     inSvg: null,
@@ -798,17 +824,40 @@ function boxShape(
   const gradient =
     hasBackgroundImage && drawable === null ? gradientColor(style.backgroundImage) : null;
   if (hasBackgroundImage && !hasColor && drawable === null) walk.flattenedBackground = true;
-  const borderWidth = parseFloat(style.borderTopWidth);
   // A border with a different color on each side keeps each color. A
   // spinner is a ring with one side transparent: drawn in one color, it was
-  // a full ring whose turning could not be seen (found on a real site).
+  // a full ring whose turning could not be seen (found on a real site). A
+  // side with no width or no style counts as transparent: a tab or a field
+  // with only a bottom border has only that one.
+  const side = (width: string, lineStyle: string, color: string): string =>
+    parseFloat(width) > 0 && lineStyle !== 'none' && lineStyle !== 'hidden'
+      ? color
+      : 'rgba(0, 0, 0, 0)';
   const sides: [string, string, string, string] = [
-    style.borderTopColor,
-    style.borderRightColor,
-    style.borderBottomColor,
-    style.borderLeftColor,
+    side(style.borderTopWidth, style.borderTopStyle, style.borderTopColor),
+    side(style.borderRightWidth, style.borderRightStyle, style.borderRightColor),
+    side(style.borderBottomWidth, style.borderBottomStyle, style.borderBottomColor),
+    side(style.borderLeftWidth, style.borderLeftStyle, style.borderLeftColor),
   ];
-  const uneven = sides.some((color) => color !== style.borderTopColor);
+  const borderWidth = Math.max(
+    ...[
+      style.borderTopWidth,
+      style.borderRightWidth,
+      style.borderBottomWidth,
+      style.borderLeftWidth,
+    ].map((width) => parseFloat(width) || 0),
+  );
+  const borderStyle =
+    [
+      style.borderTopStyle,
+      style.borderRightStyle,
+      style.borderBottomStyle,
+      style.borderLeftStyle,
+    ].find(
+      (lineStyle, index) =>
+        lineStyle !== 'none' && lineStyle !== 'hidden' && isVisibleColor(sides[index] ?? ''),
+    ) ?? 'none';
+  const uneven = sides.some((color) => color !== sides[0]);
   const shownSide = sides.find(isVisibleColor);
   const origin = style.transformOrigin.split(' ').map((part) => parseFloat(part));
   const corner = (value: string): number => radiusOf(value, rect.width, rect.height);
@@ -831,22 +880,21 @@ function boxShape(
           ? null
           : (gradient ?? (hasBackgroundImage ? UNKNOWN_FILL : null)),
     stroke:
-      borderWidth > 0 && style.borderTopStyle !== 'none' && shownSide !== undefined
+      borderWidth > 0 && borderStyle !== 'none' && shownSide !== undefined
         ? {
             color: shownSide,
             width: borderWidth,
             sides: uneven ? sides : null,
-            style:
-              style.borderTopStyle === 'dashed' || style.borderTopStyle === 'dotted'
-                ? style.borderTopStyle
-                : 'solid',
+            style: borderStyle === 'dashed' || borderStyle === 'dotted' ? borderStyle : 'solid',
           }
         : null,
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
     transformOrigin: { x: origin[0] ?? rect.width / 2, y: origin[1] ?? rect.height / 2 },
     clip: style.overflowX !== 'visible' || style.overflowY !== 'visible',
-    transform: restingTransform(style),
+    transform: restingTransform(style, rect),
     shadow: restingShadow(style.boxShadow),
+    shadows: shadowLayers(style.boxShadow),
+    outline: outlineOf(style),
     clipPath: basicClipPath(style.clipPath),
     filter: style.filter === 'none' ? null : style.filter,
     inSvg: null,
@@ -917,6 +965,44 @@ function basicClipPath(value: string): string | null {
 
 // The first outer shadow of a computed box-shadow, such as
 // "rgba(0, 0, 0, 0.1) 0px 5px 15px 0px". Inner shadows are not drawn.
+// A visible outline: a focus ring left by a click, an outlined button.
+function outlineOf(style: CSSStyleDeclaration): RawShape['outline'] {
+  const width = parseFloat(style.outlineWidth);
+  const lineStyle = style.outlineStyle;
+  if (!(width > 0) || lineStyle === 'none' || !isVisibleColor(style.outlineColor)) return null;
+  return {
+    color: style.outlineColor,
+    width,
+    offset: parseFloat(style.outlineOffset) || 0,
+    style: lineStyle === 'dashed' || lineStyle === 'dotted' ? lineStyle : 'solid',
+  };
+}
+
+// A visible border on any side: a tab or a field may have only a bottom one.
+function hasBorder(style: CSSStyleDeclaration): boolean {
+  return (['Top', 'Right', 'Bottom', 'Left'] as const).some((side) => {
+    const width = parseFloat(style.getPropertyValue(`border-${side.toLowerCase()}-width`));
+    const lineStyle = style.getPropertyValue(`border-${side.toLowerCase()}-style`);
+    const color = style.getPropertyValue(`border-${side.toLowerCase()}-color`);
+    return width > 0 && lineStyle !== 'none' && lineStyle !== 'hidden' && isVisibleColor(color);
+  });
+}
+
+// Every box-shadow, as Chrome computes it: "rgba(0, 0, 0, 0.08) 0px 0px 0px
+// 1px, rgba(0, 0, 0, 0.04) 0px 2px 4px 0px inset". Invisible ones are left
+// out. null when none is left.
+export function shadowLayers(value: string): ShadowLayer[] | null {
+  if (value === 'none' || value === '') return null;
+  const layers = value.split(/,(?![^(]*\))/).flatMap((one): ShadowLayer[] => {
+    const color = /^\s*(rgba?\([^)]*\)|\S+)/.exec(one)?.[1];
+    if (color === undefined || !isVisibleColor(color)) return [];
+    const rest = one.slice(one.indexOf(color) + color.length);
+    const [x = 0, y = 0, blur = 0, spread = 0] = (rest.match(/-?\d*\.?\d+/g) ?? []).map(Number);
+    return [{ color, x, y, blur: Math.max(blur, 0), spread, inset: /\binset\b/.test(rest) }];
+  });
+  return layers.length === 0 ? null : layers.slice(0, 8);
+}
+
 function restingShadow(value: string): RawShape['shadow'] {
   if (value === 'none' || value === '') return null;
   for (const one of value.split(/,(?![^(]*\))/)) {
@@ -935,15 +1021,62 @@ function restingShadow(value: string): RawShape['shadow'] {
 // scale properties, then transform, as CSS applies them. A ribbon rotated
 // 45 degrees was drawn flat without it (found on a real site). For a 3D
 // matrix, the part that moves a flat element is kept.
+// A computed translate, as px: "12px 4px", "50% 0px", "calc(100% - 2px)".
+// Chrome keeps percentages, which are of the element's own box. Reading
+// only the numbers made "calc(100% - 2px)" a move of 100 px and 2 px (found
+// on shadcn's switch, whose thumb moves this way).
+function translateOf(
+  value: string,
+  size: { width: number; height: number },
+): [number, number, number] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const character of value.trim()) {
+    if (character === '(') depth += 1;
+    if (character === ')') depth -= 1;
+    if (depth === 0 && /\s/.test(character)) {
+      if (current !== '') parts.push(current);
+      current = '';
+    } else current += character;
+  }
+  if (current !== '') parts.push(current);
+  const length = (text: string, along: number): number => {
+    const inner = /^calc\((.*)\)$/.exec(text)?.[1];
+    if (inner !== undefined) {
+      let total = 0;
+      let sign = 1;
+      for (const token of inner.match(/[+-](?=\s)|-?[\d.]+(?:e[+-]?\d+)?(?:%|px)?/g) ?? []) {
+        if (token === '+' || token === '-') {
+          sign = token === '-' ? -1 : 1;
+          continue;
+        }
+        total += sign * length(token, along);
+        sign = 1;
+      }
+      return total;
+    }
+    const number = parseFloat(text);
+    if (!Number.isFinite(number)) return 0;
+    return text.endsWith('%') ? (number / 100) * along : number;
+  };
+  return [
+    length(parts[0] ?? '0', size.width),
+    length(parts[1] ?? '0', size.height),
+    length(parts[2] ?? '0', 0),
+  ];
+}
+
 function restingTransform(
   style: CSSStyleDeclaration,
+  size: { width: number; height: number } = { width: 0, height: 0 },
 ): [number, number, number, number, number, number] | null {
   try {
     const numbers = (value: string): number[] =>
       (value.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/g) ?? []).map(Number);
     let matrix = new DOMMatrix();
     if (style.translate !== 'none' && style.translate !== '') {
-      const [x = 0, y = 0] = numbers(style.translate);
+      const [x, y] = translateOf(style.translate, size);
       matrix = matrix.translate(x, y);
     }
     if (style.rotate !== 'none' && style.rotate !== '') {
@@ -1062,7 +1195,9 @@ function pseudoShape(
   const paints =
     isVisibleColor(style.backgroundColor) ||
     style.backgroundImage !== 'none' ||
-    (parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== 'none');
+    hasBorder(style) ||
+    shadowLayers(style.boxShadow) !== null ||
+    outlineOf(style) !== null;
   if (!paints && !mayAnimate(style)) return null;
   if (walk.count >= walk.limit) {
     walk.leftOut += 1;
@@ -1149,6 +1284,8 @@ function textBars(
       clip: false,
       transform: null,
       shadow: null,
+      shadows: null,
+      outline: null,
       clipPath: null,
       filter: null,
       inSvg: null,
@@ -1187,7 +1324,9 @@ function shapesFor(
     isImage ||
     isVisibleColor(style.backgroundColor) ||
     style.backgroundImage !== 'none' ||
-    parseFloat(style.borderTopWidth) > 0;
+    hasBorder(style) ||
+    shadowLayers(style.boxShadow) !== null ||
+    outlineOf(style) !== null;
   // An element that cuts off its content gets a shape even if it paints
   // nothing, or the cut would be lost (a carousel's frame, a menu's panel).
   const clips =
@@ -1405,7 +1544,13 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     skip: new Set(),
     boxAtPick: new Map(),
     ownerOf: new Map(),
-    snapshot: { shapeIdOf: new Map(), resting: new Map(), shadowRoots: [], pseudoParts: new Map() },
+    snapshot: {
+      shapeIdOf: new Map(),
+      resting: new Map(),
+      shadowRoots: [],
+      pseudoParts: new Map(),
+      fadingAtPick: new Map(),
+    },
   };
   const root = shapesFor(walk, rootElement, '', true)[0];
   if (root === undefined) {
@@ -1434,18 +1579,27 @@ export function takeSnapshot(rootElement: Element): Snapshot {
   // site). Anything else is drawn at full opacity, and its track takes it
   // from there.
   const startedFrom = new Map<Element, number>();
+  const headedTo = new Map<Element, number>();
   for (const animation of animationsUnder(rootElement, walk.snapshot.shadowRoots)) {
     const effect = animation.effect;
     if (!(animation instanceof CSSTransition) || animation.transitionProperty !== 'opacity')
       continue;
     if (!(effect instanceof KeyframeEffect) || effect.target === null) continue;
-    const from = Number(effect.getKeyframes()[0]?.['opacity']);
+    const frames = effect.getKeyframes();
+    const from = Number(frames[0]?.['opacity']);
+    const to = Number(frames[frames.length - 1]?.['opacity']);
     if (Number.isFinite(from)) startedFrom.set(effect.target, Math.min(Math.max(from, 0), 1));
+    if (Number.isFinite(to)) headedTo.set(effect.target, Math.min(Math.max(to, 0), 1));
   }
   for (const [element, properties] of animatingAtPick) {
     const shape = walk.shapeOf.get(element);
     if (shape !== undefined && properties.has('opacity')) {
       shape.opacity = startedFrom.get(element) ?? 1;
+      // Where it was going, for a take without this fade (see buildTake).
+      walk.snapshot.fadingAtPick.set(element, {
+        from: shape.opacity,
+        to: headedTo.get(element) ?? 1,
+      });
     }
     // A transform read in the middle of its animation is not a resting one.
     // Its track draws it instead.
@@ -1492,13 +1646,16 @@ export function takeSnapshot(rootElement: Element): Snapshot {
 
 // An element's whole transform now, in 3D: translate, rotate (about any
 // axis), scale and transform, in that order, as CSS applies them.
-function transformNow(style: CSSStyleDeclaration): DOMMatrix {
+function transformNow(
+  style: CSSStyleDeclaration,
+  size: { width: number; height: number },
+): DOMMatrix {
   const numbers = (value: string): number[] =>
     (value.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/g) ?? []).map(Number);
   let matrix = new DOMMatrix();
   try {
     if (style.translate !== 'none' && style.translate !== '') {
-      const [x = 0, y = 0, z = 0] = numbers(style.translate);
+      const [x, y, z] = translateOf(style.translate, size);
       matrix = matrix.translate(x, y, z);
     }
     if (style.rotate !== 'none' && style.rotate !== '') {
@@ -1576,7 +1733,14 @@ export function frameNow(element: Element): {
 } {
   const style = getComputedStyle(element);
   const opacity = parseFloat(style.opacity);
-  const own = transformNow(style);
+  // translate's percentages are of the element's own box, before transforms.
+  const size =
+    element instanceof HTMLElement
+      ? { width: element.offsetWidth, height: element.offsetHeight }
+      : element instanceof SVGGraphicsElement
+        ? element.getBBox()
+        : { width: 0, height: 0 };
+  const own = transformNow(style, size);
   const seen = parentPerspective(element, style)?.multiply(own) ?? own;
   const w = seen.m44 === 0 ? 1 : seen.m44;
   const matrix: [number, number, number, number, number, number] = [
@@ -1593,7 +1757,15 @@ export function frameNow(element: Element): {
   return {
     matrix: matrix.every(Number.isFinite) ? matrix : [1, 0, 0, 1, 0, 0],
     taper: flat || !Number.isFinite(g) || !Number.isFinite(h) ? null : [g, h],
-    opacity: Number.isFinite(opacity) ? opacity : 1,
+    // What is seen: a part with no box (display: none once a collapse
+    // ends, found on Chakra's accordion) or hidden is not seen at all,
+    // whatever its opacity says.
+    opacity:
+      element.getClientRects().length === 0 || style.visibility === 'hidden'
+        ? 0
+        : Number.isFinite(opacity)
+          ? opacity
+          : 1,
     styles: FILMED_STYLES.map((property) => style.getPropertyValue(property)),
   };
 }
@@ -1745,6 +1917,8 @@ export function addLateGroup(snapshot: Snapshot, group: SVGGElement): boolean {
     clip: false,
     transform: [base.a, base.b, base.c, base.d, base.e, base.f],
     shadow: null,
+    shadows: null,
+    outline: null,
     clipPath: null,
     filter: null,
     inSvg: [outer.a, outer.b, outer.c, outer.d, outer.e, outer.f],

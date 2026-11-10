@@ -121,6 +121,16 @@ export type Trigger =
 
 // ---------- Shapes ----------
 
+// One box-shadow, as CSS writes it: offset, blur, spread, inside or out.
+export type ShadowLayer = {
+  color: string;
+  x: number;
+  y: number;
+  blur: number;
+  spread: number;
+  inset: boolean;
+};
+
 export type Shape = {
   id: ShapeId;
   // A short name for people, built from the tag and first class name, for
@@ -158,6 +168,18 @@ export type Shape = {
   // The resting outer shadow (the first one, without spread). null when
   // there is none. A white card on a white page is seen by its shadow.
   shadow: { color: string; x: number; y: number; blur: number } | null;
+  // Every box-shadow, the top one first, with spread and inset: a ring
+  // drawn as "0 0 0 1px" (many cards' edge), layered soft shadows, an inner
+  // shadow. null when there are none. Older takes have only `shadow`.
+  shadows: ShadowLayer[] | null;
+  // A CSS outline (a focus ring, an outlined button): drawn outside the box,
+  // offset from it. null when none. Older takes have none.
+  outline: {
+    color: string;
+    width: number;
+    offset: number;
+    style: 'solid' | 'dashed' | 'dotted';
+  } | null;
   // The resting clip-path as computed CSS, such as "inset(0px 50% 0px 0px)"
   // or "polygon(50% 50%, 0% 0%, 100% 0%)". null when there is none.
   clipPath: string | null;

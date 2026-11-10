@@ -219,6 +219,29 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
       fc.constant(null),
       fc.record({ color: fc.string(), x: anyNumber, y: anyNumber, blur: zeroOrMore }),
     ),
+    shadows: fc.oneof(
+      fc.constant(null),
+      fc.array(
+        fc.record({
+          color: fc.string(),
+          x: anyNumber,
+          y: anyNumber,
+          blur: zeroOrMore,
+          spread: anyNumber,
+          inset: fc.boolean(),
+        }),
+        { maxLength: 3 },
+      ),
+    ),
+    outline: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        color: fc.string(),
+        width: zeroOrMore,
+        offset: anyNumber,
+        style: fc.constantFrom('solid' as const, 'dashed' as const, 'dotted' as const),
+      }),
+    ),
     clipPath: fc.oneof(fc.constant(null), fc.string()),
     filter: fc.oneof(fc.constant(null), fc.string()),
     inSvg: fc.oneof(

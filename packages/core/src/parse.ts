@@ -21,6 +21,7 @@ import { allOk, andThen, at, errorsOf, fail, failAll, ok, type Result } from './
 import { flattenShapes } from './shapes';
 import type {
   Capture,
+  ShadowLayer,
   Easing,
   Gradient,
   GroupId,
@@ -437,6 +438,57 @@ function parseShadow(value: unknown): Result<NonNullable<Shape['shadow']>> {
   });
 }
 
+export const MOST_SHADOWS = 8;
+
+function parseShadowLayer(value: unknown): Result<ShadowLayer> {
+  return andThen(fields(value), (source) => {
+    const color = at('color', text(get(source, 'color')));
+    const x = at('x', number(get(source, 'x')));
+    const y = at('y', number(get(source, 'y')));
+    const blur = at('blur', notNegative(get(source, 'blur')));
+    const spread = at('spread', number(get(source, 'spread')));
+    const inset = at('inset', boolean(get(source, 'inset')));
+    if (!color.ok || !x.ok || !y.ok || !blur.ok || !spread.ok || !inset.ok) {
+      return failAll([color, x, y, blur, spread, inset].flatMap(errorsOf));
+    }
+    return ok({
+      color: color.value,
+      x: x.value,
+      y: y.value,
+      blur: blur.value,
+      spread: spread.value,
+      inset: inset.value,
+    });
+  });
+}
+
+function parseOutline(value: unknown): Result<NonNullable<Shape['outline']>> {
+  return andThen(fields(value), (source) => {
+    const color = at('color', text(get(source, 'color')));
+    const width = at('width', notNegative(get(source, 'width')));
+    const offset = at('offset', number(get(source, 'offset')));
+    const lineStyle = at(
+      'style',
+      oneOf(get(source, 'style'), ['solid', 'dashed', 'dotted'] as const),
+    );
+    if (!color.ok || !width.ok || !offset.ok || !lineStyle.ok) {
+      return failAll([color, width, offset, lineStyle].flatMap(errorsOf));
+    }
+    return ok({
+      color: color.value,
+      width: width.value,
+      offset: offset.value,
+      style: lineStyle.value,
+    });
+  });
+}
+
+function parseShadowLayers(value: unknown): Result<ShadowLayer[]> {
+  return andThen(listOf(value, parseShadowLayer), (list) =>
+    list.length > MOST_SHADOWS ? fail(`At most ${MOST_SHADOWS} shadows.`) : ok(list),
+  );
+}
+
 // A page can nest elements deeply, but a snapshot keeps about 40 boxes.
 // The limit keeps a hostile input from overflowing the call stack.
 const MAX_SHAPE_DEPTH = 32;
@@ -653,6 +705,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const icon = at('icon', parseIcon(get(source, 'icon')));
     const transform = at('transform', optional(get(source, 'transform'), parseMatrix));
     const shadow = at('shadow', optional(get(source, 'shadow'), parseShadow));
+    const shadows = at('shadows', optional(get(source, 'shadows'), parseShadowLayers));
+    const outline = at('outline', optional(get(source, 'outline'), parseOutline));
     const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
     const filter = at('filter', optional(get(source, 'filter'), text));
     const inSvg = at('inSvg', optional(get(source, 'inSvg'), parseMatrix));
@@ -676,6 +730,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !icon.ok ||
       !transform.ok ||
       !shadow.ok ||
+      !shadows.ok ||
+      !outline.ok ||
       !clipPath.ok ||
       !filter.ok ||
       !inSvg.ok ||
@@ -698,6 +754,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           icon,
           transform,
           shadow,
+          shadows,
+          outline,
           clipPath,
           filter,
           inSvg,
@@ -720,6 +778,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       clip: clip.value,
       transform: transform.value,
       shadow: shadow.value,
+      shadows: shadows.value,
+      outline: outline.value,
       clipPath: clipPath.value,
       filter: filter.value,
       inSvg: inSvg.value,

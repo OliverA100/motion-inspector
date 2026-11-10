@@ -31,6 +31,7 @@ function stillPose(shapeId: Pose['shapeId']): Pose {
     width: null,
     height: null,
     shadow: null,
+    shadows: null,
     textColor: null,
     dx: null,
     dy: null,

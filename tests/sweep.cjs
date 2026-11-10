@@ -388,6 +388,25 @@ async function recordOne(page, selector, kind) {
   return { frames, length: paused.length, takes, count: paused.count };
 }
 
+// A second recording of the same trigger that nothing pauses: the capture
+// shown and checked comes from this one. The paused run is only for the
+// photographs; its film of the page would be of a paused page.
+async function recordClean(page, selector, kind) {
+  await page.mouse.move(1, 1);
+  await page.waitForTimeout(400);
+  await page.evaluate((sel) => window.MotionCapture.record(document.querySelector(sel)), selector);
+  if (kind !== 'loader') await trigger(page, selector, kind);
+  await page.waitForTimeout(kind === 'loader' ? 1500 : 1200);
+  if (kind === 'hover') {
+    await page.mouse.move(1, 1);
+    await page.waitForTimeout(900);
+  }
+  const takes = await page.evaluate(() => window.MotionCapture.stop());
+  // A click is undone, so the page is as it was for the next element.
+  if (kind === 'click') await trigger(page, selector, kind).catch(() => {});
+  return takes;
+}
+
 async function previewFrames(editor, capture, length) {
   await editor.goto(`${EDITOR}/?quiet`);
   await editor.evaluate((json) => sessionStorage.setItem('motion-inspector-capture', json), JSON.stringify(capture));
@@ -398,7 +417,12 @@ async function previewFrames(editor, capture, length) {
     frames.push(await editor.locator('.stage canvas').screenshot());
   }
   const description = await editor.locator('.mi__description').innerText();
-  return { frames, description };
+  // The editor's own check of the preview against the page's film.
+  const check = await editor
+    .locator('.mi__check')
+    .getAttribute('title', { timeout: 500 })
+    .catch(() => null);
+  return { frames, description, check };
 }
 
 // ---------- One image per site ----------
@@ -509,11 +533,18 @@ async function sweepSite(browser, editor, site) {
           lines.push(`${site.name} ${n} ${item.kind} ${label}: no usable capture ${problems.join(' | ')}`);
           continue;
         }
-        writeFileSync(`${out}/${site.name}-${n}.json`, JSON.stringify(real.takes, null, 1));
-        const preview = await previewFrames(editor, take.capture, real.length);
+        const clean = (await recordClean(page, selector, item.kind).catch(() => [])).filter(
+          (t) => t.capture !== null,
+        );
+        const shown =
+          clean.find((t) => t.capture.tracks.length > 0 || (t.capture.follows ?? []).length > 0) ??
+          take;
+        writeFileSync(`${out}/${site.name}-${n}.json`, JSON.stringify(clean.length > 0 ? clean : real.takes, null, 1));
+        const preview = await previewFrames(editor, shown.capture, real.length);
         const notes = take.capture.notShown.join(' / ');
-        rows.push({ n, kind: item.kind, label, stats, description: preview.description, notes, real: real.frames, preview: preview.frames });
-        lines.push(`${site.name} ${n} ${item.kind} ${label}: ${stats} — ${preview.description}${notes ? ` [${notes}]` : ''}`);
+        const check = preview.check ?? 'no film';
+        rows.push({ n, kind: item.kind, label, stats: `${stats} · ${check}`, description: preview.description, notes, real: real.frames, preview: preview.frames });
+        lines.push(`${site.name} ${n} ${item.kind} ${label}: ${stats} — CHECK ${check} — ${preview.description}${notes ? ` [${notes}]` : ''}`);
       } catch (error) {
         lines.push(`${site.name} ${n} ${item.kind} ${label}: FAILED ${String(error).split('\n')[0]}`);
       }

@@ -30,6 +30,8 @@
     "clip": false,
     "transform": null,
     "shadow": null,
+    "shadows": null,
+    "outline": null,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -63,6 +65,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -170,7 +174,7 @@
       "shapeId": "s0.1",
       "frames": [
         {
-          "t": -16.7,
+          "t": -16.6,
           "matrix": [
             1,
             0,
@@ -183,72 +187,72 @@
           "opacity": 1
         },
         {
-          "t": 33.3,
+          "t": 33.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            11.17,
+            11.18,
             0
           ],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 83.3,
+          "t": 83.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            31.03,
+            31.05,
             0
           ],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 133.3,
+          "t": 133.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            55.41,
+            55.43,
             0
           ],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 183.3,
+          "t": 183.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            79.79,
+            79.81,
             0
           ],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 233.3,
+          "t": 233.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            99.44,
+            99.46,
             0
           ],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 283.3,
+          "t": 283.4,
           "matrix": [
             1,
             0,
@@ -261,20 +265,20 @@
           "opacity": 1
         },
         {
-          "t": 333.3,
+          "t": 333.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            107.77,
+            107.76,
             0
           ],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 383.3,
+          "t": 383.4,
           "matrix": [
             1,
             0,
@@ -287,13 +291,13 @@
           "opacity": 1
         },
         {
-          "t": 433.3,
+          "t": 433.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            98.93,
+            98.92,
             0
           ],
           "taper": null,
@@ -365,7 +369,7 @@
           "opacity": 1
         },
         {
-          "t": 733.3,
+          "t": 733.4,
           "matrix": [
             1,
             0,
@@ -391,7 +395,7 @@
           "opacity": 1
         },
         {
-          "t": 833.3,
+          "t": 833.4,
           "matrix": [
             1,
             0,
@@ -404,7 +408,7 @@
           "opacity": 1
         },
         {
-          "t": 883.3,
+          "t": 883.4,
           "matrix": [
             1,
             0,

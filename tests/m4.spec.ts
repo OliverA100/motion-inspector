@@ -565,7 +565,6 @@ test('a tilt card follows the pointer in the preview, tapered as on the page', a
   await page.mouse.move(stage.x + stage.width * 0.68, stage.y + stage.height / 2, { steps: 5 });
   await page.waitForTimeout(600);
   const [left, right] = await ends();
-  if (process.env.SHOT) await page.locator('.stage').screenshot({ path: process.env.SHOT });
   // About 9 degrees of turn: the two ends differ by several pixels.
   expect(Math.abs(left - right)).toBeGreaterThan(5);
 
@@ -628,4 +627,82 @@ test('a corner peeled back by a script is drawn peeling in the preview', async (
   // The cut grows from 40 by 28 px to 120 by 84 px: about nine times the area.
   expect(start).toBeGreaterThan(0);
   expect(end).toBeGreaterThan(start * 5);
+});
+
+test('edges are drawn: a one-sided border, an inner shadow, a ring', async ({ page }) => {
+  const takes = await captureFixture(
+    page,
+    'edges',
+    (p) => p.hover('[data-fixture="edges"] [data-root]'),
+    600,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
+  await page.goto('/?capture=session&quiet&time=0');
+  await page.waitForTimeout(300);
+  if (process.env.SHOT) await page.locator('.stage').screenshot({ path: process.env.SHOT });
+  const found = await page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+    const context = canvas.getContext('2d');
+    if (context === null) return null;
+    const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+    const at = (x: number, y: number): number[] => {
+      const index = (y * width + x) * 4;
+      return [data[index] ?? 0, data[index + 1] ?? 0, data[index + 2] ?? 0];
+    };
+    // The tab: the fixture blue, only along one short line.
+    let top = height;
+    let bottom = -1;
+    let left = width;
+    let right = -1;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const [r = 0, g = 0, b = 0] = at(x, y);
+        // The fixture's own blue, closely: the editor's selection outline
+        // is a blue of its own.
+        if (Math.abs(r - 47) < 6 && Math.abs(g - 111) < 6 && Math.abs(b - 237) < 6) {
+          top = Math.min(top, y);
+          bottom = Math.max(bottom, y);
+          left = Math.min(left, x);
+          right = Math.max(right, x);
+        }
+      }
+    }
+    // The well: darker under its top edge (the inner shadow) than inside.
+    const wellX = Math.round(left + (right - left) * 2.05);
+    let darkest = 255;
+    let lightest = 0;
+    for (let y = 0; y < height; y += 1) {
+      const [r = 255] = at(wellX, y);
+      if (r < 250) {
+        darkest = Math.min(darkest, r);
+        lightest = Math.max(lightest, r);
+      }
+    }
+    // The outline: its pink, drawn.
+    let pink = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      if (
+        Math.abs((data[index] ?? 0) - 224) < 30 &&
+        Math.abs((data[index + 1] ?? 0) - 33) < 40 &&
+        Math.abs((data[index + 2] ?? 0) - 138) < 40
+      ) {
+        pink += 1;
+      }
+    }
+    return {
+      line: { width: right - left, height: bottom - top },
+      well: { darkest, lightest },
+      pink,
+    };
+  });
+  expect(found).not.toBeNull();
+  expect(found?.line.width ?? 0).toBeGreaterThan(20);
+  // A line, not a box: the other three sides are not drawn.
+  expect(found?.line.width ?? 0).toBeGreaterThan((found?.line.height ?? 0) * 8);
+  expect(found?.well.lightest ?? 0).toBeGreaterThan((found?.well.darkest ?? 255) + 40);
+  expect(found?.pink ?? 0).toBeGreaterThan(50);
 });

@@ -30,6 +30,8 @@
     "clip": true,
     "transform": null,
     "shadow": null,
+    "shadows": null,
+    "outline": null,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -63,6 +65,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -97,6 +101,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -131,6 +137,8 @@
         "clip": true,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -164,6 +172,8 @@
             "clip": false,
             "transform": null,
             "shadow": null,
+            "shadows": null,
+            "outline": null,
             "clipPath": null,
             "filter": null,
             "inSvg": null,
@@ -197,6 +207,8 @@
                 "clip": false,
                 "transform": null,
                 "shadow": null,
+                "shadows": null,
+                "outline": null,
                 "clipPath": null,
                 "filter": null,
                 "inSvg": null,
@@ -230,6 +242,8 @@
                     "clip": false,
                     "transform": null,
                     "shadow": null,
+                    "shadows": null,
+                    "outline": null,
                     "clipPath": null,
                     "filter": null,
                     "inSvg": null,
@@ -286,6 +300,8 @@
                     "clip": false,
                     "transform": null,
                     "shadow": null,
+                    "shadows": null,
+                    "outline": null,
                     "clipPath": null,
                     "filter": null,
                     "inSvg": null,
@@ -346,6 +362,8 @@
             "clip": false,
             "transform": null,
             "shadow": null,
+            "shadows": null,
+            "outline": null,
             "clipPath": null,
             "filter": null,
             "inSvg": null,
@@ -379,6 +397,8 @@
                 "clip": false,
                 "transform": null,
                 "shadow": null,
+                "shadows": null,
+                "outline": null,
                 "clipPath": null,
                 "filter": null,
                 "inSvg": null,
@@ -412,6 +432,8 @@
                     "clip": false,
                     "transform": null,
                     "shadow": null,
+                    "shadows": null,
+                    "outline": null,
                     "clipPath": null,
                     "filter": null,
                     "inSvg": null,
@@ -468,6 +490,8 @@
                     "clip": false,
                     "transform": null,
                     "shadow": null,
+                    "shadows": null,
+                    "outline": null,
                     "clipPath": null,
                     "filter": null,
                     "inSvg": null,
@@ -859,7 +883,7 @@
           "opacity": 1
         },
         {
-          "t": 33.3,
+          "t": 33.4,
           "matrix": [
             0.87,
             0,
@@ -872,7 +896,7 @@
           "opacity": 1
         },
         {
-          "t": 83.2,
+          "t": 83.4,
           "matrix": [
             0.68,
             0,
@@ -898,7 +922,7 @@
           "opacity": 1
         },
         {
-          "t": 183.3,
+          "t": 183.4,
           "matrix": [
             0.36,
             0,
@@ -911,7 +935,7 @@
           "opacity": 1
         },
         {
-          "t": 233.2,
+          "t": 233.4,
           "matrix": [
             0.23,
             0,
@@ -937,7 +961,7 @@
           "opacity": 1
         },
         {
-          "t": 333.3,
+          "t": 333.4,
           "matrix": [
             0.04,
             0,
@@ -963,7 +987,7 @@
           "opacity": 1
         },
         {
-          "t": 433.2,
+          "t": 433.4,
           "matrix": [
             0,
             0,
@@ -976,7 +1000,7 @@
           "opacity": 1
         },
         {
-          "t": 483.2,
+          "t": 483.3,
           "matrix": [
             0,
             0,
@@ -1002,7 +1026,7 @@
           "opacity": 1
         },
         {
-          "t": 583.3,
+          "t": 583.4,
           "matrix": [
             0,
             0,
@@ -1015,7 +1039,7 @@
           "opacity": 1
         },
         {
-          "t": 633.3,
+          "t": 633.4,
           "matrix": [
             0,
             0,
@@ -1028,7 +1052,7 @@
           "opacity": 1
         },
         {
-          "t": 683.2,
+          "t": 683.4,
           "matrix": [
             0,
             0,
@@ -1059,7 +1083,7 @@
           "opacity": 1
         },
         {
-          "t": 33.3,
+          "t": 33.4,
           "matrix": [
             0.13,
             0,
@@ -1072,7 +1096,7 @@
           "opacity": 1
         },
         {
-          "t": 83.2,
+          "t": 83.4,
           "matrix": [
             0.32,
             0,
@@ -1098,7 +1122,7 @@
           "opacity": 1
         },
         {
-          "t": 183.3,
+          "t": 183.4,
           "matrix": [
             0.64,
             0,
@@ -1111,7 +1135,7 @@
           "opacity": 1
         },
         {
-          "t": 233.2,
+          "t": 233.4,
           "matrix": [
             0.77,
             0,
@@ -1137,7 +1161,7 @@
           "opacity": 1
         },
         {
-          "t": 333.3,
+          "t": 333.4,
           "matrix": [
             0.96,
             0,
@@ -1163,7 +1187,7 @@
           "opacity": 1
         },
         {
-          "t": 433.2,
+          "t": 433.4,
           "matrix": [
             1,
             0,
@@ -1176,7 +1200,7 @@
           "opacity": 1
         },
         {
-          "t": 483.2,
+          "t": 483.3,
           "matrix": [
             1,
             0,
@@ -1202,7 +1226,7 @@
           "opacity": 1
         },
         {
-          "t": 583.3,
+          "t": 583.4,
           "matrix": [
             1,
             0,
@@ -1215,7 +1239,7 @@
           "opacity": 1
         },
         {
-          "t": 633.3,
+          "t": 633.4,
           "matrix": [
             1,
             0,
@@ -1228,7 +1252,7 @@
           "opacity": 1
         },
         {
-          "t": 683.2,
+          "t": 683.4,
           "matrix": [
             1,
             0,
@@ -1259,7 +1283,7 @@
           "opacity": 1
         },
         {
-          "t": 33.3,
+          "t": 33.4,
           "matrix": [
             1,
             0,
@@ -1272,13 +1296,13 @@
           "opacity": 0.87
         },
         {
-          "t": 83.2,
+          "t": 83.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            7.68,
+            7.69,
             0
           ],
           "taper": null,
@@ -1298,7 +1322,7 @@
           "opacity": 0.51
         },
         {
-          "t": 183.3,
+          "t": 183.4,
           "matrix": [
             1,
             0,
@@ -1311,13 +1335,13 @@
           "opacity": 0.36
         },
         {
-          "t": 233.2,
+          "t": 233.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            18.46,
+            18.47,
             0
           ],
           "taper": null,
@@ -1337,7 +1361,7 @@
           "opacity": 0.12
         },
         {
-          "t": 333.3,
+          "t": 333.4,
           "matrix": [
             1,
             0,
@@ -1363,7 +1387,7 @@
           "opacity": 0
         },
         {
-          "t": 433.2,
+          "t": 433.4,
           "matrix": [
             1,
             0,
@@ -1376,7 +1400,7 @@
           "opacity": 0
         },
         {
-          "t": 483.2,
+          "t": 483.3,
           "matrix": [
             1,
             0,
@@ -1402,7 +1426,7 @@
           "opacity": 0
         },
         {
-          "t": 583.3,
+          "t": 583.4,
           "matrix": [
             1,
             0,
@@ -1415,7 +1439,7 @@
           "opacity": 0
         },
         {
-          "t": 633.3,
+          "t": 633.4,
           "matrix": [
             1,
             0,
@@ -1428,7 +1452,7 @@
           "opacity": 0
         },
         {
-          "t": 683.2,
+          "t": 683.4,
           "matrix": [
             1,
             0,
@@ -1459,7 +1483,7 @@
           "opacity": 0
         },
         {
-          "t": 33.3,
+          "t": 33.4,
           "matrix": [
             1,
             0,
@@ -1472,7 +1496,7 @@
           "opacity": 0
         },
         {
-          "t": 83.2,
+          "t": 83.4,
           "matrix": [
             1,
             0,
@@ -1491,33 +1515,33 @@
             0,
             0,
             1,
-            -20.76,
+            -20.77,
             0
           ],
           "taper": null,
           "opacity": 0.13
         },
         {
-          "t": 183.3,
+          "t": 183.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            -16.32,
+            -16.31,
             0
           ],
           "taper": null,
           "opacity": 0.32
         },
         {
-          "t": 233.2,
+          "t": 233.4,
           "matrix": [
             1,
             0,
             0,
             1,
-            -12.29,
+            -12.28,
             0
           ],
           "taper": null,
@@ -1537,7 +1561,7 @@
           "opacity": 0.64
         },
         {
-          "t": 333.3,
+          "t": 333.4,
           "matrix": [
             1,
             0,
@@ -1563,7 +1587,7 @@
           "opacity": 0.88
         },
         {
-          "t": 433.2,
+          "t": 433.4,
           "matrix": [
             1,
             0,
@@ -1576,7 +1600,7 @@
           "opacity": 0.96
         },
         {
-          "t": 483.2,
+          "t": 483.3,
           "matrix": [
             1,
             0,
@@ -1602,7 +1626,7 @@
           "opacity": 1
         },
         {
-          "t": 583.3,
+          "t": 583.4,
           "matrix": [
             1,
             0,
@@ -1615,7 +1639,7 @@
           "opacity": 1
         },
         {
-          "t": 633.3,
+          "t": 633.4,
           "matrix": [
             1,
             0,
@@ -1628,7 +1652,7 @@
           "opacity": 1
         },
         {
-          "t": 683.2,
+          "t": 683.4,
           "matrix": [
             1,
             0,

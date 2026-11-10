@@ -20,9 +20,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 54.80000001192093,
-      "timelineTimeAtFirstSight": 120.9,
-      "startTimeWhenReady": 137.577000001329,
+      "firstSeenAtMs": 51.400000005960464,
+      "timelineTimeAtFirstSight": 121.1,
+      "startTimeWhenReady": 137.78699999966193,
       "keyframes": [
         {
           "offset": 0,
@@ -261,14 +261,14 @@
       "type": "animationstart",
       "name": "fx-steps",
       "elapsedTime": 0,
-      "atMs": 87.40000000596046,
+      "atMs": 84.90000000596046,
       "targetClassName": "fx-steps__dot"
     },
     {
       "type": "animationend",
       "name": "fx-steps",
       "elapsedTime": 1,
-      "atMs": 1087.2000000029802,
+      "atMs": 1068.4000000059605,
       "targetClassName": "fx-steps__dot"
     }
   ]

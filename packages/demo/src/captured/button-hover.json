@@ -35,6 +35,17 @@
       "y": 1,
       "blur": 2
     },
+    "shadows": [
+      {
+        "color": "rgba(0, 0, 0, 0.2)",
+        "x": 0,
+        "y": 1,
+        "blur": 2,
+        "spread": 0,
+        "inset": false
+      }
+    ],
+    "outline": null,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -68,6 +79,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -199,7 +212,7 @@
       "shapeId": "s0",
       "frames": [
         {
-          "t": -16.7,
+          "t": -16.6,
           "matrix": [
             1,
             0,
@@ -212,7 +225,7 @@
           "opacity": 1
         },
         {
-          "t": 33.3,
+          "t": 33.4,
           "matrix": [
             1,
             0,
@@ -264,7 +277,7 @@
           "opacity": 1
         },
         {
-          "t": 233.3,
+          "t": 233.4,
           "matrix": [
             1,
             0,
@@ -277,7 +290,7 @@
           "opacity": 1
         },
         {
-          "t": 283.3,
+          "t": 283.4,
           "matrix": [
             1,
             0,
@@ -303,7 +316,7 @@
           "opacity": 1
         },
         {
-          "t": 383.3,
+          "t": 383.4,
           "matrix": [
             1,
             0,

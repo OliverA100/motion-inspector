@@ -1273,3 +1273,39 @@ test('a corner peeled back by a script writing clip-path is fitted as a clip-pat
   expect(clip?.keyframes.at(-1)?.value).toContain('calc(100% - 120px)');
   expect(clip?.keyframes.at(-1)?.value).toMatch(/^polygon\(/);
 });
+
+test('edges: every shadow layer with its spread and inset, and a border on one side only', async ({
+  page,
+}) => {
+  const takes = await captureFixture(
+    page,
+    'edges',
+    (p) => p.hover('[data-fixture="edges"] [data-root]'),
+    600,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  const shapes = capture === undefined || capture === null ? [] : flattenShapes(capture.root);
+  const ring = shapes.find((shape) => shape.label.includes('fx-edges__ring'));
+  expect(ring?.shadows).toEqual([
+    { color: 'rgba(0, 0, 0, 0.6)', x: 0, y: 0, blur: 0, spread: 1, inset: false },
+    { color: 'rgba(0, 0, 0, 0.25)', x: 0, y: 8, blur: 16, spread: 0, inset: false },
+  ]);
+  const well = shapes.find((shape) => shape.label.includes('fx-edges__well'));
+  expect(well?.shadows?.[0]?.inset).toBe(true);
+  const outlined = shapes.find((shape) => shape.label.includes('fx-edges__outlined'));
+  expect(outlined?.outline).toEqual({
+    color: 'rgb(224, 33, 138)',
+    width: 2,
+    offset: 4,
+    style: 'dashed',
+  });
+  const tab = shapes.find((shape) => shape.label.includes('fx-edges__tab'));
+  expect(tab?.stroke?.width).toBe(3);
+  // Only the bottom side shows.
+  expect(tab?.stroke?.sides?.map((color) => color === 'rgba(0, 0, 0, 0)')).toEqual([
+    true,
+    true,
+    false,
+    true,
+  ]);
+});

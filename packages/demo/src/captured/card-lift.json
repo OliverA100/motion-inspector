@@ -35,6 +35,8 @@
     "clip": false,
     "transform": null,
     "shadow": null,
+    "shadows": null,
+    "outline": null,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -68,6 +70,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -102,6 +106,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -136,6 +142,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -238,7 +246,7 @@
             0,
             1.01,
             0,
-            -2.06
+            -2.07
           ],
           "taper": null,
           "opacity": 1
@@ -270,7 +278,7 @@
           "opacity": 1
         },
         {
-          "t": 183.3,
+          "t": 183.2,
           "matrix": [
             1.03,
             0,
@@ -335,7 +343,7 @@
           "opacity": 1
         },
         {
-          "t": 433.3,
+          "t": 433.2,
           "matrix": [
             1.03,
             0,
@@ -348,7 +356,7 @@
           "opacity": 1
         },
         {
-          "t": 483.3,
+          "t": 483.2,
           "matrix": [
             1.03,
             0,

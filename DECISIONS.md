@@ -713,3 +713,23 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - Colors, type and shapes follow the system's own (gray fills instead of outlines, cards with a soft shadow, the system blue), in light and dark. The fixtures page keeps its own fixed look: it is test data.
 **Why:** asked for: "too messy, too much text; minimal, intuitive and easy to use".
 **Gave up:** the help is one step further away: pointed at, not read at a glance.
+
+### D133. Edges as designed: every shadow, borders per side
+**Chose:**
+- Capture keeps every box-shadow layer, top first, with its spread and whether it is inset (`Shape.shadows`, a new optional field; `shadow` stays for older takes). The probe reads every layer of an animated one too.
+- The stage draws outer shadows under the shape and only outside its box, as CSS does, and inner shadows over the fill inside it, each from a shape drawn far off whose shadow is cast back.
+- Borders are read side by side: a side with no width or no style is transparent. An element counts as drawn when any side has a border, or when it has a box-shadow or an outline.
+- Outlines (a focus ring left by a click, an outlined button) are read (`Shape.outline`, new and optional) and drawn at their offset, dashed or dotted as on the page. Found on Linear: its nav buttons keep a focus ring after a click.
+- The test fixtures keep their own fixed look, apart from the tool's design tokens.
+**Why:** asked for: "make sure the previews show CSS elements that are important to the design, like shadows". Many cards' edge is a "0 0 0 1px" ring shadow, with layered soft shadows under it; a tab or a field often has only a bottom border. These were missing or drawn as a full box.
+**Gave up:** with different widths per side, the widest is used. An outline that animates is drawn as it was when picked. Backdrop blur is not drawn.
+
+### D134. Found by checking every element against the page
+**Chose:**
+- A finite transition already under way when recording began (the hover that picking by click started) starts the take, like any other; only endless ones keep a negative delay.
+- translate's percentages and calc() are resolved against the element's own box, when filming and when reading the resting transform.
+- A part fading when picked keeps both ends of the fade: a take with the fade draws it from the start, a take without it shows it where the fade was going.
+- A part with no box (display: none) or hidden is filmed as unseen, whatever its opacity says.
+- A transform track is "no change" only when its functions and the browser's own 3D matrix both agree, so 3D turns are kept.
+**Why:** the sweep now runs every element twice, once untouched, and reads the editor's self-check for each. Each of these showed as a large miss on a real site (see REAL_SITES.md, pass seven).
+**Gave up:** a parent's perspective is still not carried into the preview.

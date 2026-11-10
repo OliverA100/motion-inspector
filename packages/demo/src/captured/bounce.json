@@ -30,6 +30,8 @@
     "clip": false,
     "transform": null,
     "shadow": null,
+    "shadows": null,
+    "outline": null,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -63,6 +65,8 @@
         "clip": false,
         "transform": null,
         "shadow": null,
+        "shadows": null,
+        "outline": null,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -268,14 +272,14 @@
           "opacity": 1
         },
         {
-          "t": 183.4,
+          "t": 183.3,
           "matrix": [
             1,
             0,
             0,
             1,
             0,
-            -37.77
+            -37.79
           ],
           "taper": null,
           "opacity": 1
@@ -307,40 +311,40 @@
           "opacity": 1
         },
         {
-          "t": 333.3,
+          "t": 333.4,
           "matrix": [
             1,
             0,
             0,
             1,
             0,
-            -6.76
+            -6.73
           ],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 383.4,
+          "t": 383.3,
           "matrix": [
             1,
             0,
             0,
             1,
             0,
-            -4.12
+            -4.1
           ],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 433.3,
+          "t": 433.4,
           "matrix": [
             1,
             0,
             0,
             1,
             0,
-            -11.59
+            -11.6
           ],
           "taper": null,
           "opacity": 1
@@ -359,7 +363,7 @@
           "opacity": 1
         },
         {
-          "t": 533.3,
+          "t": 533.4,
           "matrix": [
             1,
             0,
@@ -437,7 +441,7 @@
           "opacity": 1
         },
         {
-          "t": 833.3,
+          "t": 833.4,
           "matrix": [
             1,
             0,
@@ -463,7 +467,7 @@
           "opacity": 1
         },
         {
-          "t": 933.3,
+          "t": 933.4,
           "matrix": [
             1,
             0,
@@ -476,7 +480,7 @@
           "opacity": 1
         },
         {
-          "t": 983.4,
+          "t": 983.3,
           "matrix": [
             1,
             0,
@@ -489,7 +493,7 @@
           "opacity": 1
         },
         {
-          "t": 1033.4,
+          "t": 1033.3,
           "matrix": [
             1,
             0,
@@ -502,7 +506,7 @@
           "opacity": 1
         },
         {
-          "t": 1083.4,
+          "t": 1083.3,
           "matrix": [
             1,
             0,

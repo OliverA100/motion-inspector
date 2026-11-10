@@ -2,7 +2,13 @@
 // images, and icons from their own outlines. Child shapes move inside their
 // parent's transform.
 
-import { findShape, type Capture, type Shape, type ShapeId } from '@motion-inspector/core';
+import {
+  findShape,
+  type Capture,
+  type ShadowLayer,
+  type Shape,
+  type ShapeId,
+} from '@motion-inspector/core';
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
 import { clipCorners, clipPathOf } from './clipPath';
@@ -28,6 +34,9 @@ export type Pose = {
   width: number | null;
   height: number | null;
   shadow: Shadow | null;
+  // Every layer of an animated box-shadow, the top one first. null when
+  // the shadow does not animate.
+  shadows: ShadowLayer[] | null;
   // The animated text color. Applies to the text bars inside this shape.
   textColor: string | null;
   // How far left, right, top or bottom moved it, in px. Moves its content too.
@@ -83,6 +92,103 @@ const CAPTION_HEIGHT = 20;
 
 // inset: how far inside the box the outline runs. A border is drawn inside
 // the box in CSS, so its line runs half its width inside the edge.
+// A shape's rounded box, grown (negative inset) or shrunk, as numbers.
+function boxOf(
+  shape: Shape,
+  pose: Pose | null,
+  inset: number,
+): { x: number; y: number; width: number; height: number; radii: number[] } {
+  const atLeastZero = (value: number): number => (value > 0 ? value : 0);
+  return {
+    x: shape.box.x + inset,
+    y: shape.box.y + inset,
+    width: atLeastZero((pose?.width ?? shape.box.width) - inset * 2),
+    height: atLeastZero((pose?.height ?? shape.box.height) - inset * 2),
+    radii: (pose?.radius ?? shape.radius).map((radius) => atLeastZero(radius - inset)),
+  };
+}
+
+// Every box-shadow layer to draw: animated, or at rest. Older takes have
+// only one outer shadow.
+function shadowLayersFor(shape: Shape, pose: Pose | null): ShadowLayer[] {
+  if (pose?.shadows != null) return pose.shadows;
+  if (pose?.shadow != null) return [{ ...pose.shadow, spread: 0, inset: false }];
+  if (shape.shadows != null) return shape.shadows;
+  return shape.shadow === null ? [] : [{ ...shape.shadow, spread: 0, inset: false }];
+}
+
+// Shadows are drawn the way canvas allows: a shape far off to the side,
+// whose shadow is cast back by the same distance. The shape itself is never
+// seen. Shadow offsets and blur are in the canvas's pixels, whatever the
+// transform, so they are turned from the shape's units here.
+const FAR = 10000;
+function castShadow(context: CanvasRenderingContext2D, layer: ShadowLayer): void {
+  const m = context.getTransform();
+  const pixels = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) || 1;
+  const x = layer.x + FAR;
+  context.shadowColor = layer.color;
+  context.shadowBlur = layer.blur * pixels;
+  context.shadowOffsetX = m.a * x + m.c * layer.y;
+  context.shadowOffsetY = m.b * x + m.d * layer.y;
+  context.translate(-FAR, 0);
+}
+
+// The outer shadows, under the shape, and only outside its box, as in CSS
+// (a ring shadow round a transparent button does not fill it).
+function drawOuterShadows(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  layers: ShadowLayer[],
+): void {
+  const own = boxOf(shape, pose, 0);
+  // Drawn bottom first: the first layer is on top.
+  for (const layer of [...layers].reverse()) {
+    context.save();
+    const outside = new Path2D();
+    outside.rect(own.x - FAR / 2, own.y - FAR / 2, FAR, FAR);
+    outside.roundRect(own.x, own.y, own.width, own.height, own.radii);
+    context.clip(outside, 'evenodd');
+    castShadow(context, layer);
+    const grown = boxOf(shape, pose, -layer.spread);
+    context.beginPath();
+    context.roundRect(grown.x, grown.y, grown.width, grown.height, grown.radii);
+    context.fillStyle = '#000';
+    context.fill();
+    context.restore();
+  }
+}
+
+// Inner shadows, over the fill and inside the box: a frame around the box,
+// shrunk by the spread and moved by the offset, casts its shadow inward.
+function drawInsetShadows(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  layers: ShadowLayer[],
+): void {
+  const own = boxOf(shape, pose, 0);
+  for (const layer of [...layers].reverse()) {
+    context.save();
+    context.beginPath();
+    context.roundRect(own.x, own.y, own.width, own.height, own.radii);
+    context.clip();
+    castShadow(context, layer);
+    const hole = boxOf(shape, pose, layer.spread);
+    const frame = new Path2D();
+    frame.rect(
+      own.x - own.width - 200,
+      own.y - own.height - 200,
+      own.width * 3 + 400,
+      own.height * 3 + 400,
+    );
+    frame.roundRect(hole.x, hole.y, hole.width, hole.height, hole.radii);
+    context.fillStyle = '#000';
+    context.fill(frame, 'evenodd');
+    context.restore();
+  }
+}
+
 function shapePath(
   context: CanvasRenderingContext2D,
   shape: Shape,
@@ -633,6 +739,15 @@ function drawFilled(
 ): void {
   walk(context, root, poses, (shape, pose, textColor, alpha, context) => {
     context.globalAlpha = alpha;
+    // Box shadows: the outer ones under the shape, the inner ones over its
+    // fill (below).
+    const shadows = shape.kind === 'text' ? [] : shadowLayersFor(shape, pose);
+    drawOuterShadows(
+      context,
+      shape,
+      pose,
+      shadows.filter((layer) => !layer.inset),
+    );
     if (shape.kind === 'text' && shape.words !== null) wordsPath(context, shape);
     else shapePath(context, shape, pose);
     const fill =
@@ -640,22 +755,15 @@ function drawFilled(
     // An animated background color replaces the gradient, as in CSS when a
     // hover sets "background" to a plain color.
     const gradient = pose?.fill != null ? null : shape.gradient;
-    const shadow = pose?.shadow ?? shape.shadow;
-    if (shadow !== null && (fill !== null || gradient !== null)) {
-      // Canvas shadows ignore the current transform, so scale by hand.
-      context.shadowColor = shadow.color;
-      context.shadowOffsetX = shadow.x * scale;
-      context.shadowOffsetY = shadow.y * scale;
-      context.shadowBlur = shadow.blur * scale;
-    }
     if (fill !== null) {
       context.fillStyle = fill;
       context.fill();
-      context.shadowColor = 'transparent';
     }
-    if (gradient !== null) {
-      fillGradient(context, shape, pose, gradient);
-      context.shadowColor = 'transparent';
+    if (gradient !== null) fillGradient(context, shape, pose, gradient);
+    const inner = shadows.filter((layer) => layer.inset);
+    if (inner.length > 0) {
+      drawInsetShadows(context, shape, pose, inner);
+      shapePath(context, shape, pose);
     }
     if (shape.stroke !== null && shape.stroke.sides !== null && pose?.strokeColor == null) {
       context.lineWidth = shape.stroke.width;
@@ -677,6 +785,20 @@ function drawFilled(
       context.lineWidth = shape.stroke.width;
       context.setLineDash(borderDash(shape.stroke));
       if (shape.stroke.style === 'dotted') context.lineCap = 'round';
+      context.stroke();
+      context.setLineDash([]);
+      context.lineCap = 'butt';
+      shapePath(context, shape, pose);
+    }
+    // An outline, outside the box at its offset, over everything else the
+    // shape draws (a focus ring).
+    if (shape.outline !== null && shape.outline !== undefined) {
+      const outline = shape.outline;
+      shapePath(context, shape, pose, -(outline.offset + outline.width / 2));
+      context.strokeStyle = outline.color;
+      context.lineWidth = outline.width;
+      context.setLineDash(borderDash({ ...outline, sides: null }));
+      if (outline.style === 'dotted') context.lineCap = 'round';
       context.stroke();
       context.setLineDash([]);
       context.lineCap = 'butt';
