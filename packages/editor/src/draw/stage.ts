@@ -29,8 +29,11 @@ export type StageData = {
   // Poses for shapes that are animating. A shape with no pose is at rest.
   mine: Pose[];
   original: Pose[];
-  // "mine" draws no original at all.
-  compare: 'mine' | 'overlay' | 'side-by-side';
+  compare: 'overlay' | 'side-by-side';
+  // Draws the original as a dashed outline over my version. In side by side
+  // it is drawn over the "Mine" half, so the two can be compared in place
+  // as well as next to each other.
+  showOriginal: boolean;
   selectedShapeId: ShapeId | null;
   theme: Theme;
 };
@@ -165,11 +168,11 @@ function caption(context: CanvasRenderingContext2D, theme: Theme, text: string, 
 
 export function drawStage(context: CanvasRenderingContext2D, data: StageData, size: Size): void {
   const { root, theme } = data;
-  if (data.compare !== 'side-by-side') {
+  if (data.compare === 'overlay') {
     const whole = { x: 0, y: 0, width: size.width, height: size.height };
     inArea(context, root, whole, (scale) => {
       drawFilled(context, root, data.mine, data.selectedShapeId, theme, scale);
-      if (data.compare === 'overlay') drawOutline(context, data, scale);
+      if (data.showOriginal) drawOutline(context, data, scale);
     });
     return;
   }
@@ -182,6 +185,7 @@ export function drawStage(context: CanvasRenderingContext2D, data: StageData, si
   });
   inArea(context, root, { x: half, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
     drawFilled(context, root, data.mine, data.selectedShapeId, theme, scale);
+    if (data.showOriginal) drawOutline(context, data, scale);
   });
   caption(context, theme, 'Original', 0);
   caption(context, theme, 'Mine', half);

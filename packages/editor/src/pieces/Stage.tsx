@@ -14,8 +14,8 @@ type Props = {
   root: Shape;
   mine: Pose[];
   original: Pose[];
-  // Whether the dashed outline of the original is drawn in "On top" mode.
-  // It does not affect "Side by side", which has no dashed lines.
+  // Whether the dashed outline of the original is drawn over my version,
+  // in both compare modes.
   showOriginal: boolean;
   compare: Compare;
   selectedShapeId: ShapeId | null;
@@ -23,19 +23,21 @@ type Props = {
 };
 
 const COMPARE_OPTIONS: { value: Compare; text: string }[] = [
-  { value: 'overlay', text: 'On top' },
+  { value: 'overlay', text: 'Single' },
   { value: 'side-by-side', text: 'Side by side' },
 ];
 
 export function Stage(props: Props) {
-  const { root, mine, original, showOriginal, selectedShapeId } = props;
+  const { root, mine, original, showOriginal, compare, selectedShapeId } = props;
   const theme = useTheme();
-  const compare =
-    props.compare === 'side-by-side' ? 'side-by-side' : showOriginal ? 'overlay' : 'mine';
   const draw = useCallback<Draw>(
     (context, size) =>
-      drawStage(context, { root, mine, original, compare, selectedShapeId, theme }, size),
-    [root, mine, original, compare, selectedShapeId, theme],
+      drawStage(
+        context,
+        { root, mine, original, compare, showOriginal, selectedShapeId, theme },
+        size,
+      ),
+    [root, mine, original, compare, showOriginal, selectedShapeId, theme],
   );
 
   return (
@@ -43,9 +45,8 @@ export function Stage(props: Props) {
       <header className="panel__head">
         <h2 className="panel__title">Preview</h2>
         <div className="panel__tools">
-          <span className="panel__label">Original</span>
           <Segmented
-            label="Where to draw the original"
+            label="One preview, or the original beside mine"
             options={COMPARE_OPTIONS}
             value={props.compare}
             onChange={props.onCompareChange}
