@@ -52,6 +52,17 @@ const truth: Follow = {
 const times = Array.from({ length: 40 }, (_item, index) => index * 38);
 
 describe('fitFollow', () => {
+  // It runs in the page when a take ends: kept to a few ms, so a hover
+  // never stalls the page.
+  test('takes a few ms, not a frame of the page', () => {
+    const film = replayFollow(truth, box, times);
+    const rest = truth.channels.map((channel) => channel.rest);
+    fitFollow(box, pointer, times, film, rest);
+    const started = performance.now();
+    for (let round = 0; round < 5; round += 1) fitFollow(box, pointer, times, film, rest);
+    expect((performance.now() - started) / 5).toBeLessThan(8);
+  });
+
   test('finds the rule and the lag of a part that follows the pointer', () => {
     const film = replayFollow(truth, box, times);
     const rest = truth.channels.map((channel) => channel.rest);

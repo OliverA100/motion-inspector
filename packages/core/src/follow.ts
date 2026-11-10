@@ -200,7 +200,14 @@ export function fitFollow(
   rest: number[],
 ): FollowFit | null {
   if (times.length < 3 || pointer.filter((sample) => sample.inside).length < 3) return null;
-  const tryLags = (onLagMs: number, lagMs: number): Scored => {
+  // A number that sits at rest in every frame needs no solving: it follows
+  // nothing. Most of the nine do (a card that only tilts never fades).
+  const still = FOLLOW_CHANNELS.map((_name, index) =>
+    (values[index] ?? []).every((value) => value === (rest[index] ?? 0)),
+  );
+  // limit: the best score so far. A pair of lags already worse is given up
+  // on. This runs in the page when a take ends, for 196 pairs of lags.
+  const tryLags = (onLagMs: number, lagMs: number, limit = Infinity): Scored | null => {
     const rows = laggedDrivers(box, pointer, times, onLagMs, lagMs).map(
       (state): [number, number, number] => [state.on, state.on * state.x, state.on * state.y],
     );
@@ -211,6 +218,11 @@ export function fitFollow(
       const name = FOLLOW_CHANNELS[index] ?? 'a';
       const restValue = rest[index] ?? 0;
       const film = values[index] ?? [];
+      if (still[index] === true) {
+        errors.push(0);
+        channels.push({ name, rest: restValue, base: restValue, perX: 0, perY: 0 });
+        continue;
+      }
       const solved = solve3(
         rows,
         film.map((value) => value - restValue),
@@ -226,14 +238,18 @@ export function fitFollow(
       });
       errors.push(worst);
       channels.push({ name, rest: restValue, base: restValue + onPart, perX, perY });
+      if (score >= limit) return null;
     }
     return { fit: { onLagMs, lagMs, channels, errors }, score };
   };
-  let best = tryLags(0, 0);
+  let best = tryLags(0, 0) ?? {
+    fit: { onLagMs: 0, lagMs: 0, channels: [], errors: [] },
+    score: Infinity,
+  };
   for (const onLag of LAGS) {
     for (const lag of LAGS) {
-      const candidate = tryLags(onLag, lag);
-      if (candidate.score < best.score) best = candidate;
+      const candidate = tryLags(onLag, lag, best.score);
+      if (candidate !== null && candidate.score < best.score) best = candidate;
     }
   }
   // Finer steps around the best, one lag at a time.
@@ -246,8 +262,8 @@ export function fitFollow(
       [onLagMs, lagMs + step],
     ] as const) {
       if (onLag < 0 || lag < 0) continue;
-      const candidate = tryLags(onLag, lag);
-      if (candidate.score < best.score) best = candidate;
+      const candidate = tryLags(onLag, lag, best.score);
+      if (candidate !== null && candidate.score < best.score) best = candidate;
     }
   }
   return best.fit;

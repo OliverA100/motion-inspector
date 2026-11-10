@@ -733,3 +733,12 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - A transform track is "no change" only when its functions and the browser's own 3D matrix both agree, so 3D turns are kept.
 **Why:** the sweep now runs every element twice, once untouched, and reads the editor's self-check for each. Each of these showed as a large miss on a real site (see REAL_SITES.md, pass seven).
 **Gave up:** a parent's perspective is still not carried into the preview.
+
+### D135. Fitting stays out of the page's way
+**Chose:**
+- A curve for filmed motion is found by searching only x1 and x2 (121 points, then finer steps). For each pair the best y1 and y2 are solved exactly: the progress is a straight sum of them once x1 and x2 are known, so two unknowns are a least squares in closed form. The five curves CSS names are tried first, and kept when they fit.
+- The follow fit skips numbers that never leave rest, and gives up on a pair of lags as soon as it scores worse than the best so far.
+- Both have tests that time them, and one that 95 of 100 random cubic-beziers, overshoot included, are found again as one curve.
+- `tests/freeze-sites.cjs` records real pages, as the extension does, and times their frames; with PROFILE=1 it says which capture functions took the time.
+**Why:** reported: "it keeps freezing the page when I record", on hover and click. Both fits run in the page when a take ends. The old curve search tried 6,400 curves at every frame of the film: 55 ms for each moving part, one fit per moved property, so a hover on a card a script moves held the page for 100 ms or more, in and out. Now: 0.18 ms per fit (295 of 300 random curves found as one curve, against 66 before), and the follow fit is three times faster.
+**Gave up:** nothing measured. The fits still run in the page's frame when a take ends: a few ms, not spread over several frames.

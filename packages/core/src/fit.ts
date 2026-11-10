@@ -36,6 +36,15 @@ export type Fit = {
 
 const MOST_KEYFRAMES = 30;
 
+// linear, ease, ease-in, ease-out and ease-in-out, as cubic-beziers.
+const NAMED_CURVES: [number, number, number, number][] = [
+  [0, 0, 1, 1],
+  [0.25, 0.1, 0.25, 1],
+  [0.42, 0, 1, 1],
+  [0, 0, 0.58, 1],
+  [0.42, 0, 0.58, 1],
+];
+
 // The value of a channel at a time, from straight lines between its samples.
 function between(times: number[], values: number[], time: number): number {
   for (let index = 1; index < times.length; index += 1) {
@@ -87,56 +96,120 @@ function progressOf(values: number[]): number[] | null {
   return values.map((value) => (value - first) / range);
 }
 
-// The cubic-bezier that comes closest to a progress curve, by search: a
-// coarse grid, then finer steps around the best. x1 and x2 stay in 0 to 1.
+// Where along a cubic-bezier (t, from 0 to 1) its input reaches x. x1 and
+// x2 are in 0 to 1, so the input only ever grows with t: Newton steps, and
+// halving when they do not settle.
+function inputAt(x1: number, x2: number, x: number): number {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const c = 3 * x1;
+  const b = 3 * (x2 - x1) - c;
+  const a = 1 - c - b;
+  let t = x;
+  for (let step = 0; step < 8; step += 1) {
+    const miss = ((a * t + b) * t + c) * t - x;
+    if (Math.abs(miss) < 1e-7) return t;
+    const slope = (3 * a * t + 2 * b) * t + c;
+    if (Math.abs(slope) < 1e-6) break;
+    t -= miss / slope;
+    if (t < 0 || t > 1) break;
+  }
+  let low = 0;
+  let high = 1;
+  for (let step = 0; step < 30; step += 1) {
+    t = (low + high) / 2;
+    const at = ((a * t + b) * t + c) * t;
+    if (Math.abs(at - x) < 1e-7) break;
+    if (at < x) low = t;
+    else high = t;
+  }
+  return t;
+}
+
+// Up to `most` samples, evenly spread, the first and last kept.
+function spread(count: number, most: number): number[] {
+  if (count <= most) return Array.from({ length: count }, (_item, index) => index);
+  return Array.from({ length: most }, (_item, index) =>
+    Math.round((index * (count - 1)) / (most - 1)),
+  );
+}
+
+// The cubic-bezier that comes closest to a progress curve. Once x1 and x2
+// are chosen, the progress is a straight sum of y1 and y2 (at each sample,
+// 3(1-t)²t·y1 + 3(1-t)t²·y2 + t³), so the best y1 and y2 for them are found
+// exactly, by least squares. Only x1 and x2 are searched: a grid, then finer
+// steps around the best. It runs in the page when a take ends, often for
+// several parts at once, so it is kept to a few ms.
 function bestBezier(times: number[], progress: number[]): [number, number, number, number] {
   const span = (times[times.length - 1] ?? 1) - (times[0] ?? 0) || 1;
   const xs = times.map((time) => (time - (times[0] ?? 0)) / span);
-  const cost = (curve: [number, number, number, number]): number =>
-    xs.reduce((sum, x, index) => {
-      const difference =
-        cubicBezierAt(curve[0], curve[1], curve[2], curve[3], x) - (progress[index] ?? 0);
-      return sum + difference * difference;
-    }, 0);
-  let best: [number, number, number, number] = [0.25, 0.1, 0.25, 1];
-  let bestCost = cost(best);
-  const grid = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1];
-  const heights = [-0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4];
-  for (const x1 of grid) {
-    for (const y1 of heights) {
-      for (const x2 of grid) {
-        for (const y2 of heights) {
-          const candidate: [number, number, number, number] = [x1, y1, x2, y2];
-          const value = cost(candidate);
-          if (value < bestCost) {
-            best = candidate;
-            bestCost = value;
-          }
-        }
-      }
+  type Tried = { curve: [number, number, number, number]; cost: number };
+  const heightsFor = (x1: number, x2: number, samples: number[]): Tried => {
+    let uu = 0;
+    let uv = 0;
+    let vv = 0;
+    let uq = 0;
+    let vq = 0;
+    let qq = 0;
+    for (const index of samples) {
+      const t = inputAt(x1, x2, xs[index] ?? 0);
+      const u = 3 * (1 - t) * (1 - t) * t;
+      const v = 3 * (1 - t) * t * t;
+      const q = (progress[index] ?? 0) - t * t * t;
+      uu += u * u;
+      uv += u * v;
+      vv += v * v;
+      uq += u * q;
+      vq += v * q;
+      qq += q * q;
+    }
+    // A little ridge, so samples that do not decide a height leave it at 0.
+    uu += 1e-9;
+    vv += 1e-9;
+    const det = uu * vv - uv * uv;
+    const y1 = (uq * vv - vq * uv) / det;
+    const y2 = (vq * uu - uq * uv) / det;
+    const cost = y1 * y1 * uu + 2 * y1 * y2 * uv + y2 * y2 * vv - 2 * y1 * uq - 2 * y2 * vq + qq;
+    return Number.isFinite(cost)
+      ? { curve: [x1, y1, x2, y2], cost }
+      : { curve: [x1, 0, x2, 1], cost: Infinity };
+  };
+  const few = spread(xs.length, 24);
+  const all = spread(xs.length, xs.length);
+  let best = heightsFor(0.25, 0.25, few);
+  for (let i = 0; i <= 10; i += 1) {
+    for (let j = 0; j <= 10; j += 1) {
+      const tried = heightsFor(i / 10, j / 10, few);
+      if (tried.cost < best.cost) best = tried;
     }
   }
-  // Finer steps around the best, smaller each round.
-  for (let step = 0.08; step > 0.002; step /= 2) {
+  best = heightsFor(best.curve[0], best.curve[2], all);
+  for (let step = 0.05; step > 0.001; step /= 2) {
     let improved = true;
     while (improved) {
       improved = false;
-      for (let which = 0; which < 4; which += 1) {
-        for (const direction of [-1, 1]) {
-          const candidate = [...best] as [number, number, number, number];
-          candidate[which] = (candidate[which] ?? 0) + direction * step;
-          if (which % 2 === 0) candidate[which] = Math.min(Math.max(candidate[which] ?? 0, 0), 1);
-          const value = cost(candidate);
-          if (value < bestCost) {
-            best = candidate;
-            bestCost = value;
-            improved = true;
-          }
+      for (const [dx1, dx2] of [
+        [-step, 0],
+        [step, 0],
+        [0, -step],
+        [0, step],
+      ] as const) {
+        const x1 = Math.min(Math.max(best.curve[0] + dx1, 0), 1);
+        const x2 = Math.min(Math.max(best.curve[2] + dx2, 0), 1);
+        const tried = heightsFor(x1, x2, all);
+        if (tried.cost < best.cost - 1e-15) {
+          best = tried;
+          improved = true;
         }
       }
     }
   }
-  return best.map((number) => Math.round(number * 1000) / 1000) as [number, number, number, number];
+  return best.curve.map((number) => Math.round(number * 1000) / 1000) as [
+    number,
+    number,
+    number,
+    number,
+  ];
 }
 
 // Fits channels filmed at the same times (ms). Every channel has a value
@@ -162,9 +235,10 @@ export function fitMotion(times: number[], channels: Channel[]): Fit {
   });
   const lead = moves.indexOf(Math.max(...moves));
   const progress = progressOf(channels[lead]?.values ?? []);
-  if (progress !== null) {
-    const curve = bestBezier(times, progress);
-    const errors = channels.map((channel) => {
+  // How far each channel is from the film, with every channel following
+  // one curve.
+  const errorsFor = (curve: [number, number, number, number]): number[] =>
+    channels.map((channel) => {
       const from = channel.values[0] ?? 0;
       const to = channel.values[last] ?? 0;
       return Math.max(
@@ -174,7 +248,18 @@ export function fitMotion(times: number[], channels: Channel[]): Fit {
         }),
       );
     });
-    if (errors.every((error, index) => error <= (channels[index]?.tolerance ?? 0))) {
+  const fits = (errors: number[]): boolean =>
+    errors.every((error, index) => error <= (channels[index]?.tolerance ?? 0));
+  if (progress !== null) {
+    // The curves CSS names come first: when one is close enough, it is
+    // what the author most likely wrote, and no search is needed (a small
+    // move is met by almost any curve).
+    const named = NAMED_CURVES.map((curve) => ({ curve, errors: errorsFor(curve) })).find((item) =>
+      fits(item.errors),
+    );
+    const curve = named?.curve ?? bestBezier(times, progress);
+    const errors = named?.errors ?? errorsFor(curve);
+    if (fits(errors)) {
       return {
         offsets: [0, 1],
         values: channels.map((channel) => [channel.values[0] ?? 0, channel.values[last] ?? 0]),
