@@ -23,17 +23,37 @@ let takes: TakeResult[] = [];
 // onMoved is called if recording moves to a parent of that element, with
 // the parent's label. That happens when the picked element itself does not
 // animate but a nearby parent does (the image inside a card that lifts).
+// onStopped, when given, makes recording stop by itself once a take is
+// complete and nothing else happens for a moment (with the pointer off the
+// element), and is then called.
+const AUTO_STOP_MS = 1500;
+
+// The element recorded last, so it can be recorded again without picking.
+let lastElement: Element | null = null;
+
 export function record(
   target: Element | string,
   onTake?: (result: TakeResult) => void,
   onMoved?: (label: string) => void,
+  onStopped?: () => void,
 ): void {
   const element = typeof target === 'string' ? document.querySelector(target) : target;
   if (element === null) throw new Error(`Nothing matches "${String(target)}".`);
   recorder?.stop();
   takes = [];
+  lastElement = element;
   const watch = (watched: Element): void => {
+    lastElement = watched;
     recorder = startRecording(takeSnapshot(watched), {
+      ...(onStopped === undefined
+        ? {}
+        : {
+            autoStopMs: AUTO_STOP_MS,
+            onAutoStop: () => {
+              recorder = null;
+              onStopped();
+            },
+          }),
       onTake: (result) => {
         // A take that adds the way back replaces the take it completes.
         takes = result.replaces ? [...takes.slice(0, -1), result] : [...takes, result];
@@ -62,13 +82,26 @@ export function stop(): TakeResult[] {
 export async function pickAndRecord(
   onTake?: (result: TakeResult) => void,
   onMoved?: (label: string) => void,
+  onStopped?: () => void,
 ): Promise<boolean> {
   picker?.cancel();
   picker = startPicking();
   const element = await picker.picked;
   picker = null;
   if (element === null) return false;
-  record(element, onTake, onMoved);
+  record(element, onTake, onMoved, onStopped);
+  return true;
+}
+
+// Records the last element again, without picking it. False if there is
+// none, or it has left the page.
+export function recordAgain(
+  onTake?: (result: TakeResult) => void,
+  onMoved?: (label: string) => void,
+  onStopped?: () => void,
+): boolean {
+  if (lastElement === null || !lastElement.isConnected) return false;
+  record(lastElement, onTake, onMoved, onStopped);
   return true;
 }
 

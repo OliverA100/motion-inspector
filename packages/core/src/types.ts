@@ -37,6 +37,12 @@ export type Capture = {
   source: { url: string; selector: string; capturedAt: string };
   root: Shape;
   tracks: Track[];
+  // What set this take off, as far as could be seen: the pointer coming
+  // onto the element (hover), leaving it (leave), both (a hover and its
+  // way back), a click, focus, a key, an animation that loops, one that was
+  // already running, or nothing seen (unknown). null in takes saved before
+  // this was read.
+  trigger: Trigger | null;
   // The color of the page behind the picked element, so a white button on
   // a dark page is previewed on dark. null when it could not be read.
   backdrop: string | null;
@@ -49,6 +55,18 @@ export type Capture = {
   // cannot draw, and things drawn more simply than on the page.
   notShown: string[];
 };
+
+export type Trigger =
+  | 'hover'
+  | 'leave'
+  | 'hover-and-leave'
+  | 'click'
+  | 'focus'
+  | 'blur'
+  | 'key'
+  | 'loop'
+  | 'running'
+  | 'unknown';
 
 // ---------- Shapes ----------
 

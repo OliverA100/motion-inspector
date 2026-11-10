@@ -13,11 +13,13 @@ export type FromPage =
   // Recording moved to a parent of what was picked, because that is the
   // element that animates. `label` names it, such as "div.card".
   | { type: 'moved'; label: string }
-  // Recording has stopped.
-  | { type: 'stopped' };
+  // Recording has stopped. auto: it stopped by itself, a take being
+  // complete; otherwise Stop was pressed.
+  | { type: 'stopped'; auto?: boolean };
 
 // From the panel to the page.
-export type ToPage = { type: 'stop' } | { type: 'cancel' };
+// again: record the element picked last once more, without picking.
+export type ToPage = { type: 'stop' } | { type: 'cancel' } | { type: 'again' };
 
 // Every message from the page carries this, so the panel can tell them
 // apart from anything else that uses chrome.runtime messages.

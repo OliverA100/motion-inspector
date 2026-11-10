@@ -48,7 +48,7 @@ for (const width of [360, 1280]) {
       await page.goto(`/?sample=${sample}&quiet`);
       await expect(page.locator('.mi__description')).not.toBeEmpty();
       if (sample !== 'nothing' && sample !== 'pseudo')
-        await expect(time(page)).toHaveText(/^\d+ ms of \d+ ms$/);
+        await expect(time(page)).toHaveText(/^\d+ of \d+ ms$/);
       // Let it play for a moment, then check again.
       await page.waitForTimeout(300);
       expect(await fitsTheWindow(page)).toBe(true);
@@ -113,12 +113,12 @@ test('a typed duration far too large is held to the limit', async ({ page }) => 
   await duration.fill('99999999999');
   // The limit applies at once. The field shows it after it is left; while
   // typing it shows exactly what was typed.
-  await expect(time(page)).toHaveText('0 ms of 600000 ms');
+  await expect(time(page)).toHaveText('0 of 600000 ms');
   await duration.blur();
   await expect(duration).toHaveValue('600000');
   await duration.fill('-50');
   // A duration cannot be negative. The last valid value stays.
-  await expect(time(page)).toHaveText('0 ms of 600000 ms');
+  await expect(time(page)).toHaveText('0 of 600000 ms');
 });
 
 // A small repeatable random number generator, so a failure can be replayed.
@@ -144,7 +144,7 @@ for (const [seed, sample] of [
     const pick = <Item>(items: Item[]): Item => items[Math.floor(random() * items.length)] as Item;
     await page.setViewportSize({ width: 1280, height: 1000 });
     await page.goto(`/?sample=${sample}&time=0&quiet`);
-    await expect(time(page)).toHaveText(/^\d+ ms of \d+ ms$/);
+    await expect(time(page)).toHaveText(/^\d+ of \d+ ms$/);
 
     const actions: (() => Promise<void>)[] = [
       // Any button on the page: play, presets, resets, fold, convert.
@@ -198,7 +198,7 @@ for (const [seed, sample] of [
     for (let step = 0; step < 80; step += 1) await pick(actions)();
 
     // Still alive, still sane, and nothing went wrong on the way.
-    await expect(time(page)).toHaveText(/^\d+ ms of \d+ ms$/);
+    await expect(time(page)).toHaveText(/^\d+ of \d+ ms$/);
     await expect(page.locator('.mi__description')).not.toBeEmpty();
     expect(await fitsTheWindow(page)).toBe(true);
     expect(errors).toEqual([]);

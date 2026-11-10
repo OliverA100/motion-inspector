@@ -279,6 +279,19 @@ export function parseTiming(value: unknown): Result<Timing> {
 
 // ---------- Tracks ----------
 
+const TRIGGERS = [
+  'hover',
+  'leave',
+  'hover-and-leave',
+  'click',
+  'focus',
+  'blur',
+  'key',
+  'loop',
+  'running',
+  'unknown',
+] as const;
+
 const ORIGINS = ['css-transition', 'css-animation', 'web-animation', 'layout'] as const;
 
 function parseGroupId(value: unknown): Result<GroupId | null> {
@@ -757,8 +770,22 @@ export function parseCapture(value: unknown): Result<Capture> {
     const rawBackdrop = get(source, 'backdrop');
     const backdrop = at('backdrop', rawBackdrop === undefined ? ok(null) : parseFill(rawBackdrop));
     const frame = at('frame', optional(get(source, 'frame'), parseBox));
-    if (!captureSource.ok || !root.ok || !tracks.ok || !notShown.ok || !backdrop.ok || !frame.ok) {
-      return failAll([captureSource, root, tracks, notShown, backdrop, frame].flatMap(errorsOf));
+    const trigger = at(
+      'trigger',
+      optional(get(source, 'trigger'), (value) => oneOf(value, TRIGGERS)),
+    );
+    if (
+      !captureSource.ok ||
+      !root.ok ||
+      !tracks.ok ||
+      !notShown.ok ||
+      !backdrop.ok ||
+      !frame.ok ||
+      !trigger.ok
+    ) {
+      return failAll(
+        [captureSource, root, tracks, notShown, backdrop, frame, trigger].flatMap(errorsOf),
+      );
     }
     return checkReferences({
       source: captureSource.value,
@@ -766,6 +793,7 @@ export function parseCapture(value: unknown): Result<Capture> {
       tracks: tracks.value,
       backdrop: backdrop.value,
       frame: frame.value,
+      trigger: trigger.value,
       notShown: notShown.value,
     });
   });

@@ -65,8 +65,9 @@ type Props = {
   originalTotalMs: number;
   playheadMs: number;
   showOriginal: boolean;
-  // Shown in the header. The editor puts the playback controls here.
-  controls: ReactNode;
+  // Shown in the header. The editor puts the playback controls under the
+  // preview instead; a page that shows the timeline alone may put them here.
+  controls?: ReactNode;
   // null means "unselect".
   onSelect: (index: number | null) => void;
   // Takes a track out of the preview, or puts it back.
@@ -346,14 +347,14 @@ export function Timeline(props: Props) {
     <section className="panel">
       <header className="panel__head">
         <h2 className="panel__title">Timeline</h2>
-        {props.controls}
+        {props.controls ?? null}
       </header>
       <p className="panel__hint">
         Light block: delay. Solid bar: duration. Drag the bar, or the grip at its end, to change
         them. Drag the ruler to move through time.
       </p>
       {/* The rows scroll inside this box. The ruler is pinned to its top, so
-          the play controls above and the timing fields below stay in view
+          the timing fields below stay in view
           however many rows there are. */}
       <div ref={wrapperRef} className={stacked ? 'timeline is-stacked' : 'timeline'}>
         <div className="timeline__corner" style={{ height: RULER_HEIGHT }} />
@@ -508,8 +509,8 @@ export function Timeline(props: Props) {
             {selected === null
               ? '\u00a0'
               : linked
-                ? `Shares its timing and curve with ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}.`
-                : 'Has its own timing and curve.'}
+                ? `Timing and curve shared with ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}.`
+                : 'Its own timing and curve.'}
           </span>
           <Button
             disabled={!linked}

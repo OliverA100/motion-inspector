@@ -7,8 +7,8 @@
 
 import { StrictMode, useEffect, useReducer, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { describeCapture, parseCapture } from '@motion-inspector/core';
-import { Editor } from '@motion-inspector/editor';
+import { describeCapture, parseCapture, type Trigger } from '@motion-inspector/core';
+import { Editor, takeLengthMs } from '@motion-inspector/editor';
 import { FROM_PAGE, type FromPage, type ToPage } from './messages';
 import './panel.css';
 import {
@@ -121,6 +121,9 @@ function statusText(panel: Panel): string {
   const status = panel.status;
   switch (status.kind) {
     case 'idle':
+      if (panel.stoppedByItself) {
+        return 'Got it. Recording stopped by itself once the motion was complete. Record again to capture it once more.';
+      }
       return panel.takes.length === 0
         ? 'Ready when you are.'
         : 'Pick another element, or keep editing below.';
@@ -130,21 +133,64 @@ function statusText(panel: Panel): string {
       // Say so when the thing being watched is not the thing that was clicked.
       const moved =
         status.movedTo === null ? '' : ` Watching ${status.movedTo}, the part that moves.`;
-      if (status.found === 1) {
-        return `Listening… 1 take, shown below.${moved} Trigger it again for another, or press Stop.`;
-      }
-      if (status.found > 1) {
-        return `Listening… ${status.found} takes, newest at the top of the list.${moved}`;
+      if (status.found > 0) {
+        return `Listening…${moved} Got ${status.found === 1 ? 'a take' : `${status.found} takes`}. Move the pointer off the element and recording stops by itself.`;
       }
       return showTip(panel)
         ? `Listening…${moved} Nothing yet. Try hovering or clicking the element.`
-        : `Listening…${moved} Now trigger the animation on the page.`;
+        : `Listening…${moved} Now hover or click it on the page. Recording stops by itself when the motion is done.`;
     }
     case 'nothing-found':
       return 'Stopped. No animation was found.';
     case 'cannot-inspect':
       return 'This page cannot be inspected.';
   }
+}
+
+// What set a take off, in plain words.
+const TRIGGER_WORDS: { trigger: Trigger; words: string }[] = [
+  { trigger: 'hover', words: 'Hover in' },
+  { trigger: 'leave', words: 'Hover out' },
+  { trigger: 'hover-and-leave', words: 'Hover in and out' },
+  { trigger: 'click', words: 'Click' },
+  { trigger: 'focus', words: 'Focus' },
+  { trigger: 'blur', words: 'Focus lost' },
+  { trigger: 'key', words: 'Key press' },
+  { trigger: 'loop', words: 'Loops' },
+  { trigger: 'running', words: 'Already running' },
+  { trigger: 'unknown', words: 'On its own' },
+];
+
+function triggerWords(take: StoredTake): string {
+  const trigger = take.capture.trigger;
+  return TRIGGER_WORDS.find((item) => item.trigger === trigger)?.words ?? 'Take';
+}
+
+function lengthWords(take: StoredTake): string {
+  const ms = Math.round(takeLengthMs(take.capture));
+  return ms >= 1000 ? `${Math.round(ms / 100) / 10} s` : `${ms} ms`;
+}
+
+// Takes of the same element, one after another, are shown together under
+// that element's name.
+function groupsOf(
+  takes: StoredTake[],
+): { key: string; selector: string; host: string; takes: StoredTake[] }[] {
+  const groups: { key: string; selector: string; host: string; takes: StoredTake[] }[] = [];
+  for (const take of takes) {
+    const { selector, url } = take.capture.source;
+    let host = url;
+    try {
+      host = new URL(url).host;
+    } catch {
+      // Keep the address as it is.
+    }
+    const last = groups[groups.length - 1];
+    if (last !== undefined && last.selector === selector && last.host === host)
+      last.takes.push(take);
+    else groups.push({ key: take.id, selector, host, takes: [take] });
+  }
+  return groups;
 }
 
 // The first sentence of the description, without "The element".
@@ -218,7 +264,7 @@ function PanelApp() {
       if (message.from !== FROM_PAGE || sender.tab?.id !== tabId.current) return;
       if (message.type === 'picked') dispatch({ kind: 'elementPicked' });
       if (message.type === 'cancelled') dispatch({ kind: 'pickCancelled' });
-      if (message.type === 'stopped') dispatch({ kind: 'stopped' });
+      if (message.type === 'stopped') dispatch({ kind: 'stopped', auto: message.auto === true });
       if (message.type === 'moved' && typeof message.label === 'string') {
         dispatch({ kind: 'movedToParent', label: message.label });
       }
@@ -246,14 +292,42 @@ function PanelApp() {
     return () => chrome.runtime.onMessage.removeListener(onMessage);
   }, []);
 
-  // If the inspected tab goes to another page, the capture script is gone.
+  // Switching tabs, or the page in front changing, needs no reopening: the
+  // panel follows the tab in front. If the inspected tab goes to another
+  // page, its capture script is gone.
   useEffect(() => {
     const onUpdated = (updatedId: number, change: { status?: string }): void => {
-      if (updatedId === tabId.current && change.status === 'loading') dispatch({ kind: 'stopped' });
+      if (change.status !== 'loading') return;
+      if (updatedId === tabId.current) {
+        dispatch({ kind: 'stopped', auto: false });
+        tabId.current = null;
+      }
+      dispatch({ kind: 'tabChanged' });
     };
+    const onActivated = (): void => dispatch({ kind: 'tabChanged' });
     chrome.tabs.onUpdated.addListener(onUpdated);
-    return () => chrome.tabs.onUpdated.removeListener(onUpdated);
+    chrome.tabs.onActivated.addListener(onActivated);
+    return () => {
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.tabs.onActivated.removeListener(onActivated);
+    };
   }, []);
+
+  // Access to every site, asked for once, so no page needs the toolbar icon
+  // again. Optional: until it is given, access is per tab.
+  const [allSites, setAllSites] = useState(false);
+  useEffect(() => {
+    void chrome.permissions.contains({ origins: ['*://*/*'] }).then(setAllSites, () => {});
+  }, []);
+  const allowAllSites = (): void => {
+    void chrome.permissions.request({ origins: ['*://*/*'] }).then(
+      (granted) => {
+        setAllSites(granted);
+        if (granted) dispatch({ kind: 'accessGiven' });
+      },
+      () => {},
+    );
+  };
 
   // Where the pointer is: over this panel, or not (on the page).
   useEffect(() => {
@@ -287,14 +361,21 @@ function PanelApp() {
     tabId.current = tab?.id ?? null;
   };
 
+  const recordAgain = (): void => {
+    if (tabId.current === null) return;
+    dispatch({ kind: 'pickStarted' });
+    tellPage({ type: 'again' });
+  };
+
   const tellPage = (message: ToPage): void => {
     if (tabId.current === null) {
-      dispatch({ kind: 'stopped' });
+      dispatch({ kind: 'stopped', auto: false });
       return;
     }
     // If the page does not answer (it was closed), stop on this side anyway.
     void toPage(tabId.current, message).then(() => {
-      if (message.type === 'stop') window.setTimeout(() => dispatch({ kind: 'stopped' }), 300);
+      if (message.type === 'stop')
+        window.setTimeout(() => dispatch({ kind: 'stopped', auto: false }), 300);
     });
   };
 
@@ -339,9 +420,16 @@ function PanelApp() {
               Stop
             </button>
           ) : (
-            <button type="button" className="btn btn--primary" onClick={() => void pick()}>
-              Pick element
-            </button>
+            <>
+              {panel.canRecordAgain && tabId.current !== null ? (
+                <button type="button" className="btn" onClick={recordAgain}>
+                  Record again
+                </button>
+              ) : null}
+              <button type="button" className="btn btn--primary" onClick={() => void pick()}>
+                Pick element
+              </button>
+            </>
           )}
         </div>
         <p className="xp__status" role="status">
@@ -366,6 +454,17 @@ function PanelApp() {
         <section className="xp__message">
           <h2>This page cannot be inspected</h2>
           <p>{status.why}</p>
+          {allSites ? null : (
+            <p>
+              <button type="button" className="btn btn--primary" onClick={allowAllSites}>
+                Allow on all sites
+              </button>{' '}
+              <span className="xp__hint">
+                Once, so switching pages never needs the toolbar icon again. You can take it back in
+                Chrome's extension settings.
+              </span>
+            </p>
+          )}
         </section>
       ) : null}
 
@@ -410,25 +509,37 @@ function PanelApp() {
               Clear all
             </button>
           </div>
-          <ul className="xp__take-list">
-            {panel.takes.map((take) => (
-              <li key={take.id}>
-                <button
-                  type="button"
-                  className="xp__take"
-                  aria-pressed={take.id === panel.selectedId}
-                  onClick={() => dispatch({ kind: 'takeSelected', id: take.id })}
-                >
-                  <span className="xp__take-head">
-                    <code>{take.capture.source.selector}</code>
-                    <span>{takeTime(take)}</span>
-                  </span>
-                  {/* What it does, so a hover and its hover-out can be told apart. */}
-                  <span className="xp__take-summary">{summaryOf(take)}</span>
-                </button>
-              </li>
+          <div className="xp__groups">
+            {groupsOf(panel.takes).map((group) => (
+              <div key={group.key} className="xp__group">
+                <p className="xp__group-name">
+                  <code>{group.selector}</code>
+                  <span>{group.host}</span>
+                </p>
+                <ul className="xp__take-list">
+                  {group.takes.map((take) => (
+                    <li key={take.id}>
+                      <button
+                        type="button"
+                        className="xp__take"
+                        aria-pressed={take.id === panel.selectedId}
+                        onClick={() => dispatch({ kind: 'takeSelected', id: take.id })}
+                      >
+                        <span className="xp__take-head">
+                          <span className="xp__trigger">{triggerWords(take)}</span>
+                          <span className="xp__take-meta">
+                            {lengthWords(take)} · {takeTime(take)}
+                          </span>
+                        </span>
+                        {/* What it does, so two takes of one element can be told apart. */}
+                        <span className="xp__take-summary">{summaryOf(take)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
 

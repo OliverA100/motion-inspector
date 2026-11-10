@@ -3,7 +3,7 @@
 
 import { formatNumber } from '@motion-inspector/core';
 import type { Speed } from '../state/model';
-import { Button, Segmented, Toggle } from './controls';
+import { Button, Toggle } from './controls';
 
 type Props = {
   playing: boolean;
@@ -32,17 +32,26 @@ export function Playback(props: Props) {
           {props.playing ? 'Pause' : 'Play'}
         </Button>
       </span>
-      <Toggle label="Loop" checked={props.loop} onChange={props.onLoopChange} />
-      <Segmented
-        label="Playback speed"
-        options={SPEEDS}
-        value={props.speed}
-        onChange={props.onSpeedChange}
-      />
       <output className="playback__time">
-        {formatNumber(Math.round(props.timeMs))} ms
+        {formatNumber(Math.round(props.timeMs))}
         <span> of {formatNumber(Math.round(props.totalMs))} ms</span>
       </output>
+      <span className="playback__end">
+        <Toggle label="Loop" checked={props.loop} onChange={props.onLoopChange} />
+        {/* A small menu: four buttons took a row of their own. */}
+        <select
+          className="playback__speed"
+          aria-label="Playback speed"
+          value={props.speed}
+          onChange={(event) => props.onSpeedChange(Number(event.target.value) as Speed)}
+        >
+          {SPEEDS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.text}
+            </option>
+          ))}
+        </select>
+      </span>
     </div>
   );
 }

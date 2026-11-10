@@ -9,7 +9,13 @@ declare const MotionCapture: {
   pickAndRecord: (
     onTake: (take: TakeResult) => void,
     onMoved: (label: string) => void,
+    onStopped: () => void,
   ) => Promise<boolean>;
+  recordAgain: (
+    onTake: (take: TakeResult) => void,
+    onMoved: (label: string) => void,
+    onStopped: () => void,
+  ) => boolean;
   cancelPicking: () => void;
   stop: () => unknown[];
 };
@@ -36,8 +42,16 @@ window.motionInspectorSession?.end();
 // Hold on to this injection's own copy of the capture script.
 const capture = MotionCapture;
 
+const onTake = (take: TakeResult): void => send({ type: 'take', ...take });
+const onMoved = (label: string): void => send({ type: 'moved', label });
+// The take is complete and nothing else happened: stopped by itself.
+const onStopped = (): void => send({ type: 'stopped', auto: true });
+
 const onMessage = (message: ToPage): void => {
   if (message.type === 'cancel') capture.cancelPicking();
+  if (message.type === 'again') {
+    send({ type: capture.recordAgain(onTake, onMoved, onStopped) ? 'picked' : 'cancelled' });
+  }
   if (message.type === 'stop') {
     // stop() delivers a take that was still in progress before it returns.
     capture.stop();
@@ -55,9 +69,6 @@ window.motionInspectorSession = {
 };
 
 capture
-  .pickAndRecord(
-    (take) => send({ type: 'take', ...take }),
-    (label) => send({ type: 'moved', label }),
-  )
+  .pickAndRecord(onTake, onMoved, onStopped)
   .then((picked) => send({ type: picked ? 'picked' : 'cancelled' }))
   .catch(() => send({ type: 'cancelled' }));

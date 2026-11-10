@@ -95,7 +95,10 @@ test('pick, trigger, and the capture arrives in the panel and plays', async ({
   // In the panel: the new take is listed at the top, and shown.
   await expect(panel.locator('.xp__take')).toHaveCount(before + 1);
   await expect(panel.locator('.xp__take').first()).toHaveAttribute('aria-pressed', 'true');
-  await expect(panel.locator('.xp__take[aria-pressed="true"] code')).toHaveText('div.fx-card');
+  // Takes are listed under the element they belong to, named by what set
+  // them off.
+  await expect(panel.locator('.xp__group-name code').first()).toHaveText('div.fx-card');
+  await expect(panel.locator('.xp__take[aria-pressed="true"] .xp__trigger')).toHaveText('Hover in');
   await expect(panel.locator('.mi__description')).toHaveText(
     'The element moves up 6 px and scales to 1.03 over 400 ms. It starts fast, overshoots by 10%, then settles.',
   );
@@ -104,7 +107,7 @@ test('pick, trigger, and the capture arrives in the panel and plays', async ({
   // card itself is what is being watched.
   await expect(status(panel)).toContainText('Watching div.fx-card, the part that moves.');
   // A new capture plays once when it arrives, then stops on its last frame.
-  await expect(panel.locator('.playback__time')).toHaveText('400 ms of 400 ms');
+  await expect(panel.locator('.playback__time')).toHaveText('400 of 400 ms');
 
   await panel.getByRole('button', { name: 'Stop' }).click();
   await expect(panel.getByRole('button', { name: 'Pick element' })).toBeVisible();
@@ -147,7 +150,9 @@ test('after 5 seconds of listening with nothing found, it offers a tip', async (
   await panel.getByRole('button', { name: 'Pick element' }).click();
   await site.bringToFront();
   await site.click('h1');
-  await expect(status(panel)).toHaveText('Listening… Now trigger the animation on the page.');
+  await expect(status(panel)).toHaveText(
+    'Listening… Now hover or click it on the page. Recording stops by itself when the motion is done.',
+  );
   await expect(status(panel)).toHaveText(
     'Listening… Nothing yet. Try hovering or clicking the element.',
     { timeout: 8000 },
@@ -188,7 +193,7 @@ test('takes are saved, and are there again after the panel is reopened', async (
 
   await panel.reload();
   await expect(panel.locator('.xp__take')).toHaveCount(saved);
-  await expect(panel.locator('.xp__take code').first()).toHaveText('button.fx-button');
+  await expect(panel.locator('.xp__group-name code').first()).toHaveText('button.fx-button');
   await expect(panel.locator('.mi__description')).toHaveText(description);
 
   await panel.getByRole('button', { name: 'Clear all' }).click();
@@ -230,13 +235,31 @@ test('several takes are listed, and any one can be opened', async ({ context, ex
   await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 4000 });
   await site.click('[data-fixture="bounce"] [data-trigger="play"]');
   await expect(panel.locator('.xp__take')).toHaveCount(2, { timeout: 4000 });
-  await expect(status(panel)).toContainText('2 takes,');
+  await expect(panel.locator('.xp__trigger').first()).toHaveText('Click');
 
   // Newest at the top of the list, and shown. Open the older one.
   await expect(panel.locator('.xp__take').first()).toHaveAttribute('aria-pressed', 'true');
   await panel.locator('.xp__take').nth(1).click();
   await expect(panel.locator('.xp__take').nth(1)).toHaveAttribute('aria-pressed', 'true');
   await expect(panel.locator('.mi__description')).toContainText('moves down 56 px');
+});
+
+test('recording stops by itself when the motion is done, and can record again', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.click('.fx-bounce');
+  await site.click('[data-fixture="bounce"] [data-trigger="play"]');
+  await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 4000 });
+  // No Stop needed: the take is complete and the pointer is elsewhere.
+  await expect(status(panel)).toContainText('Recording stopped by itself', { timeout: 5000 });
+  await panel.getByRole('button', { name: 'Record again' }).click();
+  await expect(status(panel)).toContainText('Listening…');
+  await site.click('[data-fixture="bounce"] [data-trigger="play"]');
+  await expect(panel.locator('.xp__take')).toHaveCount(2, { timeout: 4000 });
 });
 
 test('the real build asks for nothing it does not need', async () => {

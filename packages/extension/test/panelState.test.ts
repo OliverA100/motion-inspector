@@ -131,7 +131,11 @@ describe('the states of the side panel', () => {
   });
 
   test('stop with nothing found says so', () => {
-    const panel = run([{ kind: 'pickStarted' }, { kind: 'elementPicked' }, { kind: 'stopped' }]);
+    const panel = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked' },
+      { kind: 'stopped', auto: false },
+    ]);
     expect(panel.status).toEqual({ kind: 'nothing-found' });
   });
 
@@ -139,14 +143,17 @@ describe('the states of the side panel', () => {
     const panel = run([
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },
-      { kind: 'stopped' },
-      { kind: 'stopped' },
+      { kind: 'stopped', auto: false },
+      { kind: 'stopped', auto: false },
     ]);
     expect(panel.status).toEqual({ kind: 'nothing-found' });
   });
 
   test('a page that cannot be inspected stays so when a late stop arrives', () => {
-    const panel = run([{ kind: 'cannotInspect', why: 'A browser page.' }, { kind: 'stopped' }]);
+    const panel = run([
+      { kind: 'cannotInspect', why: 'A browser page.' },
+      { kind: 'stopped', auto: false },
+    ]);
     expect(panel.status.kind).toBe('cannot-inspect');
   });
 
@@ -155,7 +162,7 @@ describe('the states of the side panel', () => {
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },
       { kind: 'takeArrived', take: take('a'), replaced: false },
-      { kind: 'stopped' },
+      { kind: 'stopped', auto: false },
     ]);
     expect(panel.status).toEqual({ kind: 'idle' });
   });
@@ -164,7 +171,7 @@ describe('the states of the side panel', () => {
     const panel = run([
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },
-      { kind: 'stopped' },
+      { kind: 'stopped', auto: false },
       { kind: 'takeArrived', take: take('late'), replaced: false },
     ]);
     expect(panel.status).toEqual({ kind: 'idle' });
@@ -250,5 +257,34 @@ describe('pages that cannot be inspected', () => {
     expect(whyNotInspectable('http://localhost:5173/fixtures.html')).toBeNull();
     expect(whyNotInspectable('file:///Users/me/page.html')).toBeNull();
     expect(whyNotInspectable(undefined)).toContain('no page');
+  });
+});
+
+describe('switching pages and stopping by itself', () => {
+  test('a message about another page is cleared when the tab changes', () => {
+    const panel = run([
+      { kind: 'pickStarted' },
+      { kind: 'cannotInspect', why: 'No access.' },
+      { kind: 'tabChanged' },
+    ]);
+    expect(panel.status).toEqual({ kind: 'idle' });
+  });
+
+  test('a recording that stopped by itself says so, and can be recorded again', () => {
+    const panel = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked' },
+      { kind: 'takeArrived', take: take('a'), replaced: false },
+      { kind: 'stopped', auto: true },
+    ]);
+    expect(panel.status).toEqual({ kind: 'idle' });
+    expect(panel.stoppedByItself).toBe(true);
+    expect(panel.canRecordAgain).toBe(true);
+  });
+
+  test('after the tab changes, the last element cannot be recorded again', () => {
+    const panel = run([{ kind: 'pickStarted' }, { kind: 'elementPicked' }, { kind: 'tabChanged' }]);
+    expect(panel.canRecordAgain).toBe(false);
+    expect(panel.status).toEqual({ kind: 'idle' });
   });
 });

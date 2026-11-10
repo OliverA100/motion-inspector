@@ -125,15 +125,22 @@ html {
     display: contents;
   }
 
-  .panel--stage {
-    position: sticky;
-    top: var(--mi-sticky-top, 0px);
-    z-index: 5;
-    box-shadow: 0 1px 0 var(--color-border);
-  }
-
   .panel--stage .panel__hint,
   .panel--stage .panel__title {
+    display: none;
+  }
+
+  /* The parts below the preview are tabs: one shows at a time. */
+  .mi__tabs {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    background: var(--color-surface);
+    border: var(--hairline) solid var(--color-border);
+    border-radius: var(--radius-2);
+  }
+
+  .mi__pane[data-active='false'] {
     display: none;
   }
 
@@ -142,6 +149,58 @@ html {
   html {
     scroll-padding-top: calc(var(--mi-sticky-top, 0px) + 220px);
   }
+}
+
+/* The preview, with Play and the time under it, stays in view while the
+   rest scrolls, on one column and on two. */
+.panel--stage {
+  position: sticky;
+  top: var(--mi-sticky-top, 0px);
+  z-index: 5;
+  box-shadow: 0 1px 0 var(--color-border);
+}
+
+/* ---------- Sections ---------- */
+
+/* On two columns every section shows, and the tabs are not needed. */
+@media (min-width: 960px) {
+  .mi__tabs {
+    display: none;
+  }
+}
+
+.mi__pane {
+  display: contents;
+}
+
+.mi__tab {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
+
+.mi__tab:hover {
+  color: var(--color-text);
+}
+
+.mi__tab[aria-pressed='true'] {
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+  background: var(--color-grid);
+}
+
+/* Play, time and speed, under the preview. */
+.stage__controls {
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--hairline) solid var(--color-border);
 }
 
 /* ---------- Panels ---------- */
@@ -442,10 +501,11 @@ html {
 /* ---------- Playback ---------- */
 
 .playback {
+  /* One row: play, the time, then loop and speed. */
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-2);
 }
 
 /* "Play" and "Pause" get the same width. */
@@ -456,7 +516,7 @@ html {
 
 /* The widest time is reserved, so the controls beside it never move. */
 .playback__time {
-  min-width: 17ch;
+  min-width: 13ch;
   font: var(--text-small) var(--font-mono);
   text-align: right;
   white-space: nowrap;
@@ -464,6 +524,25 @@ html {
 
 .playback__time span {
   color: var(--color-text-muted);
+}
+
+.playback__end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.playback__speed {
+  width: 58px;
+  height: var(--control-height);
+  padding: 0 var(--space-1);
+  font: inherit;
+  font-size: var(--text-small);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-1);
 }
 
 /* ---------- Timeline ---------- */
@@ -703,10 +782,12 @@ html {
   color: var(--color-text-muted);
 }
 
+/* Wraps, never cut short. Two lines are kept, so the panel's height does
+   not change between rows. */
 .fields__link > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-height: calc(2 * 1.45em);
+  display: flex;
+  align-items: center;
 }
 
 .timeline__extra {

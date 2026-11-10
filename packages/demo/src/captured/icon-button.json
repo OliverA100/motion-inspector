@@ -840,5 +840,6 @@
   ],
   "backdrop": "rgb(232, 226, 216)",
   "frame": null,
+  "trigger": "hover",
   "notShown": []
 }

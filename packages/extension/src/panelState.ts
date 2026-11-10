@@ -40,6 +40,11 @@ export type Panel = {
   // True while the pointer is over the panel. The user is reading or
   // editing here, so a new take must not replace what they are looking at.
   pointerInPanel: boolean;
+  // True when the element picked last can be recorded again without
+  // picking (same tab, same page).
+  canRecordAgain: boolean;
+  // True when the last recording stopped by itself, a take being complete.
+  stoppedByItself: boolean;
 };
 
 export type PanelMsg =
@@ -55,7 +60,10 @@ export type PanelMsg =
   | { kind: 'movedToParent'; label: string }
   // The capture script sent something core rejected.
   | { kind: 'takeRejected'; problems: string[] }
-  | { kind: 'stopped' }
+  | { kind: 'stopped'; auto: boolean }
+  // The tab in front changed, or its page did. A message about the old one
+  // no longer applies.
+  | { kind: 'tabChanged' }
   | { kind: 'cannotInspect'; why: string }
   // The toolbar icon was clicked, which gives access to the tab in front.
   | { kind: 'accessGiven' }
@@ -76,6 +84,8 @@ export const initialPanel: Panel = {
   notice: null,
   problems: [],
   pointerInPanel: false,
+  canRecordAgain: false,
+  stoppedByItself: false,
 };
 
 export function selectedTake(panel: Panel): StoredTake | null {
@@ -111,6 +121,8 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
         ...panel,
         status: { kind: 'listening', waitedMs: 0, found: 0, movedTo: null },
         pointerInPanel: false,
+        canRecordAgain: true,
+        stoppedByItself: false,
       };
 
     case 'waited':
@@ -160,7 +172,23 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
       if (panel.status.kind !== 'listening') return panel;
       const status: Status =
         panel.status.found === 0 ? { kind: 'nothing-found' } : { kind: 'idle' };
-      return { ...panel, status };
+      return { ...panel, status, stoppedByItself: msg.auto && panel.status.found > 0 };
+    }
+
+    case 'tabChanged': {
+      // Listening on a page that is gone ends; a message about another
+      // page is cleared, so Pick element is ready at once.
+      const stale =
+        panel.status.kind === 'cannot-inspect' ||
+        panel.status.kind === 'nothing-found' ||
+        panel.status.kind === 'listening' ||
+        panel.status.kind === 'picking';
+      return {
+        ...panel,
+        status: stale ? { kind: 'idle' } : panel.status,
+        canRecordAgain: false,
+        stoppedByItself: false,
+      };
     }
 
     case 'cannotInspect':

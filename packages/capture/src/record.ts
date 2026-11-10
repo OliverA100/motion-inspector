@@ -17,6 +17,7 @@ import {
   type Easing,
   type ParsedValue,
   type TransformFunction,
+  type Trigger,
 } from '@motion-inspector/core';
 import { readValue } from './readValue';
 import {
@@ -47,6 +48,10 @@ export type TakeResult = {
 
 export type RecorderOptions = {
   onTake: (result: TakeResult) => void;
+  // Stop by itself once something was captured and nothing has happened
+  // for this long, with the pointer off the element. Then onAutoStop.
+  autoStopMs?: number;
+  onAutoStop?: () => void;
   // How long nothing may be running before a take ends.
   idleMs?: number;
   // Called when nothing has been found on the picked element, but an
@@ -609,11 +614,80 @@ function layoutTracksFor(
   return tracks;
 }
 
+// ---------- What set a take off ----------
+
+// What the person did on the page, kept for a few seconds: the pointer
+// coming onto or leaving an element, a press, a key, focus. Listened to
+// passively on the document; nothing is stopped or changed.
+type PageEvent = {
+  type: 'over' | 'out' | 'down' | 'key' | 'focus' | 'blur';
+  time: number;
+  target: EventTarget | null;
+  related: EventTarget | null;
+};
+const pageEvents: PageEvent[] = [];
+let listening = false;
+
+function listenToPage(): void {
+  if (listening) return;
+  listening = true;
+  const note =
+    (type: PageEvent['type']) =>
+    (event: Event): void => {
+      pageEvents.push({
+        type,
+        time: asNumber(document.timeline.currentTime) ?? 0,
+        target: event.target,
+        related:
+          event instanceof MouseEvent || event instanceof FocusEvent ? event.relatedTarget : null,
+      });
+      if (pageEvents.length > 200) pageEvents.splice(0, 100);
+    };
+  const options = { capture: true, passive: true };
+  document.addEventListener('pointerover', note('over'), options);
+  document.addEventListener('pointerout', note('out'), options);
+  document.addEventListener('pointerdown', note('down'), options);
+  document.addEventListener('keydown', note('key'), options);
+  document.addEventListener('focusin', note('focus'), options);
+  document.addEventListener('focusout', note('blur'), options);
+}
+
+function within(root: Element, target: EventTarget | null): boolean {
+  return target instanceof Node && root.contains(target);
+}
+
+// The last thing done on the page just before the take began, as a
+// trigger. Coming onto the picked element is a hover; moving between its
+// own parts is not.
+function triggerOf(root: Element, take: Seen[]): Trigger {
+  if (take.length === 0) return 'unknown';
+  if (take.every((seen) => seen.runningAtPick)) {
+    // Transitions already under way when recording began, with the pointer
+    // on the element: the hover that picking by click started.
+    const transitions = take.every((seen) => seen.origin === 'css-transition');
+    return transitions && root.matches(':hover') ? 'hover' : 'running';
+  }
+  const start = Math.min(...take.map((seen) => seen.startTime));
+  const near = pageEvents.filter((event) => event.time <= start + 50 && event.time >= start - 700);
+  for (const event of [...near].reverse()) {
+    const crosses = within(root, event.target) && !within(root, event.related);
+    if (event.type === 'over' && crosses) return 'hover';
+    if (event.type === 'out' && crosses) return 'leave';
+    if (event.type === 'down') return 'click';
+    if (event.type === 'key') return 'key';
+    if (event.type === 'focus' && within(root, event.target)) return 'focus';
+    if (event.type === 'blur' && within(root, event.target)) return 'blur';
+  }
+  if (take.some((seen) => !Number.isFinite(seen.timing.endTime))) return 'loop';
+  return 'unknown';
+}
+
 function buildTake(
   snapshot: Snapshot,
   take: Seen[],
   samples: LayoutSample[] = [],
   notes: string[] = [],
+  trigger: Trigger | null = null,
 ): TakeResult {
   // Parts that were hidden at pick time and appeared for this animation get
   // their shapes now.
@@ -672,6 +746,7 @@ function buildTake(
     },
     root: snapshot.root,
     tracks: [...tracks, ...layout],
+    trigger: trigger ?? triggerOf(snapshot.rootElement, take),
     backdrop: snapshot.backdrop,
     frame: snapshot.frame,
     notShown: [
@@ -825,7 +900,10 @@ function stillRunning(seen: Seen): boolean {
 export function startRecording(snapshot: Snapshot, options: RecorderOptions): Recorder {
   const idleMs = options.idleMs ?? DEFAULT_IDLE_MS;
   const alreadySeen = new WeakSet<Animation>();
+  listenToPage();
   let take: Seen[] = [];
+  // When the last take was sent, for stopping by itself.
+  let lastTakeEnd = 0;
   // Layout read every frame while the take animates something that can
   // move the parts around it.
   let samples: LayoutSample[] = [];
@@ -914,6 +992,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // A hover and its leave are one motion: the leave is added to the take
     // it reverses, which is sent again to replace the first version.
     if (previous !== null && isWayBackOf(previous, finished)) {
+      const previousTake = previous;
       const back = afterAHold(previous, finished);
       const shift =
         Math.min(...finished.map((seen) => seen.startTime)) -
@@ -925,11 +1004,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       ];
       previous = null;
       previousSamples = [];
-      options.onTake({ ...buildTake(snapshot, merged, mergedSamples, chainNote), replaces: true });
+      const first = triggerOf(snapshot.rootElement, previousTake);
+      const second = triggerOf(snapshot.rootElement, finished);
+      const trigger: Trigger =
+        (first === 'hover' || first === 'running') && second === 'leave'
+          ? 'hover-and-leave'
+          : first;
+      lastTakeEnd = performance.now();
+      options.onTake({
+        ...buildTake(snapshot, merged, mergedSamples, chainNote, trigger),
+        replaces: true,
+      });
       return;
     }
     previous = finished;
     previousSamples = finishedSamples;
+    lastTakeEnd = performance.now();
     options.onTake(buildTake(snapshot, finished, finishedSamples, chainNote));
   };
 
@@ -1000,6 +1090,21 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       }
     }
     if (take.some(movesLayout) && samples.length < 600) samples.push(sampleLayout(snapshot));
+    // Done on its own: something was captured, nothing is open or held,
+    // the pointer is off the element (a hover still has its way back to
+    // come), and nothing has happened for a while.
+    if (
+      options.autoStopMs !== undefined &&
+      lastTakeEnd > 0 &&
+      take.length === 0 &&
+      held.length === 0 &&
+      now - lastTakeEnd > options.autoStopMs &&
+      !snapshot.rootElement.matches(':hover')
+    ) {
+      stopped = true;
+      options.onAutoStop?.();
+      return;
+    }
     if (take.some(stillRunning)) lastActivity = now;
     else if (now - lastActivity > idleMs) endTake();
     frame = requestAnimationFrame(onFrame);

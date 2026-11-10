@@ -296,6 +296,10 @@ export const rawCapture: fc.Arbitrary<unknown> = rawRoot
       root: fc.constant(root),
       tracks: fc.array(rawTrack(idsOf(root)), { maxLength: 6 }),
       backdrop: fc.oneof(fc.constant(null), fc.string()),
+      trigger: fc.oneof(
+        fc.constant(null),
+        fc.constantFrom('hover', 'leave', 'hover-and-leave', 'click', 'loop', 'unknown'),
+      ),
       frame: fc.oneof(
         fc.constant(null),
         fc.record({ x: anyNumber, y: anyNumber, width: zeroOrMore, height: zeroOrMore }),

@@ -158,5 +158,6 @@
   ],
   "backdrop": "rgb(255, 255, 255)",
   "frame": null,
+  "trigger": "click",
   "notShown": []
 }

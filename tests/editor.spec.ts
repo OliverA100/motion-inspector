@@ -15,7 +15,7 @@ async function openPaused(
   totalMs: number,
 ): Promise<void> {
   await page.goto(`/?sample=${sample}&time=${timeMs}&quiet`);
-  await expect(time(page)).toHaveText(`${timeMs} ms of ${totalMs} ms`);
+  await expect(time(page)).toHaveText(`${timeMs} of ${totalMs} ms`);
   await expect(page.locator('.mi canvas').first()).toBeVisible();
 }
 const curveText = (page: Page) => page.locator('.readout code');
@@ -39,7 +39,7 @@ test('the probe and core agree on every sample capture', async ({ page }) => {
 
 test('a new capture plays once and stops on the last frame', async ({ page }) => {
   await page.goto('/?sample=card-lift&quiet');
-  await expect(time(page)).toHaveText('400 ms of 400 ms');
+  await expect(time(page)).toHaveText('400 of 400 ms');
   await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 });
 
@@ -48,7 +48,7 @@ test('Space plays and pauses', async ({ page }) => {
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
   // The clock moves while playing.
-  await expect(time(page)).not.toHaveText('100 ms of 1800 ms');
+  await expect(time(page)).not.toHaveText('100 of 1800 ms');
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 });
@@ -56,13 +56,13 @@ test('Space plays and pauses', async ({ page }) => {
 test('arrow keys step one frame, Shift steps ten, 1 to 4 set the speed', async ({ page }) => {
   await openPaused(page, 'card-lift', 100, 400);
   await page.keyboard.press('ArrowRight');
-  await expect(time(page)).toHaveText('117 ms of 400 ms');
+  await expect(time(page)).toHaveText('117 of 400 ms');
   await page.keyboard.press('Shift+ArrowRight');
-  await expect(time(page)).toHaveText('283 ms of 400 ms');
+  await expect(time(page)).toHaveText('283 of 400 ms');
   await page.keyboard.press('ArrowLeft');
-  await expect(time(page)).toHaveText('267 ms of 400 ms');
+  await expect(time(page)).toHaveText('267 of 400 ms');
   await page.keyboard.press('3');
-  await expect(page.getByRole('radio', { name: '0.25x' })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: 'Playback speed' })).toHaveValue('0.25');
 });
 
 test('the timeline is the scrubber: drag on it to move through time', async ({ page }) => {
@@ -75,12 +75,12 @@ test('the timeline is the scrubber: drag on it to move through time', async ({ p
   // Press on the ruler, in the middle: the playhead jumps to 250 ms.
   await page.mouse.move(box.x + box.width / 2, box.y + 10);
   await page.mouse.down();
-  await expect(time(page)).toHaveText('250 ms of 400 ms');
+  await expect(time(page)).toHaveText('250 of 400 ms');
   // Drag far past the right edge, off the timeline: it follows, and stops at the end.
   await page.mouse.move(box.x + box.width + 500, box.y - 300, { steps: 4 });
-  await expect(time(page)).toHaveText('400 ms of 400 ms');
+  await expect(time(page)).toHaveText('400 of 400 ms');
   await page.mouse.move(box.x - 500, box.y, { steps: 4 });
-  await expect(time(page)).toHaveText('0 ms of 400 ms');
+  await expect(time(page)).toHaveText('0 of 400 ms');
   await page.mouse.up();
 });
 
@@ -178,7 +178,7 @@ test('timing can be typed as numbers', async ({ page }) => {
   await openPaused(page, 'card-lift', 0, 400);
   await page.getByRole('spinbutton', { name: /Duration/ }).fill('250');
   await page.getByRole('spinbutton', { name: /Delay/ }).fill('120');
-  await expect(time(page)).toHaveText('0 ms of 370 ms');
+  await expect(time(page)).toHaveText('0 of 370 ms');
   await expect(page.locator('.mi__description')).toContainText('over 250 ms');
 });
 
@@ -196,7 +196,7 @@ test('a number field can be cleared and retyped', async ({ page }) => {
   for (let index = 0; index < 3; index += 1) await page.keyboard.press('Backspace');
   await expect(duration).toHaveValue('');
   await duration.pressSequentially('250');
-  await expect(time(page)).toHaveText('0 ms of 250 ms');
+  await expect(time(page)).toHaveText('0 of 250 ms');
 });
 
 test('clicking a bar without moving it does not restart playback', async ({ page }) => {
@@ -206,7 +206,7 @@ test('clicking a bar without moving it does not restart playback', async ({ page
   if (box === null) throw new Error('No bars');
   await page.mouse.click(box.x + 80, box.y + 26);
   await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
-  await expect(time(page)).toHaveText('100 ms of 400 ms');
+  await expect(time(page)).toHaveText('100 of 400 ms');
 });
 
 for (const width of [360, 1280]) {
@@ -265,12 +265,12 @@ test('the timeline works from the keyboard as a slider', async ({ page }) => {
   const bars = page.getByRole('slider', { name: 'Time' });
   await bars.focus();
   await page.keyboard.press('ArrowRight');
-  await expect(time(page)).toHaveText('117 ms of 400 ms');
+  await expect(time(page)).toHaveText('117 of 400 ms');
   await expect(bars).toHaveAttribute('aria-valuetext', '117 ms');
   await page.keyboard.press('End');
-  await expect(time(page)).toHaveText('400 ms of 400 ms');
+  await expect(time(page)).toHaveText('400 of 400 ms');
   await page.keyboard.press('Home');
-  await expect(time(page)).toHaveText('0 ms of 400 ms');
+  await expect(time(page)).toHaveText('0 of 400 ms');
 });
 
 test('there is one way to move through time, not two', async ({ page }) => {
@@ -299,7 +299,7 @@ test('dragging a handle changes the curve, even outside the canvas, then replays
 
   // Letting go replays the preview by itself.
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
-  await expect(time(page)).toHaveText('400 ms of 400 ms');
+  await expect(time(page)).toHaveText('400 of 400 ms');
 });
 
 test('a handle can be moved with the arrow keys and reset with a double-click', async ({
@@ -312,7 +312,7 @@ test('a handle can be moved with the arrow keys and reset with a double-click', 
   await page.keyboard.press('Shift+ArrowDown');
   await expect(curveText(page)).toHaveText('cubic-bezier(0.35, 1.46, 0.64, 1)');
   // The arrow keys moved the handle, not the playhead.
-  await expect(time(page)).toHaveText('0 ms of 400 ms');
+  await expect(time(page)).toHaveText('0 of 400 ms');
 
   await handles(page).first().dblclick();
   await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
@@ -398,14 +398,17 @@ for (const width of [1280, 360]) {
   test(`nothing shifts while the editor is used, at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await openPaused(page, 'card-lift', 0, 400);
-    const before = await layout(page);
+    // On one column the curve is a tab of its own. Switching tabs changes
+    // the page on purpose; nothing may move after that.
+    if (width < 960) await page.getByRole('button', { name: 'Curve', exact: true }).click();
+    let before = await layout(page);
     const same = async (): Promise<void> => expect(await layout(page)).toBe(before);
 
     // Play to the end.
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
     await same();
-    await expect(time(page)).toHaveText('400 ms of 400 ms');
+    await expect(time(page)).toHaveText('400 of 400 ms');
     await same();
 
     // Point at the curve, then drag a handle and let go.
@@ -421,7 +424,7 @@ for (const width of [1280, 360]) {
     await same();
     await page.mouse.up();
     await same();
-    await expect(time(page)).toHaveText('400 ms of 400 ms');
+    await expect(time(page)).toHaveText('400 of 400 ms');
     await same();
 
     // Every ready-made curve.
@@ -437,7 +440,12 @@ for (const width of [1280, 360]) {
     await page.getByRole('radio', { name: 'Side by side' }).click();
     await same();
 
-    // Change the timing and reset it.
+    // Change the timing and reset it. On one column, timing is in the
+    // Timeline tab: switch to it, and measure from there.
+    if (width < 960) {
+      await page.getByRole('button', { name: 'Timeline', exact: true }).click();
+      before = await layout(page);
+    }
     await page.getByRole('spinbutton', { name: /Duration/ }).fill('250');
     await same();
     await page.getByRole('button', { name: 'Reset everything' }).click();
@@ -477,6 +485,7 @@ test('on one column, the preview stays in view while scrolling down to the curve
 }) => {
   await page.setViewportSize({ width: 360, height: 760 });
   await openPaused(page, 'card-lift', 0, 400);
+  await page.getByRole('button', { name: 'Curve', exact: true }).click();
   await page.getByRole('button', { name: 'Slow start', exact: true }).scrollIntoViewIfNeeded();
   await expect(page.locator('.stage canvas')).toBeInViewport();
   await expect(page.getByRole('button', { name: 'Slow start', exact: true })).toBeInViewport();

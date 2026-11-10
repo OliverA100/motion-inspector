@@ -74,6 +74,15 @@ function plural(count: number, word: string): string {
 }
 
 // The editor, wrapped so that a failure shows a message and not a blank page.
+type Tab = 'timeline' | 'curve' | 'export' | 'notes';
+
+const TABS: { id: Tab; text: string }[] = [
+  { id: 'timeline', text: 'Timeline' },
+  { id: 'curve', text: 'Curve' },
+  { id: 'export', text: 'Export' },
+  { id: 'notes', text: 'Not shown' },
+];
+
 export function Editor(props: Props) {
   return (
     <ErrorBoundary>
@@ -93,6 +102,8 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
     dispatch({ kind: 'replayed' });
   };
   const [dragging, setDragging] = useState(false);
+  // Which section shows below the preview on one column. View only.
+  const [tab, setTab] = useState<Tab>('timeline');
 
   // A new capture replaces everything.
   useEffect(() => {
@@ -230,6 +241,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
   const notPreviewed = Array.from(
     new Set(edited.tracks.map((track) => track.property).filter((name) => !isPreviewed(name))),
   );
+  const hasNotes = edited.notShown.length > 0 || notPreviewed.length > 0;
 
   return (
     <div className="mi">
@@ -293,27 +305,8 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               backdrop={edited.backdrop}
               frame={edited.frame}
               reach={layoutReach(edited)}
-              onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
-              onGhostTrailChange={(on) => dispatch({ kind: 'ghostTrailSet', on })}
-              onShowOriginalChange={(show) => dispatch({ kind: 'originalShown', show })}
-              onHover={(shapeId) => dispatch({ kind: 'shapeHovered', shapeId })}
-              // Clicking a shape selects its first row on the timeline.
-              onPick={(shapeId) => {
-                const trackIndex = edited.tracks.findIndex((track) => track.shapeId === shapeId);
-                if (trackIndex !== -1) dispatch({ kind: 'trackSelected', trackIndex });
-              }}
-            />
-            {hasTracks ? (
-              <Timeline
-                tracks={rows}
-                selectedIndex={model.selectedTrack}
-                // A new capture starts with a fresh timeline scale.
-                key={original.source.capturedAt + original.source.selector + original.tracks.length}
-                totalMs={totalMs}
-                originalTotalMs={takeLengthMs(original)}
-                playheadMs={timeMs}
-                showOriginal={showOriginal}
-                controls={
+              controls={
+                hasTracks ? (
                   <Playback
                     playing={model.playing}
                     loop={model.loop}
@@ -324,124 +317,169 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                     onLoopChange={(loop) => dispatch({ kind: 'loopSet', loop })}
                     onSpeedChange={(speed) => dispatch({ kind: 'speedSet', speed })}
                   />
-                }
-                onSelect={(trackIndex) =>
-                  dispatch(
-                    trackIndex === null
-                      ? { kind: 'trackDeselected' }
-                      : { kind: 'trackSelected', trackIndex },
-                  )
-                }
-                onToggle={(trackIndex) => dispatch({ kind: 'trackToggled', trackIndex })}
-                onScrub={(time) => dispatch({ kind: 'scrubbed', timeMs: time })}
-                onDelayChange={(trackIndex, delayMs) =>
-                  dispatch({ kind: 'delayChanged', trackIndex, delayMs })
-                }
-                onDurationChange={(trackIndex, durationMs) =>
-                  dispatch({ kind: 'durationChanged', trackIndex, durationMs })
-                }
-                onReset={(trackIndex) => dispatch({ kind: 'trackReset', trackIndex })}
-                onUnlink={(trackIndex) => dispatch({ kind: 'trackUnlinked', trackIndex })}
-                onHoverRow={(trackIndex) =>
-                  dispatch({
-                    kind: 'shapeHovered',
-                    shapeId:
-                      trackIndex === null ? null : (edited.tracks[trackIndex]?.shapeId ?? null),
-                  })
-                }
-                onCommit={commit}
-                onEditEnd={() => dispatch({ kind: 'editEnded' })}
-                onDragChange={setDragging}
-              />
-            ) : (
-              <section className="panel">
-                <header className="panel__head">
-                  <h2 className="panel__title">Nothing to play</h2>
-                </header>
-                <p className="panel__note">
-                  No animation in this capture can be played back. It may be driven by JavaScript
-                  frame by frame, drawn on a canvas, or tied to scrolling. Those cannot be captured
-                  yet. Try picking a different element, or triggering the animation again.
-                </p>
-              </section>
-            )}
+                ) : undefined
+              }
+              onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
+              onGhostTrailChange={(on) => dispatch({ kind: 'ghostTrailSet', on })}
+              onShowOriginalChange={(show) => dispatch({ kind: 'originalShown', show })}
+              onHover={(shapeId) => dispatch({ kind: 'shapeHovered', shapeId })}
+              // Clicking a shape selects its first row on the timeline.
+              onPick={(shapeId) => {
+                const trackIndex = edited.tracks.findIndex((track) => track.shapeId === shapeId);
+                if (trackIndex !== -1) dispatch({ kind: 'trackSelected', trackIndex });
+              }}
+            />
+            {/* On one column, the parts below the preview are tabs: one at a
+                time instead of one long page. On two columns all show. */}
+            <nav className="mi__tabs" aria-label="Sections">
+              {TABS.filter((item) => item.id !== 'notes' || hasNotes).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="mi__tab"
+                  aria-pressed={tab === item.id}
+                  onClick={() => setTab(item.id)}
+                >
+                  {item.text}
+                </button>
+              ))}
+            </nav>
+            <div className="mi__pane" data-active={tab === 'timeline'}>
+              {hasTracks ? (
+                <Timeline
+                  tracks={rows}
+                  selectedIndex={model.selectedTrack}
+                  // A new capture starts with a fresh timeline scale.
+                  key={
+                    original.source.capturedAt + original.source.selector + original.tracks.length
+                  }
+                  totalMs={totalMs}
+                  originalTotalMs={takeLengthMs(original)}
+                  playheadMs={timeMs}
+                  showOriginal={showOriginal}
+                  onSelect={(trackIndex) =>
+                    dispatch(
+                      trackIndex === null
+                        ? { kind: 'trackDeselected' }
+                        : { kind: 'trackSelected', trackIndex },
+                    )
+                  }
+                  onToggle={(trackIndex) => dispatch({ kind: 'trackToggled', trackIndex })}
+                  onScrub={(time) => dispatch({ kind: 'scrubbed', timeMs: time })}
+                  onDelayChange={(trackIndex, delayMs) =>
+                    dispatch({ kind: 'delayChanged', trackIndex, delayMs })
+                  }
+                  onDurationChange={(trackIndex, durationMs) =>
+                    dispatch({ kind: 'durationChanged', trackIndex, durationMs })
+                  }
+                  onReset={(trackIndex) => dispatch({ kind: 'trackReset', trackIndex })}
+                  onUnlink={(trackIndex) => dispatch({ kind: 'trackUnlinked', trackIndex })}
+                  onHoverRow={(trackIndex) =>
+                    dispatch({
+                      kind: 'shapeHovered',
+                      shapeId:
+                        trackIndex === null ? null : (edited.tracks[trackIndex]?.shapeId ?? null),
+                    })
+                  }
+                  onCommit={commit}
+                  onEditEnd={() => dispatch({ kind: 'editEnded' })}
+                  onDragChange={setDragging}
+                />
+              ) : (
+                <section className="panel">
+                  <header className="panel__head">
+                    <h2 className="panel__title">Nothing to play</h2>
+                  </header>
+                  <p className="panel__note">
+                    No animation in this capture can be played back. It may be driven by JavaScript
+                    frame by frame, drawn on a canvas, or tied to scrolling. Those cannot be
+                    captured yet. Try picking a different element, or triggering the animation
+                    again.
+                  </p>
+                </section>
+              )}
+            </div>
           </div>
 
           <div className="mi__column">
-            {hasTracks ? (
-              <>
-                {/* Each slot keeps its height when nothing is selected, so the
+            <div className="mi__pane" data-active={tab === 'curve'}>
+              {hasTracks ? (
+                <>
+                  {/* Each slot keeps its height when nothing is selected, so the
                 panels below it stay where they are. */}
-                <div className="slot slot--curve">
-                  {selected === null ? (
-                    <section className="panel panel--empty">
-                      <p>Select a row on the timeline to see and change its curve.</p>
-                    </section>
-                  ) : (
-                    <CurveEditor
-                      // A different track or segment starts with a fresh chart.
-                      key={`${model.selectedTrack}-${model.selectedSegment}`}
-                      original={easingAt(selected.original, model.selectedSegment)}
-                      mine={easingAt(selected.mine, model.selectedSegment)}
-                      showOriginal={showOriginal}
-                      playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
-                      durationMs={curveDurationMs(selected.mine, model.selectedSegment)}
-                      term={easingTerm(selected.mine)}
-                      segments={
-                        segments === null
-                          ? null
-                          : { labels: segments, selected: model.selectedSegment }
-                      }
-                      onSegmentChange={(segmentIndex) =>
-                        dispatch({ kind: 'segmentSelected', segmentIndex })
-                      }
-                      onChange={(easing) => dispatch({ kind: 'easingChanged', easing })}
-                      // Letting go replays the preview by itself.
-                      onCommit={commit}
-                      onReset={() => dispatch({ kind: 'curveReset' })}
-                      onDragChange={setDragging}
-                    />
-                  )}
-                </div>
-                <div className="slot slot--speed">
-                  {selected === null ? (
-                    <section className="panel panel--empty">
-                      <p>The speed of the selected row appears here.</p>
-                    </section>
-                  ) : (
-                    <SpeedGraph
-                      original={easingAt(selected.original, model.selectedSegment)}
-                      mine={easingAt(selected.mine, model.selectedSegment)}
-                      playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
-                      showOriginal={showOriginal}
-                    />
-                  )}
-                </div>
-              </>
-            ) : null}
-
-            {hasTracks ? (
-              <ExportPanel css={exportCss} aiText={exportForAi} copier={copier} />
-            ) : null}
-
-            {edited.notShown.length > 0 || notPreviewed.length > 0 ? (
-              <section className="panel">
-                <header className="panel__head">
-                  <h2 className="panel__title">Not shown</h2>
-                </header>
-                <ul className="notes">
-                  {edited.notShown.map((note) => (
-                    <li key={note}>{note}</li>
-                  ))}
-                  {notPreviewed.map((name) => (
-                    <li key={name}>
-                      <code>{name}</code> is not previewed on the stage. Its timing and curve can
-                      still be edited.
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
+                  <div className="slot slot--curve">
+                    {selected === null ? (
+                      <section className="panel panel--empty">
+                        <p>Select a row on the timeline to see and change its curve.</p>
+                      </section>
+                    ) : (
+                      <CurveEditor
+                        // A different track or segment starts with a fresh chart.
+                        key={`${model.selectedTrack}-${model.selectedSegment}`}
+                        original={easingAt(selected.original, model.selectedSegment)}
+                        mine={easingAt(selected.mine, model.selectedSegment)}
+                        showOriginal={showOriginal}
+                        playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
+                        durationMs={curveDurationMs(selected.mine, model.selectedSegment)}
+                        term={easingTerm(selected.mine)}
+                        segments={
+                          segments === null
+                            ? null
+                            : { labels: segments, selected: model.selectedSegment }
+                        }
+                        onSegmentChange={(segmentIndex) =>
+                          dispatch({ kind: 'segmentSelected', segmentIndex })
+                        }
+                        onChange={(easing) => dispatch({ kind: 'easingChanged', easing })}
+                        // Letting go replays the preview by itself.
+                        onCommit={commit}
+                        onReset={() => dispatch({ kind: 'curveReset' })}
+                        onDragChange={setDragging}
+                      />
+                    )}
+                  </div>
+                  <div className="slot slot--speed">
+                    {selected === null ? (
+                      <section className="panel panel--empty">
+                        <p>The speed of the selected row appears here.</p>
+                      </section>
+                    ) : (
+                      <SpeedGraph
+                        original={easingAt(selected.original, model.selectedSegment)}
+                        mine={easingAt(selected.mine, model.selectedSegment)}
+                        playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
+                        showOriginal={showOriginal}
+                      />
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <div className="mi__pane" data-active={tab === 'export'}>
+              {hasTracks ? (
+                <ExportPanel css={exportCss} aiText={exportForAi} copier={copier} />
+              ) : null}
+            </div>
+            <div className="mi__pane" data-active={tab === 'notes'}>
+              {edited.notShown.length > 0 || notPreviewed.length > 0 ? (
+                <section className="panel">
+                  <header className="panel__head">
+                    <h2 className="panel__title">Not shown</h2>
+                  </header>
+                  <ul className="notes">
+                    {edited.notShown.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                    {notPreviewed.map((name) => (
+                      <li key={name}>
+                        <code>{name}</code> is not previewed on the stage. Its timing and curve can
+                        still be edited.
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

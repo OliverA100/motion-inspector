@@ -10,7 +10,7 @@ const duration = (page: Page) => page.getByRole('spinbutton', { name: /Duration/
 
 async function openPaused(page: Page, sample: string, totalMs: number): Promise<void> {
   await page.goto(`/?sample=${sample}&time=0&quiet`);
-  await expect(time(page)).toHaveText(`0 ms of ${totalMs} ms`);
+  await expect(time(page)).toHaveText(`0 of ${totalMs} ms`);
   await expect(page.locator('.mi canvas').first()).toBeVisible();
 }
 
@@ -166,8 +166,8 @@ test('the ghost trail can be switched on and off', async ({ page }) => {
 test('rows from one animation move together until one is unlinked', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1000 });
   await page.goto('/?sample=dots&time=0&quiet');
-  await expect(time(page)).toHaveText('0 ms of 2400 ms');
-  await expect(page.getByText('Shares its timing and curve with 1 other row')).toBeVisible();
+  await expect(time(page)).toHaveText('0 of 2400 ms');
+  await expect(page.getByText('Timing and curve shared with 1 other row')).toBeVisible();
 
   // Linked: changing the first row's duration changes its partner's too.
   await duration(page).fill('900');
@@ -178,7 +178,7 @@ test('rows from one animation move together until one is unlinked', async ({ pag
   // Unlinked: it no longer follows.
   await page.getByRole('button', { name: 'Unlink this row' }).click();
   // The note about sharing goes away (it keeps its space, but is hidden).
-  await expect(page.getByText('Shares its timing and curve with')).toBeHidden();
+  await expect(page.getByText('Timing and curve shared with')).toBeHidden();
   await duration(page).fill('500');
   await duration(page).blur();
   await page.locator('.timeline__label').nth(0).click();

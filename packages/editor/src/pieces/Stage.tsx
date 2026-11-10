@@ -2,7 +2,7 @@
 // It takes poses as plain data. Where they come from (the probe) is not its
 // business, so it can be shown alone with any poses.
 
-import { useCallback, useState, type PointerEvent } from 'react';
+import { useCallback, useState, type PointerEvent, type ReactNode } from 'react';
 import type { Shape, ShapeId } from '@motion-inspector/core';
 import { drawStage, shapeAt, type Pose } from '../draw/stage';
 import type { Compare } from '../state/model';
@@ -29,6 +29,9 @@ type Props = {
   frame: { x: number; y: number; width: number; height: number } | null;
   // Where layout tracks take the parts, so the stage fits it.
   reach: { x: number; y: number; width: number; height: number } | null;
+  // Play, the time and the speed, under the preview, so they stay in view
+  // with it while the rest scrolls.
+  controls?: ReactNode;
   onCompareChange: (compare: Compare) => void;
   onGhostTrailChange: (on: boolean) => void;
   onShowOriginalChange: (show: boolean) => void;
@@ -162,6 +165,9 @@ export function Stage(props: Props) {
           onSize={setSize}
         />
       </div>
+      {props.controls === undefined ? null : (
+        <div className="stage__controls">{props.controls}</div>
+      )}
     </section>
   );
 }

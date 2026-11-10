@@ -156,17 +156,41 @@ body {
 }
 
 /* A few takes show at once. More scroll inside. */
-.xp__take-list {
-  max-height: 170px;
-  margin: 0;
-  padding: 0;
+.xp__groups {
+  max-height: 240px;
   overflow-y: auto;
+}
+
+/* Takes of one element, under its name. */
+.xp__group + .xp__group {
+  border-top: var(--hairline) solid var(--color-border);
+}
+
+.xp__group-name {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3) 0;
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+}
+
+.xp__group-name code {
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.xp__take-list {
+  margin: 0;
+  padding: var(--space-1) 0;
   list-style: none;
 }
 
 .xp__take {
   display: grid;
-  gap: 1px;
+  gap: 2px;
   width: 100%;
   padding: var(--space-2) var(--space-3);
   font: inherit;
@@ -175,12 +199,8 @@ body {
   text-align: left;
   background: transparent;
   border: 0;
-  border-top: var(--hairline) solid var(--color-border);
+  border-radius: 0;
   cursor: pointer;
-}
-
-.xp__take-list li:first-child .xp__take {
-  border-top: 0;
 }
 
 .xp__take:hover {
@@ -188,34 +208,41 @@ body {
 }
 
 .xp__take[aria-pressed='true'] {
-  box-shadow: inset 2px 0 0 var(--color-accent);
-}
-
-.xp__take code {
-  font-family: var(--font-mono);
-  overflow-wrap: anywhere;
-}
-
-.xp__take[aria-pressed='true'] code {
-  color: var(--color-accent);
-}
-
-.xp__take span {
-  color: var(--color-text-muted);
+  background: var(--color-grid);
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 .xp__take-head {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
 }
 
-/* One line, cut with an ellipsis. */
-.xp__take .xp__take-summary {
-  overflow: hidden;
+/* What set it off: the take's name. */
+.xp__trigger {
+  font-weight: var(--weight-medium);
   color: var(--color-text);
-  text-overflow: ellipsis;
+}
+
+.xp__take[aria-pressed='true'] .xp__trigger {
+  color: var(--color-accent);
+}
+
+.xp__take-meta {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Never cut: it is how two takes of one element are told apart. */
+.xp__take-summary {
+  color: var(--color-text-muted);
+}
+
+.xp__hint {
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
 }
 
 .xp__debug {

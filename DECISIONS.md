@@ -644,3 +644,16 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 **Chose:** compare.cjs photographs the page during a paused, seeked run, and takes its capture from a second run of the same trigger that nothing pauses.
 **Why:** layout is measured every frame; on the paused run it recorded the seeking itself.
 **Gave up:** each case takes a few seconds longer.
+
+### D122. The panel: following tabs, takes named by trigger, stopping by itself
+**Chose:**
+- The panel follows the tab in front: switching tabs or going to another page clears a stale message, so Pick element is ready without reopening the panel. Where access is missing, the panel offers "Allow on all sites" (the optional host permission that was already declared, asked for only on that click), so pages never need the toolbar icon again. Not asking leaves access per tab, as before.
+- Each take records what set it off (`Capture.trigger`): hover in, hover out, hover in and out, click, focus, focus lost, key press, loops, already running, or on its own, from pointer, press, key and focus events the capture script listens to passively. A transition already under way when recording began, with the pointer on the element, is the hover that picking started. The list groups takes under the element they belong to and names each by its trigger, with its length and time, and its summary in full.
+- Recording stops by itself 1.5 s after a take is complete, once the pointer is off the element (a hover's way back may still come). "Record again" records the same element without picking it.
+**Why:** asked for: "annoying that I need to close and open the extension every time I switch pages", "hover in and out and other states get mashed together… takes looks like a mess", "can't the tool activate the animation for me, listen and then stop on its own?"
+**Gave up:** the tool does not set off a hover by itself. Synthetic events do not set CSS :hover; only a real pointer or Chrome's debugger does, and the debugger needs a permission the brief excludes and shows a "being debugged" bar. Picking by click already leaves the pointer on the element, so its hover is captured.
+
+### D123. Play is always in view; sections are tabs on one column
+**Chose:** Play, the time, loop and speed sit under the preview, which stays pinned at the top on one column and on two. On one column, the sections below it are tabs (Timeline, Curve, Export, Not shown) instead of one long page. Speed is a small menu, so the controls fit one row in the side panel. The time reads "117 of 400 ms". Notes that were cut short wrap instead.
+**Why:** asked for: "need to scroll up to have the play button", "the UI looks messy". The side panel was over 2,700 px of stacked sections.
+**Gave up:** on one column, the curve and the timeline are not seen at the same time.
