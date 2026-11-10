@@ -304,6 +304,13 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
   // A capture with nothing to play shows no timeline and no curve.
   const hasTracks = edited.tracks.length > 0;
   const selected = selectedTracks(model);
+  // Motion measured on the page and followed by many keyframes, straight
+  // between them: those are not curves anyone wrote, and editing one would
+  // only put a kink in the path. One fitted curve is shown as a curve.
+  const measuredPath =
+    selected !== null &&
+    (selected.mine.origin === 'script' || selected.mine.origin === 'layout') &&
+    selected.mine.keyframes.length > 2;
   // Worked out when the capture or an edit changes, not on every frame of
   // playback: it samples every curve.
   const description = useMemo(() => describeCapture(shownEdited), [shownEdited]);
@@ -571,6 +578,13 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                       <section className="panel panel--empty">
                         <p>Select a row on the timeline to see and change its curve.</p>
                       </section>
+                    ) : measuredPath ? (
+                      <section className="panel panel--empty">
+                        <p>
+                          Measured from the page, frame by frame: this motion has no curve of its
+                          own, only the path it took. Change its timing on the timeline.
+                        </p>
+                      </section>
                     ) : (
                       <CurveEditor
                         // A different track or segment starts with a fresh chart.
@@ -598,9 +612,13 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                     )}
                   </div>
                   <div className="slot slot--speed">
-                    {selected === null ? (
+                    {selected === null || measuredPath ? (
                       <section className="panel panel--empty">
-                        <p>The speed of the selected row appears here.</p>
+                        <p>
+                          {selected === null
+                            ? 'The speed of the selected row appears here.'
+                            : 'Its speed is the speed it was filmed at.'}
+                        </p>
                       </section>
                     ) : (
                       <SpeedGraph

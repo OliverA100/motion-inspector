@@ -849,3 +849,7 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 ### D147. translate, rotate and scale apart from transform
 **Chose:** each moving part keeps its CSS translate, rotate and scale (the properties apart from transform) as computed when its first animation in the take began: `Shape.individual`, a new optional field. The preview applies them with an animated transform, as CSS does, unless the motion was measured (the film already has them in).
 **Why:** Stripe's nav caret checked 2 px off in every sweep: its two halves are set apart by "translate: ±2px", set by the class that also turns them, and only the turn animates. The preview dropped the translate. Tailwind 4 writes its translate, rotate and scale utilities this way, so a part centered with -translate-x-1/2 and scaled on hover would have been drawn half its width off. Fixture 39 covers it; Stripe's caret now checks at 0 px.
+
+### D148. Measured motion has a path, not a curve
+**Chose:** when the selected row is measured (a script's motion or the layout's) and followed by more than two keyframes, the curve and speed panels say what it is ("Measured from the page, frame by frame: this motion has no curve of its own, only the path it took. Change its timing on the timeline.") instead of offering a curve per stretch between keyframes. Measured motion fitted to one curve still shows that curve, to edit.
+**Why:** Vercel's peel offered 22 chips, "0 to 3%" to "73 to 100%", each a straight line: not curves anyone wrote, and editing one would only put a kink in the path.
