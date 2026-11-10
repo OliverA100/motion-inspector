@@ -134,6 +134,14 @@ describe('the states of the side panel', () => {
     expect(panel.status).toEqual({ kind: 'cannot-inspect', why: 'This is a browser page.' });
   });
 
+  test('clicking the toolbar icon clears "cannot be inspected", so Pick element can be tried again', () => {
+    const blocked = run([{ kind: 'cannotInspect', why: 'No access to this tab yet.' }]);
+    expect(updatePanel(blocked, { kind: 'accessGiven' }).status).toEqual({ kind: 'idle' });
+    // It changes nothing while something else is going on.
+    const picking = run([{ kind: 'pickStarted' }]);
+    expect(updatePanel(picking, { kind: 'accessGiven' }).status).toEqual({ kind: 'picking' });
+  });
+
   test('a save that fails leaves a message, and the take stays open', () => {
     const panel = run([
       { kind: 'takeArrived', take: take('a') },

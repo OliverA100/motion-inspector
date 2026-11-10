@@ -52,6 +52,8 @@ export type PanelMsg =
   | { kind: 'takeRejected'; problems: string[] }
   | { kind: 'stopped' }
   | { kind: 'cannotInspect'; why: string }
+  // The toolbar icon was clicked, which gives access to the tab in front.
+  | { kind: 'accessGiven' }
   | { kind: 'takeSelected'; id: string }
   | { kind: 'takesCleared' }
   | { kind: 'saveFailed'; why: string }
@@ -137,6 +139,12 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
 
     case 'cannotInspect':
       return { ...panel, status: { kind: 'cannot-inspect', why: msg.why } };
+
+    // A tab that could not be inspected for lack of access now can be.
+    case 'accessGiven':
+      return panel.status.kind === 'cannot-inspect'
+        ? { ...panel, status: { kind: 'idle' } }
+        : panel;
 
     case 'takeSelected':
       return panel.takes.some((take) => take.id === msg.id)

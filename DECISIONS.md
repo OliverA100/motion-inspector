@@ -465,3 +465,9 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** the button is shown when the manifest has no `update_url`, which is true for an extension loaded from a folder and false for one installed from the Web Store.
 **Why:** it is a development tool for the real-site pass, and this needs no build flag.
 **Gave up:** a developer who loads a packed build cannot see it.
+
+### D88. The extension handles the toolbar click itself
+**Chose:** `openPanelOnActionClick` is off. `chrome.action.onClicked` opens the side panel with `chrome.sidePanel.open`, and tells an open panel that the tab in front can now be inspected. This corrects D82.
+**Why:** the first real test. With Chrome opening the panel by itself, every page said "Motion Inspector has no access to this tab yet". The icon click that Chrome handles does not grant `activeTab`. A click the extension handles does. This was the one thing M6 could not test, and it was wrong.
+**Gave up:** access is per tab. To inspect a different tab, the icon has to be clicked once on that tab too. The panel says so when it happens.
+**Still not verified by a test:** a test cannot click a toolbar icon. This fix follows Chrome's documented pattern, and needs to be confirmed by hand.

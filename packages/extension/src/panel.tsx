@@ -77,7 +77,7 @@ async function startPicking(tab: chrome.tabs.Tab): Promise<string | null> {
     }
     if (tab.url === undefined) {
       // No access, and so no address to ask for access to.
-      return 'Motion Inspector has no access to this tab yet. Click its toolbar icon while this tab is in front, then press Pick element again.';
+      return 'Motion Inspector has no access to this tab yet. Access is given one tab at a time, by clicking the Motion Inspector icon in the toolbar while that tab is in front. Click the icon once now (the panel stays open), then press Pick element.';
     }
     // Access to the current tab was not granted, or has lapsed (after going
     // to another site, or switching tabs). Ask for this one site only.
@@ -188,6 +188,11 @@ function PanelApp() {
       message: { from?: string } & Partial<FromPage>,
       sender: chrome.runtime.MessageSender,
     ): void => {
+      // The toolbar icon was clicked: the tab in front can now be inspected.
+      if (message.from === 'motion-inspector-icon') {
+        dispatch({ kind: 'accessGiven' });
+        return;
+      }
       if (message.from !== FROM_PAGE || sender.tab?.id !== tabId.current) return;
       if (message.type === 'picked') dispatch({ kind: 'elementPicked' });
       if (message.type === 'cancelled') dispatch({ kind: 'pickCancelled' });

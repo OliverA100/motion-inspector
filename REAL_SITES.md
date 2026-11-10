@@ -19,7 +19,7 @@ I could not test this myself, because a test cannot click the toolbar icon or an
 3. With the panel still open, switch to a different tab on a different site. Press "Pick element" there. **Same question.** I expect Chrome to ask here, or the panel to say it has no access to this tab yet.
 4. Go back to the first tab and navigate it to a different site. Press "Pick element". **Same question.**
 
-What I expect, from Chrome's documentation: step 2 works straight away (clicking the icon grants access to that tab), and steps 3 and 4 need a prompt (access does not follow you to another tab, and is lost when a tab goes to another site). If step 2 also asks, the `activeTab` permission is not doing anything in this flow and can be removed.
+What I expect after the fix for problem 1 below: step 2 works straight away. In step 3 the panel says it has no access to that tab yet; click the toolbar icon once on that tab and try again. In step 4 Chrome asks to allow that site, or the panel says the same as in step 3.
 
 ## The checklist, for each of ten sites
 
@@ -47,4 +47,8 @@ For each site: the address, what you picked, what you expected, what happened, a
 
 ## Problems found and fixed
 
-(none yet)
+### 1. No page could be inspected (found on the first load)
+**What happened:** on every page, "Pick element" gave "Motion Inspector has no access to this tab yet."
+**Cause:** the toolbar click was left to Chrome, to open the side panel by itself. Chrome does not grant `activeTab` for that click, so the extension had access to nothing. It also hides the tab's address in that case, so the fallback had no site to ask for.
+**Fix:** the extension now handles the toolbar click itself, which is the gesture that grants access, and opens the panel from there (DECISIONS.md, D88).
+**To use it:** rebuild, reload the extension, and click the icon on the tab you want to inspect.
