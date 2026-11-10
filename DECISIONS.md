@@ -853,3 +853,10 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 ### D148. Measured motion has a path, not a curve
 **Chose:** when the selected row is measured (a script's motion or the layout's) and followed by more than two keyframes, the curve and speed panels say what it is ("Measured from the page, frame by frame: this motion has no curve of its own, only the path it took. Change its timing on the timeline.") instead of offering a curve per stretch between keyframes. Measured motion fitted to one curve still shows that curve, to edit.
 **Why:** Vercel's peel offered 22 chips, "0 to 3%" to "73 to 100%", each a straight line: not curves anyone wrote, and editing one would only put a kink in the path.
+
+### D149. Dialogs: the part with content, centered as on the page
+**Chose:**
+- When several parts open elsewhere at once, the one holding the most of what moves is recorded, and between equals one with content, not an empty backdrop. While all that has opened is empty (a backdrop alone), the choice waits up to 60 ms for the rest; a part with content is followed at once, before a short motion is over.
+- A part's translate is kept in px (its % worked out against its own box), so the preview, which has no element, places it right.
+- A part whose transform was animating when picked keeps its resting translate, rotate and scale, if those do not animate: only the transform's own value was mid-motion.
+**Why:** Ant Design's modal was followed by its backdrop, beside the dialog in an empty container; shadcn's dialog, centered by "translate: -50% -50%", was drawn 245 px off once its opening was over. Both now check at 0 px.

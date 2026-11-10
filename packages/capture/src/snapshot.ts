@@ -917,7 +917,7 @@ function boxShape(
     shadows: shadowLayers(style.boxShadow),
     outline: outlineOf(style),
     perspective: perspectiveOf(element, style),
-    individual: individualOf(style),
+    individual: individualOf(style, rect),
     backfaceHidden: style.backfaceVisibility === 'hidden',
     clipPath: basicClipPath(style.clipPath),
     filter: style.filter === 'none' ? null : style.filter,
@@ -1660,7 +1660,21 @@ export function takeSnapshot(rootElement: Element): Snapshot {
       shape.kind !== 'group' &&
       TRANSFORM_LIKE.some((property) => properties.has(property))
     ) {
-      shape.transform = null;
+      // translate, rotate and scale that do not animate are resting, and
+      // CSS applies them with the transform: a dialog centered by
+      // "translate: -50% -50%" that opens with a transform (shadcn).
+      const style = getComputedStyle(element);
+      const still = (property: string, value: string): string =>
+        properties.has(property) ? 'none' : value;
+      shape.transform = restingTransform(
+        {
+          translate: still('translate', style.translate),
+          rotate: still('rotate', style.rotate),
+          scale: still('scale', style.scale),
+          transform: 'none',
+        } as CSSStyleDeclaration,
+        { width: shape.box.width, height: shape.box.height },
+      );
     }
   }
 
@@ -1728,14 +1742,31 @@ function transformNow(
   return matrix;
 }
 
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 // translate, rotate and scale, the properties apart from transform, as
 // computed. null when all are none.
 export type Individual = { translate: string | null; rotate: string | null; scale: string | null };
 
-export function individualOf(style: CSSStyleDeclaration): Individual | null {
+export function individualOf(
+  style: CSSStyleDeclaration,
+  size: { width: number; height: number },
+): Individual | null {
   const read = (value: string): string | null => (value === '' || value === 'none' ? null : value);
+  // A translate in % is of the element's own size: written in px, so the
+  // preview, which has no element, places it right (Tailwind 4 centers a
+  // dialog with "translate: -50% -50%", found on shadcn).
+  const translate = read(style.translate);
+  const [x, y, z] = translate === null ? [0, 0, 0] : translateOf(translate, size);
   const parts = {
-    translate: read(style.translate),
+    translate:
+      translate === null
+        ? null
+        : z === 0
+          ? `${round2(x)}px ${round2(y)}px`
+          : `${round2(x)}px ${round2(y)}px ${round2(z)}px`,
     rotate: read(style.rotate),
     scale: read(style.scale),
   };

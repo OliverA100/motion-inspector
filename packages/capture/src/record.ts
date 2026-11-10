@@ -111,6 +111,9 @@ const SAME_TRIGGER_MS = 150;
 // element was opened by it.
 const OPENED_WITHIN_MS = 600;
 
+// How long parts opened elsewhere are gathered before one is recorded.
+const OPENED_TOGETHER_MS = 60;
+
 export type Recorder = { stop: () => void };
 
 const DEFAULT_IDLE_MS = 200;
@@ -220,7 +223,12 @@ function read(animation: Animation): Seen | null {
     backfaceHidden:
       effect.pseudoElement === null &&
       getComputedStyle(effect.target).backfaceVisibility === 'hidden',
-    individual: individualOf(getComputedStyle(effect.target, effect.pseudoElement)),
+    individual: individualOf(
+      getComputedStyle(effect.target, effect.pseudoElement),
+      effect.target instanceof HTMLElement
+        ? { width: effect.target.offsetWidth, height: effect.target.offsetHeight }
+        : effect.target.getBoundingClientRect(),
+    ),
   };
   animation.ready.then(
     () => {
@@ -1832,6 +1840,10 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // button, what moves is over there. The new part's top under the body
   // (with its overlay, for a dialog) is recorded instead.
   const inDocumentAtPick = new WeakSet<Element>(Array.from(document.querySelectorAll('*')));
+  // Parts opened elsewhere, gathered for a moment before one is chosen.
+  let openedParts: Element[] = [];
+  let openedTargets: Element[] = [];
+  let openedSince: number | null = null;
   const openedElsewhere = (target: Element): Element | null => {
     const docNow = asNumber(document.timeline.currentTime) ?? 0;
     const pressed = pageEvents.some(
@@ -1861,19 +1873,44 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   };
 
   const animatedParent = (now: number): Element | null => {
+    const opened = openedParts;
+    const targets = openedTargets;
     for (const animation of document.getAnimations()) {
       if (parentsChecked.has(animation)) continue;
       parentsChecked.add(animation);
       const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
       if (target === null || snapshot.rootElement.contains(target)) continue;
-      const opened = openedElsewhere(target);
-      if (opened !== null) return opened;
+      const part = openedElsewhere(target);
+      if (part !== null) {
+        if (!opened.includes(part)) opened.push(part);
+        targets.push(target);
+        openedSince ??= now;
+        continue;
+      }
       const together = now - lastPickedStart <= SAME_TRIGGER_MS;
       if (foundAnything && !together) continue;
       const parent = nearbyParentHolding(target, snapshot.rootElement);
       if (parent !== null) return parent;
     }
-    return null;
+    // Several opened at once (a dialog and its backdrop, side by side): the
+    // one holding the most of what moves, and between equals one with
+    // something in it, not an empty backdrop (Ant Design's modal). They may
+    // start a frame or two apart: the choice waits a moment for them.
+    // Wait only while all that opened is empty (a backdrop alone): a menu
+    // with its items is followed at once, before its short motion is over.
+    const withContent = opened.some((part) => part.childElementCount > 0);
+    if (openedSince === null) return null;
+    if (!withContent && now - openedSince < OPENED_TOGETHER_MS) return null;
+    openedSince = null;
+    openedParts = [];
+    openedTargets = [];
+    const score = (part: Element): number =>
+      targets.filter((target) => part.contains(target)).length * 2 +
+      (part.childElementCount > 0 ? 1 : 0);
+    return opened.reduce<Element | null>(
+      (best, part) => (best === null || score(part) > score(best) ? part : best),
+      null,
+    );
   };
 
   // The last take that was sent on its own, in case the next one is its

@@ -836,7 +836,7 @@ test('a part moved by translate keeps it while its transform animates', async ({
   );
   const capture = takes.find((take) => take.capture !== null)?.capture;
   const bar = capture?.root.children[0];
-  expect(bar?.individual?.translate).toBe('24px');
+  expect(bar?.individual?.translate).toBe('24px 0px');
   await page.goto('/?quiet');
   await page.evaluate(
     (json) => sessionStorage.setItem('motion-inspector-capture', json),

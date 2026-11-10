@@ -240,12 +240,13 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 65 | scroll-driven-animations.style | Scroll-driven animations were listed as "not shown" | Listed when picked, shown over a nominal second, exported with their timeline and range (D142) |
 | 66 | Magic UI | A spinning border light (conic gradient) was a flat color; the button's label hid under a black panel after it (z-index); a marquee read "changes transform to translateX(calc(-100% - 16px))"; loops were "Already running" | Conic gradients, stacking order, calc() lengths, "Loops" (D143) |
 | 67 | Aceternity | The 3D card's hover was dropped after recording moved to its parent, and its leave was fitted as a follow from rest (5.8 px) | A moved recording keeps what is happening; a follow needs the pointer on it (D143). 2.2 px and 0 px |
-| 68 | Mantine, Ant Design | Accordions, collapse, modal | Within 0 px. Ant's modal: only its mask is followed (its dialog sits beside it in an empty container) |
+| 68 | Mantine, Ant Design | Accordions, collapse, modal | Within 0 px. Ant's modal is followed by its dialog (74) |
 | 69 | MUI | The removed ripple made six "moved by layout" rows (read at -385 px, 0 wide after it left) | Removed parts are not sampled (D144) |
 | 70 | GitHub | A dialog checked 8 px off: the page played its 200 ms animation late and in steps over a second | The self-check is right; parts are now filmed only once their animations are on screen (D144) |
 | 71 | Editor | Playing NumberFlow's capture (30 tracks) with the CPU slowed four times: frames of 83 ms | The description is worked out per edit, not per frame: 33 ms (D145) |
 | 72 | Stripe | The nav caret, 2 px off in every sweep: translate set apart from an animated transform was dropped | translate, rotate and scale are kept with transform (D147): 0 px |
 | 73 | Magic UI | The rotating word's outgoing heading was "left out of the drawing": text only, and gone by the end of the take | Shaped as soon as it animates (D144) |
+| 74 | Ant Design, shadcn | The modal was followed by its backdrop; the dialog, centered by translate -50%, drawn 245 px off | The opened part with content is chosen; translate kept in px, and kept at rest (D149): 0 px |
 
 The sweep now also runs Magic UI, Aceternity, a scroll-driven demo, and menus and dialogs that open at the end of the page (shadcn, MUI, Ant Design), and Catalyst's switch: 43 more elements, all within 1.4 px. Before them, it checked 279 elements on 32 sites: all within 1.4 px of the page but GitHub's dialog, which the page plays late. Stripe's caret, the other, is fixed (72).
 
