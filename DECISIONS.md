@@ -828,3 +828,11 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - Recording that moved to a parent (because that is what moves) keeps what is already happening: only a recording started by a pick drops the pick's own hover.
 - A part follows the pointer only if the pointer was on it while the take ran: a way out with the pointer gone is motion settling back, measured as it is. A follow fitted to it started at rest, where the card was still turned.
 **Gave up:** a negative z-index part is drawn above its parent's own background, not under it. Aceternity's 3D card: its hover follows the pointer (2.2 px), its leave settles back (0 px).
+
+### D144. Parts that come and go, read honestly
+**Chose:**
+- A part taken off the page is no longer sampled for layout, and where a sample has no box, the part is where it was last seen. MUI's removed ripple was read as moving to -385 px and shrinking to nothing: six "moved by layout" rows of noise.
+- A part is filmed from the first frame its animations are on screen: in the frame it appears, they may still be waiting to start, and it shows as it would at rest.
+- The self-check leaves out frames from before the take starts: the preview shows nothing there to compare.
+- A part still on the page but no longer drawn at the end of the take (display: none, by a class) is hidden from when it went, as a removed one is.
+**Why:** the full sweep, now 278 elements, all within 1.4 px but three: MUI's ripple (fixed), GitHub's dialog, and Stripe's caret (2 px). GitHub's dialog plays its 200 ms animation late and in steps over a second on that heavy page: the self-check is right to say the page did not play what its CSS says.

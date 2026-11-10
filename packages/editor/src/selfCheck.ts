@@ -99,6 +99,10 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
     let worstAtMs = 0;
     let frames = 0;
     entry.frames.forEach((frame, index) => {
+      // Before the take starts the preview shows nothing to compare: a part
+      // filmed the frame it was made (MUI's ripple, its animation still
+      // pending) is not part of the motion yet.
+      if (frame.t < 0) return;
       const poses = posesByTime.get(frame.t);
       if (poses === undefined && replayed === null) return;
       frames += 1;

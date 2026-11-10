@@ -1468,3 +1468,31 @@ test('parts are named by a class that names something, not a utility variant or 
   });
   expect(captureOf(takes[0]).root.label).toBe('div.card');
 });
+
+test('a part set to display: none during the take is hidden from then on', async ({ page }) => {
+  await openFixtures(page);
+  const takes = await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.cssText =
+      'position: fixed; left: 20px; top: 20px; width: 80px; height: 40px; background: #ddd';
+    const part = document.createElement('div');
+    part.style.cssText = 'width: 30px; height: 30px; background: #333';
+    host.append(part);
+    document.body.append(host);
+    window.MotionCapture.record(host);
+    part.animate({ opacity: [0, 1] }, { duration: 600, fill: 'forwards' });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    // Hidden by a class, as pages do (a style write would be measured as a
+    // script's motion instead).
+    const rule = document.createElement('style');
+    rule.textContent = '.gone { display: none; }';
+    document.head.append(rule);
+    part.classList.add('gone');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return window.MotionCapture.stop();
+  });
+  const capture = captureOf(takes.find((take) => take.capture !== null) ?? takes[0]);
+  const hidden = capture.tracks.find((track) => track.property === 'visibility');
+  expect(hidden?.keyframes.at(-1)?.value).toBe('hidden');
+  expect(hidden?.startOffset ?? 0).toBeGreaterThan(250);
+});

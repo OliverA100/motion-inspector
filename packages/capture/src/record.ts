@@ -404,8 +404,9 @@ function partOf(
     : { id, box: shape.box, resting: snapshot.resting.get(seen.target) };
 }
 
-// Parts taken off the page during the take (a click's ripple, a toast that
-// left, a menu closed): hidden from the moment they went, as on the page.
+// Parts taken off the page or hidden during the take (a click's ripple, a
+// toast that left, a menu closed): hidden from the moment they went, as on
+// the page.
 // The film saw them go: no box from then on.
 function removalTracksFor(
   snapshot: Snapshot,
@@ -420,7 +421,13 @@ function removalTracksFor(
   );
   return Array.from(film).flatMap(([element, frames]) => {
     const shapeId = snapshot.shapeIdOf.get(element);
-    if (element.isConnected || scripted.has(element) || shapeId === undefined) return [];
+    // Taken off the page, or still on it but no longer drawn (display:
+    // none, a panel closed by the next click: found on GitHub).
+    const unseen =
+      !element.isConnected ||
+      element.getClientRects().length === 0 ||
+      getComputedStyle(element).visibility === 'hidden';
+    if (!unseen || scripted.has(element) || shapeId === undefined) return [];
     const lastSeen = frames.findLastIndex((frame) => frame.opacity > 0);
     const gone = frames[lastSeen + 1];
     if (lastSeen < 0 || gone === undefined) return [];
@@ -685,6 +692,9 @@ function sampleLayout(snapshot: Snapshot): LayoutSample {
   const boxes = new Map<Element, Box>();
   for (const [element, shape] of snapshot.shapeOf) {
     if (shape.kind === 'text' || !(element instanceof HTMLElement)) continue;
+    // One taken off the page has no layout: measured, it would jump to the
+    // corner (MUI's ripple, gone, read as -385 px left and 0 wide).
+    if (!element.isConnected) continue;
     boxes.set(element, layoutNow(snapshot, element));
   }
   return { time: asNumber(document.timeline.currentTime) ?? 0, boxes };
@@ -752,12 +762,18 @@ function layoutTracksFor(
     const parentShape = parentOf.get(shape);
     const parentElement = parentShape === undefined ? undefined : snapshot.ownerOf.get(parentShape);
     const parentStart = parentElement === undefined ? undefined : first.boxes.get(parentElement);
-    const series = (read: (box: Box, parent: Box | undefined) => number): number[] =>
-      samples.map((sample) => {
-        const box = sample.boxes.get(element) ?? start;
-        const parent = parentElement === undefined ? undefined : sample.boxes.get(parentElement);
-        return read(box, parent);
+    // Where a sample has no box (the part was taken off the page), it is
+    // where it was last seen.
+    const series = (read: (box: Box, parent: Box | undefined) => number): number[] => {
+      let held = start;
+      let heldParent = parentStart;
+      return samples.map((sample) => {
+        held = sample.boxes.get(element) ?? held;
+        heldParent =
+          parentElement === undefined ? undefined : (sample.boxes.get(parentElement) ?? heldParent);
+        return read(held, heldParent);
       });
+    };
     const isRoot = element === snapshot.rootElement;
     const wanted: { property: string; rest: number; values: number[] }[] = [];
     if (!isRoot && !own.has('left') && !own.has('right')) {
@@ -2245,6 +2261,17 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         if (frames.length >= MOST_FRAMES) continue;
         // A script already wrote, and was filmed, in this frame.
         if (frames[frames.length - 1]?.time === docNow) continue;
+        // Not before its animations are on screen: in the frame a part
+        // appears (a portal's panel, a ripple) they may still be waiting to
+        // start, and it shows as it would at rest (found on GitHub).
+        const waiting = take.filter((seen) => seen.target === element);
+        if (
+          frames.length === 0 &&
+          waiting.length > 0 &&
+          waiting.every((seen) => seen.animation.pending)
+        ) {
+          continue;
+        }
         frames.push({ time: docNow, ...frameNow(element) });
         film.set(element, frames);
       }
