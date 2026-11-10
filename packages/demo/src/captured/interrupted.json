@@ -46,6 +46,8 @@
       }
     ],
     "outline": null,
+    "perspective": null,
+    "backfaceHidden": false,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -81,6 +83,8 @@
         "shadow": null,
         "shadows": null,
         "outline": null,
+        "perspective": null,
+        "backfaceHidden": false,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -213,7 +217,7 @@
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.573842px)",
+          "value": "translateY(-0.573857px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -270,7 +274,7 @@
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.216) 0px 2.4346px 6.01689px 0px",
+          "value": "rgba(0, 0, 0, 0.216) 0px 2.43464px 6.017px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -340,7 +344,7 @@
           "opacity": 1
         },
         {
-          "t": 83.4,
+          "t": 83.3,
           "matrix": [
             1,
             0,
@@ -353,7 +357,7 @@
           "opacity": 1
         },
         {
-          "t": 133.3,
+          "t": 133.4,
           "matrix": [
             1,
             0,
@@ -392,7 +396,7 @@
           "opacity": 1
         },
         {
-          "t": 283.4,
+          "t": 283.3,
           "matrix": [
             1,
             0,

@@ -76,6 +76,9 @@ export type RawShape = {
     offset: number;
     style: 'solid' | 'dashed' | 'dotted';
   } | null;
+  // Only boxes are seen through a parent's perspective. Left out elsewhere.
+  perspective?: Perspective | null;
+  backfaceHidden?: boolean;
   clipPath: string | null;
   filter: string | null;
   inSvg: [number, number, number, number, number, number] | null;
@@ -895,6 +898,8 @@ function boxShape(
     shadow: restingShadow(style.boxShadow),
     shadows: shadowLayers(style.boxShadow),
     outline: outlineOf(style),
+    perspective: perspectiveOf(element, style),
+    backfaceHidden: style.backfaceVisibility === 'hidden',
     clipPath: basicClipPath(style.clipPath),
     filter: style.filter === 'none' ? null : style.filter,
     inSvg: null,
@@ -1678,10 +1683,14 @@ function transformNow(
   return matrix;
 }
 
-// A parent's perspective, as it applies to this element about the
-// element's transform origin. null when the parent has none, or where the
-// element sits in it cannot be read without transforms in the way.
-function parentPerspective(element: Element, style: CSSStyleDeclaration): DOMMatrix | null {
+// How far away the viewer is, and where they look from relative to the
+// element's transform origin, in px.
+export type Perspective = { distance: number; x: number; y: number };
+
+// A parent's perspective, as it acts on this element. null when the parent
+// has none, or where the element sits in it cannot be read without
+// transforms in the way.
+export function perspectiveOf(element: Element, style: CSSStyleDeclaration): Perspective | null {
   const parent = element.parentElement;
   if (parent === null || !(element instanceof HTMLElement)) return null;
   const parentStyle = getComputedStyle(parent);
@@ -1702,11 +1711,26 @@ function parentPerspective(element: Element, style: CSSStyleDeclaration): DOMMat
   }
   const [originX = 0, originY = 0] = style.transformOrigin.split(' ').map(parseFloat);
   const [viewX = 0, viewY = 0] = parentStyle.perspectiveOrigin.split(' ').map(parseFloat);
-  const dx = viewX - (left + originX);
-  const dy = viewY - (top + originY);
-  const perspective = new DOMMatrix();
-  perspective.m34 = -1 / distance;
-  return new DOMMatrix().translate(dx, dy).multiply(perspective).translate(-dx, -dy);
+  return { distance, x: viewX - (left + originX), y: viewY - (top + originY) };
+}
+
+// The perspective as a matrix about the element's transform origin, to go
+// in front of its own transform.
+export function perspectiveMatrix(perspective: Perspective): DOMMatrix {
+  const matrix = new DOMMatrix();
+  matrix.m34 = -1 / perspective.distance;
+  return new DOMMatrix()
+    .translate(perspective.x, perspective.y)
+    .multiply(matrix)
+    .translate(-perspective.x, -perspective.y);
+}
+
+// With backface-visibility: hidden, a part turned to face away is not
+// seen. As Chrome decides it: the normal, (0, 0, 1) turned by the
+// transform, points away from the viewer.
+export function facesAway(matrix: DOMMatrix): boolean {
+  const inverse = matrix.inverse();
+  return Number.isFinite(inverse.m33) && inverse.m33 < -1e-9;
 }
 
 // Other drawn properties a script may change frame by frame, filmed as
@@ -1741,7 +1765,8 @@ export function frameNow(element: Element): {
         ? element.getBBox()
         : { width: 0, height: 0 };
   const own = transformNow(style, size);
-  const seen = parentPerspective(element, style)?.multiply(own) ?? own;
+  const perspective = perspectiveOf(element, style);
+  const seen = perspective === null ? own : perspectiveMatrix(perspective).multiply(own);
   const w = seen.m44 === 0 ? 1 : seen.m44;
   const matrix: [number, number, number, number, number, number] = [
     seen.m11 / w,
@@ -1761,7 +1786,9 @@ export function frameNow(element: Element): {
     // ends, found on Chakra's accordion) or hidden is not seen at all,
     // whatever its opacity says.
     opacity:
-      element.getClientRects().length === 0 || style.visibility === 'hidden'
+      element.getClientRects().length === 0 ||
+      style.visibility === 'hidden' ||
+      (style.backfaceVisibility === 'hidden' && facesAway(seen))
         ? 0
         : Number.isFinite(opacity)
           ? opacity

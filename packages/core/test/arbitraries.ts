@@ -242,6 +242,15 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
         style: fc.constantFrom('solid' as const, 'dashed' as const, 'dotted' as const),
       }),
     ),
+    perspective: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        distance: fc.double({ min: 0.01, noNaN: true, noDefaultInfinity: true }),
+        x: anyNumber,
+        y: anyNumber,
+      }),
+    ),
+    backfaceHidden: fc.boolean(),
     clipPath: fc.oneof(fc.constant(null), fc.string()),
     filter: fc.oneof(fc.constant(null), fc.string()),
     inSvg: fc.oneof(

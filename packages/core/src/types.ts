@@ -180,6 +180,15 @@ export type Shape = {
     offset: number;
     style: 'solid' | 'dashed' | 'dotted';
   } | null;
+  // The parent's CSS perspective, as it acts on this shape: how far away
+  // the viewer is, in px, and where they look from (the parent's
+  // perspective-origin), relative to the shape's transform origin. A card
+  // turning in 3D inside it narrows toward its far side. null when the
+  // parent has none. Older takes have none.
+  perspective: { distance: number; x: number; y: number } | null;
+  // CSS backface-visibility: hidden. The shape is not seen while it faces
+  // away: the two faces of a flipping card. Older takes have false.
+  backfaceHidden: boolean;
   // The resting clip-path as computed CSS, such as "inset(0px 50% 0px 0px)"
   // or "polygon(50% 50%, 0% 0%, 100% 0%)". null when there is none.
   clipPath: string | null;

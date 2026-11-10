@@ -32,6 +32,8 @@
     "shadow": null,
     "shadows": null,
     "outline": null,
+    "perspective": null,
+    "backfaceHidden": false,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -67,6 +69,8 @@
         "shadow": null,
         "shadows": null,
         "outline": null,
+        "perspective": null,
+        "backfaceHidden": false,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -103,6 +107,8 @@
         "shadow": null,
         "shadows": null,
         "outline": null,
+        "perspective": null,
+        "backfaceHidden": false,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -139,6 +145,8 @@
         "shadow": null,
         "shadows": null,
         "outline": null,
+        "perspective": null,
+        "backfaceHidden": false,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -755,7 +763,7 @@
           "opacity": 0.99
         },
         {
-          "t": 166.7,
+          "t": 166.6,
           "matrix": [
             1,
             0,
@@ -825,7 +833,7 @@
           "opacity": 0.78
         },
         {
-          "t": 166.7,
+          "t": 166.6,
           "matrix": [
             0.87,
             0,
@@ -895,7 +903,7 @@
           "opacity": 0.47
         },
         {
-          "t": 166.7,
+          "t": 166.6,
           "matrix": [
             0.55,
             0,

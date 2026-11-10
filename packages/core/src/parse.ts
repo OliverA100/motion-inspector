@@ -72,6 +72,12 @@ function notNegative(value: unknown): Result<number> {
   );
 }
 
+function positive(value: unknown): Result<number> {
+  return andThen(number(value), (checked) =>
+    checked <= 0 ? fail(`Expected more than zero. Got ${checked}.`) : ok(checked),
+  );
+}
+
 function boolean(value: unknown): Result<boolean> {
   return typeof value === 'boolean' ? ok(value) : fail('Expected true or false.');
 }
@@ -462,6 +468,16 @@ function parseShadowLayer(value: unknown): Result<ShadowLayer> {
   });
 }
 
+function parsePerspective(value: unknown): Result<NonNullable<Shape['perspective']>> {
+  return andThen(fields(value), (source) => {
+    const distance = at('distance', positive(get(source, 'distance')));
+    const x = at('x', number(get(source, 'x')));
+    const y = at('y', number(get(source, 'y')));
+    if (!distance.ok || !x.ok || !y.ok) return failAll([distance, x, y].flatMap(errorsOf));
+    return ok({ distance: distance.value, x: x.value, y: y.value });
+  });
+}
+
 function parseOutline(value: unknown): Result<NonNullable<Shape['outline']>> {
   return andThen(fields(value), (source) => {
     const color = at('color', text(get(source, 'color')));
@@ -707,6 +723,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const shadow = at('shadow', optional(get(source, 'shadow'), parseShadow));
     const shadows = at('shadows', optional(get(source, 'shadows'), parseShadowLayers));
     const outline = at('outline', optional(get(source, 'outline'), parseOutline));
+    const perspective = at('perspective', optional(get(source, 'perspective'), parsePerspective));
+    const backfaceHidden = at('backfaceHidden', optional(get(source, 'backfaceHidden'), boolean));
     const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
     const filter = at('filter', optional(get(source, 'filter'), text));
     const inSvg = at('inSvg', optional(get(source, 'inSvg'), parseMatrix));
@@ -732,6 +750,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !shadow.ok ||
       !shadows.ok ||
       !outline.ok ||
+      !perspective.ok ||
+      !backfaceHidden.ok ||
       !clipPath.ok ||
       !filter.ok ||
       !inSvg.ok ||
@@ -756,6 +776,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           shadow,
           shadows,
           outline,
+          perspective,
+          backfaceHidden,
           clipPath,
           filter,
           inSvg,
@@ -780,6 +802,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       shadow: shadow.value,
       shadows: shadows.value,
       outline: outline.value,
+      perspective: perspective.value,
+      backfaceHidden: backfaceHidden.value ?? false,
       clipPath: clipPath.value,
       filter: filter.value,
       inSvg: inSvg.value,

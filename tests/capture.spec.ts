@@ -1309,3 +1309,26 @@ test('edges: every shadow layer with its spread and inset, and a border on one s
     true,
   ]);
 });
+
+test("a card flip: each face carries its parent's perspective and hides its back", async ({
+  page,
+}) => {
+  const takes = await captureFixture(
+    page,
+    'flip',
+    (p) => p.hover('[data-fixture="flip"] [data-root]'),
+    900,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  // Both are named div.fx-flip__face: the front is first, the back second.
+  const [front, back] = capture?.root.children ?? [];
+  // The viewer is 500 px away, looking at the middle of the card, which
+  // is where each face turns about.
+  expect(front?.perspective).toEqual({ distance: 500, x: 0, y: 0 });
+  expect(back?.perspective).toEqual({ distance: 500, x: 0, y: 0 });
+  expect(front?.backfaceHidden).toBe(true);
+  expect(back?.backfaceHidden).toBe(true);
+  // The parent itself is seen flat.
+  expect(capture?.root.perspective).toBeNull();
+  expect(capture?.root.backfaceHidden).toBe(false);
+});

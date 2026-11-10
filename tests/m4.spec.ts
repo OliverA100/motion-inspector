@@ -706,3 +706,71 @@ test('edges are drawn: a one-sided border, an inner shadow, a ring', async ({ pa
   expect(found?.well.lightest ?? 0).toBeGreaterThan((found?.well.darkest ?? 255) + 40);
   expect(found?.pink ?? 0).toBeGreaterThan(50);
 });
+
+test("a card flip is drawn through its parent's perspective, each face only from the front", async ({
+  page,
+}) => {
+  const takes = await captureFixture(
+    page,
+    'flip',
+    (p) => p.hover('[data-fixture="flip"] [data-root]'),
+    900,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  expect(capture?.measured?.length).toBeGreaterThan(0);
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
+  // Checked against the film of the page, which saw the turn narrow.
+  await page.goto('/?capture=session&quiet&time=0');
+  await expect(page.locator('.mi__check')).toHaveText(/^Matches the page · [\d.]+ px$/);
+
+  // On the canvas: how much blue and pink there is, and the blue's height
+  // at its left and right ends.
+  const look = async (time: number) => {
+    await page.goto(`/?capture=session&quiet&time=${time}`);
+    await page.waitForTimeout(300);
+    if (process.env.SHOT) {
+      await page.locator('.stage').screenshot({ path: `${process.env.SHOT}-${time}.png` });
+    }
+    return page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const context = canvas.getContext('2d');
+      if (context === null) return null;
+      const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+      const near = (index: number, r: number, g: number, b: number): boolean =>
+        Math.abs((data[index] ?? 0) - r) < 12 &&
+        Math.abs((data[index + 1] ?? 0) - g) < 12 &&
+        Math.abs((data[index + 2] ?? 0) - b) < 12;
+      let blue = 0;
+      let pink = 0;
+      const columns = new Map<number, number>();
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const index = (y * width + x) * 4;
+          if (near(index, 47, 111, 237)) {
+            blue += 1;
+            columns.set(x, (columns.get(x) ?? 0) + 1);
+          }
+          if (near(index, 224, 33, 138)) pink += 1;
+        }
+      }
+      const xs = [...columns.keys()].sort((a, b) => a - b);
+      const left = columns.get(xs[2] ?? 0) ?? 0;
+      const right = columns.get(xs[xs.length - 3] ?? 0) ?? 0;
+      return { blue, pink, left, right };
+    });
+  };
+  const start = await look(0);
+  // 100 ms in, eased: the front has turned about 40 degrees.
+  const turning = await look(100);
+  const end = await look(5000);
+  expect(start?.blue).toBeGreaterThan(1000);
+  expect(start?.pink).toBe(0);
+  // Turned away from the viewer on one side: that end is shorter.
+  expect(Math.abs((turning?.left ?? 0) - (turning?.right ?? 0))).toBeGreaterThan(8);
+  // Turned all the way: the front shows its back, which is hidden.
+  expect(end?.blue).toBe(0);
+  expect(end?.pink).toBeGreaterThan(1000);
+});

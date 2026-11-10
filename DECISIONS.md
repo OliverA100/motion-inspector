@@ -742,3 +742,12 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - `tests/freeze-sites.cjs` records real pages, as the extension does, and times their frames; with PROFILE=1 it says which capture functions took the time.
 **Why:** reported: "it keeps freezing the page when I record", on hover and click. Both fits run in the page when a take ends. The old curve search tried 6,400 curves at every frame of the film: 55 ms for each moving part, one fit per moved property, so a hover on a card a script moves held the page for 100 ms or more, in and out. Now: 0.18 ms per fit (295 of 300 random curves found as one curve, against 66 before), and the follow fit is three times faster.
 **Gave up:** nothing measured. The fits still run in the page's frame when a take ends: a few ms, not spread over several frames.
+
+### D136. A parent's perspective, and faces that hide their backs
+**Chose:**
+- Two new optional shape fields. `perspective` is the parent's CSS perspective as it acts on the shape: the distance and where the viewer looks from, relative to the shape's transform origin (null when the parent has none). `backfaceHidden` is CSS backface-visibility: hidden (false in older takes).
+- The probe puts the perspective in front of the shape's own transform, as capture's film already did, so a turn in 3D narrows as on the page. A face with a hidden back is not drawn while it faces away, decided as Chrome does: the turned normal points away from the viewer.
+- backface-visibility is read when each animation begins, not when the element was picked: what set it off may change it. daisyUI's flip hides one face's back and shows the other's in the same click.
+- The film counts a face turned away as unseen, so the self-check agrees.
+**Why:** the last large miss of the seventh pass: daisyUI's flip was drawn flat (16 px off mid-turn), and both faces showed through the turn. It is now within 0.1 px and 0% opacity. A fixture (35, card flip) and tests cover it.
+**Gave up:** only the nearest parent's perspective, as filmed. A resting 3D turn with no animation is still drawn from its flat 2D matrix.

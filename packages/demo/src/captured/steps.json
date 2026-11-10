@@ -37,6 +37,8 @@
     "shadow": null,
     "shadows": null,
     "outline": null,
+    "perspective": null,
+    "backfaceHidden": false,
     "clipPath": null,
     "filter": null,
     "inSvg": null,
@@ -72,6 +74,8 @@
         "shadow": null,
         "shadows": null,
         "outline": null,
+        "perspective": null,
+        "backfaceHidden": false,
         "clipPath": null,
         "filter": null,
         "inSvg": null,
@@ -149,7 +153,7 @@
       "shapeId": "s0.1",
       "frames": [
         {
-          "t": -16.6,
+          "t": -16.7,
           "matrix": [
             1,
             0,
@@ -162,7 +166,7 @@
           "opacity": 1
         },
         {
-          "t": 33.4,
+          "t": 33.3,
           "matrix": [
             1,
             0,
@@ -175,7 +179,7 @@
           "opacity": 1
         },
         {
-          "t": 83.4,
+          "t": 83.3,
           "matrix": [
             1,
             0,
@@ -188,7 +192,7 @@
           "opacity": 1
         },
         {
-          "t": 133.4,
+          "t": 133.3,
           "matrix": [
             1,
             0,
@@ -201,7 +205,7 @@
           "opacity": 1
         },
         {
-          "t": 183.4,
+          "t": 183.3,
           "matrix": [
             1,
             0,
@@ -227,7 +231,7 @@
           "opacity": 1
         },
         {
-          "t": 283.4,
+          "t": 283.3,
           "matrix": [
             1,
             0,
@@ -240,7 +244,7 @@
           "opacity": 1
         },
         {
-          "t": 333.4,
+          "t": 333.3,
           "matrix": [
             1,
             0,
@@ -253,7 +257,7 @@
           "opacity": 1
         },
         {
-          "t": 383.4,
+          "t": 383.3,
           "matrix": [
             1,
             0,
@@ -266,7 +270,7 @@
           "opacity": 1
         },
         {
-          "t": 433.3,
+          "t": 433.2,
           "matrix": [
             1,
             0,
@@ -279,7 +283,7 @@
           "opacity": 1
         },
         {
-          "t": 483.4,
+          "t": 483.3,
           "matrix": [
             1,
             0,
@@ -292,7 +296,7 @@
           "opacity": 1
         },
         {
-          "t": 533.4,
+          "t": 533.3,
           "matrix": [
             1,
             0,
@@ -305,7 +309,7 @@
           "opacity": 1
         },
         {
-          "t": 583.4,
+          "t": 583.3,
           "matrix": [
             1,
             0,
@@ -357,7 +361,7 @@
           "opacity": 1
         },
         {
-          "t": 783.4,
+          "t": 783.3,
           "matrix": [
             1,
             0,
@@ -370,7 +374,7 @@
           "opacity": 1
         },
         {
-          "t": 833.3,
+          "t": 833.2,
           "matrix": [
             1,
             0,
@@ -383,7 +387,7 @@
           "opacity": 1
         },
         {
-          "t": 883.4,
+          "t": 883.3,
           "matrix": [
             1,
             0,
@@ -396,7 +400,7 @@
           "opacity": 1
         },
         {
-          "t": 933.3,
+          "t": 933.2,
           "matrix": [
             1,
             0,
@@ -448,7 +452,7 @@
           "opacity": 1
         },
         {
-          "t": 1133.4,
+          "t": 1133.2,
           "matrix": [
             1,
             0,
@@ -461,7 +465,7 @@
           "opacity": 1
         },
         {
-          "t": 1183.3,
+          "t": 1183.2,
           "matrix": [
             1,
             0,

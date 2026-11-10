@@ -215,11 +215,21 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 47 | shadcn | The switch's thumb was filmed 86 px off: "translate: calc(100% - 2px)" was read as 100 px and 2 px | Percentages and calc() in translate are resolved against the element's box (D134) |
 | 48 | MUI | The accordion was invisible: a fade-in running at pick, not part of the take, left it at its starting opacity | Each take shows such a fade where it was going, unless it has the fade (D134) |
 | 49 | Chakra | A collapsed panel hidden with display: none was filmed as fully visible | A part with no box is filmed as unseen (D134) |
-| 50 | daisyUI | A card flip lost its front face's turn: rotateY(180deg) to rotateY(0deg) was taken as no change, 129 px off | Transforms must also agree as 3D matrices to be "no change" (D134). Now 16 px off: see the limits |
+| 50 | daisyUI | A card flip lost its front face's turn: rotateY(180deg) to rotateY(0deg) was taken as no change, 129 px off | Transforms must also agree as 3D matrices to be "no change" (D134) |
+
+## Eighth pass: speed while recording, and the parent's perspective (D135, D136)
+
+`node tests/freeze-sites.cjs` records real pages as the extension does (whole pages picked too) and times their frames; with PROFILE=1 it says which capture functions took the time.
+
+| # | Seen on | What was wrong | Fix |
+|---|---|---|---|
+| 51 | framer.com, vanilla-tilt, Vercel | Reported: the page froze on hover and click while recording. The curve fit for script-driven motion took 55 ms per moving part, in the page, when each take ended | x1 and x2 searched, y1 and y2 solved exactly: 0.18 ms, and more curves found (D135) |
+| 52 | daisyUI | The card flip was drawn flat: 16 px off mid-turn | A parent's perspective is part of each shape (D136). Now within 0.1 px |
+| 53 | daisyUI | Both faces of the flip showed through the turn. The click itself switches which face hides its back | backface-visibility is read as each animation begins, and a face turned away is not drawn (D136) |
 
 ## Known limits seen on real sites
 
-- **A parent's perspective is not in the preview.** A flip turning inside a parent with `perspective` narrows on the page and is drawn flat in the preview (daisyUI's swap, 16 px off mid-turn). Perspective written in the element's own transform is drawn.
+- **Only the nearest parent's perspective is drawn.** Faces nested deeper inside a preserve-3d parent are drawn as their own parent flattens them.
 - **Pseudo-elements are not filmed**, so a take that only moves ::before or ::after has no self-check badge.
 
 - **Images are flat gray**, so two slides of a carousel look the same. Image data is never copied.

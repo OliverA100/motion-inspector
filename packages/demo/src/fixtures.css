@@ -1089,3 +1089,31 @@ fx-shadow-card {
   outline: 2px dashed #e0218a;
   outline-offset: 4px;
 }
+
+/* 35. Card flip: a parent's perspective, and faces that hide their backs. */
+.fx-flip {
+  position: relative;
+  width: 200px;
+  height: 120px;
+  perspective: 500px;
+}
+.fx-flip__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  backface-visibility: hidden;
+  transition: transform 600ms ease;
+}
+.fx-flip__front {
+  background: #2f6fed;
+}
+.fx-flip__back {
+  background: #e0218a;
+  transform: rotateY(180deg);
+}
+.fx-flip:hover .fx-flip__front {
+  transform: rotateY(-180deg);
+}
+.fx-flip:hover .fx-flip__back {
+  transform: rotateY(0deg);
+}

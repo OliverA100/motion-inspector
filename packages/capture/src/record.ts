@@ -141,6 +141,10 @@ type Seen = {
   interrupted: boolean;
   // True when it already existed when the element was picked (a loader).
   runningAtPick: boolean;
+  // The part's backface-visibility as the animation began: what set it off
+  // can change it too (daisyUI's flip hides one face's back and shows the
+  // other's in the same click), so it is not the one read when picked.
+  backfaceHidden: boolean;
 };
 
 function asNumber(value: unknown): number | null {
@@ -194,6 +198,9 @@ function read(animation: Animation): Seen | null {
     ended: null,
     interrupted: false,
     runningAtPick: false,
+    backfaceHidden:
+      effect.pseudoElement === null &&
+      getComputedStyle(effect.target).backfaceVisibility === 'hidden',
   };
   animation.ready.then(
     () => {
@@ -1169,6 +1176,18 @@ function buildTake(
       track.groupId = group;
     }
   });
+  // Each moving part hides its back, or not, as it did when its first
+  // animation in this take began.
+  const backfaces = new Map<Element, boolean>();
+  for (const seen of take) {
+    if (seen.pseudoElement === null && !backfaces.has(seen.target)) {
+      backfaces.set(seen.target, seen.backfaceHidden);
+    }
+  }
+  for (const [element, shape] of snapshot.shapeOf) {
+    const hidden = backfaces.get(element);
+    if (hidden !== undefined && shape.perspective !== undefined) shape.backfaceHidden = hidden;
+  }
   // A part that was fading when picked: drawn from where the fade started
   // when this take has the fade, or where it was going when it does not
   // (found on MUI's accordion: a fade-in running at pick, not in the take,

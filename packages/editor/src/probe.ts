@@ -125,6 +125,24 @@ function numbersIn(text: string): number[] {
   return (text.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/g) ?? []).map(Number);
 }
 
+// A parent's perspective as a matrix about the shape's transform origin,
+// put in front of the shape's own transform. As capture's frameNow does.
+function perspectiveMatrix(perspective: NonNullable<Shape['perspective']>): DOMMatrix {
+  const matrix = new DOMMatrix();
+  matrix.m34 = -1 / perspective.distance;
+  return new DOMMatrix()
+    .translate(perspective.x, perspective.y)
+    .multiply(matrix)
+    .translate(-perspective.x, -perspective.y);
+}
+
+// The normal, (0, 0, 1) turned by the transform, points away from the
+// viewer. As Chrome decides whether a back face is showing.
+function facesAway(matrix: DOMMatrix): boolean {
+  const inverse = matrix.inverse();
+  return Number.isFinite(inverse.m33) && inverse.m33 < -1e-9;
+}
+
 function matrixOf(transform: string): DOMMatrix {
   try {
     return new DOMMatrix(transform === 'none' ? '' : transform);
@@ -272,13 +290,20 @@ function poseOf(
     return value === null ? result : result.multiply(individualTransform(property, value));
   }, new DOMMatrix());
   const transform = valueOf('transform');
-  const full = transform === null ? matrix : matrix.multiply(matrixOf(transform));
-  // A turn in 3D with perspective() narrows away from the viewer: drawn as a
+  const own = transform === null ? matrix : matrix.multiply(matrixOf(transform));
+  // Seen through the parent's perspective, as on the page.
+  const full =
+    shape.perspective === null ? own : perspectiveMatrix(shape.perspective).multiply(own);
+  // A turn in 3D with perspective narrows away from the viewer: drawn as a
   // taper. Everything else of the 3D matrix is what is seen flat.
   const w = full.m44 === 0 ? 1 : full.m44;
   const asMatrix: Matrix = [full.a / w, full.b / w, full.c / w, full.d / w, full.e / w, full.f / w];
   const tapered = Math.abs(full.m14) > 1e-9 || Math.abs(full.m24) > 1e-9;
   const taper: [number, number] | null = tapered ? [full.m14 / w, full.m24 / w] : null;
+  const moves = has(['transform', 'translate', 'rotate', 'scale']);
+  // A face turned away with backface-visibility: hidden is not seen: the
+  // back of a flipping card shows only once it has turned.
+  const turnedAway = moves && shape.backfaceHidden && facesAway(full);
 
   // Position: a change in left or top moves the shape and what is inside
   // it. When both opposite sides move (an underline growing from its
@@ -328,9 +353,9 @@ function poseOf(
   const shadow = valueOf('box-shadow');
   return {
     shapeId: shape.id,
-    matrix: has(['transform', 'translate', 'rotate', 'scale']) ? asMatrix : null,
-    taper: has(['transform']) ? taper : null,
-    opacity: opacity === null ? null : Number.parseFloat(opacity),
+    matrix: moves ? asMatrix : null,
+    taper: moves ? taper : null,
+    opacity: turnedAway ? 0 : opacity === null ? null : Number.parseFloat(opacity),
     fill: shape.kind === 'path' ? valueOf('fill') : valueOf('background-color'),
     strokeColor: shape.kind === 'path' ? valueOf('stroke') : valueOf('border-top-color'),
     dx,
