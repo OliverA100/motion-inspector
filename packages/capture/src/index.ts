@@ -4,7 +4,7 @@
 
 import { startPicking, type Picker } from './picker';
 import { startRecording, type Recorder, type TakeResult } from './record';
-import { takeSnapshot } from './snapshot';
+import { labelOf, takeSnapshot } from './snapshot';
 
 export { startPicking } from './picker';
 export { startRecording } from './record';
@@ -19,17 +19,34 @@ let takes: TakeResult[] = [];
 
 // Starts recording an element. The snapshot is taken now, at rest, before
 // anything is triggered.
-export function record(target: Element | string, onTake?: (result: TakeResult) => void): void {
+//
+// onMoved is called if recording moves to a parent of that element, with
+// the parent's label. That happens when the picked element itself does not
+// animate but a nearby parent does (the image inside a card that lifts).
+export function record(
+  target: Element | string,
+  onTake?: (result: TakeResult) => void,
+  onMoved?: (label: string) => void,
+): void {
   const element = typeof target === 'string' ? document.querySelector(target) : target;
   if (element === null) throw new Error(`Nothing matches "${String(target)}".`);
   recorder?.stop();
   takes = [];
-  recorder = startRecording(takeSnapshot(element), {
-    onTake: (result) => {
-      takes = [...takes, result];
-      onTake?.(result);
-    },
-  });
+  const watch = (watched: Element): void => {
+    recorder = startRecording(takeSnapshot(watched), {
+      onTake: (result) => {
+        takes = [...takes, result];
+        onTake?.(result);
+      },
+      onParentAnimation: (parent) => {
+        onMoved?.(labelOf(parent));
+        // The parent's animation is still running, so the new recorder sees
+        // it in its first frame. Nothing has to be triggered again.
+        watch(parent);
+      },
+    });
+  };
+  watch(element);
 }
 
 // Stops recording and returns every take, including one in progress.
@@ -41,13 +58,16 @@ export function stop(): TakeResult[] {
 
 // Lets the user pick an element, then records it. Resolves with true if an
 // element was picked, false if picking was cancelled.
-export async function pickAndRecord(onTake?: (result: TakeResult) => void): Promise<boolean> {
+export async function pickAndRecord(
+  onTake?: (result: TakeResult) => void,
+  onMoved?: (label: string) => void,
+): Promise<boolean> {
   picker?.cancel();
   picker = startPicking();
   const element = await picker.picked;
   picker = null;
   if (element === null) return false;
-  record(element, onTake);
+  record(element, onTake, onMoved);
   return true;
 }
 

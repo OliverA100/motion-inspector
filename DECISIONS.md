@@ -427,3 +427,41 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** the list holds animations that cannot be drawn and also drawing notes: parts left out, a gradient drawn as flat gray, a multi-colored border drawn in one color. The description counts them as "things left out of this preview".
 **Why:** each of these makes the preview differ from the page, and the brief asks that limits are explained and never hidden. A spinner with one colored edge is drawn as a uniform ring, so its rotation cannot be seen: that has to be said.
 **Gave up:** the format's `notShown` was meant for animations only. One list is simpler than two, but its name is now a little narrow.
+
+## Extension (M6)
+
+### D81. The side panel's state is a pure function too
+**Chose:** `panelState.ts` has one `Panel`, one `PanelMsg` and one pure `updatePanel`, like the editor. `panel.tsx` does the things that touch the browser and reports what happened as messages.
+**Why:** every state in the brief (first open, picking, listening, the tip after 5 seconds, nothing found, captured, a page that cannot be inspected, a save that fails) can be tested without a browser.
+**Gave up:** the panel has two layers where one component with effects would be shorter.
+
+### D82. Try to inject first, then ask for one site
+**Chose:** "Pick element" tries to inject the capture script. If Chrome refuses, and the page is not one nobody may inspect, it asks for access to that one site (`chrome.permissions.request` with that origin). The manifest lists `*://*/*` only under `optional_host_permissions`, which grants nothing until asked.
+**Why:** Chrome's documentation says clicking the toolbar icon grants `activeTab` for that tab, lost when the tab goes to another site, and not carried to other tabs. It says nothing about the case where the click opens a side panel. This order works whichever way that turns out.
+**What I could not verify:** whether the icon click really grants `activeTab` when it opens a side panel. A test cannot click a toolbar icon. `REAL_SITES.md` has a one-minute check.
+**Gave up:** when the extension has no access to a tab, Chrome hides the tab's address, so there is no site to ask for. The panel then says to click the toolbar icon on that tab first.
+
+### D83. Nothing runs on a page until "Pick element" is pressed
+**Chose:** no `content_scripts` in the manifest. The capture script and a small bridge are injected with `chrome.scripting.executeScript` on each press.
+**Why:** the brief asks for it, and it means the extension has no presence on any page you have not pointed it at. A test checks the built manifest for this.
+**Gave up:** each press injects both files again. The bridge ends the previous session first, or the page would be watched twice.
+
+### D84. The panel checks every capture again
+**Chose:** a capture passes core's `parseCapture` in the page, travels as plain JSON, and is parsed again in the panel before it is shown or saved. Saved takes are parsed again when loaded.
+**Why:** a page can send anything to an extension. The panel does not trust it.
+**Gave up:** the same check runs twice on the happy path. It takes well under a millisecond.
+
+### D85. Recording moves to a parent when that is what animates
+**Chose:** while nothing has been found on the picked element, the recorder also watches for an animation on one of its four nearest parents (never `body`). If one runs, recording moves to that parent, and the panel says which element is now being watched. The animation that was noticed is still running, so it is captured without triggering it again.
+**Why:** clicking the middle of a card picks the image inside it, the deepest element under the pointer. The animation is on the card. Without this, the most natural click gives "No animation was found".
+**Gave up:** the snapshot of the parent is taken while it is already animating. Shapes come from layout boxes, so they are still right, but resting values read at that moment are not trusted.
+
+### D86. The test build has access to the fixtures page, the real build has none
+**Chose:** `build.mjs --test` writes a second copy of the extension whose manifest adds `host_permissions` for `http://localhost:5173`. Browser tests load that copy, and open the panel as a tab.
+**Why:** a test cannot click the toolbar icon or answer a permission prompt. Without this the tests could not get past "Pick element".
+**Gave up:** the tests do not cover the permission flow itself. Everything after it is covered: injection, the picker, messages, takes, the editor, storage.
+
+### D87. "Copy debug report" shows only in an unpacked extension
+**Chose:** the button is shown when the manifest has no `update_url`, which is true for an extension loaded from a folder and false for one installed from the Web Store.
+**Why:** it is a development tool for the real-site pass, and this needs no build flag.
+**Gave up:** a developer who loads a packed build cannot see it.

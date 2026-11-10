@@ -18,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 84.19999999552965,
-      "timelineTimeAtFirstSight": 152.8,
-      "startTimeWhenReady": 169.4710000010673,
+      "firstSeenAtMs": 46.900000005960464,
+      "timelineTimeAtFirstSight": 133.6,
+      "startTimeWhenReady": 133.59700000000885,
       "keyframes": [
         {
           "offset": 0,
@@ -217,9 +217,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 84.39999999850988,
-      "timelineTimeAtFirstSight": 152.8,
-      "startTimeWhenReady": 169.4710000010673,
+      "firstSeenAtMs": 47.400000005960464,
+      "timelineTimeAtFirstSight": 133.6,
+      "startTimeWhenReady": 133.59700000000885,
       "keyframes": [
         {
           "offset": 0,
@@ -440,42 +440,42 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 83.69999999552965,
+      "atMs": 46.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 83.69999999552965,
+      "atMs": 46.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 83.69999999552965,
+      "atMs": 46.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 83.69999999552965,
+      "atMs": 46.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
       "elapsedTime": 0.18,
-      "atMs": 257.19999999552965,
+      "atMs": 229,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.18,
-      "atMs": 257.19999999552965,
+      "atMs": 229,
       "targetClassName": "fx-button"
     }
   ]

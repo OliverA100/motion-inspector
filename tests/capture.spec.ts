@@ -384,6 +384,40 @@ test('the page is left alone: nothing is paused, changed or restyled', async ({ 
   expect(before.playState).toBe('running');
 });
 
+test('picking a part inside the thing that moves still captures it, from its parent', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  // The image inside the card does not animate. The card does.
+  await page.evaluate(() => {
+    window.movedTo = new Promise<string>((resolve) => {
+      window.MotionCapture.record('.fx-card__image', undefined, resolve);
+    });
+  });
+  await page.hover('.fx-card__image');
+  expect(await page.evaluate(() => window.movedTo)).toBe('div.fx-card');
+
+  // And the hover that was already under way is captured. Nothing has to be
+  // triggered a second time.
+  await page.waitForTimeout(800);
+  const takes = await page.evaluate(() => window.MotionCapture.stop());
+  const capture = captureOf(takes[0]);
+  expect(capture.source.selector).toBe('div.fx-card');
+  expect(track(capture, 'transform').keyframes[1]?.value).toBe('translateY(-6px) scale(1.03)');
+});
+
+test('recording moves to the parent only when the picked element has nothing of its own', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  const selector = rootSelector('card-lift');
+  await page.evaluate((target) => window.MotionCapture.record(target), selector);
+  await page.hover(selector);
+  await page.waitForTimeout(800);
+  const takes = await page.evaluate(() => window.MotionCapture.stop());
+  expect(captureOf(takes[0]).source.selector).toBe('div.fx-card');
+});
+
 // ---------- The picker ----------
 
 const overlay = (page: Page) => page.locator('[data-motion-inspector="picker"]');

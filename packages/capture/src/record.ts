@@ -27,7 +27,25 @@ export type RecorderOptions = {
   onTake: (result: TakeResult) => void;
   // How long nothing may be running before a take ends.
   idleMs?: number;
+  // Called when nothing has been found on the picked element, but an
+  // animation runs on a nearby parent of it. People often click a part
+  // inside the thing that moves: the image in a card, the text in a button.
+  onParentAnimation?: (parent: Element) => void;
 };
+
+// How far up to look for a parent that animates. Further up are things like
+// page transitions, which are not what was picked.
+const NEARBY_LEVELS = 4;
+
+function isNearbyParent(candidate: Element, picked: Element): boolean {
+  let current: Element | null = picked.parentElement;
+  for (let level = 0; level < NEARBY_LEVELS && current !== null; level += 1) {
+    if (current === document.body || current === document.documentElement) return false;
+    if (current === candidate) return true;
+    current = current.parentElement;
+  }
+  return false;
+}
 
 export type Recorder = { stop: () => void };
 
@@ -330,6 +348,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   let take: Seen[] = [];
   let lastActivity = performance.now();
   let frame = 0;
+  let foundAnything = false;
+  let stopped = false;
+  // Animations on parents that have been looked at, so each is judged once.
+  const parentsChecked = new WeakSet<Animation>();
+
+  // An animation on a nearby parent of the picked element, if there is one
+  // that has not been looked at yet.
+  const animatedParent = (): Element | null => {
+    for (const animation of document.getAnimations()) {
+      if (parentsChecked.has(animation)) continue;
+      parentsChecked.add(animation);
+      const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
+      if (target !== null && isNearbyParent(target, snapshot.rootElement)) return target;
+    }
+    return null;
+  };
 
   const endTake = (): void => {
     if (take.length === 0) return;
@@ -372,6 +406,17 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     if (fresh.length > 0) {
       take = [...take, ...fresh];
       lastActivity = now;
+      foundAnything = true;
+    }
+
+    // Nothing on the picked element so far. Is its parent the one moving?
+    if (!foundAnything && options.onParentAnimation !== undefined) {
+      const parent = animatedParent();
+      if (parent !== null) {
+        stopped = true;
+        options.onParentAnimation(parent);
+        return;
+      }
     }
     if (take.some(stillRunning)) lastActivity = now;
     else if (now - lastActivity > idleMs) endTake();
@@ -381,6 +426,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   frame = requestAnimationFrame(onFrame);
   return {
     stop: () => {
+      if (stopped) return;
+      stopped = true;
       cancelAnimationFrame(frame);
       endTake();
     },

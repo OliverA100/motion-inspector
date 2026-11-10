@@ -9,7 +9,11 @@ const captureScript = resolve(here, '../packages/capture/dist/capture.iife.js');
 export type Take = { capture: Capture | null; problems: string[]; raw: unknown };
 
 type CaptureGlobal = {
-  record: (target: string) => void;
+  record: (
+    target: string | Element,
+    onTake?: (take: Take) => void,
+    onMoved?: (label: string) => void,
+  ) => void;
   stop: () => Take[];
   pickAndRecord: () => Promise<boolean>;
   cancelPicking: () => void;
@@ -20,6 +24,7 @@ declare global {
     MotionCapture: CaptureGlobal;
     // Set by tests that drive the picker.
     pickResult?: Promise<boolean>;
+    movedTo?: Promise<string>;
   }
 }
 

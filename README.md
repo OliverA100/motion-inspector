@@ -13,6 +13,16 @@ pnpm samples:update # records the demo's sample captures again
 pnpm screenshots    # saves screenshots of every state to screenshots/
 ```
 
+## Load the extension
+
+```bash
+pnpm build:extension
+```
+
+In Chrome, open `chrome://extensions`, switch on "Developer mode", press "Load unpacked", and choose `packages/extension/dist`. Click the extension's toolbar icon to open the side panel, then press "Pick element".
+
+The extension asks for four permissions and no access to any site up front: `activeTab`, `scripting`, `sidePanel` and `storage`. The capture script is only put into a page when you press "Pick element", and only into that tab.
+
 ## Known limits
 
 - **Missing keyframes can be stale.** When `element.animate()` leaves out its start or end keyframe, the missing value is the element's resting style, read when you pick the element. If the page changes that resting style between your pick and the animation (for example by toggling a class first), the capture shows the old value. Pick again after the change to fix it.
@@ -21,3 +31,6 @@ pnpm screenshots    # saves screenshots of every state to screenshots/
 - **Shapes are simplified.** A border with a different color on each side is drawn in one color, so a spinner with one colored edge looks like a plain ring and its rotation cannot be seen. Gradients and background images are drawn as flat gray. At most 40 parts are drawn.
 - **An element with no transition on it when picked may have no shape.** If it paints nothing and only starts animating through a class added later, its animation is listed under "not shown".
 - **Closed shadow roots cannot be reached.** Open ones are captured.
+- **Access is per site.** Clicking the toolbar icon gives access to the tab you are on. On another tab, or after the tab goes to another site, "Pick element" asks for access to that one site.
+- **Browser pages, the Chrome Web Store and PDF files cannot be inspected.** Chrome does not allow it. The panel says so.
+- **Iframes are not looked into.** Only the top document and open shadow roots.
