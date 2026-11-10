@@ -492,6 +492,19 @@ function parseShadowLayer(value: unknown): Result<ShadowLayer> {
   });
 }
 
+function parseIndividual(value: unknown): Result<NonNullable<Shape['individual']>> {
+  return andThen(fields(value), (source) => {
+    const read = (key: string) => at(key, optional(get(source, key), text));
+    const translate = read('translate');
+    const rotate = read('rotate');
+    const scale = read('scale');
+    if (!translate.ok || !rotate.ok || !scale.ok) {
+      return failAll([translate, rotate, scale].flatMap(errorsOf));
+    }
+    return ok({ translate: translate.value, rotate: rotate.value, scale: scale.value });
+  });
+}
+
 function parsePerspective(value: unknown): Result<NonNullable<Shape['perspective']>> {
   return andThen(fields(value), (source) => {
     const distance = at('distance', positive(get(source, 'distance')));
@@ -751,6 +764,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const shadows = at('shadows', optional(get(source, 'shadows'), parseShadowLayers));
     const outline = at('outline', optional(get(source, 'outline'), parseOutline));
     const perspective = at('perspective', optional(get(source, 'perspective'), parsePerspective));
+    const individual = at('individual', optional(get(source, 'individual'), parseIndividual));
     const backfaceHidden = at('backfaceHidden', optional(get(source, 'backfaceHidden'), boolean));
     const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
     const filter = at('filter', optional(get(source, 'filter'), text));
@@ -788,6 +802,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !shadows.ok ||
       !outline.ok ||
       !perspective.ok ||
+      !individual.ok ||
       !backfaceHidden.ok ||
       !clipPath.ok ||
       !filter.ok ||
@@ -815,6 +830,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           shadows,
           outline,
           perspective,
+          individual,
           backfaceHidden,
           clipPath,
           filter,
@@ -842,6 +858,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       shadows: shadows.value,
       outline: outline.value,
       perspective: perspective.value,
+      individual: individual.value,
       backfaceHidden: backfaceHidden.value ?? false,
       clipPath: clipPath.value,
       filter: filter.value,

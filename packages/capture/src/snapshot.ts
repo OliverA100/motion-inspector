@@ -78,6 +78,7 @@ export type RawShape = {
   } | null;
   // Only boxes are seen through a parent's perspective. Left out elsewhere.
   perspective?: Perspective | null;
+  individual?: Individual | null;
   backfaceHidden?: boolean;
   clipPath: string | null;
   filter: string | null;
@@ -916,6 +917,7 @@ function boxShape(
     shadows: shadowLayers(style.boxShadow),
     outline: outlineOf(style),
     perspective: perspectiveOf(element, style),
+    individual: individualOf(style),
     backfaceHidden: style.backfaceVisibility === 'hidden',
     clipPath: basicClipPath(style.clipPath),
     filter: style.filter === 'none' ? null : style.filter,
@@ -1724,6 +1726,20 @@ function transformNow(
     return new DOMMatrix();
   }
   return matrix;
+}
+
+// translate, rotate and scale, the properties apart from transform, as
+// computed. null when all are none.
+export type Individual = { translate: string | null; rotate: string | null; scale: string | null };
+
+export function individualOf(style: CSSStyleDeclaration): Individual | null {
+  const read = (value: string): string | null => (value === '' || value === 'none' ? null : value);
+  const parts = {
+    translate: read(style.translate),
+    rotate: read(style.rotate),
+    scale: read(style.scale),
+  };
+  return parts.translate === null && parts.rotate === null && parts.scale === null ? null : parts;
 }
 
 // How far away the viewer is, and where they look from relative to the

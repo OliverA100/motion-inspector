@@ -286,9 +286,21 @@ function poseOf(
   const has = (properties: string[]): boolean =>
     properties.some((property) => valueOf(property) !== null);
 
-  // CSS applies translate, then rotate, then scale, then transform.
-  const matrix = ['translate', 'rotate', 'scale'].reduce((result, property) => {
-    const value = valueOf(property);
+  // CSS applies translate, then rotate, then scale, then transform. One of
+  // the three that does not animate keeps its own value while the others
+  // do (a caret set apart by translate and turned by a transform). Measured
+  // motion was filmed with them already in.
+  const animatesTransform = has(['transform', 'translate', 'rotate', 'scale']);
+  const measured = readings.some(
+    (reading) =>
+      reading.track.origin === 'script' &&
+      ['transform', 'translate', 'rotate', 'scale'].includes(reading.track.property),
+  );
+  const individualValue = (property: 'translate' | 'rotate' | 'scale'): string | null =>
+    valueOf(property) ??
+    (animatesTransform && !measured ? (shape.individual?.[property] ?? null) : null);
+  const matrix = (['translate', 'rotate', 'scale'] as const).reduce((result, property) => {
+    const value = individualValue(property);
     return value === null ? result : result.multiply(individualTransform(property, value));
   }, new DOMMatrix());
   const transform = valueOf('transform');

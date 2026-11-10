@@ -41,6 +41,8 @@ import {
   layoutNow,
   type RawShape,
   type Snapshot,
+  individualOf,
+  type Individual,
 } from './snapshot';
 
 export type TakeResult = {
@@ -158,6 +160,9 @@ type Seen = {
   // can change it too (daisyUI's flip hides one face's back and shows the
   // other's in the same click), so it is not the one read when picked.
   backfaceHidden: boolean;
+  // Its translate, rotate and scale as the animation began: what set it
+  // off may change them (a class that sets "translate: 2px").
+  individual: Individual | null;
 };
 
 function asNumber(value: unknown): number | null {
@@ -215,6 +220,7 @@ function read(animation: Animation): Seen | null {
     backfaceHidden:
       effect.pseudoElement === null &&
       getComputedStyle(effect.target).backfaceVisibility === 'hidden',
+    individual: individualOf(getComputedStyle(effect.target, effect.pseudoElement)),
   };
   animation.ready.then(
     () => {
@@ -1489,6 +1495,15 @@ function buildTake(
   for (const [element, shape] of snapshot.shapeOf) {
     const hidden = backfaces.get(element);
     if (hidden !== undefined && shape.perspective !== undefined) shape.backfaceHidden = hidden;
+  }
+  // And its translate, rotate and scale, as its first animation began.
+  const individualSet = new Set<Element>();
+  for (const seen of take) {
+    if (seen.pseudoElement !== null || individualSet.has(seen.target)) continue;
+    individualSet.add(seen.target);
+    const shape = snapshot.shapeOf.get(seen.target);
+    // Any part: a box, or an icon (Stripe's caret is an SVG).
+    if (shape !== undefined) shape.individual = seen.individual;
   }
   // A part that was fading when picked: drawn from where the fade started
   // when this take has the fade, or where it was going when it does not

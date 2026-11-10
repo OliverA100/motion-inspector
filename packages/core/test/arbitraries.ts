@@ -307,6 +307,14 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
       }),
     ),
     backfaceHidden: fc.boolean(),
+    individual: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        translate: fc.oneof(fc.constant(null), fc.constant('2px')),
+        rotate: fc.oneof(fc.constant(null), fc.constant('45deg')),
+        scale: fc.oneof(fc.constant(null), fc.constant('1.1')),
+      }),
+    ),
     clipPath: fc.oneof(fc.constant(null), fc.string()),
     filter: fc.oneof(fc.constant(null), fc.string()),
     inSvg: fc.oneof(

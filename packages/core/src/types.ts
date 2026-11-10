@@ -189,6 +189,12 @@ export type Shape = {
   // turning in 3D inside it narrows toward its far side. null when the
   // parent has none. Older takes have none.
   perspective: { distance: number; x: number; y: number } | null;
+  // CSS translate, rotate and scale, the properties apart from transform,
+  // as computed when the take began, null where none. CSS applies them
+  // with transform, so an animation of transform alone keeps them (a caret
+  // set apart by "translate: 2px" and turned by a transition; Tailwind 4
+  // centers with them). null when all are none. Older takes have none.
+  individual: { translate: string | null; rotate: string | null; scale: string | null } | null;
   // CSS backface-visibility: hidden. The shape is not seen while it faces
   // away: the two faces of a flipping card. Older takes have false.
   backfaceHidden: boolean;

@@ -33,6 +33,7 @@
     "shadows": null,
     "outline": null,
     "perspective": null,
+    "individual": null,
     "backfaceHidden": false,
     "clipPath": null,
     "filter": null,
@@ -323,19 +324,6 @@
       "shapeId": "s0",
       "frames": [
         {
-          "t": -16.7,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            0
-          ],
-          "taper": null,
-          "opacity": 1
-        },
-        {
           "t": 33.3,
           "matrix": [
             1,
@@ -401,7 +389,7 @@
           "opacity": 1
         },
         {
-          "t": 283.2,
+          "t": 283.3,
           "matrix": [
             1,
             0,
@@ -440,7 +428,7 @@
           "opacity": 1
         },
         {
-          "t": 433.2,
+          "t": 433.3,
           "matrix": [
             1,
             0,
@@ -492,7 +480,7 @@
           "opacity": 1
         },
         {
-          "t": 633.2,
+          "t": 633.3,
           "matrix": [
             1,
             0,

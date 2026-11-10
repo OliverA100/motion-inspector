@@ -1247,3 +1247,26 @@ fx-shadow-card {
     transform: none;
   }
 }
+
+/* 39. Translate apart from transform: CSS applies both. */
+.fx-apart {
+  display: flex;
+  align-items: center;
+  width: 140px;
+  height: 64px;
+  padding-left: 12px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: #e5e7eb;
+}
+.fx-apart__bar {
+  width: 40px;
+  height: 8px;
+  border-radius: 4px;
+  background: #0f766e;
+  translate: 24px 0;
+  transition: transform 300ms ease;
+}
+.fx-apart:hover .fx-apart__bar {
+  transform: rotate(90deg);
+}

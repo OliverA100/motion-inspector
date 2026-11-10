@@ -826,3 +826,23 @@ test('a part taken off the page during the take vanishes then in the preview', a
   await page.goto('/?capture=session&quiet&time=0');
   await expect(page.locator('.mi__check')).toHaveText(/^Matches the page · [\d.]+ px$/);
 });
+
+test('a part moved by translate keeps it while its transform animates', async ({ page }) => {
+  const takes = await captureFixture(
+    page,
+    'apart',
+    (p) => p.hover('[data-fixture="apart"] [data-root]'),
+    700,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  const bar = capture?.root.children[0];
+  expect(bar?.individual?.translate).toBe('24px');
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
+  await page.goto('/?capture=session&quiet&time=0');
+  // Without its translate, the bar would be drawn 24 px off.
+  await expect(page.locator('.mi__check')).toHaveText(/^Matches the page · [\d.]+ px$/);
+});
