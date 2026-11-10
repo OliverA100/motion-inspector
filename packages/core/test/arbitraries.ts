@@ -179,6 +179,11 @@ const iconPath = fc.record({
       join: fc.constantFrom('miter', 'round', 'bevel'),
     }),
   ),
+  fillRule: fc.constantFrom('nonzero', 'evenodd'),
+  dash: fc.oneof(
+    fc.constant(null),
+    fc.record({ array: fc.array(zeroOrMore, { maxLength: 4 }), offset: anyNumber }),
+  ),
   followsText: fc.boolean(),
 });
 
@@ -199,6 +204,7 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
           fc.constant(null),
           fc.tuple(fc.string(), fc.string(), fc.string(), fc.string()),
         ),
+        style: fc.constantFrom('solid', 'dashed', 'dotted'),
       }),
     ),
     opacity: zeroToOne,
@@ -214,6 +220,28 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
       fc.record({ color: fc.string(), x: anyNumber, y: anyNumber, blur: zeroOrMore }),
     ),
     clipPath: fc.oneof(fc.constant(null), fc.string()),
+    words: fc.oneof(
+      fc.constant(null),
+      fc.array(fc.record({ x: anyNumber, width: zeroOrMore }), { maxLength: 4 }),
+    ),
+    gradient: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        kind: fc.constant('linear'),
+        angle: anyNumber,
+        stops: fc.array(fc.record({ color: fc.string(), at: zeroToOne }), {
+          minLength: 2,
+          maxLength: 4,
+        }),
+      }),
+      fc.record({
+        kind: fc.constant('radial'),
+        stops: fc.array(fc.record({ color: fc.string(), at: zeroToOne }), {
+          minLength: 2,
+          maxLength: 4,
+        }),
+      }),
+    ),
     children,
   });
 }
@@ -243,6 +271,10 @@ export const rawCapture: fc.Arbitrary<unknown> = rawRoot
       root: fc.constant(root),
       tracks: fc.array(rawTrack(idsOf(root)), { maxLength: 6 }),
       backdrop: fc.oneof(fc.constant(null), fc.string()),
+      frame: fc.oneof(
+        fc.constant(null),
+        fc.record({ x: anyNumber, y: anyNumber, width: zeroOrMore, height: zeroOrMore }),
+      ),
       notShown: fc.array(fc.string(), { maxLength: 3 }),
     }),
   );

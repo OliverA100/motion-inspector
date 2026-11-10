@@ -160,6 +160,20 @@ Found from a screen recording the user sent of the extension on their portfolio:
 
 Not tool problems, and left alone: Bulma's and w3schools' buttons sit under a promotional banner or consent overlay, so a hover never reached them (the sweep now skips covered elements). On Stripe's menu and Bootstrap's edit button, what animates is a menu elsewhere on the page, not the element. uiverse.io blocks automated browsers.
 
+## Fourth pass: click components and more of the page's look
+
+`node tests/sweep.cjs c-` tried accordions, tabs, switches, checkboxes and collapses on twenty pages from nine libraries. Its own first runs were wrong (D115); after those fixes:
+
+| # | Seen on | What was wrong | Fix |
+|---|---|---|---|
+| 26 | Bootstrap | The logo was missing: an evenodd path, white on a navbar colored by a pseudo-element | Fill rules; backdrops from pseudo-elements (D114) |
+| 27 | Bootstrap docs | Icons drawn with `<use>` fell back to a dot | Sprites are followed (D114) |
+| 28 | shadcn, Mantine | Switch thumbs moved by `calc()` did not move | calc() read in px; translate % measured (D116) |
+| 29 | MUI | The tab indicator, outside the picked tab, was never captured | Parents limited by area (D116) |
+| 30 | Radix | A gradient over a background color was read as the color | Gradient first (D116) |
+| 31 | Everywhere | Text was one bar per line; gradients one color; dashes solid | Word bars (D111), gradient direction (D110), dashes (D112) |
+| 32 | Text rolls | A line rolling out of a clipping wrapper was drawn in full | The frame (D113) |
+
 ## Known limits seen on real sites
 
 - **Siblings do not reflow.** When a panel grows, the items below it stay where they were in the preview. The preview has no layout engine.
@@ -167,6 +181,7 @@ Not tool problems, and left alone: Bulma's and w3schools' buttons sit under a pr
 - **Text is drawn as bars.** Page text is never copied.
 - **A toggle's knob drawn as a background image** (Bootstrap's switch) is not shown.
 - **SVG animations (SMIL) and JavaScript-driven animations are not captured.**
-- **Layout animations are not drawn.** daisyUI's toggle moves its knob by animating `grid-template-columns`; the preview has no layout engine.
+- **Layout animations are not drawn.** daisyUI's toggle animates `grid-template-columns`; MUI's and Mantine's accordions animate `margin`. The preview has no layout engine.
+- **Click ripples** (MUI) are created and removed by script during the click, and are often gone before they can be measured.
+- **Menus and dialogs that open elsewhere** (a portal at the end of the page) are not part of the picked element. Pick them when open.
 - **A pseudo-element in the flow of text** (an inline arrow after a link) is listed, not drawn: its box cannot be measured.
-- **Content clipped by a parent outside the picked element** is drawn uncut. Pick the parent to see the cut.

@@ -36,6 +36,8 @@
       "blur": 2
     },
     "clipPath": null,
+    "gradient": null,
+    "words": null,
     "icon": null,
     "children": [
       {
@@ -44,27 +46,38 @@
         "kind": "text",
         "box": {
           "x": 16.04,
-          "y": 13.28,
+          "y": 13.69,
           "width": 63.92,
-          "height": 8.52
+          "height": 7.7
         },
         "radius": [
-          4.26,
-          4.26,
-          4.26,
-          4.26
+          3.85,
+          3.85,
+          3.85,
+          3.85
         ],
         "fill": "rgb(255, 255, 255)",
         "stroke": null,
         "opacity": 1,
         "transformOrigin": {
           "x": 31.88,
-          "y": 4.26
+          "y": 3.85
         },
         "clip": false,
         "transform": null,
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": [
+          {
+            "x": 0,
+            "width": 39.72
+          },
+          {
+            "x": 43.34,
+            "width": 20.58
+          }
+        ],
         "icon": null,
         "children": []
       }
@@ -175,15 +188,60 @@
     },
     {
       "shapeId": "s0",
-      "property": "transform",
+      "property": "box-shadow",
       "origin": "css-transition",
-      "groupId": "s0:transform",
-      "startOffset": 50.04,
+      "groupId": "s0:box-shadow",
+      "startOffset": 50.03,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.832016px)",
+          "value": "rgba(0, 0, 0, 0.22) 0px 3.07989px 7.82369px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 74.88,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": "s0:transform",
+      "startOffset": 50.03,
+      "interrupted": true,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateY(-0.831956px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -229,53 +287,9 @@
           "y2": 1
         }
       }
-    },
-    {
-      "shapeId": "s0",
-      "property": "box-shadow",
-      "origin": "css-transition",
-      "groupId": "s0:box-shadow",
-      "startOffset": 50.04,
-      "interrupted": true,
-      "keyframes": [
-        {
-          "offset": 0,
-          "value": "rgba(0, 0, 0, 0.22) 0px 3.08004px 7.82411px 0px",
-          "parsed": null,
-          "easing": {
-            "kind": "linear"
-          },
-          "implicit": false
-        },
-        {
-          "offset": 1,
-          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
-          "parsed": null,
-          "easing": {
-            "kind": "linear"
-          },
-          "implicit": false
-        }
-      ],
-      "timing": {
-        "delay": 0,
-        "duration": 74.88,
-        "iterations": {
-          "kind": "count",
-          "count": 1
-        },
-        "direction": "normal",
-        "fill": "backwards",
-        "easing": {
-          "kind": "cubic-bezier",
-          "x1": 0,
-          "y1": 0,
-          "x2": 0.58,
-          "y2": 1
-        }
-      }
     }
   ],
   "backdrop": "rgb(255, 255, 255)",
+  "frame": null,
   "notShown": []
 }

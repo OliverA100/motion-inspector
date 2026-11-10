@@ -576,3 +576,38 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** small elements are drawn up to four times their size (it was two). The whole component is no longer outlined when its row is selected; other shapes still are. The backdrop mixes a see-through color, or one under a faded parent, with what is behind it.
 **Why:** in the sweep, a 14 px spinner was 28 px in a 240 px stage, every preview had a blue frame around it that was not part of the page, and Ant Design's loading button (at 65% opacity) was drawn on solid bright blue.
 **Gave up:** at four times, a small element's edges are softer.
+
+### D110. Gradients are drawn with their direction
+**Chose:** `Shape.gradient`: a linear gradient's angle (as CSS measures it, with `to right` and corner directions worked out against the box) and its color stops, or a radial gradient's stops. Stop positions follow CSS's rules for stops without one. The stage draws them with the canvas's own gradients, over the background color. Repeating and conic gradients are still drawn in their average color. This replaces the average color of D106 for gradients the stage can draw.
+**Why:** asked to keep making the preview closer to the page. Gradient buttons and banners are common, and a gradient is written in CSS, so its stops are not image data.
+**Gave up:** a radial gradient's shape, size and center are not read: it is drawn as an ellipse from the middle.
+
+### D111. Text bars have the gaps between words
+**Chose:** `Shape.words`: for each line of text, where each word starts and how wide it is. The bar is drawn as one rounded segment per word, about as tall as lowercase letters (55% of the font size), not half the line.
+**Why:** "Download on GitHub" drawn as one long bar did not read as a label. The words themselves are still never kept, only their boxes, as the brief requires ("no real text", confirmed by the user).
+**Gave up:** a line with more than 64 words is drawn as one bar.
+
+### D112. Dashed and dotted lines
+**Chose:** a border's style (`solid`, `dashed`, `dotted`) and an SVG stroke's resting dash pattern are kept and drawn. Animated dashes (D105) replace the resting ones.
+**Why:** MUI's spinner is an arc at rest through its dash pattern, and was drawn as a full ring before its animation started.
+**Gave up:** the browser's exact dash lengths are not matched: dashes are three times the border's width.
+
+### D113. A parent that cuts off the pick is the preview's frame
+**Chose:** `Capture.frame`: the inside of the nearest parent outside the picked element whose overflow is not visible. The stage draws nothing outside it, and fits what is visible inside it at rest.
+**Why:** a line of text rolling up inside a wrapper with `overflow: hidden`, picked by itself, was drawn sliding out in full. On the page it disappears at the wrapper's edge.
+**Gave up:** only the nearest such parent is used, and only its box, not its rounded corners.
+
+### D114. Icon sprites, fill rules, and backdrops painted by pseudo-elements
+**Chose:** an icon drawn with `<use href="#icon">` is drawn from the element it points to (usually a `<symbol>` in a sprite): its parts placed by the `<use>` element's position and the symbol's viewBox, colored from the `<use>` unless a part sets its own color. Each icon part keeps its `fill-rule`, so a letter or a ring keeps its holes. The backdrop reader also looks at each element's absolutely positioned `::before` and `::after` that cover the point.
+**Why:** a click sweep of component libraries showed Bootstrap's logo missing entirely: it is a path filled with `evenodd`, white on a violet navbar whose color is painted by a pseudo-element, which `elementsFromPoint` never returns. Sprites with `<use>` are how most icon sets are drawn, and they fell back to a dot.
+**Gave up:** animations on the parts inside a sprite are drawn on the `<use>` as a whole, since the parts are copies.
+
+### D115. The sweep tests click components too
+**Chose:** a second list of twenty pages (accordions, tabs, switches, checkboxes and collapses from Bootstrap, MUI, Radix, shadcn, daisyUI, Headless UI, Mantine, Chakra and Flowbite), run with `node tests/sweep.cjs c-`. Three fixes to the harness itself made it see them: an element that is both a click and a hover candidate was tagged twice, so clicks pointed at nothing; wide accordion rows were skipped; and a 100 ms switch was finished before it was looked for, so new animations are now watched every frame.
+**Why:** asked to test "many different components and many different animations". The first sweep was mostly hovers.
+**Gave up:** nothing in the tool. The harness's own bugs are noted here because they hid real results for a run.
+
+### D116. Switches, tabs and calc()
+**Chose:** a `calc()` of a percentage and px in a size or position (`left: calc(100% - 16.5px)`) is read as px against the containing block. A `translate` in % or `calc()` is measured by the probe on its own hidden element, which has the shape's size. Recording moves to a parent of at most nine times the picked element's **area**, replacing D101's "three times as wide and as tall". The backdrop reader takes a gradient before the color under it.
+**Why:** the click sweep: Mantine's and shadcn's switch thumbs did not move, and MUI's tab indicator, which slides under a tab list 5.6 times as wide as one tab, was never captured from a tab. Your portfolio button's hover area (33 times the button's area) is still left out.
+**Gave up:** a `calc()` with other units (em, vw) is still not read.

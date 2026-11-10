@@ -29,7 +29,8 @@
         "rgb(212, 212, 212)",
         "rgb(212, 212, 212)",
         "rgb(212, 212, 212)"
-      ]
+      ],
+      "style": "solid"
     },
     "opacity": 1,
     "transformOrigin": {
@@ -40,6 +41,8 @@
     "transform": null,
     "shadow": null,
     "clipPath": null,
+    "gradient": null,
+    "words": null,
     "icon": null,
     "children": []
   },
@@ -97,5 +100,6 @@
     }
   ],
   "backdrop": "rgb(255, 255, 255)",
+  "frame": null,
   "notShown": []
 }

@@ -31,6 +31,8 @@
     "transform": null,
     "shadow": null,
     "clipPath": null,
+    "gradient": null,
+    "words": null,
     "icon": null,
     "children": [
       {
@@ -67,6 +69,8 @@
         ],
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       },
@@ -104,6 +108,8 @@
         ],
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       },
@@ -141,6 +147,8 @@
         ],
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       },
@@ -178,6 +186,8 @@
         ],
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       }
@@ -618,5 +628,6 @@
     }
   ],
   "backdrop": "rgb(255, 255, 255)",
+  "frame": null,
   "notShown": []
 }

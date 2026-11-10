@@ -31,6 +31,8 @@
     "transform": null,
     "shadow": null,
     "clipPath": null,
+    "gradient": null,
+    "words": null,
     "icon": null,
     "children": [
       {
@@ -39,27 +41,38 @@
         "kind": "text",
         "box": {
           "x": 0,
-          "y": 5.27,
+          "y": 5.68,
           "width": 64,
-          "height": 8.53
+          "height": 7.7
         },
         "radius": [
-          4.27,
-          4.27,
-          4.27,
-          4.27
+          3.85,
+          3.85,
+          3.85,
+          3.85
         ],
         "fill": "rgb(28, 28, 28)",
         "stroke": null,
         "opacity": 1,
         "transformOrigin": {
           "x": 31.88,
-          "y": 4.27
+          "y": 3.85
         },
         "clip": false,
         "transform": null,
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": [
+          {
+            "x": 0,
+            "width": 39.77
+          },
+          {
+            "x": 43.39,
+            "width": 20.61
+          }
+        ],
         "icon": null,
         "children": []
       },
@@ -97,6 +110,8 @@
         ],
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       }
@@ -162,5 +177,6 @@
     }
   ],
   "backdrop": "rgb(255, 255, 255)",
+  "frame": null,
   "notShown": []
 }

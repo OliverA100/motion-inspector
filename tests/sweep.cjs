@@ -69,6 +69,29 @@ const sites = [
   { name: 'web-dev', url: 'https://web.dev/' },
   { name: 'uiverse', url: 'https://uiverse.io/buttons' },
   { name: 'oliverhassan', url: 'https://oliverhassan.dev/', viewport: { width: 947, height: 960 } },
+  // Components that animate on click: run with "node tests/sweep.cjs c-".
+  ...[
+    ['bootstrap-accordion', 'https://getbootstrap.com/docs/5.3/components/accordion/'],
+    ['bootstrap-collapse', 'https://getbootstrap.com/docs/5.3/components/collapse/'],
+    ['bootstrap-switch', 'https://getbootstrap.com/docs/5.3/forms/checks-radios/'],
+    ['mui-switch', 'https://mui.com/material-ui/react-switch/'],
+    ['mui-tabs', 'https://mui.com/material-ui/react-tabs/'],
+    ['mui-accordion', 'https://mui.com/material-ui/react-accordion/'],
+    ['mui-checkbox', 'https://mui.com/material-ui/react-checkbox/'],
+    ['radix-accordion', 'https://www.radix-ui.com/primitives/docs/components/accordion'],
+    ['radix-switch', 'https://www.radix-ui.com/primitives/docs/components/switch'],
+    ['radix-tabs', 'https://www.radix-ui.com/primitives/docs/components/tabs'],
+    ['shadcn-accordion', 'https://ui.shadcn.com/docs/components/accordion'],
+    ['shadcn-switch', 'https://ui.shadcn.com/docs/components/switch'],
+    ['daisyui-collapse', 'https://daisyui.com/components/collapse/'],
+    ['daisyui-checkbox', 'https://daisyui.com/components/checkbox/'],
+    ['headlessui-switch', 'https://headlessui.com/react/switch'],
+    ['headlessui-disclosure', 'https://headlessui.com/react/disclosure'],
+    ['mantine-switch', 'https://mantine.dev/core/switch/'],
+    ['mantine-accordion', 'https://mantine.dev/core/accordion/'],
+    ['chakra-accordion', 'https://www.chakra-ui.com/docs/components/accordion'],
+    ['flowbite-accordion', 'https://flowbite.com/docs/components/accordion/'],
+  ].map(([name, url]) => ({ name: `c-${name}`, url, click: 6, hover: 1 })),
 ];
 
 // ---------- In the page ----------
@@ -80,12 +103,12 @@ function listCandidates() {
   const hoverSelector =
     'button, a, [role=button], [role=menuitem], [class*=btn], [class*=button], [class*=card], [class*=hvr-], li, img, label';
   const clickSelector =
-    '[role=tab], [role=switch], input[type=checkbox], input[type=radio], summary, button[aria-expanded], [data-state]';
+    '[role=tab], [role=switch], input[type=checkbox], input[type=radio], summary, button[aria-expanded], [aria-controls], [data-bs-toggle], .collapse-title, label:has(input[type=checkbox]), label[for], [data-state]';
   const seen = new Set();
   const kindOf = (el) => `${el.tagName}.${[...el.classList].sort().join('.')}`.slice(0, 120);
   const usable = (el) => {
     const r = el.getBoundingClientRect();
-    if (r.width < 10 || r.height < 10 || r.width > 700 || r.height > 450) return false;
+    if (r.width < 10 || r.height < 10 || r.width > 1100 || r.height > 450) return false;
     if (r.bottom < 0 || r.top > window.innerHeight * 4) return false;
     const style = getComputedStyle(el);
     return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity) > 0.05;
@@ -93,6 +116,9 @@ function listCandidates() {
   const list = (selector, kind) => {
     const found = [];
     for (const el of document.querySelectorAll(selector)) {
+      // Already tagged as another kind (an accordion button is a click and
+      // a hover candidate): a second tag would replace the first.
+      if (el.hasAttribute('data-mi-sweep')) continue;
       if (!usable(el)) continue;
       if (kind === 'click' && el.closest('a[href]') !== null) continue;
       if (kind === 'click' && el.matches('button[type=submit], form button:not([type])')) continue;
@@ -162,6 +188,9 @@ function newAnimationsNear(selector, loader) {
 // ---------- Steps ----------
 
 async function settle(page) {
+  // A click may have opened a dialog or menu over the page. Escape closes
+  // most of them, so the elements under it can be reached again.
+  await page.keyboard.press('Escape').catch(() => {});
   await page.mouse.move(1, 1);
   await page.waitForTimeout(700);
 }
@@ -189,12 +218,21 @@ async function reachable(page, selector) {
 
 async function animates(page, selector, kind) {
   if (kind === 'loader') return true;
-  if (!(await reachable(page, selector))) return false;
+  // Close whatever the last element opened before asking what is on top.
   await settle(page);
+  if (!(await reachable(page, selector))) return false;
   await page.evaluate(rememberAnimations);
   await trigger(page, selector, kind);
-  await page.waitForTimeout(150);
-  const count = await page.evaluate(([sel]) => window.__sweepNew(sel, false).length, [selector]);
+  // Watched every frame for up to 400 ms: a framework may start the
+  // animation a little after the click, and a short one (a switch's 100 ms
+  // thumb) is gone from the list as soon as it finishes.
+  const count = await page
+    .waitForFunction(([sel]) => window.__sweepNew(sel, false).length, [selector], {
+      timeout: 400,
+      polling: 'raf',
+    })
+    .then((handle) => handle.jsonValue())
+    .catch(() => 0);
   // Undo: a second click closes what the first opened.
   if (kind === 'click') await trigger(page, selector, kind).catch(() => {});
   await settle(page);
@@ -208,7 +246,16 @@ async function recordOne(page, selector, kind) {
   await page.evaluate(rememberAnimations);
   await page.evaluate((sel) => window.MotionCapture.record(document.querySelector(sel)), selector);
   if (kind !== 'loader') await trigger(page, selector, kind);
-  await page.waitForTimeout(40);
+  // Wait for the first new animation, up to 400 ms: frameworks may start it
+  // a few frames after the click.
+  await page
+    .waitForFunction(
+      ([sel, loader]) => window.__sweepNew(sel, loader).length > 0,
+      [selector, kind === 'loader'],
+      { timeout: 400, polling: 'raf' },
+    )
+    .catch(() => {});
+  await page.waitForTimeout(20);
 
   const paused = await page.evaluate(
     async ([sel, loader]) => {
@@ -342,6 +389,19 @@ async function sweepSite(browser, editor, site) {
     await page.evaluate(captureScript + '\n;window.MotionCapture = MotionCapture;');
     await page.evaluate(`window.__sweepNew = ${newAnimationsNear.toString()};`);
     const found = await page.evaluate(listCandidates);
+    if (process.env.SWEEP_DEBUG) {
+      console.log(
+        '  candidates',
+        JSON.stringify(
+          await page.evaluate(() =>
+            [...document.querySelectorAll('[data-mi-sweep]')]
+              .slice(0, 30)
+              .map((el) => `${el.getAttribute('data-mi-sweep')} ${el.tagName} ${String(el.className).slice(0, 30)}`),
+          ),
+        ),
+        JSON.stringify(found.clicks.slice(0, 10)),
+      );
+    }
     const startUrl = page.url();
     const plan = [
       ...found.loaders.slice(0, site.loaders ?? MOST_LOADERS),
@@ -352,10 +412,17 @@ async function sweepSite(browser, editor, site) {
     let clicks = 0;
     for (const item of plan) {
       if (item.kind === 'hover' && hovers >= (site.hover ?? MOST_HOVER)) continue;
-      if (item.kind === 'click' && clicks >= MOST_CLICK) continue;
+      if (item.kind === 'click' && clicks >= (site.click ?? MOST_CLICK)) continue;
       const selector = `[data-mi-sweep="${item.id}"]`;
       if (page.url() !== startUrl) break;
       const ok = await animates(page, selector, item.kind).catch(() => false);
+      if (process.env.SWEEP_DEBUG) {
+        const what = await page.evaluate((sel) => {
+          const el = document.querySelector(sel);
+          return el === null ? 'gone' : `${el.tagName} ${String(el.className).slice(0, 50)} ${el.getAttribute('aria-controls') ?? ''}`;
+        }, selector);
+        console.log(`  [${item.kind}] ${what} -> ${ok}`);
+      }
       if (!ok || page.url() !== startUrl) continue;
       if (item.kind === 'hover') hovers += 1;
       if (item.kind === 'click') clicks += 1;

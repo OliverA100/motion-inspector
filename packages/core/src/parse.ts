@@ -22,6 +22,7 @@ import { flattenShapes } from './shapes';
 import type {
   Capture,
   Easing,
+  Gradient,
   GroupId,
   IconPath,
   Iterations,
@@ -345,6 +346,52 @@ function optional<Value>(
   return value === undefined || value === null ? ok(null) : parseValue(value);
 }
 
+export const MOST_GRADIENT_STOPS = 32;
+
+function parseStop(value: unknown): Result<Gradient['stops'][number]> {
+  return andThen(fields(value), (source) => {
+    const color = at('color', text(get(source, 'color')));
+    const position = at('at', andThen(number(get(source, 'at')), unitInterval));
+    if (!color.ok || !position.ok) return failAll([color, position].flatMap(errorsOf));
+    return ok({ color: color.value, at: position.value });
+  });
+}
+
+function parseGradient(value: unknown): Result<Gradient> {
+  return andThen(fields(value), (source): Result<Gradient> => {
+    const kind = at('kind', oneOf(get(source, 'kind'), ['linear', 'radial'] as const));
+    const stops = at(
+      'stops',
+      andThen(listOf(get(source, 'stops'), parseStop), (list) =>
+        list.length < 2 || list.length > MOST_GRADIENT_STOPS
+          ? fail(`Expected 2 to ${MOST_GRADIENT_STOPS} stops.`)
+          : ok(list),
+      ),
+    );
+    if (!kind.ok || !stops.ok) return failAll([kind, stops].flatMap(errorsOf));
+    if (kind.value === 'radial') return ok({ kind: 'radial', stops: stops.value });
+    const angle = at('angle', number(get(source, 'angle')));
+    return angle.ok ? ok({ kind: 'linear', angle: angle.value, stops: stops.value }) : angle;
+  });
+}
+
+export const MOST_WORDS = 64;
+
+function parseWord(value: unknown): Result<{ x: number; width: number }> {
+  return andThen(fields(value), (source) => {
+    const x = at('x', number(get(source, 'x')));
+    const width = at('width', notNegative(get(source, 'width')));
+    if (!x.ok || !width.ok) return failAll([x, width].flatMap(errorsOf));
+    return ok({ x: x.value, width: width.value });
+  });
+}
+
+function parseWords(value: unknown): Result<{ x: number; width: number }[]> {
+  return andThen(listOf(value, parseWord), (words) =>
+    words.length > MOST_WORDS ? fail(`At most ${MOST_WORDS} words in a line.`) : ok(words),
+  );
+}
+
 function parseShadow(value: unknown): Result<NonNullable<Shape['shadow']>> {
   return andThen(fields(value), (source) => {
     const color = at('color', text(get(source, 'color')));
@@ -395,6 +442,7 @@ function parseFill(value: unknown): Result<string | null> {
 }
 
 type Sides = [string, string, string, string];
+const BORDER_STYLES = ['solid', 'dashed', 'dotted'] as const;
 
 function parseSides(value: unknown): Result<Sides> {
   return andThen(listOf(value, text), (colors): Result<Sides> => {
@@ -423,9 +471,16 @@ function parseStroke(value: unknown): Result<Shape['stroke']> {
       'sides',
       rawSides === undefined || rawSides === null ? ok(null) : parseSides(rawSides),
     );
-    if (!color.ok || !width.ok || !sides.ok)
-      return failAll([color, width, sides].flatMap(errorsOf));
-    return ok({ color: color.value, width: width.value, sides: sides.value });
+    // Takes saved before the style was read are solid.
+    const rawStyle = get(source, 'style');
+    const style = at(
+      'style',
+      rawStyle === undefined ? ok('solid' as const) : oneOf(rawStyle, BORDER_STYLES),
+    );
+    if (!color.ok || !width.ok || !sides.ok || !style.ok) {
+      return failAll([color, width, sides, style].flatMap(errorsOf));
+    }
+    return ok({ color: color.value, width: width.value, sides: sides.value, style: style.value });
   });
 }
 
@@ -443,6 +498,7 @@ export const MOST_ICON_PATHS = 16;
 export const LONGEST_PATH_DATA = 8000;
 const PATH_DATA = /^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\-\s]*$/;
 const LINE_CAPS = ['butt', 'round', 'square'] as const;
+const FILL_RULES = ['nonzero', 'evenodd'] as const;
 const LINE_JOINS = ['miter', 'round', 'bevel'] as const;
 
 function parsePathData(value: unknown): Result<string> {
@@ -487,6 +543,20 @@ function parseIconStroke(value: unknown): Result<IconPath['stroke']> {
   });
 }
 
+function parseDash(value: unknown): Result<NonNullable<IconPath['dash']>> {
+  return andThen(fields(value), (source) => {
+    const array = at(
+      'array',
+      andThen(listOf(get(source, 'array'), notNegative), (list) =>
+        list.length > 16 ? fail('At most 16 dash lengths.') : ok(list),
+      ),
+    );
+    const offset = at('offset', number(get(source, 'offset')));
+    if (!array.ok || !offset.ok) return failAll([array, offset].flatMap(errorsOf));
+    return ok({ array: array.value, offset: offset.value });
+  });
+}
+
 function parseIconPath(value: unknown): Result<IconPath> {
   return andThen(fields(value), (source) => {
     const d = at('d', parsePathData(get(source, 'd')));
@@ -494,14 +564,31 @@ function parseIconPath(value: unknown): Result<IconPath> {
     const fill = at('fill', parseFill(get(source, 'fill')));
     const stroke = at('stroke', parseIconStroke(get(source, 'stroke')));
     const followsText = at('followsText', boolean(get(source, 'followsText')));
-    if (!d.ok || !matrix.ok || !fill.ok || !stroke.ok || !followsText.ok) {
-      return failAll([d, matrix, fill, stroke, followsText].flatMap(errorsOf));
+    const dash = at('dash', optional(get(source, 'dash'), parseDash));
+    // Takes saved before the fill rule was read use the default.
+    const rawRule = get(source, 'fillRule');
+    const fillRule = at(
+      'fillRule',
+      rawRule === undefined ? ok('nonzero' as const) : oneOf(rawRule, FILL_RULES),
+    );
+    if (
+      !d.ok ||
+      !matrix.ok ||
+      !fill.ok ||
+      !stroke.ok ||
+      !followsText.ok ||
+      !dash.ok ||
+      !fillRule.ok
+    ) {
+      return failAll([d, matrix, fill, stroke, followsText, dash, fillRule].flatMap(errorsOf));
     }
     return ok({
       d: d.value,
       matrix: matrix.value,
       fill: fill.value,
+      fillRule: fillRule.value,
       stroke: stroke.value,
+      dash: dash.value,
       followsText: followsText.value,
     });
   });
@@ -534,6 +621,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const transform = at('transform', optional(get(source, 'transform'), parseMatrix));
     const shadow = at('shadow', optional(get(source, 'shadow'), parseShadow));
     const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
+    const gradient = at('gradient', optional(get(source, 'gradient'), parseGradient));
+    const words = at('words', optional(get(source, 'words'), parseWords));
     const children = at(
       'children',
       listOf(get(source, 'children'), (child) => parseShapeAtDepth(child, depth + 1)),
@@ -553,6 +642,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !transform.ok ||
       !shadow.ok ||
       !clipPath.ok ||
+      !gradient.ok ||
+      !words.ok ||
       !children.ok
     ) {
       return failAll(
@@ -571,6 +662,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           transform,
           shadow,
           clipPath,
+          gradient,
+          words,
           children,
         ].flatMap(errorsOf),
       );
@@ -589,6 +682,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       transform: transform.value,
       shadow: shadow.value,
       clipPath: clipPath.value,
+      gradient: gradient.value,
+      words: words.value,
       icon: icon.value,
       children: children.value,
     });
@@ -638,14 +733,16 @@ export function parseCapture(value: unknown): Result<Capture> {
     // Takes saved before the backdrop was read have none. They still load.
     const rawBackdrop = get(source, 'backdrop');
     const backdrop = at('backdrop', rawBackdrop === undefined ? ok(null) : parseFill(rawBackdrop));
-    if (!captureSource.ok || !root.ok || !tracks.ok || !notShown.ok || !backdrop.ok) {
-      return failAll([captureSource, root, tracks, notShown, backdrop].flatMap(errorsOf));
+    const frame = at('frame', optional(get(source, 'frame'), parseBox));
+    if (!captureSource.ok || !root.ok || !tracks.ok || !notShown.ok || !backdrop.ok || !frame.ok) {
+      return failAll([captureSource, root, tracks, notShown, backdrop, frame].flatMap(errorsOf));
     }
     return checkReferences({
       source: captureSource.value,
       root: root.value,
       tracks: tracks.value,
       backdrop: backdrop.value,
+      frame: frame.value,
       notShown: notShown.value,
     });
   });

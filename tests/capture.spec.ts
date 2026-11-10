@@ -657,9 +657,10 @@ test('icons too complex to copy are drawn as a mark in their own color', async (
     const host = document.createElement('div');
     host.style.cssText =
       'position:fixed;left:20px;top:20px;width:40px;height:40px;color:rgb(200, 0, 0)';
-    // A part reused with <use> is not followed.
+    // An embedded picture is image data, which is never copied, so the
+    // icon is drawn as a mark in the color of its first part.
     host.innerHTML =
-      '<svg width="40" height="40" viewBox="0 0 10 10"><defs><circle id="dot" cx="5" cy="5" r="4" /></defs><use href="#dot" fill="currentColor" /></svg>';
+      '<svg width="40" height="40" viewBox="0 0 10 10"><image href="data:," width="4" height="4" /><circle cx="5" cy="5" r="4" fill="currentColor" /></svg>';
     document.body.append(host);
     window.MotionCapture.record(host);
     host.animate({ opacity: [1, 0.5] }, 200);
@@ -757,12 +758,21 @@ test('an SVG circle drawing itself is captured on its own shape', async ({ page 
   expect(circle?.icon?.[0]?.d.startsWith('M64 44')).toBe(true);
 });
 
-test('a card keeps its shadow, a gradient keeps its colors, and a filter is captured', async ({
+test('a card keeps its shadow, a gradient keeps its direction, and a filter is captured', async ({
   page,
 }) => {
   const capture = onlyCapture(await captureFixture(page, 'lift-card', hover, 600));
   expect(capture.root.shadow).toEqual({ color: 'rgba(0, 0, 0, 0.08)', x: 0, y: 5, blur: 15 });
-  expect(capture.root.children[0]?.fill).toBe('rgba(40, 132, 223, 1)');
+  // The gradient keeps its direction and colors, with no fill under it.
+  expect(capture.root.children[0]?.fill).toBeNull();
+  expect(capture.root.children[0]?.gradient).toEqual({
+    kind: 'linear',
+    angle: 90,
+    stops: [
+      { color: 'rgba(32, 152, 209, 1)', at: 0 },
+      { color: 'rgba(47, 111, 237, 1)', at: 1 },
+    ],
+  });
   expect(track(capture, 'filter').keyframes.map((k) => k.value)).toEqual([
     'none',
     'brightness(0.8)',
@@ -802,6 +812,121 @@ test('an animation that ends where it starts is left out, and the take says so',
   expect(capture.notShown).toEqual([
     'The opacity animation on div.still ends where it starts, so there is nothing to see.',
   ]);
+});
+
+test('a parent outside the pick that cuts it off is recorded as the frame', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText =
+      'position: fixed; left: 20px; top: 20px; width: 120px; height: 24px; overflow: hidden; border: 2px solid #ccc';
+    wrapper.innerHTML =
+      '<span class="roll" style="display: block; width: 100px; height: 24px; margin-left: 10px; background: #2f6fed; transition: transform 200ms">x</span>';
+    document.body.append(wrapper);
+    const style = document.createElement('style');
+    style.textContent = 'div:hover > .roll { transform: translateY(-24px); }';
+    document.head.append(style);
+    window.MotionCapture.record(wrapper.querySelector('.roll') as Element);
+  });
+  await page.hover('.roll');
+  await page.waitForTimeout(500);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+  // The wrapper's inside, where the line disappears as it rolls up.
+  // (The page uses border-box, so its 2 px border comes off the 120 by 24.)
+  expect(capture.frame).toEqual({ x: -10, y: 0, width: 116, height: 20 });
+});
+
+test('gradients: corner directions, px stops, modern colors and missing positions', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const root = document.createElement('div');
+    root.className = 'gradients';
+    root.style.cssText = 'position: fixed; left: 20px; top: 20px; display: flex; gap: 8px';
+    root.innerHTML = [
+      'width: 200px; height: 100px; background: linear-gradient(to top right, red, blue)',
+      'width: 100px; height: 40px; background: linear-gradient(90deg, red 20px, blue 50%, lime)',
+      'width: 60px; height: 60px; background: radial-gradient(circle, oklch(0.7 0.2 30), transparent)',
+    ]
+      .map((css) => `<div style="${css}"></div>`)
+      .join('');
+    document.body.append(root);
+    window.MotionCapture.record(root);
+    root.animate({ opacity: [1, 0.5] }, 100);
+  });
+  await page.waitForTimeout(500);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+  const [corner, stops, radial] = capture.root.children.map((child) => child.gradient);
+  // Toward the top right corner of a 200 by 100 box: at right angles to the
+  // other diagonal, so atan(100 / 200), about 26.6 degrees.
+  expect(corner?.kind === 'linear' ? Math.round(corner.angle * 10) / 10 : null).toBe(26.6);
+  // 20 px along a 100 px line is 0.2; "lime" with no position is at the end.
+  expect(stops?.stops.map((stop) => stop.at)).toEqual([0.2, 0.5, 1]);
+  expect(radial?.kind).toBe('radial');
+  // oklch is turned into numbers the canvas and core can read.
+  expect(radial?.stops[0]?.color).toMatch(/^rgba\(\d+, \d+, \d+, 1\)$/);
+  expect(radial?.stops[1]?.color).toBe('rgba(0, 0, 0, 0)');
+});
+
+test('an icon drawn from a sprite with <use> is drawn from the symbol it points to', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'position: fixed; left: 20px; top: 20px; color: rgb(200, 0, 0)';
+    host.innerHTML =
+      '<svg width="0" height="0" style="position: absolute"><symbol id="sprite-dot" viewBox="0 0 10 10"><path d="M0 0H10V10H0Z" /></symbol></svg>' +
+      '<svg class="sprite-icon" width="30" height="30" style="fill: currentColor"><use href="#sprite-dot" x="5" y="5" width="20" height="20" /></svg>';
+    document.body.append(host);
+    const icon = host.querySelector('.sprite-icon') as Element;
+    window.MotionCapture.record(icon);
+    icon.animate({ opacity: [1, 0.5] }, 100);
+  });
+  await page.waitForTimeout(500);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+  const part = capture.root.children[0];
+  expect(part?.kind).toBe('path');
+  const outline = part?.icon?.[0];
+  // The symbol's 10 by 10 fitted into 20 by 20, at x 5 and y 5.
+  expect(outline?.matrix).toEqual([2, 0, 0, 2, 5, 5]);
+  expect(outline?.fill).toBe('rgb(200, 0, 0)');
+  expect(outline?.followsText).toBe(true);
+});
+
+test("a backdrop painted by a parent's ::before is found", async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent =
+      '.violet-bar { position: fixed; left: 0; top: 0; width: 300px; height: 60px; } .violet-bar::before { content: ""; position: absolute; inset: 0; z-index: -1; background: rgb(112, 44, 249); }';
+    document.head.append(style);
+    const bar = document.createElement('header');
+    bar.className = 'violet-bar';
+    bar.innerHTML =
+      '<a class="brand" style="display: inline-block; margin: 10px; width: 40px; height: 32px">B</a>';
+    document.body.append(bar);
+    const brand = bar.querySelector('.brand') as Element;
+    window.MotionCapture.record(brand);
+    brand.animate({ opacity: [1, 0.5] }, 100);
+  });
+  await page.waitForTimeout(500);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+  expect(capture.backdrop).toBe('rgb(112, 44, 249)');
+});
+
+test('switch thumbs that move by calc() are read in px', async ({ page }) => {
+  const capture = onlyCapture(
+    await captureFixture(page, 'switches', click('switches', 'toggle'), 500),
+  );
+  const knob = track(capture, 'left');
+  // calc(100% - 21px) of the 44 px switch is 23 px.
+  expect(knob.keyframes.map((keyframe) => keyframe.parsed)).toEqual([
+    { kind: 'length', px: 3 },
+    { kind: 'length', px: 23 },
+  ]);
+  expect(track(capture, 'translate').keyframes.at(-1)?.value).toContain('100%');
 });
 
 // ---------- The picker ----------

@@ -5,6 +5,7 @@
 // images become flat boxes. Only shapes are kept: never text content or
 // image data from the page.
 
+import { gradientColor, readGradient, type RawGradient } from './gradient';
 import { readColor, readValue } from './readValue';
 
 // The properties the editor can preview. Their resting values are read for
@@ -54,7 +55,12 @@ export type RawShape = {
   box: { x: number; y: number; width: number; height: number };
   radius: [number, number, number, number];
   fill: string | null;
-  stroke: { color: string; width: number; sides: [string, string, string, string] | null } | null;
+  stroke: {
+    color: string;
+    width: number;
+    sides: [string, string, string, string] | null;
+    style: 'solid' | 'dashed' | 'dotted';
+  } | null;
   opacity: number;
   transformOrigin: { x: number; y: number };
   clip: boolean;
@@ -63,6 +69,10 @@ export type RawShape = {
   transform: [number, number, number, number, number, number] | null;
   shadow: { color: string; x: number; y: number; blur: number } | null;
   clipPath: string | null;
+  // A gradient background, drawn with its direction. fill holds its
+  // average color.
+  gradient: RawGradient | null;
+  words: { x: number; width: number }[] | null;
   icon: RawIconPath[] | null;
   children: RawShape[];
 };
@@ -75,6 +85,8 @@ export type RawIconPath = {
   matrix: [number, number, number, number, number, number];
   fill: string | null;
   stroke: { color: string; width: number; cap: string; join: string } | null;
+  dash: { array: number[]; offset: number } | null;
+  fillRule: 'nonzero' | 'evenodd';
   followsText: boolean;
 };
 
@@ -83,6 +95,8 @@ export type Snapshot = {
   rootElement: Element;
   // The color of the page behind the picked element.
   backdrop: string;
+  // The nearest clipping parent outside the picked element, relative to it.
+  frame: Box | null;
   selector: string;
   // Which shape each element became. Elements that are not here were left out.
   shapeIdOf: Map<Element, string>;
@@ -285,6 +299,15 @@ function length(value: SVGAnimatedLength): number {
   return value.baseVal.value;
 }
 
+// A part's resting dash pattern, such as "80px, 200px", in its own units.
+function restingDash(style: CSSStyleDeclaration): RawIconPath['dash'] {
+  if (style.strokeDasharray === 'none' || style.strokeDasharray === '') return null;
+  const array = (style.strokeDasharray.match(/-?[\d.]+/g) ?? []).map(Number);
+  if (array.length === 0 || array.length > 16 || array.some((n) => !(n >= 0))) return null;
+  const offset = parseFloat(style.strokeDashoffset);
+  return { array, offset: Number.isFinite(offset) ? offset : 0 };
+}
+
 // The outline of one SVG part as path data, or null.
 function pathDataOf(element: Element, style: CSSStyleDeclaration): string | null {
   if (element instanceof SVGPathElement) {
@@ -340,6 +363,9 @@ function paintOf(value: string): string | null {
 // are drawn as a simple mark instead.
 type IconPart = {
   element: SVGGraphicsElement;
+  // False for parts drawn through <use>: their element is the <use>, and
+  // only its first part stands for it.
+  register: boolean;
   path: RawIconPath;
   // Where its own transform turns about, in its own coordinates.
   origin: { x: number; y: number };
@@ -371,6 +397,7 @@ function iconPart(part: Element, textColor: string): IconPart | null | 'hidden' 
   const strokeWidth = parseFloat(style.strokeWidth);
   return {
     element: part,
+    register: true,
     origin: { x: reference.x + originX, y: reference.y + originY },
     transform: restingTransform(style),
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
@@ -390,25 +417,126 @@ function iconPart(part: Element, textColor: string): IconPart | null | 'hidden' 
                   ? style.strokeLinejoin
                   : 'miter',
             },
+      dash: restingDash(style),
+      fillRule: style.fillRule === 'evenodd' ? 'evenodd' : 'nonzero',
       followsText: fillValue === textColor || strokeValue === textColor,
     },
   };
 }
 
+// The parts drawn by a <use href="#icon">: those of the element it points
+// to (often a <symbol> in a sprite), placed where the <use> is. Icon sets
+// draw every icon this way. Their colors come from the <use>, as the copy
+// inherits from where it is drawn, unless a part sets its own.
+function useParts(use: SVGUseElement): IconPart[] | null {
+  const href = use.getAttribute('href') ?? use.getAttribute('xlink:href') ?? '';
+  if (!href.startsWith('#')) return null;
+  const target = use.ownerDocument.getElementById(href.slice(1));
+  if (!(target instanceof SVGElement)) return null;
+  const ctm = use.getCTM();
+  if (ctm === null) return null;
+  let place = DOMMatrix.fromMatrix(ctm).translate(use.x.baseVal.value, use.y.baseVal.value);
+  if (target instanceof SVGSymbolElement) {
+    const view = target.viewBox.baseVal;
+    const width = use.width.baseVal.value;
+    const height = use.height.baseVal.value;
+    if (view !== null && view.width > 0 && view.height > 0 && width > 0 && height > 0) {
+      // Fitted and centered, as preserveAspectRatio's default does.
+      const fit = Math.min(width / view.width, height / view.height);
+      place = place
+        .translate((width - view.width * fit) / 2, (height - view.height * fit) / 2)
+        .scale(fit)
+        .translate(-view.x, -view.y);
+    }
+  }
+  const useStyle = getComputedStyle(use);
+  const own = (part: Element, name: string): boolean => {
+    const value = part.getAttribute(name);
+    return value !== null && value !== 'currentColor' && value !== 'inherit';
+  };
+  const geometry = target.matches(GEOMETRY)
+    ? [target]
+    : Array.from(target.querySelectorAll(GEOMETRY));
+  const parts: IconPart[] = [];
+  for (const [index, part] of geometry.entries()) {
+    if (!(part instanceof SVGGraphicsElement)) return null;
+    const style = getComputedStyle(part);
+    const d = pathDataOf(part, style);
+    if (d === null || d.length > LONGEST_PATH_DATA) return null;
+    // Transforms on the groups between the symbol and the part, and on the
+    // part itself.
+    let matrix = DOMMatrix.fromMatrix(place);
+    const chain: SVGGraphicsElement[] = [];
+    for (let at: Element | null = part; at !== null && at !== target; at = at.parentElement) {
+      if (at instanceof SVGGraphicsElement) chain.unshift(at);
+    }
+    for (const step of chain) {
+      const own = step.transform.baseVal.consolidate();
+      if (own !== null) matrix = matrix.multiply(DOMMatrix.fromMatrix(own.matrix));
+    }
+    const paint = (name: 'fill' | 'stroke'): string | null => {
+      const value = own(part, name) ? style[name] : useStyle[name];
+      if (value === 'none' || value === '') return null;
+      return value.startsWith('url(') ? useStyle.color : value;
+    };
+    const fill = paint('fill');
+    const stroke = paint('stroke');
+    const strokeStyle = own(part, 'stroke-width') ? style : useStyle;
+    const strokeWidth = parseFloat(strokeStyle.strokeWidth);
+    parts.push({
+      element: use,
+      register: index === 0,
+      origin: { x: 0, y: 0 },
+      transform: null,
+      opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
+      path: {
+        d,
+        matrix: [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f],
+        fill,
+        fillRule:
+          (own(part, 'fill-rule') ? style : useStyle).fillRule === 'evenodd'
+            ? 'evenodd'
+            : 'nonzero',
+        stroke:
+          stroke === null || !(strokeWidth > 0)
+            ? null
+            : {
+                color: stroke,
+                width: strokeWidth,
+                cap: strokeStyle.strokeLinecap,
+                join:
+                  strokeStyle.strokeLinejoin === 'round' || strokeStyle.strokeLinejoin === 'bevel'
+                    ? strokeStyle.strokeLinejoin
+                    : 'miter',
+              },
+        dash: restingDash(strokeStyle),
+        followsText: fill === useStyle.color || stroke === useStyle.color,
+      },
+    });
+  }
+  return parts;
+}
+
 function iconPaths(svg: SVGSVGElement): IconPart[] | null {
-  if (svg.querySelector('use, foreignObject, image, svg') !== null) return null;
-  const parts = Array.from(svg.querySelectorAll(GEOMETRY)).filter(
+  if (svg.querySelector('foreignObject, image, svg') !== null) return null;
+  const drawn = Array.from(svg.querySelectorAll(`${GEOMETRY}, use`)).filter(
     (part) => part.closest(NOT_DRAWN) === null,
   );
-  if (parts.length === 0 || parts.length > MOST_ICON_PATHS) return null;
+  if (drawn.length === 0) return null;
   const textColor = getComputedStyle(svg).color;
   const paths: IconPart[] = [];
-  for (const part of parts) {
+  for (const part of drawn) {
+    if (part instanceof SVGUseElement) {
+      const parts = useParts(part);
+      if (parts === null) return null;
+      paths.push(...parts);
+      continue;
+    }
     const made = iconPart(part, textColor);
     if (made === null) return null;
     if (made !== 'hidden') paths.push(made);
   }
-  return paths.length > 0 ? paths : null;
+  return paths.length > 0 && paths.length <= MOST_ICON_PATHS ? paths : null;
 }
 
 function originOf(style: CSSStyleDeclaration, box: Box): { x: number; y: number } {
@@ -437,13 +565,17 @@ function partShape(walk: Walk, part: IconPart, box: Box, id: string): RawShape {
     transform: part.transform,
     shadow: null,
     clipPath: null,
+    gradient: null,
+    words: null,
     icon: [part.path],
     children: [],
   };
-  walk.snapshot.shapeIdOf.set(part.element, shape.id);
-  walk.shapeOf.set(part.element, shape);
-  walk.ownerOf.set(shape, part.element);
-  if (walk.readsResting) walk.snapshot.resting.set(part.element, readResting(part.element));
+  if (part.register) {
+    walk.snapshot.shapeIdOf.set(part.element, shape.id);
+    walk.shapeOf.set(part.element, shape);
+    walk.ownerOf.set(shape, part.element);
+    if (walk.readsResting) walk.snapshot.resting.set(part.element, readResting(part.element));
+  }
   return shape;
 }
 
@@ -500,6 +632,8 @@ function iconShape(
       transform: restingTransform(style),
       shadow: null,
       clipPath: null,
+      gradient: null,
+      words: null,
       icon: null,
       children,
     };
@@ -527,13 +661,18 @@ function iconShape(
     },
     radius: [size / 2, size / 2, size / 2, size / 2],
     fill: filled || !stroked ? color : null,
-    stroke: !filled && stroked ? { color, width: Math.max(1.5, size / 8), sides: null } : null,
+    stroke:
+      !filled && stroked
+        ? { color, width: Math.max(1.5, size / 8), sides: null, style: 'solid' }
+        : null,
     opacity,
     transformOrigin: { x: size / 2, y: size / 2 },
     clip: false,
     transform: null,
     shadow: null,
     clipPath: null,
+    gradient: null,
+    words: null,
     icon: null,
     children: [],
   };
@@ -553,8 +692,12 @@ function boxShape(
   const hasColor = isVisibleColor(style.backgroundColor);
   // A gradient is drawn in the average of its colors. A picture cannot be
   // copied, so it is drawn as plain gray.
-  const gradient = hasBackgroundImage ? gradientColor(style.backgroundImage) : null;
-  if (hasBackgroundImage && !hasColor) walk.flattenedBackground = true;
+  // A gradient the preview draws keeps its stops; one it cannot draw
+  // (repeating, conic) is drawn in its average color.
+  const drawable = hasBackgroundImage ? readGradient(style.backgroundImage, rect) : null;
+  const gradient =
+    hasBackgroundImage && drawable === null ? gradientColor(style.backgroundImage) : null;
+  if (hasBackgroundImage && !hasColor && drawable === null) walk.flattenedBackground = true;
   const borderWidth = parseFloat(style.borderTopWidth);
   // A border with a different color on each side keeps each color. A
   // spinner is a ring with one side transparent: drawn in one color, it was
@@ -568,12 +711,7 @@ function boxShape(
   const uneven = sides.some((color) => color !== style.borderTopColor);
   const shownSide = sides.find(isVisibleColor);
   const origin = style.transformOrigin.split(' ').map((part) => parseFloat(part));
-  // A radial gradient with nothing else (a soft shadow, a glow) is round:
-  // it is drawn as an ellipse in its average color.
-  const round =
-    gradient !== null && !hasColor && style.backgroundImage.startsWith('radial-gradient(');
-  const corner = (value: string): number =>
-    round ? Math.min(rect.width, rect.height) / 2 : radiusOf(value, rect.width, rect.height);
+  const corner = (value: string): number => radiusOf(value, rect.width, rect.height);
   return {
     id,
     label: labelOf(element),
@@ -587,10 +725,22 @@ function boxShape(
     ],
     fill: isImage
       ? IMAGE_FILL
-      : (gradient ?? (hasColor ? style.backgroundColor : hasBackgroundImage ? UNKNOWN_FILL : null)),
+      : hasColor
+        ? style.backgroundColor
+        : drawable !== null
+          ? null
+          : (gradient ?? (hasBackgroundImage ? UNKNOWN_FILL : null)),
     stroke:
       borderWidth > 0 && style.borderTopStyle !== 'none' && shownSide !== undefined
-        ? { color: shownSide, width: borderWidth, sides: uneven ? sides : null }
+        ? {
+            color: shownSide,
+            width: borderWidth,
+            sides: uneven ? sides : null,
+            style:
+              style.borderTopStyle === 'dashed' || style.borderTopStyle === 'dotted'
+                ? style.borderTopStyle
+                : 'solid',
+          }
         : null,
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
     transformOrigin: { x: origin[0] ?? rect.width / 2, y: origin[1] ?? rect.height / 2 },
@@ -598,6 +748,8 @@ function boxShape(
     transform: restingTransform(style),
     shadow: restingShadow(style.boxShadow),
     clipPath: basicClipPath(style.clipPath),
+    gradient: drawable,
+    words: null,
     icon: null,
     children: [],
   };
@@ -622,31 +774,6 @@ function restingShadow(value: string): RawShape['shadow'] {
     return { color, x, y, blur: Math.max(blur, 0) };
   }
   return null;
-}
-
-// The average color of a gradient, from its color stops, weighted by how
-// opaque each is. null for a picture (url) or when no color can be read.
-// Colors are not image data: a gradient is written in CSS.
-export function gradientColor(backgroundImage: string): string | null {
-  if (backgroundImage.includes('url(')) return null;
-  const stops = Array.from(backgroundImage.matchAll(/rgba?\(([^)]*)\)/g), (match) =>
-    (match[1] ?? '')
-      .split(/[\s,/]+/)
-      .filter((part) => part !== '')
-      .map(Number),
-  ).filter((numbers) => numbers.length >= 3 && numbers.every(Number.isFinite));
-  if (stops.length === 0) return null;
-  const alphaOf = (numbers: number[]): number => numbers[3] ?? 1;
-  const totalAlpha = stops.reduce((sum, numbers) => sum + alphaOf(numbers), 0);
-  const channel = (index: number): number =>
-    totalAlpha === 0
-      ? 0
-      : Math.round(
-          stops.reduce((sum, numbers) => sum + (numbers[index] ?? 0) * alphaOf(numbers), 0) /
-            totalAlpha,
-        );
-  const alpha = Math.round((totalAlpha / stops.length) * 1000) / 1000;
-  return `rgba(${channel(0)}, ${channel(1)}, ${channel(2)}, ${alpha})`;
 }
 
 // The resting transform as a 2D matrix: the separate translate, rotate and
@@ -813,6 +940,18 @@ function textBars(
   const scale = drawnScale(parent.element);
   const range = document.createRange();
   range.selectNodeContents(node);
+  // The box of each word, measured, so each line's bar has the gaps of the
+  // text. The words themselves are not kept.
+  const wordRects: DOMRect[] = [];
+  for (const match of node.data.matchAll(/\S+/g)) {
+    const word = document.createRange();
+    word.setStart(node, match.index);
+    word.setEnd(node, match.index + match[0].length);
+    wordRects.push(...Array.from(word.getClientRects()));
+  }
+  // A bar about as tall as lowercase letters, from the font size: half the
+  // line height made headings look like slabs.
+  const fontSize = parseFloat(getComputedStyle(parent.element).fontSize);
   return Array.from(range.getClientRects()).flatMap((rect, index): RawShape[] => {
     if (rect.width === 0 || rect.height === 0) return [];
     if (walk.count >= walk.limit) {
@@ -820,15 +959,30 @@ function textBars(
       return [];
     }
     walk.count += 1;
-    // A bar half as tall as the line, in the middle of it.
-    const height = rect.height / scale / 2;
+    const lineHeight = rect.height / scale;
+    const height = Number.isFinite(fontSize)
+      ? Math.min(fontSize * 0.55, lineHeight * 0.8)
+      : lineHeight / 2;
+    const middle = rect.top + rect.height / 2;
+    const inLine = wordRects.filter(
+      (word) =>
+        word.width > 0 &&
+        word.top <= middle &&
+        word.bottom >= middle &&
+        word.left >= rect.left - 1 &&
+        word.right <= rect.right + 1,
+    );
+    const words =
+      inLine.length > 1 && inLine.length <= 64
+        ? inLine.map((word) => ({ x: (word.left - rect.left) / scale, width: word.width / scale }))
+        : null;
     const bar: RawShape = {
       id: `${parentId}.t${walk.count}-${index}`,
       label: 'text',
       kind: 'text',
       box: {
         x: parent.box.x + (rect.left - drawnParent.left) / scale,
-        y: parent.box.y + (rect.top - drawnParent.top) / scale + height / 2,
+        y: parent.box.y + (rect.top - drawnParent.top) / scale + (lineHeight - height) / 2,
         width: rect.width / scale,
         height,
       },
@@ -841,6 +995,8 @@ function textBars(
       transform: null,
       shadow: null,
       clipPath: null,
+      gradient: null,
+      words,
       icon: null,
       children: [],
     };
@@ -981,7 +1137,7 @@ function backdropOf(element: Element, depth = 0): string {
     current = current.parentElement;
   }
   for (const item of below) {
-    const paint = backgroundOf(item);
+    const paint = backgroundOf(item, x, y);
     if (paint === null) continue;
     // A see-through color, or one under a faded parent (a loading button
     // at 65% opacity, found on a real site), is mixed with what is behind.
@@ -1002,14 +1158,44 @@ function backdropOf(element: Element, depth = 0): string {
 }
 
 // What an element paints behind its content, as one color, or null.
-function backgroundOf(item: Element): string | null {
+// What an element paints at a point on the screen, as one color, or null.
+// Its ::after is on top of it and its ::before under its content; either
+// may paint the background (Bootstrap's navbar is violet through a
+// pseudo-element, which elementsFromPoint never returns).
+function backgroundOf(item: Element, x: number, y: number): string | null {
   if (IMAGE_TAGS.includes(item.tagName.toLowerCase()) && item.tagName.toLowerCase() !== 'svg') {
     return IMAGE_FILL;
   }
-  const style = getComputedStyle(item);
-  if (isVisibleColor(style.backgroundColor)) return style.backgroundColor;
-  if (style.backgroundImage !== 'none') return gradientColor(style.backgroundImage) ?? IMAGE_FILL;
-  return null;
+  // A gradient is painted over the background color, so it comes first.
+  const painted = (style: CSSStyleDeclaration): string | null => {
+    if (style.backgroundImage !== 'none') return gradientColor(style.backgroundImage) ?? IMAGE_FILL;
+    if (isVisibleColor(style.backgroundColor)) return style.backgroundColor;
+    return null;
+  };
+  const layer = (pseudo: '::before' | '::after'): string | null => {
+    const style = getComputedStyle(item, pseudo);
+    if (style.content === 'none' || style.content === 'normal' || style.display === 'none') {
+      return null;
+    }
+    if (style.position !== 'absolute' && style.position !== 'fixed') return null;
+    const block = style.position === 'fixed' ? null : containingBlock(item);
+    const origin =
+      block === null
+        ? { left: 0, top: 0 }
+        : (() => {
+            const rect = block.getBoundingClientRect();
+            return { left: rect.left + block.clientLeft, top: rect.top + block.clientTop };
+          })();
+    const left = origin.left + parseFloat(style.left);
+    const top = origin.top + parseFloat(style.top);
+    const inside =
+      x >= left &&
+      x <= left + parseFloat(style.width) &&
+      y >= top &&
+      y <= top + parseFloat(style.height);
+    return inside ? painted(style) : null;
+  };
+  return layer('::after') ?? painted(getComputedStyle(item)) ?? layer('::before');
 }
 
 // An element's opacity times its parents'.
@@ -1020,6 +1206,29 @@ function opacityUp(item: Element): number {
     if (Number.isFinite(value)) opacity *= value;
   }
   return opacity;
+}
+
+// The padding box of the nearest parent that cuts off what is inside it,
+// relative to the picked element. The page itself (body, html) does not
+// count: it scrolls rather than cuts.
+function frameOf(walk: Walk): Box | null {
+  for (
+    let parent = walk.rootElement.parentElement;
+    parent !== null;
+    parent = parent.parentElement
+  ) {
+    if (parent === document.body || parent === document.documentElement) return null;
+    const style = getComputedStyle(parent);
+    if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
+    const box = layoutBox(parent, walk);
+    return {
+      x: box.x + parent.clientLeft,
+      y: box.y + parent.clientTop,
+      width: parent.clientWidth,
+      height: parent.clientHeight,
+    };
+  }
+  return null;
 }
 
 export function takeSnapshot(rootElement: Element): Snapshot {
@@ -1088,6 +1297,7 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     root,
     rootElement,
     backdrop: backdropOf(rootElement),
+    frame: frameOf(walk),
     runningAtPick,
     shapeOf: walk.shapeOf,
     boxAtPick: walk.boxAtPick,

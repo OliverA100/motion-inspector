@@ -40,6 +40,11 @@ export type Capture = {
   // The color of the page behind the picked element, so a white button on
   // a dark page is previewed on dark. null when it could not be read.
   backdrop: string | null;
+  // The box of the nearest parent outside the picked element that cuts off
+  // its content (overflow other than visible), relative to the root. A
+  // line of text that rolls up inside such a parent disappears at its edge.
+  // null when there is none.
+  frame: { x: number; y: number; width: number; height: number } | null;
   // What the preview leaves out, each in plain words: animations we saw but
   // cannot draw, and things drawn more simply than on the page.
   notShown: string[];
@@ -63,7 +68,13 @@ export type Shape = {
   // sides: the color of each side, top, right, bottom, left, when they
   // differ (a spinner is a ring with one side transparent). null when all
   // sides are the color.
-  stroke: { color: string; width: number; sides: [string, string, string, string] | null } | null;
+  // style: solid unless the border is dashed or dotted.
+  stroke: {
+    color: string;
+    width: number;
+    sides: [string, string, string, string] | null;
+    style: 'solid' | 'dashed' | 'dotted';
+  } | null;
   opacity: UnitInterval;
   transformOrigin: { x: number; y: number };
   // True when the shape cuts off what is inside it (CSS overflow other than
@@ -78,12 +89,29 @@ export type Shape = {
   // The resting clip-path as computed CSS, such as "inset(0px 50% 0px 0px)"
   // or "polygon(50% 50%, 0% 0%, 100% 0%)". null when there is none.
   clipPath: string | null;
+  // A gradient background, drawn with its direction and stops, over fill
+  // (the background color, if any). A gradient that cannot be drawn this
+  // way (repeating, conic) is null, and fill holds its average color.
+  gradient: Gradient | null;
+  // For a line of text: where each word is, so the bar has the gaps of the
+  // text. x is from the left of the box. Only boxes, never the words.
+  // null draws one bar for the line.
+  words: { x: number; width: number }[] | null;
   // The outline of an SVG icon, so an arrow previews as an arrow. Only
   // geometry is copied, never text or image data. null for everything
   // that is not an icon, and for icons too complex to copy.
   icon: IconPath[] | null;
   children: Shape[];
 };
+
+// angle: in degrees, as CSS measures it (0 points up, 90 right). A radial
+// gradient is drawn as an ellipse from the middle of the box.
+export type Gradient =
+  | { kind: 'linear'; angle: number; stops: GradientStop[] }
+  | { kind: 'radial'; stops: GradientStop[] };
+
+// at: from 0 to 1 along the gradient.
+export type GradientStop = { color: string; at: UnitInterval };
 
 // One part of an SVG icon.
 export type IconPath = {
@@ -93,8 +121,14 @@ export type IconPath = {
   // numbers a, b, c, d, e, f of a 2D matrix. It includes the icon's viewBox.
   matrix: [number, number, number, number, number, number];
   fill: string | null;
+  // How overlapping parts of the path are filled: "evenodd" cuts the holes
+  // in a letter or a ring.
+  fillRule: 'nonzero' | 'evenodd';
   // The width is in the path's own coordinates, like SVG's stroke-width.
   stroke: { color: string; width: number; cap: LineCap; join: LineJoin } | null;
+  // The resting dash pattern and offset, in the path's own units. null for
+  // a solid stroke. A spinner's circle is often an arc this way.
+  dash: { array: number[]; offset: number } | null;
   // True when the colors come from the CSS text color (currentColor). An
   // animated text color above the icon then recolors it, as on the page.
   followsText: boolean;

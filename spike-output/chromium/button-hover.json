@@ -18,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.099999994039536,
-      "timelineTimeAtFirstSight": 121,
-      "startTimeWhenReady": 137.62900000438094,
+      "firstSeenAtMs": 54.900000005960464,
+      "timelineTimeAtFirstSight": 122,
+      "startTimeWhenReady": 138.73099999909755,
       "keyframes": [
         {
           "offset": 0,
@@ -217,9 +217,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.29999999701977,
-      "timelineTimeAtFirstSight": 121,
-      "startTimeWhenReady": 137.62900000438094,
+      "firstSeenAtMs": 55.1000000089407,
+      "timelineTimeAtFirstSight": 122,
+      "startTimeWhenReady": 138.73099999909755,
       "keyframes": [
         {
           "offset": 0,
@@ -440,42 +440,42 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 55.69999998807907,
+      "atMs": 54.400000005960464,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 55.69999998807907,
+      "atMs": 54.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 55.69999998807907,
+      "atMs": 54.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 55.69999998807907,
+      "atMs": 54.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
       "elapsedTime": 0.18,
-      "atMs": 255.29999999701977,
+      "atMs": 254,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.18,
-      "atMs": 255.29999999701977,
+      "atMs": 254,
       "targetClassName": "fx-button"
     }
   ]

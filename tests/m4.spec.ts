@@ -358,3 +358,35 @@ test('a ribbon rotated at rest is drawn rotated', async ({ page }) => {
   expect(ratio).toBeGreaterThan(0.7);
   expect(ratio).toBeLessThan(1.4);
 });
+
+test('a gradient is drawn with its direction, not as one color', async ({ page }) => {
+  const takes = await captureFixture(page, 'lift-card', (p, selector) => p.hover(selector), 600);
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(takes[0]?.capture),
+  );
+  await page.goto('/?capture=session&quiet&time=0');
+  await page.waitForTimeout(150);
+  // The button runs from rgb(32, 152, 209) on the left to rgb(47, 111, 237)
+  // on the right. Its green channel spans that range; one flat color would
+  // not.
+  const [low, high] = await page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+    const context = canvas.getContext('2d');
+    if (context === null) return [0, 0];
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let least = 255;
+    let most = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const red = data[index] ?? 255;
+      const green = data[index + 1] ?? 0;
+      const blue = data[index + 2] ?? 0;
+      if (red < 60 && blue > 200) {
+        least = Math.min(least, green);
+        most = Math.max(most, green);
+      }
+    }
+    return [least, most];
+  });
+  expect(high - low).toBeGreaterThan(25);
+});

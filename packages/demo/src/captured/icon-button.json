@@ -31,6 +31,8 @@
     "transform": null,
     "shadow": null,
     "clipPath": null,
+    "gradient": null,
+    "words": null,
     "icon": null,
     "children": [
       {
@@ -60,6 +62,8 @@
         "transform": null,
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       },
@@ -90,6 +94,8 @@
         "transform": null,
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       },
@@ -120,6 +126,8 @@
         "transform": null,
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": [
           {
@@ -149,6 +157,8 @@
             "transform": null,
             "shadow": null,
             "clipPath": null,
+            "gradient": null,
+            "words": null,
             "icon": null,
             "children": [
               {
@@ -178,6 +188,8 @@
                 "transform": null,
                 "shadow": null,
                 "clipPath": null,
+                "gradient": null,
+                "words": null,
                 "icon": null,
                 "children": [
                   {
@@ -207,6 +219,8 @@
                     "transform": null,
                     "shadow": null,
                     "clipPath": null,
+                    "gradient": null,
+                    "words": null,
                     "icon": [
                       {
                         "d": "M 4 12 H 16",
@@ -219,12 +233,14 @@
                           0
                         ],
                         "fill": null,
+                        "fillRule": "nonzero",
                         "stroke": {
                           "color": "rgb(255, 255, 255)",
                           "width": 1.75,
                           "cap": "square",
                           "join": "miter"
                         },
+                        "dash": null,
                         "followsText": true
                       }
                     ],
@@ -257,6 +273,8 @@
                     "transform": null,
                     "shadow": null,
                     "clipPath": null,
+                    "gradient": null,
+                    "words": null,
                     "icon": [
                       {
                         "d": "M 12 6 L 18 12 L 12 18",
@@ -269,12 +287,14 @@
                           0
                         ],
                         "fill": null,
+                        "fillRule": "nonzero",
                         "stroke": {
                           "color": "rgb(255, 255, 255)",
                           "width": 1.75,
                           "cap": "square",
                           "join": "miter"
                         },
+                        "dash": null,
                         "followsText": true
                       }
                     ],
@@ -311,6 +331,8 @@
             "transform": null,
             "shadow": null,
             "clipPath": null,
+            "gradient": null,
+            "words": null,
             "icon": null,
             "children": [
               {
@@ -340,6 +362,8 @@
                 "transform": null,
                 "shadow": null,
                 "clipPath": null,
+                "gradient": null,
+                "words": null,
                 "icon": null,
                 "children": [
                   {
@@ -369,6 +393,8 @@
                     "transform": null,
                     "shadow": null,
                     "clipPath": null,
+                    "gradient": null,
+                    "words": null,
                     "icon": [
                       {
                         "d": "M 4 12 H 16",
@@ -381,12 +407,14 @@
                           0
                         ],
                         "fill": null,
+                        "fillRule": "nonzero",
                         "stroke": {
                           "color": "rgb(17, 17, 17)",
                           "width": 1.75,
                           "cap": "square",
                           "join": "miter"
                         },
+                        "dash": null,
                         "followsText": true
                       }
                     ],
@@ -419,6 +447,8 @@
                     "transform": null,
                     "shadow": null,
                     "clipPath": null,
+                    "gradient": null,
+                    "words": null,
                     "icon": [
                       {
                         "d": "M 12 6 L 18 12 L 12 18",
@@ -431,12 +461,14 @@
                           0
                         ],
                         "fill": null,
+                        "fillRule": "nonzero",
                         "stroke": {
                           "color": "rgb(17, 17, 17)",
                           "width": 1.75,
                           "cap": "square",
                           "join": "miter"
                         },
+                        "dash": null,
                         "followsText": true
                       }
                     ],
@@ -783,5 +815,6 @@
     }
   ],
   "backdrop": "rgb(232, 226, 216)",
+  "frame": null,
   "notShown": []
 }

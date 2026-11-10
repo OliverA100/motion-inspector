@@ -24,7 +24,8 @@
     "stroke": {
       "color": "rgb(228, 228, 228)",
       "width": 1,
-      "sides": null
+      "sides": null,
+      "style": "solid"
     },
     "opacity": 1,
     "transformOrigin": {
@@ -35,6 +36,8 @@
     "transform": null,
     "shadow": null,
     "clipPath": null,
+    "gradient": null,
+    "words": null,
     "icon": null,
     "children": [
       {
@@ -64,6 +67,8 @@
         "transform": null,
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       },
@@ -94,6 +99,8 @@
         "transform": null,
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       },
@@ -124,6 +131,8 @@
         "transform": null,
         "shadow": null,
         "clipPath": null,
+        "gradient": null,
+        "words": null,
         "icon": null,
         "children": []
       }
@@ -194,5 +203,6 @@
     }
   ],
   "backdrop": "rgb(255, 255, 255)",
+  "frame": null,
   "notShown": []
 }

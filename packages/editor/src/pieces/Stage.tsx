@@ -25,6 +25,8 @@ type Props = {
   ghosts: Pose[][];
   // The color of the page behind the component.
   backdrop: string | null;
+  // The box of the parent that cuts the component off on the page.
+  frame: { x: number; y: number; width: number; height: number } | null;
   onCompareChange: (compare: Compare) => void;
   onGhostTrailChange: (on: boolean) => void;
   onShowOriginalChange: (show: boolean) => void;
@@ -54,6 +56,7 @@ export function Stage(props: Props) {
     hoveredShapeId,
     ghosts,
     backdrop,
+    frame,
   } = props;
   const theme = useTheme();
   const [size, setSize] = useState<Size | null>(null);
@@ -74,6 +77,7 @@ export function Stage(props: Props) {
           hoveredShapeId,
           ghosts,
           backdrop,
+          frame,
           theme,
         },
         canvasSize,
@@ -88,6 +92,7 @@ export function Stage(props: Props) {
       hoveredShapeId,
       ghosts,
       backdrop,
+      frame,
       theme,
     ],
   );
@@ -97,7 +102,7 @@ export function Stage(props: Props) {
     const box = event.currentTarget.getBoundingClientRect();
     return shapeAt(
       { x: event.clientX - box.left, y: event.clientY - box.top },
-      { root, mine, compare },
+      { root, mine, compare, frame },
       size,
     );
   };

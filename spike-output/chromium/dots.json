@@ -18,11 +18,11 @@
       "pseudoElement": null,
       "timelineType": "DocumentTimeline",
       "playState": "running",
-      "startTime": 21.0780000052182,
-      "currentTime": 33.3219999947818,
-      "firstSeenAtMs": 0.3999999910593033,
-      "timelineTimeAtFirstSight": 54.4,
-      "startTimeWhenReady": 21.0780000052182,
+      "startTime": 21.045999994385056,
+      "currentTime": 50.05400000561494,
+      "firstSeenAtMs": 0.5,
+      "timelineTimeAtFirstSight": 71.1,
+      "startTimeWhenReady": 21.045999994385056,
       "keyframes": [
         {
           "offset": 0,
@@ -227,8 +227,8 @@
         "activeDuration": "Infinity",
         "currentIteration": 0,
         "endTime": "Infinity",
-        "localTime": 33.3219999947818,
-        "progress": 0.29443499999565154
+        "localTime": 50.05400000561494,
+        "progress": 0.30837833333801246
       },
       "transitionStyle": {
         "property": "all",
@@ -240,8 +240,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.913412, 0, 0, 0.913412, 0, 0)",
-            "computed": "scale(0.913412, 0.913412)"
+            "resolved": "matrix(0.935244, 0, 0, 0.935244, 0, 0)",
+            "computed": "scale(0.935244, 0.935244)"
           }
         },
         {
@@ -268,8 +268,8 @@
         {
           "cssName": "opacity",
           "read": {
-            "resolved": "0.913412",
-            "computed": "0.913412"
+            "resolved": "0.935244",
+            "computed": "0.935244"
           }
         },
         {
@@ -340,15 +340,15 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.913412, 0, 0, 0.913412, 0, 0)",
-            "computed": "scale(0.913412, 0.913412)"
+            "resolved": "matrix(0.935244, 0, 0, 0.935244, 0, 0)",
+            "computed": "scale(0.935244, 0.935244)"
           }
         },
         {
           "cssName": "opacity",
           "read": {
-            "resolved": "0.913412",
-            "computed": "0.913412"
+            "resolved": "0.935244",
+            "computed": "0.935244"
           }
         }
       ],
@@ -370,11 +370,11 @@
       "pseudoElement": null,
       "timelineType": "DocumentTimeline",
       "playState": "running",
-      "startTime": 21.0780000052182,
-      "currentTime": 33.3219999947818,
-      "firstSeenAtMs": 0.5999999940395355,
-      "timelineTimeAtFirstSight": 54.4,
-      "startTimeWhenReady": 21.0780000052182,
+      "startTime": 21.045999994385056,
+      "currentTime": 50.05400000561494,
+      "firstSeenAtMs": 0.699999988079071,
+      "timelineTimeAtFirstSight": 71.1,
+      "startTimeWhenReady": 21.045999994385056,
       "keyframes": [
         {
           "offset": 0,
@@ -579,8 +579,8 @@
         "activeDuration": "Infinity",
         "currentIteration": 0,
         "endTime": "Infinity",
-        "localTime": 33.3219999947818,
-        "progress": 0.16110166666231818
+        "localTime": 50.05400000561494,
+        "progress": 0.17504500000467912
       },
       "transitionStyle": {
         "property": "all",
@@ -592,8 +592,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.601775, 0, 0, 0.601775, 0, 0)",
-            "computed": "scale(0.601775, 0.601775)"
+            "resolved": "matrix(0.636096, 0, 0, 0.636096, 0, 0)",
+            "computed": "scale(0.636096, 0.636096)"
           }
         },
         {
@@ -620,8 +620,8 @@
         {
           "cssName": "opacity",
           "read": {
-            "resolved": "0.601775",
-            "computed": "0.601775"
+            "resolved": "0.636096",
+            "computed": "0.636096"
           }
         },
         {
@@ -692,15 +692,15 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.601775, 0, 0, 0.601775, 0, 0)",
-            "computed": "scale(0.601775, 0.601775)"
+            "resolved": "matrix(0.636096, 0, 0, 0.636096, 0, 0)",
+            "computed": "scale(0.636096, 0.636096)"
           }
         },
         {
           "cssName": "opacity",
           "read": {
-            "resolved": "0.601775",
-            "computed": "0.601775"
+            "resolved": "0.636096",
+            "computed": "0.636096"
           }
         }
       ],
@@ -722,11 +722,11 @@
       "pseudoElement": null,
       "timelineType": "DocumentTimeline",
       "playState": "running",
-      "startTime": 21.0780000052182,
-      "currentTime": 33.3219999947818,
-      "firstSeenAtMs": 0.7000000029802322,
-      "timelineTimeAtFirstSight": 54.4,
-      "startTimeWhenReady": 21.0780000052182,
+      "startTime": 21.045999994385056,
+      "currentTime": 50.05400000561494,
+      "firstSeenAtMs": 0.7999999970197678,
+      "timelineTimeAtFirstSight": 71.1,
+      "startTimeWhenReady": 21.045999994385056,
       "keyframes": [
         {
           "offset": 0,
@@ -931,8 +931,8 @@
         "activeDuration": "Infinity",
         "currentIteration": 0,
         "endTime": "Infinity",
-        "localTime": 33.3219999947818,
-        "progress": 0.02776833332898483
+        "localTime": 50.05400000561494,
+        "progress": 0.041711666671345786
       },
       "transitionStyle": {
         "property": "all",
@@ -944,8 +944,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.405632, 0, 0, 0.405632, 0, 0)",
-            "computed": "scale(0.405632, 0.405632)"
+            "resolved": "matrix(0.41289, 0, 0, 0.41289, 0, 0)",
+            "computed": "scale(0.41289, 0.41289)"
           }
         },
         {
@@ -972,8 +972,8 @@
         {
           "cssName": "opacity",
           "read": {
-            "resolved": "0.405632",
-            "computed": "0.405632"
+            "resolved": "0.41289",
+            "computed": "0.41289"
           }
         },
         {
@@ -1044,15 +1044,15 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.405632, 0, 0, 0.405632, 0, 0)",
-            "computed": "scale(0.405632, 0.405632)"
+            "resolved": "matrix(0.41289, 0, 0, 0.41289, 0, 0)",
+            "computed": "scale(0.41289, 0.41289)"
           }
         },
         {
           "cssName": "opacity",
           "read": {
-            "resolved": "0.405632",
-            "computed": "0.405632"
+            "resolved": "0.41289",
+            "computed": "0.41289"
           }
         }
       ],

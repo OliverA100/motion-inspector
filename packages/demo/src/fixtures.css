@@ -832,3 +832,57 @@ fx-shadow-card {
     clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 0);
   }
 }
+
+/* 27. Switches, as shadcn and Mantine move their thumbs. */
+
+.fx-switches {
+  display: flex;
+  gap: 16px;
+  padding: 8px;
+}
+
+.fx-switch-a,
+.fx-switch-b {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: #d4d4d4;
+  transition: background-color 150ms;
+}
+
+.fx-switch-a__thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 2px;
+  border-radius: 50%;
+  background: #ffffff;
+  translate: 0px;
+  transition: translate 150ms ease-out;
+}
+
+.is-on .fx-switch-a,
+.is-on .fx-switch-b {
+  background: #111111;
+}
+
+.is-on .fx-switch-a__thumb {
+  translate: calc(100% - 0px);
+}
+
+.fx-switch-b__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: left 150ms ease-out;
+}
+
+.is-on .fx-switch-b__knob {
+  left: calc(100% - 21px);
+}

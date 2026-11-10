@@ -132,3 +132,9 @@ const iconButton = inside(fixture('icon-button'), '.fx-icon-button');
 iconButton.addEventListener('mouseenter', () => iconButton.classList.add('was-hovered'), {
   once: true,
 });
+
+// 27. Switches.
+const switches = fixture('switches');
+onTrigger(switches, 'toggle', () => {
+  inside(switches, '.fx-switches').classList.toggle('is-on');
+});

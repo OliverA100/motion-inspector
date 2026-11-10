@@ -80,6 +80,9 @@ function createEntry(host: HTMLElement, track: Track, shape: Shape | null): Entr
   const element = document.createElement('div');
   // Same size as the shape, so percentages resolve as they did on the page.
   element.style.position = 'absolute';
+  // At the host's corner, so a translation can be measured from it.
+  element.style.left = '0px';
+  element.style.top = '0px';
   element.style.width = `${shape?.box.width ?? 0}px`;
   element.style.height = `${shape?.box.height ?? 0}px`;
   host.appendChild(element);
@@ -372,7 +375,17 @@ export function createProbe(): Probe {
     if (GEOMETRY.includes(track.property)) return null;
     const entry = entries.get(track);
     if (entry === undefined || entry.animation === null) return null;
-    return getComputedStyle(entry.element).getPropertyValue(track.property);
+    const value = getComputedStyle(entry.element).getPropertyValue(track.property);
+    // A translate in % or calc() ("calc(100% - 2px)" on shadcn's switch) is
+    // measured against the element's own size. The probe's element has the
+    // shape's size and nothing else moving it, so how far it is drawn from
+    // the host is the translation in px.
+    if (track.property === 'translate' && /%|calc/.test(value)) {
+      const drawn = entry.element.getBoundingClientRect();
+      const origin = host.getBoundingClientRect();
+      return `${drawn.left - origin.left}px ${drawn.top - origin.top}px`;
+    }
+    return value;
   };
 
   return {

@@ -284,6 +284,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               ghostTrail={model.ghostTrail}
               ghosts={ghosts}
               backdrop={edited.backdrop}
+              frame={edited.frame}
               onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
               onGhostTrailChange={(on) => dispatch({ kind: 'ghostTrailSet', on })}
               onShowOriginalChange={(show) => dispatch({ kind: 'originalShown', show })}

@@ -58,6 +58,9 @@ export type StageData = {
   // The color of the page behind the component, painted behind it. null
   // leaves the stage's own background.
   backdrop: string | null;
+  // The box of the parent that cuts off the component on the page. Nothing
+  // is drawn outside it. null when nothing cuts it off.
+  frame: Area | null;
   theme: Theme;
 };
 
@@ -159,6 +162,14 @@ function walk(
   context.restore();
 }
 
+// Dashes like the browser's: dashes about three times the border's width,
+// dots as round dots one width apart.
+function borderDash(stroke: NonNullable<Shape['stroke']>): number[] {
+  if (stroke.style === 'dashed') return [stroke.width * 3, stroke.width * 3];
+  if (stroke.style === 'dotted') return [0, stroke.width * 2];
+  return [];
+}
+
 // One side of a shape's outline, for a border whose sides differ in color.
 // As in CSS, a side runs to the middle of each corner it meets. Sides are
 // 0 top, 1 right, 2 bottom, 3 left.
@@ -214,6 +225,68 @@ function sidePath(
   context.arc(to.cx, to.cy, to.r, to.start, to.start + eighth);
 }
 
+// A line of text as one rounded bar per word, with the gaps between.
+function wordsPath(context: CanvasRenderingContext2D, shape: Shape): void {
+  context.beginPath();
+  const height = shape.box.height;
+  for (const word of shape.words ?? []) {
+    context.roundRect(
+      shape.box.x + word.x,
+      shape.box.y,
+      Math.max(word.width, 0),
+      height,
+      height / 2,
+    );
+  }
+}
+
+// A gradient over the shape's current path, as CSS draws it: a linear one
+// along a line through the middle at its angle, long enough to reach the
+// corners; a radial one as an ellipse from the middle to the corners.
+function fillGradient(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  gradient: NonNullable<Shape['gradient']>,
+): void {
+  const width = Math.max(pose?.width ?? shape.box.width, 0);
+  const height = Math.max(pose?.height ?? shape.box.height, 0);
+  const centerX = shape.box.x + width / 2;
+  const centerY = shape.box.y + height / 2;
+  const addStops = (canvasGradient: CanvasGradient): CanvasGradient => {
+    for (const stop of gradient.stops) {
+      try {
+        canvasGradient.addColorStop(stop.at, stop.color);
+      } catch {
+        // A color the canvas cannot read is left out.
+      }
+    }
+    return canvasGradient;
+  };
+  if (gradient.kind === 'linear') {
+    const radians = (gradient.angle * Math.PI) / 180;
+    const length = Math.abs(width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));
+    const dx = (Math.sin(radians) * length) / 2;
+    const dy = (-Math.cos(radians) * length) / 2;
+    context.fillStyle = addStops(
+      context.createLinearGradient(centerX - dx, centerY - dy, centerX + dx, centerY + dy),
+    );
+    context.fill();
+    return;
+  }
+  // The path stays where it is; the gradient is drawn in a space where the
+  // ellipse is a unit circle.
+  context.save();
+  context.translate(centerX, centerY);
+  context.scale(
+    Math.max((width / 2) * Math.SQRT2, 0.01),
+    Math.max((height / 2) * Math.SQRT2, 0.01),
+  );
+  context.fillStyle = addStops(context.createRadialGradient(0, 0, 0, 0, 0, 1));
+  context.fill();
+  context.restore();
+}
+
 // An icon's outline, in the shape's own coordinates. Parts drawn in the
 // text color follow an animated text color above them, as on the page.
 function drawIcon(
@@ -240,17 +313,16 @@ function drawIcon(
     const fill = pose?.fill ?? (part.fill === null ? null : color(part.fill));
     if (fill !== null && fill !== 'none') {
       context.fillStyle = fill;
-      context.fill(path);
+      context.fill(path, part.fillRule);
     }
     if (part.stroke !== null) {
-      if (pose?.dash != null) {
+      // The animated dashes, or the resting ones.
+      const dash = pose?.dash ?? part.dash;
+      if (dash !== null) {
         // An odd-length list is repeated, as in SVG.
-        const array =
-          pose.dash.array.length % 2 === 1
-            ? [...pose.dash.array, ...pose.dash.array]
-            : pose.dash.array;
+        const array = dash.array.length % 2 === 1 ? [...dash.array, ...dash.array] : dash.array;
         context.setLineDash(array.every((length) => length === 0) ? [] : array);
-        context.lineDashOffset = pose.dash.offset;
+        context.lineDashOffset = dash.offset;
       }
       context.strokeStyle = pose?.strokeColor ?? color(part.stroke.color);
       context.lineWidth = part.stroke.width;
@@ -272,36 +344,53 @@ function drawFilled(
 ): void {
   walk(context, root, poses, (shape, pose, textColor, alpha) => {
     context.globalAlpha = alpha;
-    shapePath(context, shape, pose);
+    if (shape.kind === 'text' && shape.words !== null) wordsPath(context, shape);
+    else shapePath(context, shape, pose);
     const fill =
       shape.kind === 'text' && textColor !== null ? textColor : (pose?.fill ?? shape.fill);
+    // An animated background color replaces the gradient, as in CSS when a
+    // hover sets "background" to a plain color.
+    const gradient = pose?.fill != null ? null : shape.gradient;
+    const shadow = pose?.shadow ?? shape.shadow;
+    if (shadow !== null && (fill !== null || gradient !== null)) {
+      // Canvas shadows ignore the current transform, so scale by hand.
+      context.shadowColor = shadow.color;
+      context.shadowOffsetX = shadow.x * scale;
+      context.shadowOffsetY = shadow.y * scale;
+      context.shadowBlur = shadow.blur * scale;
+    }
     if (fill !== null) {
-      const shadow = pose?.shadow ?? shape.shadow;
-      if (shadow !== null) {
-        // Canvas shadows ignore the current transform, so scale by hand.
-        context.shadowColor = shadow.color;
-        context.shadowOffsetX = shadow.x * scale;
-        context.shadowOffsetY = shadow.y * scale;
-        context.shadowBlur = shadow.blur * scale;
-      }
       context.fillStyle = fill;
       context.fill();
       context.shadowColor = 'transparent';
     }
+    if (gradient !== null) {
+      fillGradient(context, shape, pose, gradient);
+      context.shadowColor = 'transparent';
+    }
     if (shape.stroke !== null && shape.stroke.sides !== null && pose?.strokeColor == null) {
       context.lineWidth = shape.stroke.width;
-      shape.stroke.sides.forEach((color, side) => {
-        sidePath(context, shape, pose, side, (shape.stroke?.width ?? 0) / 2);
+      const stroke = shape.stroke;
+      context.setLineDash(borderDash(stroke));
+      if (stroke.style === 'dotted') context.lineCap = 'round';
+      stroke.sides?.forEach((color, side) => {
+        sidePath(context, shape, pose, side, stroke.width / 2);
         context.strokeStyle = color;
         context.stroke();
       });
+      context.setLineDash([]);
+      context.lineCap = 'butt';
       // The selection outline below follows the whole shape again.
       shapePath(context, shape, pose);
     } else if (shape.stroke !== null) {
       shapePath(context, shape, pose, shape.stroke.width / 2);
       context.strokeStyle = pose?.strokeColor ?? shape.stroke.color;
       context.lineWidth = shape.stroke.width;
+      context.setLineDash(borderDash(shape.stroke));
+      if (shape.stroke.style === 'dotted') context.lineCap = 'round';
       context.stroke();
+      context.setLineDash([]);
+      context.lineCap = 'butt';
       shapePath(context, shape, pose);
     }
     drawIcon(context, shape, pose, pose?.textColor ?? textColor);
@@ -364,13 +453,27 @@ function restBounds(root: Shape): Area {
   return { x: left, y: top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
 }
 
+// What can be seen at rest: the drawing, cut by the frame. When nothing of
+// it is inside the frame (a slide waiting outside), the frame itself.
+function visibleBounds(bounds: Area, frame: Area | null): Area {
+  if (frame === null) return bounds;
+  const left = Math.max(bounds.x, frame.x);
+  const top = Math.max(bounds.y, frame.y);
+  const right = Math.min(bounds.x + bounds.width, frame.x + frame.width);
+  const bottom = Math.min(bounds.y + bounds.height, frame.y + frame.height);
+  return right > left && bottom > top
+    ? { x: left, y: top, width: right - left, height: bottom - top }
+    : frame;
+}
+
 // How the drawing is fitted into an area: its scale, where the top left of
 // what is drawn lands, and which point of the root's coordinates that is.
 function fit(
   root: Shape,
+  frame: Area | null,
   area: Area,
 ): { scale: number; left: number; top: number; originX: number; originY: number } {
-  const bounds = restBounds(root);
+  const bounds = visibleBounds(restBounds(root), frame);
   const scale = Math.min(
     (area.width - PADDING * 2) / Math.max(bounds.width, 1),
     (area.height - PADDING * 2) / Math.max(bounds.height, 1),
@@ -389,14 +492,20 @@ function fit(
 function inArea(
   context: CanvasRenderingContext2D,
   root: Shape,
+  frame: Area | null,
   area: Area,
   draw: (scale: number) => void,
 ): void {
-  const { scale, left, top, originX, originY } = fit(root, area);
+  const { scale, left, top, originX, originY } = fit(root, frame, area);
   context.save();
   context.translate(left, top);
   context.scale(scale, scale);
   context.translate(-originX, -originY);
+  if (frame !== null) {
+    context.beginPath();
+    context.rect(frame.x, frame.y, frame.width, frame.height);
+    context.clip();
+  }
   draw(scale);
   context.restore();
 }
@@ -476,10 +585,14 @@ function hitShape(shape: Shape, poses: Pose[], parent: DOMMatrix, point: DOMPoin
 // The shape of my version under a point on the canvas, or null.
 export function shapeAt(
   point: { x: number; y: number },
-  data: Pick<StageData, 'root' | 'mine' | 'compare'>,
+  data: Pick<StageData, 'root' | 'mine' | 'compare' | 'frame'>,
   size: Size,
 ): ShapeId | null {
-  const { scale, left, top, originX, originY } = fit(data.root, mineArea(data.compare, size));
+  const { scale, left, top, originX, originY } = fit(
+    data.root,
+    data.frame,
+    mineArea(data.compare, size),
+  );
   const inRoot = new DOMPoint(
     (point.x - left) / scale + originX,
     (point.y - top) / scale + originY,
@@ -505,7 +618,9 @@ export function drawStage(context: CanvasRenderingContext2D, data: StageData, si
   const { root, theme } = data;
   paintBackdrop(context, data, mineArea(data.compare, size));
   if (data.compare === 'overlay') {
-    inArea(context, root, mineArea('overlay', size), (scale) => drawMine(context, data, scale));
+    inArea(context, root, data.frame, mineArea('overlay', size), (scale) =>
+      drawMine(context, data, scale),
+    );
     return;
   }
 
@@ -513,10 +628,12 @@ export function drawStage(context: CanvasRenderingContext2D, data: StageData, si
   // The two halves start below their captions.
   const height = size.height - CAPTION_HEIGHT;
   paintBackdrop(context, data, { x: 0, y: CAPTION_HEIGHT, width: half, height });
-  inArea(context, root, { x: 0, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
+  inArea(context, root, data.frame, { x: 0, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
     drawFilled(context, root, data.original, null, theme, scale);
   });
-  inArea(context, root, mineArea('side-by-side', size), (scale) => drawMine(context, data, scale));
+  inArea(context, root, data.frame, mineArea('side-by-side', size), (scale) =>
+    drawMine(context, data, scale),
+  );
   caption(context, theme, 'Original', 0);
   caption(context, theme, 'Mine', half);
   context.strokeStyle = theme.border;

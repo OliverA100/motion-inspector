@@ -62,18 +62,17 @@ const NEARBY_LEVELS = 4;
 // part of a button.
 function nearbyParentHolding(target: Element, picked: Element): Element | null {
   const pickedBox = picked.getBoundingClientRect();
-  // At most three times as wide and as tall (nine times the area), with a
-  // floor for tiny elements. A 436 x 251 hover area around a 57 px button
-  // fades in on the same hover, but the button is what was picked.
-  const largest = {
-    width: Math.max(pickedBox.width * 3, 120),
-    height: Math.max(pickedBox.height * 3, 120),
-  };
+  // At most nine times the picked element's area, with a floor for tiny
+  // elements. A 436 x 251 hover area around a 57 px button fades in on the
+  // same hover (33 times its area), but the button is what was picked. A
+  // tab list 5.6 times as wide as one tab, whose indicator slides under the
+  // tabs, is part of the tab's motion (found on MUI).
+  const largestArea = Math.max(pickedBox.width * pickedBox.height, 60 * 60) * 9;
   let current: Element | null = picked.parentElement;
   for (let level = 0; level < NEARBY_LEVELS && current !== null; level += 1) {
     if (current === document.body || current === document.documentElement) return null;
     const box = current.getBoundingClientRect();
-    if (box.width > largest.width || box.height > largest.height) return null;
+    if (box.width * box.height > largestArea) return null;
     if (current.contains(target)) return current;
     current = current.parentElement;
   }
@@ -459,6 +458,7 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
     root: snapshot.root,
     tracks,
     backdrop: snapshot.backdrop,
+    frame: snapshot.frame,
     notShown: [
       ...snapshot.notes,
       ...built.flatMap((item) => item.notShown),

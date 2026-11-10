@@ -204,6 +204,25 @@ export function readValue(property: string, value: string, box: BoxSize): Parsed
   if (text.endsWith('px') && NUMBER.test(text.slice(0, -2))) {
     return { kind: 'length', px: Number(text.slice(0, -2)) };
   }
+  // calc() of a percentage and px, as Chrome writes it for a knob that
+  // sits at the far end: "calc(100% - 16.5px)" (found on Mantine). For
+  // size and position, where 100% is known, it is read as px.
+  const sum = /^calc\((.*)\)$/.exec(text);
+  if (sum !== null) {
+    const base = PERCENT_OF_WIDTH.includes(property)
+      ? box.width
+      : PERCENT_OF_HEIGHT.includes(property)
+        ? box.height
+        : null;
+    const terms = Array.from((sum[1] ?? '').matchAll(/([+-]?)\s*(-?[\d.]+(?:e[+-]?\d+)?)(%|px)/g));
+    const rest = (sum[1] ?? '').replace(/([+-]?)\s*(-?[\d.]+(?:e[+-]?\d+)?)(%|px)/g, '').trim();
+    if (base === null || terms.length === 0 || rest !== '') return null;
+    const px = terms.reduce((total, [, sign, amount, unit]) => {
+      const value = Number(amount) * (sign === '-' ? -1 : 1);
+      return total + (unit === '%' ? (value / 100) * base : value);
+    }, 0);
+    return Number.isFinite(px) ? { kind: 'length', px } : null;
+  }
   if (text.endsWith('%') && NUMBER.test(text.slice(0, -1))) {
     // What 100% is, in px, so the preview can draw it. The value itself
     // stays a percentage, as written.
