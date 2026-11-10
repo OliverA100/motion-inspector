@@ -304,7 +304,9 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
   // A capture with nothing to play shows no timeline and no curve.
   const hasTracks = edited.tracks.length > 0;
   const selected = selectedTracks(model);
-  const description = describeCapture(shownEdited);
+  // Worked out when the capture or an edit changes, not on every frame of
+  // playback: it samples every curve.
+  const description = useMemo(() => describeCapture(shownEdited), [shownEdited]);
   // More than three lines or so: shown short until asked for.
   const longDescription = description.length > 180;
   const [descriptionOpen, setDescriptionOpen] = useState(false);

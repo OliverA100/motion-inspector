@@ -836,3 +836,7 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - The self-check leaves out frames from before the take starts: the preview shows nothing there to compare.
 - A part still on the page but no longer drawn at the end of the take (display: none, by a class) is hidden from when it went, as a removed one is.
 **Why:** the full sweep, now 278 elements, all within 1.4 px but three: MUI's ripple (fixed), GitHub's dialog, and Stripe's caret (2 px). GitHub's dialog plays its 200 ms animation late and in steps over a second on that heavy page: the self-check is right to say the page did not play what its CSS says.
+
+### D145. The description is not worked out on every frame
+**Chose:** the editor works out the plain-words description when the capture or an edit changes, as it already did for the exports and the self-check, not on every render. It samples every track's curve, and during playback every frame renders.
+**Why:** measured with the CPU slowed four times, playing NumberFlow's capture (about 30 tracks): one frame in twenty took 83 ms, the worst 100 ms, and the description was a third of all the time. Now 33 ms at worst, the rest React's development overhead.
