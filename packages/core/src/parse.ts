@@ -705,6 +705,9 @@ function parseIcon(value: unknown): Result<Shape['icon']> {
   );
 }
 
+// A page could stack many layers. Few are worth drawing.
+const MOST_GRADIENT_LAYERS = 8;
+
 function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
   if (depth > MAX_SHAPE_DEPTH) return fail(`Shapes are nested more than ${MAX_SHAPE_DEPTH} deep.`);
   return andThen(fields(value), (source) => {
@@ -729,6 +732,16 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const filter = at('filter', optional(get(source, 'filter'), text));
     const inSvg = at('inSvg', optional(get(source, 'inSvg'), parseMatrix));
     const gradient = at('gradient', optional(get(source, 'gradient'), parseGradient));
+    const gradients = at(
+      'gradients',
+      optional(get(source, 'gradients'), (value) =>
+        andThen(listOf(value, parseGradient), (layers) =>
+          layers.length > MOST_GRADIENT_LAYERS
+            ? fail(`At most ${MOST_GRADIENT_LAYERS} gradient layers.`)
+            : ok(layers),
+        ),
+      ),
+    );
     const words = at('words', optional(get(source, 'words'), parseWords));
     const children = at(
       'children',
@@ -756,6 +769,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !filter.ok ||
       !inSvg.ok ||
       !gradient.ok ||
+      !gradients.ok ||
       !words.ok ||
       !children.ok
     ) {
@@ -782,6 +796,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           filter,
           inSvg,
           gradient,
+          gradients,
           words,
           children,
         ].flatMap(errorsOf),
@@ -808,6 +823,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       filter: filter.value,
       inSvg: inSvg.value,
       gradient: gradient.value,
+      gradients: gradients.value,
       words: words.value,
       icon: icon.value,
       children: children.value,

@@ -41,6 +41,7 @@ function stillPose(shapeId: Pose['shapeId']): Pose {
     visible: true,
     backgroundX: null,
     backgroundY: null,
+    backgroundImage: null,
   };
 }
 

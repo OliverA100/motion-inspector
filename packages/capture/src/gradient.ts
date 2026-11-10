@@ -5,8 +5,8 @@
 // The input is Chrome's computed form, for example
 //   "linear-gradient(to right, rgb(32, 152, 209), oklch(0.6 0.2 260) 30%, rgba(0, 0, 0, 0))"
 //   "radial-gradient(rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 80%)"
-// Only the top layer is read. Repeating and conic gradients are not drawn
-// with their pattern; they still give an average color.
+// Every layer is read, each on its own tile. Repeating and conic gradients
+// are not drawn with their pattern; they still give an average color.
 
 import { readValue } from './readValue';
 
@@ -161,23 +161,21 @@ function angleOf(text: string, box: Size): number | null {
   return null;
 }
 
-// One gradient is drawn per shape. With several layers, the one that shows
-// most: the most opaque on average. A faint grid of lines over a strong
-// color (Vercel's blueprint cards) is drawn as the color.
-export function readGradient(
+// Every layer that can be drawn, the top one first, each on its own tile:
+// the faint lines of a grid over a color (Vercel's blueprint cards). Empty
+// when none can be.
+export function readGradients(
   backgroundImage: string,
   box: Size,
   sizing: Sizing | null = null,
-): RawGradient | null {
+): RawGradient[] {
   const layers = topLevel(backgroundImage);
   // CSS repeats a shorter list of sizes or positions for the later layers.
   const pick = (list: string, index: number): string => {
     const items = topLevel(list);
     return items[index] ?? items[items.length - 1] ?? list;
   };
-  let best: RawGradient | null = null;
-  let bestShows = -1;
-  layers.forEach((layer, index) => {
+  return layers.flatMap((layer, index) => {
     const layerSizing =
       sizing === null
         ? null
@@ -188,7 +186,21 @@ export function readGradient(
             repeat: pick(sizing.repeat, index),
           };
     const read = readLayer(layer, box, layerSizing);
-    if (read === null) return;
+    return read === null ? [] : [read];
+  });
+}
+
+// The one layer to draw when only one is: the one that shows most, the
+// most opaque on average. A faint grid of lines over a strong color is
+// drawn as the color.
+export function readGradient(
+  backgroundImage: string,
+  box: Size,
+  sizing: Sizing | null = null,
+): RawGradient | null {
+  let best: RawGradient | null = null;
+  let bestShows = -1;
+  readGradients(backgroundImage, box, sizing).forEach((read) => {
     const shows =
       read.stops.reduce((sum, stop) => sum + (rgba(stop.color)?.a ?? 0), 0) /
       Math.max(read.stops.length, 1);

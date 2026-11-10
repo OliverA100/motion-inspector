@@ -751,3 +751,22 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - The film counts a face turned away as unseen, so the self-check agrees.
 **Why:** the last large miss of the seventh pass: daisyUI's flip was drawn flat (16 px off mid-turn), and both faces showed through the turn. It is now within 0.1 px and 0% opacity. A fixture (35, card flip) and tests cover it.
 **Gave up:** only the nearest parent's perspective, as filmed. A resting 3D turn with no animation is still drawn from its flat 2D matrix.
+
+### D137. Script-moved hovers: one take in, one take out
+**Chose:**
+- Where a script moves parts, the pointer crossing the picked element's edge cuts the takes: the motion on the way in is one take ("Hover in"), the motion on the way out another ("Hover out"). Film is split at the crossing; the second take starts with the last frame before it, so it starts exactly where the first ended. A take that ended earlier leaves each part's resting frame for the next take to start from.
+- A hovered take ends once the part has been still for 400 ms while the pointer kept moving over it: it has arrived, it does not follow the pointer. A tilt card keeps moving with the pointer, so its take stays open. A still end (the pointer resting) is trimmed off a cut take.
+- Takes with script motion are never merged into one "hover and leave" take. CSS-only hovers still are (D96).
+- When picking left the pointer on the element, the script motion before it first leaves is dropped: it began before recording, so its start was missed. It used to come out as "Already running" (a CSS transition from the pick in the same take decided the name).
+**Why:** reported on Vercel's peeling card: "Already running" and a merged hover out; asked for hover in and hover out cleanly separated, the hover out starting at the hover in's end. Now: Hover out 550 ms, Hover in 550 ms, Hover out 567 ms, each matching the page within about 1 px.
+**Gave up:** with the pointer held perfectly still on a part, a settled part cannot be told from a tilt card waiting for the next move: its hover in arrives when the pointer leaves.
+
+### D138. The preview draws what makes Vercel's peel: grouped filters, moving gradients
+**Chose:**
+- A CSS filter acts on the shape and everything inside it after they are drawn: they are drawn on a canvas of their own and put down once through the filter, its lengths scaled to the stage. A drop shadow on a wrapper now falls outside the clip of the part inside it, as in CSS (the peeled flap's shadow).
+- background-image is filmed when a script rewrites it, as text, gradients only: a URL is page image data and is read as none. The probe reads it, and the stage draws a linear-gradient() from its text, with stops in px or %, as CSS places them.
+- The selected part is no longer outlined in blue all the time. It read as an edge of the design (around the peeled corner). Pointing at a part, here or on the timeline, still outlines it.
+- Every gradient layer of a background is kept (`Shape.gradients`, a new optional field, top first, each with its own tile; `gradient` stays the one layer that shows most, for older readers) and drawn bottom first. A repeating tile is drawn once and laid over the shape as a pattern, at no less than one canvas pixel per CSS pixel: a 1 px line drawn at the preview's scale is narrower than half a pixel and would vanish; shrunk smoothly, it fades, as on a small screen. The grid over Vercel's blue is drawn.
+- The panel's More menu closes on a press outside it and on Escape, which returns focus to its button.
+**Why:** reported: "look how the shadows are wrong here" (the flap had no shadow, wrong shading and a hard blue edge), "also draw the grid lines on the blue", and "three dot menu won't close unless I click the three dots again".
+**Gave up:** a moving gradient is drawn from its first layer, and only when it is linear; a moving radial or conic one keeps its resting look. A stop past 100% (Vercel's blue ends at 160%) is drawn at 100%.

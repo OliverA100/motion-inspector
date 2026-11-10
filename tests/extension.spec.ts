@@ -330,3 +330,22 @@ test('the real build asks for nothing it does not need', async () => {
   expect(manifest.host_permissions).toBeUndefined();
   expect(manifest.content_scripts).toBeUndefined();
 });
+
+test('the More menu closes on a click outside it, and on Escape', async ({
+  context,
+  extensionId,
+}) => {
+  const { panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  const items = panel.locator('.xp__menu-items');
+  await panel.getByLabel('More').click();
+  await expect(items).toBeVisible();
+  await panel.getByRole('heading', { name: 'Capture a motion' }).click();
+  await expect(items).toBeHidden();
+
+  await panel.getByLabel('More').click();
+  await expect(items).toBeVisible();
+  await panel.keyboard.press('Escape');
+  await expect(items).toBeHidden();
+  // Focus goes back to the button that opened it.
+  await expect(panel.getByLabel('More')).toBeFocused();
+});

@@ -12,6 +12,7 @@ import {
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
 import { clipCorners, clipPathOf } from './clipPath';
+import { cssLinearGradient, stopPlaces, type CssLinearGradient } from './cssGradient';
 
 // A 2D transform as the six numbers of a matrix: a, b, c, d, e, f.
 export type Matrix = [number, number, number, number, number, number];
@@ -54,6 +55,9 @@ export type Pose = {
   // for a gradient's tile. null where it is at rest.
   backgroundX: string | null;
   backgroundY: string | null;
+  // An animated background-image, as computed CSS: a gradient a script
+  // moves with a fold. Drawn over the box when it is a linear-gradient().
+  backgroundImage: string | null;
 };
 
 export type StageData = {
@@ -400,12 +404,16 @@ function walk(
   const alpha = pose?.visible === false ? 0 : parentAlpha * (pose?.opacity ?? shape.opacity);
   // The shape and what is inside it, once placed.
   const drawPlaced = (context: CanvasRenderingContext2D): void => {
-    // A filter acts on the shape and everything inside it, as in CSS. An
-    // animated one replaces the resting one.
+    // A filter acts on the shape and everything inside it once they are
+    // drawn, as in CSS: a drop shadow on a wrapper falls outside the clip of
+    // a part inside it (Vercel's peeled corner). So they are drawn on a
+    // canvas of their own and put down once, through the filter. An
+    // animated filter replaces the resting one.
     const filter = pose?.filter ?? shape.filter;
-    if (filter !== null && filter !== 'none') {
-      context.filter = context.filter === 'none' ? filter : `${context.filter} ${filter}`;
-    }
+    if (filter !== null && filter !== 'none' && drawFiltered(context, filter, drawContent)) return;
+    drawContent(context);
+  };
+  const drawContent = (context: CanvasRenderingContext2D): void => {
     // A clip-path cuts the shape and everything inside it, as in CSS.
     const clip = pose?.clipPath ?? shape.clipPath;
     if (clip !== null && clip !== 'none') {
@@ -475,9 +483,41 @@ function walk(
   }
 }
 
-// Canvases kept for drawing turned shapes on, one per level: a turned
-// shape inside a turned shape is drawn while its parent's canvas is still
-// in use.
+// Draws with `draw` on a canvas of its own the size of this one, as
+// placed now, then puts that picture down through a CSS filter. False when
+// there is no canvas to spare: the caller then draws without the filter's
+// grouping. A canvas filter's lengths are in its own pixels, whatever the
+// transform, so they are scaled to the stage.
+function drawFiltered(
+  context: CanvasRenderingContext2D,
+  filter: string,
+  draw: (context: CanvasRenderingContext2D) => void,
+): boolean {
+  const picture = offscreen(context.canvas.width, context.canvas.height);
+  if (picture === null) return false;
+  const now = context.getTransform();
+  picture.context.setTransform(now);
+  picturesInUse += 1;
+  try {
+    draw(picture.context);
+  } finally {
+    picturesInUse -= 1;
+  }
+  const pixels = Math.sqrt(Math.abs(now.a * now.d - now.b * now.c)) || 1;
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.filter = filter.replace(
+    /(-?\d*\.?\d+)px/g,
+    (_match, value: string) => `${Number(value) * pixels}px`,
+  );
+  context.drawImage(picture.canvas, 0, 0);
+  context.restore();
+  return true;
+}
+
+// Canvases kept for drawing turned or filtered shapes on, one per level: a
+// turned shape inside a turned shape is drawn while its parent's canvas is
+// still in use.
 const pictures: { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D }[] = [];
 let picturesInUse = 0;
 function offscreen(
@@ -592,6 +632,19 @@ function fillGradient(
   gradient: NonNullable<Shape['gradient']>,
 ): void {
   const tile = tileAt(shape, pose, gradient);
+  if (
+    tile.repeat &&
+    fillPattern(
+      context,
+      gradient,
+      shape.box.x + tile.x,
+      shape.box.y + tile.y,
+      tile.width,
+      tile.height,
+    )
+  ) {
+    return;
+  }
   const steps = tile.repeat ? [-1, 0, 1] : [0];
   for (const across of steps) {
     for (const down of steps) {
@@ -635,6 +688,90 @@ function tileAt(
     height: Math.max(tile.height, 0.01),
     repeat: tile.repeat,
   };
+}
+
+// A linear-gradient() read from its CSS text, over the shape's current path
+// and its whole box, as CSS draws one: along a line through the middle at
+// its angle, long enough to reach the corners. Stops placed in px can lie
+// past either end; the line is drawn longer to hold them, and the canvas
+// keeps the end colors beyond, as CSS does.
+function fillMovingGradient(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  gradient: CssLinearGradient,
+): void {
+  const width = Math.max(pose?.width ?? shape.box.width, 0);
+  const height = Math.max(pose?.height ?? shape.box.height, 0);
+  const radians = (gradient.angle * Math.PI) / 180;
+  const length = Math.abs(width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));
+  if (length <= 0) return;
+  const places = stopPlaces(gradient, length);
+  const from = Math.min(0, ...places);
+  const to = Math.max(length, ...places);
+  const span = to - from || 1;
+  const centerX = shape.box.x + width / 2;
+  const centerY = shape.box.y + height / 2;
+  const alongX = Math.sin(radians);
+  const alongY = -Math.cos(radians);
+  const start = from - length / 2;
+  const end = to - length / 2;
+  const canvasGradient = context.createLinearGradient(
+    centerX + alongX * start,
+    centerY + alongY * start,
+    centerX + alongX * end,
+    centerY + alongY * end,
+  );
+  gradient.stops.forEach((stop, index) => {
+    try {
+      canvasGradient.addColorStop(((places[index] ?? 0) - from) / span, stop.color);
+    } catch {
+      // A color the canvas cannot read is left out.
+    }
+  });
+  context.fillStyle = canvasGradient;
+  context.fill();
+}
+
+// A repeating tile over the whole shape: the tile drawn once, at the
+// stage's pixel size, and repeated as a pattern. A grid of lines is
+// hundreds of tiles. False when the tile is too small or too large to draw
+// this way.
+let patternCanvas: HTMLCanvasElement | null = null;
+function fillPattern(
+  context: CanvasRenderingContext2D,
+  gradient: NonNullable<Shape['gradient']>,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): boolean {
+  const now = context.getTransform();
+  // At least one canvas pixel per CSS pixel: a canvas gradient takes each
+  // pixel's color at its middle, so a 1 px line drawn smaller than half a
+  // pixel would vanish. Drawn larger, it is shrunk smoothly and fades, as
+  // a thin line does on a small screen (the grid over Vercel's blue).
+  const pixels = Math.max(Math.sqrt(Math.abs(now.a * now.d - now.b * now.c)) || 1, 1);
+  const across = Math.ceil(width * pixels);
+  const down = Math.ceil(height * pixels);
+  if (!(across >= 1 && down >= 1) || across * down > 4_000_000) return false;
+  patternCanvas ??= document.createElement('canvas');
+  patternCanvas.width = across;
+  patternCanvas.height = down;
+  const tile = patternCanvas.getContext('2d');
+  if (tile === null) return false;
+  tile.setTransform(across / width, 0, 0, down / height, 0, 0);
+  tile.beginPath();
+  tile.rect(0, 0, width, height);
+  fillOneTile(tile, gradient, 0, 0, width, height);
+  // The pattern keeps the picture as it is now: the canvas can be drawn on
+  // again for the next layer.
+  const pattern = context.createPattern(patternCanvas, 'repeat');
+  if (pattern === null) return false;
+  pattern.setTransform(new DOMMatrix().translate(left, top).scale(width / across, height / down));
+  context.fillStyle = pattern;
+  context.fill();
+  return true;
 }
 
 // One copy of the gradient, over the current path, laid out on a tile.
@@ -733,7 +870,6 @@ function drawFilled(
   context: CanvasRenderingContext2D,
   root: Shape,
   poses: Pose[],
-  selectedShapeId: ShapeId | null,
   theme: Theme,
   scale: number,
 ): void {
@@ -759,7 +895,15 @@ function drawFilled(
       context.fillStyle = fill;
       context.fill();
     }
-    if (gradient !== null) fillGradient(context, shape, pose, gradient);
+    // A gradient a script rewrites as it goes replaces the resting one.
+    const moving = pose?.backgroundImage != null ? cssLinearGradient(pose.backgroundImage) : null;
+    if (moving !== null) fillMovingGradient(context, shape, pose, moving);
+    else if (gradient !== null) {
+      // Every layer, the bottom one first, as CSS paints them.
+      for (const layer of [...(shape.gradients ?? [gradient])].reverse()) {
+        fillGradient(context, shape, pose, layer);
+      }
+    }
     const inner = shadows.filter((layer) => layer.inset);
     if (inner.length > 0) {
       drawInsetShadows(context, shape, pose, inner);
@@ -806,13 +950,6 @@ function drawFilled(
     }
     drawIcon(context, shape, pose, pose?.textColor ?? textColor);
     context.globalAlpha = 1;
-    // The whole component needs no outline to be found: outlining it only
-    // drew a blue frame around every preview.
-    if (shape.id === selectedShapeId && shape !== root) {
-      context.strokeStyle = theme.accent;
-      context.lineWidth = 1.5 / scale;
-      context.stroke();
-    }
   });
 }
 
@@ -1021,7 +1158,7 @@ function drawHover(context: CanvasRenderingContext2D, data: StageData, scale: nu
 // the outlines on top.
 function drawMine(context: CanvasRenderingContext2D, data: StageData, scale: number): void {
   drawGhosts(context, data, scale);
-  drawFilled(context, data.root, data.mine, data.selectedShapeId, data.theme, scale);
+  drawFilled(context, data.root, data.mine, data.theme, scale);
   drawHover(context, data, scale);
   if (data.showOriginal) drawOutline(context, data, scale);
 }
@@ -1110,7 +1247,7 @@ export function drawStage(context: CanvasRenderingContext2D, data: StageData, si
     data.reach,
     { x: 0, y: CAPTION_HEIGHT, width: half, height },
     (scale) => {
-      drawFilled(context, root, data.original, null, theme, scale);
+      drawFilled(context, root, data.original, theme, scale);
     },
   );
   inArea(context, root, data.frame, data.reach, mineArea('side-by-side', size), (scale) =>

@@ -6,7 +6,7 @@ import type { Capture } from '../packages/core/src/types';
 const here = dirname(fileURLToPath(import.meta.url));
 const captureScript = resolve(here, '../packages/capture/dist/capture.iife.js');
 
-export type Take = { capture: Capture | null; problems: string[]; raw: unknown };
+export type Take = { capture: Capture | null; problems: string[]; raw: unknown; replaces: boolean };
 
 type CaptureGlobal = {
   record: (

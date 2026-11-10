@@ -217,7 +217,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 49 | Chakra | A collapsed panel hidden with display: none was filmed as fully visible | A part with no box is filmed as unseen (D134) |
 | 50 | daisyUI | A card flip lost its front face's turn: rotateY(180deg) to rotateY(0deg) was taken as no change, 129 px off | Transforms must also agree as 3D matrices to be "no change" (D134) |
 
-## Eighth pass: speed while recording, and the parent's perspective (D135, D136)
+## Eighth pass: speed while recording, the parent's perspective, and Vercel's peel (D135 to D138)
 
 `node tests/freeze-sites.cjs` records real pages as the extension does (whole pages picked too) and times their frames; with PROFILE=1 it says which capture functions took the time.
 
@@ -226,6 +226,10 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 51 | framer.com, vanilla-tilt, Vercel | Reported: the page froze on hover and click while recording. The curve fit for script-driven motion took 55 ms per moving part, in the page, when each take ended | x1 and x2 searched, y1 and y2 solved exactly: 0.18 ms, and more curves found (D135) |
 | 52 | daisyUI | The card flip was drawn flat: 16 px off mid-turn | A parent's perspective is part of each shape (D136). Now within 0.1 px |
 | 53 | daisyUI | Both faces of the flip showed through the turn. The click itself switches which face hides its back | backface-visibility is read as each animation begins, and a face turned away is not drawn (D136) |
+| 54 | Vercel | Reported: a peeling card gave "Already running" and a merged hover out, not a hover in and a hover out | Script takes are cut where the pointer crosses the edge, never merged, and start where the last ended (D137) |
+| 55 | Vercel | Reported: the peeled flap had no shadow: a drop-shadow filter on its wrapper was cut by the flap's own clip | Filters act on a shape and its content once drawn (D138) |
+| 56 | Vercel | The flap was grey where the page's is white: the script rewrites its gradient as it peels | background-image is filmed and drawn (D138) |
+| 57 | Vercel | Reported: the grid of faint lines over the blue was missing. Only the most opaque gradient layer was drawn | Every layer is kept and drawn; repeating tiles as patterns (D138) |
 
 ## Known limits seen on real sites
 

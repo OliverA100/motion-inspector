@@ -38,6 +38,7 @@
     "filter": null,
     "inSvg": null,
     "gradient": null,
+    "gradients": null,
     "words": null,
     "icon": null,
     "children": [
@@ -75,6 +76,7 @@
         "filter": null,
         "inSvg": null,
         "gradient": null,
+        "gradients": null,
         "words": null,
         "icon": null,
         "children": []
@@ -217,13 +219,13 @@
           "opacity": 1
         },
         {
-          "t": 133.3,
+          "t": 133.2,
           "matrix": [
             1,
             0,
             0,
             1,
-            55.42,
+            55.37,
             0
           ],
           "taper": null,
@@ -243,13 +245,13 @@
           "opacity": 1
         },
         {
-          "t": 233.3,
+          "t": 233.2,
           "matrix": [
             1,
             0,
             0,
             1,
-            99.45,
+            99.42,
             0
           ],
           "taper": null,
@@ -282,13 +284,13 @@
           "opacity": 1
         },
         {
-          "t": 383.3,
+          "t": 383.2,
           "matrix": [
             1,
             0,
             0,
             1,
-            103.19,
+            103.2,
             0
           ],
           "taper": null,
@@ -301,7 +303,7 @@
             0,
             0,
             1,
-            98.93,
+            98.92,
             0
           ],
           "taper": null,
@@ -360,7 +362,7 @@
           "opacity": 1
         },
         {
-          "t": 683.2,
+          "t": 683.3,
           "matrix": [
             1,
             0,
@@ -373,7 +375,7 @@
           "opacity": 1
         },
         {
-          "t": 733.3,
+          "t": 733.2,
           "matrix": [
             1,
             0,
@@ -386,7 +388,7 @@
           "opacity": 1
         },
         {
-          "t": 783.3,
+          "t": 783.2,
           "matrix": [
             1,
             0,
@@ -399,7 +401,7 @@
           "opacity": 1
         },
         {
-          "t": 833.3,
+          "t": 833.2,
           "matrix": [
             1,
             0,

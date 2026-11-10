@@ -645,6 +645,30 @@ type FilmFrame = {
 };
 type Film = Map<Element, FilmFrame[]>;
 
+function sameFrame(one: FilmFrame, other: FilmFrame): boolean {
+  return (
+    Math.abs(one.opacity - other.opacity) <= 0.001 &&
+    one.matrix.every((value, index) => Math.abs(value - (other.matrix[index] ?? 0)) <= 0.001) &&
+    [0, 1].every(
+      (index) => Math.abs((one.taper?.[index] ?? 0) - (other.taper?.[index] ?? 0)) <= 0.000002,
+    ) &&
+    one.styles.every((text, index) => text === other.styles[index])
+  );
+}
+
+// Film up to its last change: a part held still at the end (the pointer
+// resting on a card) adds only time.
+function withoutStillEnd(frames: FilmFrame[]): FilmFrame[] {
+  let end = frames.length;
+  while (end > 1) {
+    const last = frames[end - 1];
+    const before = frames[end - 2];
+    if (last === undefined || before === undefined || !sameFrame(last, before)) break;
+    end -= 1;
+  }
+  return frames.slice(0, end);
+}
+
 const NUMBER = /-?\d*\.?\d+(?:e[+-]?\d+)?/g;
 
 // The numbers in a property's text over the film, with the text around them
@@ -1396,6 +1420,18 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   let samples: LayoutSample[] = [];
   let previousSamples: LayoutSample[] = [];
   let lastActivity = performance.now();
+  // The pointer crossing the element's edge. For parts a script moves, it
+  // cuts the takes: the motion on the way in is one take, the motion on
+  // the way out another, which starts where the first ended. When picking
+  // left the pointer on the element, the motion before it first leaves is
+  // dropped: it began before recording, so its start was missed.
+  const recordingStarted = asNumber(document.timeline.currentTime) ?? 0;
+  const onAtStart = snapshot.rootElement.matches(':hover');
+  let crossedYet = false;
+  const crossingsHandled = new WeakSet<PageEvent>();
+  // Where each part a script moved came to rest when its last take ended,
+  // so the next take, at the next crossing, starts from there.
+  let restingFrames = new Map<Element, FilmFrame>();
   // Film of the parts in the take, for motion no browser animation
   // describes: a script writing inline styles frame by frame.
   let film: Film = new Map();
@@ -1492,6 +1528,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // The last take that was sent on its own, in case the next one is its
   // way back.
   let previous: Seen[] | null = null;
+  // Whether that take had parts a script moved.
+  let previousScripted = false;
 
   // Takes cut off by a restart of the same property almost at once. A run
   // of them is a script restarting a transition every frame (found on
@@ -1499,6 +1537,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // or more becomes one take, the last, with a note. Fewer are sent as
   // usual: a quick hover-out is still its own take.
   const QUICK_MS = 100;
+  // A hovered part still this long, while the pointer moves, has arrived.
+  const SETTLED_MS = 400;
   let held: { take: Seen[]; samples: LayoutSample[]; film: Film; scripted: Set<Element> }[] = [];
   const clearFilm = (): void => {
     film = new Map();
@@ -1552,12 +1592,24 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     const finishedSamples = samples;
     const finishedFilm = film;
     const finishedScripted = scripted;
+    restingFrames = new Map();
+    for (const element of finishedScripted) {
+      const last = finishedFilm.get(element)?.at(-1);
+      if (last !== undefined) restingFrames.set(element, last);
+    }
     take = [];
     samples = [];
     clearFilm();
     // A hover and its leave are one motion: the leave is added to the take
     // it reverses, which is sent again to replace the first version.
+    // Not when a script moves parts in either: the way in and the way out
+    // are kept as two takes, the second starting where the first ended.
+    const scriptedNow = finishedScripted.size > 0;
+    const scriptedBefore = previousScripted;
+    previousScripted = scriptedNow;
     if (
+      !scriptedNow &&
+      !scriptedBefore &&
       previous !== null &&
       previous.length > 0 &&
       finished.length > 0 &&
@@ -1671,8 +1723,74 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     );
   };
 
+  // Ends the take at a crossing of the element's edge (at `time`), when a
+  // script is moving parts. Its film goes up to the crossing; the next
+  // take's starts with the last frame before it.
+  const cutAt = (time: number): void => {
+    // The next take starts from the state just before the crossing: a
+    // millisecond earlier, so a script's first write in the same frame is
+    // kept after it rather than written over it.
+    const seedTime = time - 1;
+    const first = !crossedYet;
+    crossedYet = true;
+    // A take is starting: not idle, or the seed would be cleared before the
+    // script's first write.
+    lastActivity = performance.now();
+    if (scripted.size === 0) {
+      for (const [element, frame] of restingFrames) {
+        if (!element.isConnected) continue;
+        film.set(element, [{ ...frame, time: seedTime }]);
+        scripted.add(element);
+      }
+      restingFrames = new Map();
+      return;
+    }
+    const before: Film = new Map();
+    const after: Film = new Map();
+    for (const [element, frames] of film) {
+      const there = frames.filter((frame) => frame.time <= time);
+      const last = there[there.length - 1];
+      before.set(element, withoutStillEnd(there));
+      after.set(element, [
+        ...(last === undefined ? [] : [{ ...last, time: seedTime }]),
+        ...frames.filter((frame) => frame.time > time),
+      ]);
+    }
+    const stillScripted = scripted;
+    const beganAtStart =
+      take.some((seen) => seen.runningAtPick) ||
+      Math.min(...Array.from(before.values()).flatMap((frames) => frames.map((f) => f.time))) <=
+        recordingStarted + 250;
+    if (first && onAtStart && beganAtStart) {
+      // The hover that picking started: not a take.
+      take = [];
+      samples = [];
+      clearFilm();
+    } else {
+      film = before;
+      // Kept apart: neither is the way back of the other in one take.
+      previous = null;
+      endTake();
+    }
+    previous = null;
+    film = after;
+    scripted = new Set(stillScripted);
+  };
+
   const onFrame = (): void => {
     const now = performance.now();
+    // The pointer crossed the element's edge since the last frame.
+    for (const event of pageEvents) {
+      if (event.time < recordingStarted || crossingsHandled.has(event)) continue;
+      crossingsHandled.add(event);
+      if (
+        (event.type === 'over' || event.type === 'out') &&
+        within(snapshot.rootElement, event.target) &&
+        !within(snapshot.rootElement, event.related)
+      ) {
+        cutAt(event.time);
+      }
+    }
     // Read everything new first. Several animations often start in the same
     // frame (one per property), and they must all be compared with the take
     // as it was before any of them.
@@ -1745,9 +1863,15 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // times a second.
     // A part a script moves stays in the take while the pointer is on it:
     // one that follows the pointer rests when the pointer does.
+    // Unless the part has been still for a while although the pointer
+    // kept moving over it: it does not follow the pointer, it has arrived
+    // (Vercel's peeled corner), and the way in is a take of its own.
+    const settled =
+      now - lastStyleChange > SETTLED_MS &&
+      pointerPath.some((move) => move.kind === 'move' && move.time > lastStyleChange + 100);
     const scriptActive =
       now - lastStyleChange < 150 ||
-      Array.from(scripted).some((element) => element.matches(':hover'));
+      (!settled && Array.from(scripted).some((element) => element.matches(':hover')));
     const docNow = asNumber(document.timeline.currentTime) ?? now;
     if (
       (take.length > 0 || scriptActive || scripted.size > 0) &&

@@ -202,6 +202,11 @@ export type Shape = {
   // (the background color, if any). A gradient that cannot be drawn this
   // way (repeating, conic) is null, and fill holds its average color.
   gradient: Gradient | null;
+  // Every gradient layer the preview can draw, the top one first, each with
+  // its own tile: the faint lines of a grid over a color (Vercel's
+  // blueprint cards). null when there is one at most: gradient has it.
+  // Older takes have only gradient.
+  gradients: Gradient[] | null;
   // For a line of text: where each word is, so the bar has the gaps of the
   // text. x is from the left of the box. Only boxes, never the words.
   // null draws one bar for the line.

@@ -668,7 +668,9 @@ test('icons too complex to copy are drawn as a mark in their own color', async (
     await new Promise((resolve) => setTimeout(resolve, 700));
     return window.MotionCapture.stop();
   });
-  const capture = captureOf(raw[0] ?? { capture: null, problems: ['no take'], raw: null });
+  const capture = captureOf(
+    raw[0] ?? { capture: null, problems: ['no take'], raw: null, replaces: false },
+  );
   const icon = flattenShapes(capture.root).find((shape) => shape.kind === 'image');
   expect(icon?.icon).toBeNull();
   expect(icon?.fill ?? icon?.stroke?.color).toBe('rgb(200, 0, 0)');
@@ -1233,7 +1235,10 @@ test('a card that tilts toward the pointer is captured as following it, with its
     1200,
   );
   const captures = takes.flatMap((take) => (take.capture === null ? [] : [take.capture]));
-  expect(captures).toHaveLength(1);
+  // The way in, which follows the pointer, and the way out, which settles
+  // back: two takes (D137).
+  expect(captures.map((item) => item.trigger)).toEqual(['hover', 'leave']);
+  expect(captures[1]?.follows).toBeNull();
   const capture = captures[0];
   const follow = capture?.follows?.[0];
   expect(follow).toBeDefined();
@@ -1331,4 +1336,42 @@ test("a card flip: each face carries its parent's perspective and hides its back
   // The parent itself is seen flat.
   expect(capture?.root.perspective).toBeNull();
   expect(capture?.root.backfaceHidden).toBe(false);
+});
+
+test('a script-moved hover and its leave are two takes, the leave starting where the hover ended', async ({
+  page,
+}) => {
+  const takes = await captureFixture(
+    page,
+    'peel',
+    async (p) => {
+      const card = p.locator('[data-fixture="peel"] [data-root]');
+      await card.scrollIntoViewIfNeeded();
+      const box = await card.boundingBox();
+      if (box === null) throw new Error('no card');
+      await p.mouse.move(box.x - 30, box.y + 20);
+      await p.mouse.move(box.x + 40, box.y + 40, { steps: 3 });
+      // Rest on it, with the small moves a hand makes.
+      for (let step = 0; step < 16; step += 1) {
+        await p.mouse.move(box.x + 40 + (step % 3), box.y + 40 + (step % 2));
+        await p.waitForTimeout(70);
+      }
+      await p.mouse.move(box.x - 30, box.y + 20, { steps: 3 });
+      await p.waitForTimeout(1200);
+    },
+    300,
+  );
+  const shown = takes.filter((take) => take.capture !== null);
+  expect(shown.map((take) => take.capture?.trigger)).toEqual(['hover', 'leave']);
+  // Kept apart: the second does not replace the first.
+  expect(shown.some((take) => take.replaces)).toBe(false);
+  const clips = shown.map((take) =>
+    take.capture?.tracks.find((track) => track.property === 'clip-path'),
+  );
+  const cut = (value: string | undefined): number =>
+    Number(/calc\(100% - ([\d.]+)px\), calc/.exec(value ?? '')?.[1]);
+  // In from 40 px to 120, back from 120 to 40.
+  expect(cut(clips[0]?.keyframes.at(-1)?.value)).toBeCloseTo(120, 0);
+  expect(cut(clips[1]?.keyframes[0]?.value)).toBeCloseTo(cut(clips[0]?.keyframes.at(-1)?.value), 1);
+  expect(cut(clips[1]?.keyframes.at(-1)?.value)).toBeCloseTo(40, 0);
 });

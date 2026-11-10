@@ -52,6 +52,7 @@
     "filter": null,
     "inSvg": null,
     "gradient": null,
+    "gradients": null,
     "words": null,
     "icon": null,
     "children": [
@@ -89,6 +90,7 @@
         "filter": null,
         "inSvg": null,
         "gradient": null,
+        "gradients": null,
         "words": [
           {
             "x": 0,
@@ -212,12 +214,12 @@
       "property": "transform",
       "origin": "css-transition",
       "groupId": "s0:transform",
-      "startOffset": 33.3,
+      "startOffset": 33.35,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.573857px)",
+          "value": "translateY(-0.574609px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -248,7 +250,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.65,
+        "duration": 51.71,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -269,12 +271,12 @@
       "property": "box-shadow",
       "origin": "css-transition",
       "groupId": "s0:box-shadow",
-      "startOffset": 50,
+      "startOffset": 49.95,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.216) 0px 2.43464px 6.017px 0px",
+          "value": "rgba(0, 0, 0, 0.216) 0px 2.43652px 6.02226px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -293,7 +295,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.65,
+        "duration": 51.71,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -357,7 +359,7 @@
           "opacity": 1
         },
         {
-          "t": 133.4,
+          "t": 133.3,
           "matrix": [
             1,
             0,
@@ -383,7 +385,7 @@
           "opacity": 1
         },
         {
-          "t": 233.3,
+          "t": 233.2,
           "matrix": [
             1,
             0,

@@ -52,6 +52,7 @@
     "filter": null,
     "inSvg": null,
     "gradient": null,
+    "gradients": null,
     "words": null,
     "icon": null,
     "children": [
@@ -89,6 +90,7 @@
         "filter": null,
         "inSvg": null,
         "gradient": null,
+        "gradients": null,
         "words": [
           {
             "x": 0,
@@ -307,7 +309,7 @@
           "opacity": 1
         },
         {
-          "t": 333.2,
+          "t": 333.3,
           "matrix": [
             1,
             0,

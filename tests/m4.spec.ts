@@ -693,10 +693,20 @@ test('edges are drawn: a one-sided border, an inner shadow, a ring', async ({ pa
         pink += 1;
       }
     }
+    // The grid: its green, and its lines, white over the green, drawn from
+    // two repeating gradient layers.
+    let green = 0;
+    let lines = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const [r = 0, g = 0, b = 0] = [data[index], data[index + 1], data[index + 2]];
+      if (Math.abs(r - 16) < 20 && Math.abs(g - 163) < 20 && Math.abs(b - 127) < 20) green += 1;
+      if (Math.abs(r - 207) < 25 && Math.abs(g - 237) < 18 && Math.abs(b - 229) < 18) lines += 1;
+    }
     return {
       line: { width: right - left, height: bottom - top },
       well: { darkest, lightest },
       pink,
+      grid: { green, lines },
     };
   });
   expect(found).not.toBeNull();
@@ -705,6 +715,8 @@ test('edges are drawn: a one-sided border, an inner shadow, a ring', async ({ pa
   expect(found?.line.width ?? 0).toBeGreaterThan((found?.line.height ?? 0) * 8);
   expect(found?.well.lightest ?? 0).toBeGreaterThan((found?.well.darkest ?? 255) + 40);
   expect(found?.pink ?? 0).toBeGreaterThan(50);
+  expect(found?.grid.green ?? 0).toBeGreaterThan(500);
+  expect(found?.grid.lines ?? 0).toBeGreaterThan((found?.grid.green ?? 0) / 10);
 });
 
 test("a card flip is drawn through its parent's perspective, each face only from the front", async ({

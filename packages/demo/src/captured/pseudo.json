@@ -38,6 +38,7 @@
     "filter": null,
     "inSvg": null,
     "gradient": null,
+    "gradients": null,
     "words": null,
     "icon": null,
     "children": [
@@ -75,6 +76,7 @@
         "filter": null,
         "inSvg": null,
         "gradient": null,
+        "gradients": null,
         "words": [
           {
             "x": 0,
@@ -129,6 +131,7 @@
         "filter": null,
         "inSvg": null,
         "gradient": null,
+        "gradients": null,
         "words": null,
         "icon": null,
         "children": []

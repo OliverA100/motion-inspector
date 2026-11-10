@@ -14,6 +14,45 @@ const anyNumber = fc.double({ noNaN: true, noDefaultInfinity: true });
 const zeroOrMore = fc.double({ min: 0, noNaN: true, noDefaultInfinity: true });
 const zeroToOne = fc.double({ min: 0, max: 1, noNaN: true });
 
+// One gradient layer, linear or radial.
+const anyGradient = fc.oneof(
+  fc.record({
+    kind: fc.constant('linear'),
+    angle: anyNumber,
+    stops: fc.array(fc.record({ color: fc.string(), at: zeroToOne }), {
+      minLength: 2,
+      maxLength: 4,
+    }),
+    tile: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        x: anyNumber,
+        y: anyNumber,
+        width: zeroOrMore,
+        height: zeroOrMore,
+        repeat: fc.boolean(),
+      }),
+    ),
+  }),
+  fc.record({
+    kind: fc.constant('radial'),
+    stops: fc.array(fc.record({ color: fc.string(), at: zeroToOne }), {
+      minLength: 2,
+      maxLength: 4,
+    }),
+    tile: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        x: anyNumber,
+        y: anyNumber,
+        width: zeroOrMore,
+        height: zeroOrMore,
+        repeat: fc.boolean(),
+      }),
+    ),
+  }),
+);
+
 function sortByInput<Point extends { input: number }>(points: Point[]): Point[] {
   return [...points].sort((first, second) => first.input - second.input);
 }
@@ -261,44 +300,8 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
       fc.constant(null),
       fc.array(fc.record({ x: anyNumber, width: zeroOrMore }), { maxLength: 4 }),
     ),
-    gradient: fc.oneof(
-      fc.constant(null),
-      fc.record({
-        kind: fc.constant('linear'),
-        angle: anyNumber,
-        stops: fc.array(fc.record({ color: fc.string(), at: zeroToOne }), {
-          minLength: 2,
-          maxLength: 4,
-        }),
-        tile: fc.oneof(
-          fc.constant(null),
-          fc.record({
-            x: anyNumber,
-            y: anyNumber,
-            width: zeroOrMore,
-            height: zeroOrMore,
-            repeat: fc.boolean(),
-          }),
-        ),
-      }),
-      fc.record({
-        kind: fc.constant('radial'),
-        stops: fc.array(fc.record({ color: fc.string(), at: zeroToOne }), {
-          minLength: 2,
-          maxLength: 4,
-        }),
-        tile: fc.oneof(
-          fc.constant(null),
-          fc.record({
-            x: anyNumber,
-            y: anyNumber,
-            width: zeroOrMore,
-            height: zeroOrMore,
-            repeat: fc.boolean(),
-          }),
-        ),
-      }),
-    ),
+    gradient: fc.oneof(fc.constant(null), anyGradient),
+    gradients: fc.oneof(fc.constant(null), fc.array(anyGradient, { minLength: 2, maxLength: 3 })),
     children,
   });
 }

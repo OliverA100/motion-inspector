@@ -38,6 +38,7 @@
     "filter": null,
     "inSvg": null,
     "gradient": null,
+    "gradients": null,
     "words": null,
     "icon": null,
     "children": []
@@ -317,7 +318,7 @@
       "shapeId": "s0",
       "frames": [
         {
-          "t": -16.7,
+          "t": -16.6,
           "matrix": [
             1,
             0,
@@ -330,7 +331,7 @@
           "opacity": 1
         },
         {
-          "t": 33.4,
+          "t": 33.3,
           "matrix": [
             1,
             0,
@@ -408,7 +409,7 @@
           "opacity": 1
         },
         {
-          "t": 333.3,
+          "t": 333.2,
           "matrix": [
             1,
             0,
@@ -447,7 +448,7 @@
           "opacity": 1
         },
         {
-          "t": 483.3,
+          "t": 483.2,
           "matrix": [
             1,
             0,
@@ -460,7 +461,7 @@
           "opacity": 1
         },
         {
-          "t": 533.2,
+          "t": 533.3,
           "matrix": [
             1,
             0,

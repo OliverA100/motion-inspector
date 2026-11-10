@@ -62,6 +62,8 @@ export const PREVIEWED_PROPERTIES = [
   'visibility',
   'background-position-x',
   'background-position-y',
+  // A linear gradient a script moves (drawn when it is one).
+  'background-image',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -366,6 +368,7 @@ function poseOf(
     visible: valueOf('visibility') !== 'hidden',
     backgroundX: firstLayer(valueOf('background-position-x')),
     backgroundY: firstLayer(valueOf('background-position-y')),
+    backgroundImage: valueOf('background-image'),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,

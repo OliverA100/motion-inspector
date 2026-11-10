@@ -14,6 +14,9 @@ import { captureFixture } from './capture-helpers';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const folder = resolve(here, '../packages/demo/src/captured');
+// UPDATE_SAMPLES=1 rewrites the samples. Run it with --workers=1: a worker
+// that writes its samples makes the dev server reload the pages other
+// workers are still recording on.
 const updating = process.env.UPDATE_SAMPLES === '1';
 
 const hover = async (page: Page, selector: string): Promise<void> => {

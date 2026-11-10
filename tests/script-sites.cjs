@@ -9,7 +9,8 @@
 const { readFileSync, mkdirSync, writeFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 const { chromium } = require('@playwright/test');
-const captureScript = readFileSync(resolve(__dirname, '../packages/capture/dist/capture.iife.js'), 'utf8');
+// CAPTURE=path runs another build of the capture script.
+const captureScript = readFileSync(process.env.CAPTURE ?? resolve(__dirname, '../packages/capture/dist/capture.iife.js'), 'utf8');
 const out = resolve(__dirname, '../real-sites-output/script');
 const EDITOR = 'http://localhost:5173';
 
@@ -25,7 +26,8 @@ const sites = [
       const heading = [...document.querySelectorAll('p')].find((p) => p.textContent === 'Backends');
       let card = heading;
       while (card?.parentElement && card.getBoundingClientRect().height < 300) card = card.parentElement;
-      card = card?.parentElement?.parentElement?.parentElement ?? null;
+      // The whole card: the link around it, as a person picks it.
+      card = heading?.closest('a') ?? card?.parentElement?.parentElement?.parentElement ?? null;
       card?.setAttribute('data-mi-target', '');
     },
     selector: '[data-mi-target]',

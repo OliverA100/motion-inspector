@@ -228,6 +228,27 @@ function PanelApp() {
     observer.observe(bar);
     return () => observer.disconnect();
   }, []);
+  // The More menu closes as menus do: a press anywhere outside it, or
+  // Escape, which gives focus back to its button.
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const onPress = (event: PointerEvent): void => {
+      const menu = menuRef.current;
+      if (menu?.open && !menu.contains(event.target as Node)) menu.open = false;
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      const menu = menuRef.current;
+      if (event.key !== 'Escape' || !menu?.open) return;
+      menu.open = false;
+      menu.querySelector('summary')?.focus();
+    };
+    document.addEventListener('pointerdown', onPress, true);
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPress, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }, []);
   const loaded = useRef(false);
   const [copied, setCopied] = useState('');
   // True while "Play the hover" is moving the pointer.
@@ -474,7 +495,7 @@ function PanelApp() {
             </>
           )}
         </div>
-        <details className="xp__menu">
+        <details className="xp__menu" ref={menuRef}>
           <summary aria-label="More" title="More">
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
               <circle cx="3.5" cy="8" r="1.3" fill="currentColor" />

@@ -6,7 +6,7 @@
 // image data from the page.
 
 import type { ShadowLayer } from '@motion-inspector/core';
-import { gradientColor, readGradient, type RawGradient } from './gradient';
+import { gradientColor, readGradient, readGradients, type RawGradient } from './gradient';
 import { readColor, readValue } from './readValue';
 
 // The properties the editor can preview. Their resting values are read for
@@ -85,6 +85,8 @@ export type RawShape = {
   // A gradient background, drawn with its direction. fill holds its
   // average color.
   gradient: RawGradient | null;
+  // Every layer, when there are several. Left out elsewhere.
+  gradients?: RawGradient[] | null;
   words: { x: number; width: number }[] | null;
   icon: RawIconPath[] | null;
   children: RawShape[];
@@ -816,14 +818,15 @@ function boxShape(
   // copied, so it is drawn as plain gray.
   // A gradient the preview draws keeps its stops; one it cannot draw
   // (repeating, conic) is drawn in its average color.
-  const drawable = hasBackgroundImage
-    ? readGradient(style.backgroundImage, rect, {
-        size: style.backgroundSize,
-        x: style.backgroundPositionX,
-        y: style.backgroundPositionY,
-        repeat: style.backgroundRepeat,
-      })
-    : null;
+  const sizing = {
+    size: style.backgroundSize,
+    x: style.backgroundPositionX,
+    y: style.backgroundPositionY,
+    repeat: style.backgroundRepeat,
+  };
+  const drawable = hasBackgroundImage ? readGradient(style.backgroundImage, rect, sizing) : null;
+  // Every layer, when there are several to draw.
+  const layers = hasBackgroundImage ? readGradients(style.backgroundImage, rect, sizing) : [];
   const gradient =
     hasBackgroundImage && drawable === null ? gradientColor(style.backgroundImage) : null;
   if (hasBackgroundImage && !hasColor && drawable === null) walk.flattenedBackground = true;
@@ -904,6 +907,7 @@ function boxShape(
     filter: style.filter === 'none' ? null : style.filter,
     inSvg: null,
     gradient: drawable,
+    gradients: layers.length > 1 ? layers : null,
     words: null,
     icon: null,
     children: [],
@@ -1735,7 +1739,8 @@ export function facesAway(matrix: DOMMatrix): boolean {
 
 // Other drawn properties a script may change frame by frame, filmed as
 // computed text: a corner peeled back by a clip-path (Vercel's cards), a
-// glow, a color, a sweep of a background.
+// glow, a color, a sweep of a background, a gradient that moves with a
+// fold (the shading of Vercel's peeled corner).
 export const FILMED_STYLES = [
   'clip-path',
   'filter',
@@ -1744,7 +1749,15 @@ export const FILMED_STYLES = [
   'background-position-y',
   'box-shadow',
   'color',
+  'background-image',
 ] as const;
+
+// A filmed style as computed text. A background image from a URL is page
+// image data and is never copied: only gradients are kept.
+function filmedText(style: CSSStyleDeclaration, property: string): string {
+  const text = style.getPropertyValue(property);
+  return property === 'background-image' && text.includes('url(') ? 'none' : text;
+}
 
 // One frame of film: an element's transform now, as it looks on the page
 // (flat, plus how a 3D turn tapers it, its parent's perspective included),
@@ -1793,7 +1806,7 @@ export function frameNow(element: Element): {
         : Number.isFinite(opacity)
           ? opacity
           : 1,
-    styles: FILMED_STYLES.map((property) => style.getPropertyValue(property)),
+    styles: FILMED_STYLES.map((property) => filmedText(style, property)),
   };
 }
 
