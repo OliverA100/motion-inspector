@@ -1,0 +1,189 @@
+{
+  "browserVersion": "158.0.8127.18",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.8127.18 Safari/537.36",
+  "records": [
+    {
+      "constructorName": "Animation",
+      "transitionProperty": null,
+      "animationName": null,
+      "id": "",
+      "target": {
+        "tag": "div",
+        "className": "fx-waapi",
+        "pathFromRoot": []
+      },
+      "pseudoElement": null,
+      "timelineType": "DocumentTimeline",
+      "playState": "running",
+      "startTime": null,
+      "currentTime": 0,
+      "firstSeenAtMs": 42.70000000298023,
+      "keyframes": [
+        {
+          "offset": 0,
+          "computedOffset": 0,
+          "easing": "linear",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "opacity",
+              "cssName": "opacity",
+              "value": "0.2"
+            }
+          ],
+          "typedOm": []
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "direction": "normal",
+        "duration": 600,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "auto",
+        "iterationStart": 0,
+        "iterations": 1
+      },
+      "computedTiming": {
+        "delay": 0,
+        "direction": "normal",
+        "duration": 600,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": 1,
+        "activeDuration": 600,
+        "currentIteration": 0,
+        "endTime": 600,
+        "localTime": 0,
+        "progress": 0
+      },
+      "transitionStyle": {
+        "property": "all",
+        "duration": "0s",
+        "delay": "0s",
+        "timingFunction": "ease"
+      },
+      "restingAtPick": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "translate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "rotate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "scale",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.9",
+            "computed": "0.9"
+          }
+        },
+        {
+          "cssName": "background-color",
+          "read": {
+            "resolved": "rgb(47, 111, 237)",
+            "computed": "rgb(47, 111, 237)"
+          }
+        },
+        {
+          "cssName": "border-top-color",
+          "read": {
+            "resolved": "rgb(28, 28, 28)",
+            "computed": "rgb(28, 28, 28)"
+          }
+        },
+        {
+          "cssName": "border-top-left-radius",
+          "read": {
+            "resolved": "8px",
+            "computed": "8px"
+          }
+        },
+        {
+          "cssName": "border-top-right-radius",
+          "read": {
+            "resolved": "8px",
+            "computed": "8px"
+          }
+        },
+        {
+          "cssName": "border-bottom-right-radius",
+          "read": {
+            "resolved": "8px",
+            "computed": "8px"
+          }
+        },
+        {
+          "cssName": "border-bottom-left-radius",
+          "read": {
+            "resolved": "8px",
+            "computed": "8px"
+          }
+        },
+        {
+          "cssName": "width",
+          "read": {
+            "resolved": "40px",
+            "computed": "40px"
+          }
+        },
+        {
+          "cssName": "height",
+          "read": {
+            "resolved": "40px",
+            "computed": "40px"
+          }
+        },
+        {
+          "cssName": "box-shadow",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        }
+      ],
+      "readAtFirstSight": [
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.2",
+            "computed": "0.2"
+          }
+        }
+      ],
+      "readAfterFinish": [
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "0.9",
+            "computed": "0.9"
+          }
+        }
+      ]
+    }
+  ],
+  "events": []
+}

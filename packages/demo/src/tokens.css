@@ -1,0 +1,58 @@
+/*
+  Design tokens. Every color, size, radius and duration lives here.
+  First draft (M1). The editor will share this file from M3 on.
+  Light and dark follow the system setting.
+*/
+
+:root {
+  color-scheme: light dark;
+
+  /* Neutral grays plus one accent */
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-border: #e4e4e4;
+  --color-text: #1c1c1c;
+  --color-text-muted: #6b6b6b;
+  --color-shape: #d4d4d4;
+  --color-accent: #2f6fed;
+  --color-on-accent: #ffffff;
+
+  /* 4 px spacing grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --hairline: 1px;
+
+  /* One UI font, one mono font, two weights, three sizes */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --weight-regular: 400;
+  --weight-medium: 550;
+  --text-small: 12px;
+  --text-body: 14px;
+  --text-title: 18px;
+
+  /* UI motion: short, one shared easing */
+  --duration-ui: 160ms;
+  --ease-ui: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #141414;
+    --color-surface: #1c1c1c;
+    --color-border: #2e2e2e;
+    --color-text: #ededed;
+    --color-text-muted: #9a9a9a;
+    --color-shape: #3d3d3d;
+    --color-accent: #6b9bff;
+    --color-on-accent: #0d1b3a;
+  }
+}

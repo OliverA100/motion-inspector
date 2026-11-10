@@ -1,0 +1,261 @@
+{
+  "browserVersion": "157.0.8103.79",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.8127.18 Safari/537.36",
+  "records": [
+    {
+      "constructorName": "CSSTransition",
+      "transitionProperty": "transform",
+      "animationName": null,
+      "id": "",
+      "target": {
+        "tag": "div",
+        "className": "fx-linear__box",
+        "pathFromRoot": [
+          0
+        ]
+      },
+      "pseudoElement": null,
+      "timelineType": "DocumentTimeline",
+      "playState": "running",
+      "startTime": null,
+      "currentTime": 0,
+      "firstSeenAtMs": 105.19999999552965,
+      "keyframes": [
+        {
+          "offset": 0,
+          "computedOffset": 0,
+          "easing": "linear",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "none"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSKeywordValue",
+                "text": "none"
+              }
+            }
+          ]
+        },
+        {
+          "offset": 1,
+          "computedOffset": 1,
+          "easing": "linear",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "translateX(96px)"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSTranslate",
+                    "x": {
+                      "value": 96,
+                      "unit": "px"
+                    },
+                    "y": {
+                      "value": 0,
+                      "unit": "px"
+                    },
+                    "z": {
+                      "value": 0,
+                      "unit": "px"
+                    },
+                    "is2D": true,
+                    "text": "translate(96px, 0px)"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "direction": "normal",
+        "duration": 700,
+        "easing": "linear(0 0%, 0.22 9%, 0.86 27%, 1.11 36%, 1.16 42%, 1.04 60%, 0.98 72%, 1 100%)",
+        "endDelay": 0,
+        "fill": "backwards",
+        "iterationStart": 0,
+        "iterations": 1
+      },
+      "computedTiming": {
+        "delay": 0,
+        "direction": "normal",
+        "duration": 700,
+        "easing": "linear(0 0%, 0.22 9%, 0.86 27%, 1.11 36%, 1.16 42%, 1.04 60%, 0.98 72%, 1 100%)",
+        "endDelay": 0,
+        "fill": "backwards",
+        "iterationStart": 0,
+        "iterations": 1,
+        "activeDuration": 700,
+        "currentIteration": 0,
+        "endTime": 700,
+        "localTime": 0,
+        "progress": 0
+      },
+      "transitionStyle": {
+        "property": "transform",
+        "duration": "0.7s",
+        "delay": "0s",
+        "timingFunction": "linear(0 0%, 0.22 9%, 0.86 27%, 1.11 36%, 1.16 42%, 1.04 60%, 0.98 72%, 1 100%)"
+      },
+      "restingAtPick": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "translate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "rotate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "scale",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "1",
+            "computed": "1"
+          }
+        },
+        {
+          "cssName": "background-color",
+          "read": {
+            "resolved": "rgb(47, 111, 237)",
+            "computed": "rgb(47, 111, 237)"
+          }
+        },
+        {
+          "cssName": "border-top-color",
+          "read": {
+            "resolved": "rgb(28, 28, 28)",
+            "computed": "rgb(28, 28, 28)"
+          }
+        },
+        {
+          "cssName": "border-top-left-radius",
+          "read": {
+            "resolved": "4px",
+            "computed": "4px"
+          }
+        },
+        {
+          "cssName": "border-top-right-radius",
+          "read": {
+            "resolved": "4px",
+            "computed": "4px"
+          }
+        },
+        {
+          "cssName": "border-bottom-right-radius",
+          "read": {
+            "resolved": "4px",
+            "computed": "4px"
+          }
+        },
+        {
+          "cssName": "border-bottom-left-radius",
+          "read": {
+            "resolved": "4px",
+            "computed": "4px"
+          }
+        },
+        {
+          "cssName": "width",
+          "read": {
+            "resolved": "32px",
+            "computed": "32px"
+          }
+        },
+        {
+          "cssName": "height",
+          "read": {
+            "resolved": "32px",
+            "computed": "32px"
+          }
+        },
+        {
+          "cssName": "box-shadow",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        }
+      ],
+      "readAtFirstSight": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(1, 0, 0, 1, 0, 0)",
+            "computed": "translate(0px, 0px)"
+          }
+        }
+      ],
+      "readAfterFinish": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(1, 0, 0, 1, 96, 0)",
+            "computed": "translate(96px, 0px)"
+          }
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "type": "transitionrun",
+      "name": "transform",
+      "elapsedTime": 0,
+      "atMs": 104.79999999701977,
+      "targetClassName": "fx-linear__box"
+    },
+    {
+      "type": "transitionstart",
+      "name": "transform",
+      "elapsedTime": 0,
+      "atMs": 104.79999999701977,
+      "targetClassName": "fx-linear__box"
+    },
+    {
+      "type": "transitionend",
+      "name": "transform",
+      "elapsedTime": 0.7,
+      "atMs": 804.8999999985099,
+      "targetClassName": "fx-linear__box"
+    }
+  ]
+}

@@ -1,0 +1,233 @@
+{
+  "browserVersion": "157.0.8103.79",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.8127.18 Safari/537.36",
+  "records": [
+    {
+      "constructorName": "CSSAnimation",
+      "transitionProperty": null,
+      "animationName": "fx-spin",
+      "id": "",
+      "target": {
+        "tag": "div",
+        "className": "fx-loader",
+        "pathFromRoot": []
+      },
+      "pseudoElement": null,
+      "timelineType": "DocumentTimeline",
+      "playState": "running",
+      "startTime": 125.91199999587843,
+      "currentTime": 50.08600000412156,
+      "firstSeenAtMs": 0.5,
+      "keyframes": [
+        {
+          "offset": 0,
+          "computedOffset": 0,
+          "easing": "linear",
+          "composite": "replace",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "none"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSKeywordValue",
+                "text": "none"
+              }
+            }
+          ]
+        },
+        {
+          "offset": 1,
+          "computedOffset": 1,
+          "easing": "linear",
+          "composite": "auto",
+          "properties": [
+            {
+              "name": "transform",
+              "cssName": "transform",
+              "value": "rotate(360deg)"
+            }
+          ],
+          "typedOm": [
+            {
+              "cssName": "transform",
+              "parsed": {
+                "type": "CSSTransformValue",
+                "components": [
+                  {
+                    "type": "CSSRotate",
+                    "angle": {
+                      "value": 360,
+                      "unit": "deg"
+                    },
+                    "x": {
+                      "value": 0,
+                      "unit": "number"
+                    },
+                    "y": {
+                      "value": 0,
+                      "unit": "number"
+                    },
+                    "z": {
+                      "value": 1,
+                      "unit": "number"
+                    },
+                    "is2D": true,
+                    "text": "rotate(360deg)"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "direction": "normal",
+        "duration": 900,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": "Infinity"
+      },
+      "computedTiming": {
+        "delay": 0,
+        "direction": "normal",
+        "duration": 900,
+        "easing": "linear",
+        "endDelay": 0,
+        "fill": "none",
+        "iterationStart": 0,
+        "iterations": "Infinity",
+        "activeDuration": "Infinity",
+        "currentIteration": 0,
+        "endTime": "Infinity",
+        "localTime": 50.08600000412156,
+        "progress": 0.05565111111569061
+      },
+      "transitionStyle": {
+        "property": "all",
+        "duration": "0s",
+        "delay": "0s",
+        "timingFunction": "ease"
+      },
+      "restingAtPick": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(0.939487, 0.342584, -0.342584, 0.939487, 0, 0)",
+            "computed": "rotate(20.0344deg)"
+          }
+        },
+        {
+          "cssName": "translate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "rotate",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "scale",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        },
+        {
+          "cssName": "opacity",
+          "read": {
+            "resolved": "1",
+            "computed": "1"
+          }
+        },
+        {
+          "cssName": "background-color",
+          "read": {
+            "resolved": "rgba(0, 0, 0, 0)",
+            "computed": "rgba(0, 0, 0, 0)"
+          }
+        },
+        {
+          "cssName": "border-top-color",
+          "read": {
+            "resolved": "rgb(47, 111, 237)",
+            "computed": "rgb(47, 111, 237)"
+          }
+        },
+        {
+          "cssName": "border-top-left-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-top-right-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-bottom-right-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "border-bottom-left-radius",
+          "read": {
+            "resolved": "50%",
+            "computed": "50%"
+          }
+        },
+        {
+          "cssName": "width",
+          "read": {
+            "resolved": "32px",
+            "computed": "32px"
+          }
+        },
+        {
+          "cssName": "height",
+          "read": {
+            "resolved": "32px",
+            "computed": "32px"
+          }
+        },
+        {
+          "cssName": "box-shadow",
+          "read": {
+            "resolved": "none",
+            "computed": "none"
+          }
+        }
+      ],
+      "readAtFirstSight": [
+        {
+          "cssName": "transform",
+          "read": {
+            "resolved": "matrix(0.939487, 0.342584, -0.342584, 0.939487, 0, 0)",
+            "computed": "rotate(20.0344deg)"
+          }
+        }
+      ],
+      "readAfterFinish": null
+    }
+  ],
+  "events": []
+}

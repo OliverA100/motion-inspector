@@ -1,0 +1,13 @@
+{
+  "name": "@motion-inspector/capture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:spike": "vite build --config vite.spike.config.ts"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}

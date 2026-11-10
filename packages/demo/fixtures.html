@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fixtures · Motion Inspector</title>
+    <link rel="stylesheet" href="/src/fixtures.css" />
+  </head>
+  <body>
+    <main class="page">
+      <h1>Fixtures</h1>
+      <p>Nine small animated components to test capture on.</p>
+
+      <div class="grid">
+        <section class="fixture" data-fixture="button-hover">
+          <header>
+            <h2>Button hover</h2>
+            <p>Transition on <code>transform</code> and <code>box-shadow</code></p>
+          </header>
+          <div class="fixture__stage">
+            <button class="fx-button" data-root type="button">Hover me</button>
+          </div>
+          <div class="fixture__controls">Hover the button</div>
+        </section>
+
+        <section class="fixture" data-fixture="card-lift">
+          <header>
+            <h2>Card lift</h2>
+            <p>Transition with an overshoot <code>cubic-bezier</code></p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-card" data-root>
+              <div class="fx-card__image"></div>
+              <div class="fx-card__line"></div>
+              <div class="fx-card__line fx-card__line--short"></div>
+            </div>
+          </div>
+          <div class="fixture__controls">Hover the card</div>
+        </section>
+
+        <section class="fixture" data-fixture="stagger-list">
+          <header>
+            <h2>Staggered list</h2>
+            <p>Transitions with a <code>transition-delay</code> per item</p>
+          </header>
+          <div class="fixture__stage">
+            <ul class="fx-list" data-root>
+              <li style="--i: 0"></li>
+              <li style="--i: 1"></li>
+              <li style="--i: 2"></li>
+              <li style="--i: 3"></li>
+            </ul>
+          </div>
+          <div class="fixture__controls">
+            <button class="trigger" data-trigger="toggle" type="button">Toggle</button>
+          </div>
+        </section>
+
+        <section class="fixture" data-fixture="loader">
+          <header>
+            <h2>Loader</h2>
+            <p>Infinite <code>@keyframes</code> animation, no start keyframe</p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-loader" data-root></div>
+          </div>
+          <div class="fixture__controls">Always running</div>
+        </section>
+
+        <section class="fixture" data-fixture="bounce">
+          <header>
+            <h2>Bounce</h2>
+            <p>Six keyframes, easing set per keyframe</p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-bounce" data-root>
+              <div class="fx-ball"></div>
+            </div>
+          </div>
+          <div class="fixture__controls">
+            <button class="trigger" data-trigger="play" type="button">Play</button>
+          </div>
+        </section>
+
+        <section class="fixture" data-fixture="steps">
+          <header>
+            <h2>Steps</h2>
+            <p>Keyframe animation with <code>steps(5, end)</code></p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-steps" data-root>
+              <div class="fx-steps__dot"></div>
+            </div>
+          </div>
+          <div class="fixture__controls">
+            <button class="trigger" data-trigger="play" type="button">Play</button>
+          </div>
+        </section>
+
+        <section class="fixture" data-fixture="linear-easing">
+          <header>
+            <h2>Linear easing</h2>
+            <p>Transition with a <code>linear()</code> spring curve</p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-linear" data-root>
+              <div class="fx-linear__box"></div>
+            </div>
+          </div>
+          <div class="fixture__controls">Hover the box</div>
+        </section>
+
+        <section class="fixture" data-fixture="web-animation">
+          <header>
+            <h2>Web animation</h2>
+            <p><code>element.animate()</code>, three variants</p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-waapi" data-root></div>
+          </div>
+          <div class="fixture__controls">
+            <button class="trigger" data-trigger="both-ends" type="button">Both ends</button>
+            <button class="trigger" data-trigger="start-missing" type="button">
+              Start missing
+            </button>
+            <button class="trigger" data-trigger="end-missing" type="button">End missing</button>
+          </div>
+        </section>
+
+        <section class="fixture" data-fixture="morph">
+          <header>
+            <h2>Color and radius morph</h2>
+            <p>Transition on <code>background-color</code> and <code>border-radius</code></p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-morph" data-root></div>
+          </div>
+          <div class="fixture__controls">Hover the square</div>
+        </section>
+      </div>
+    </main>
+
+    <script type="module" src="/src/fixtures.ts"></script>
+  </body>
+</html>
