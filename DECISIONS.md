@@ -834,6 +834,7 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - A part taken off the page is no longer sampled for layout, and where a sample has no box, the part is where it was last seen. MUI's removed ripple was read as moving to -385 px and shrinking to nothing: six "moved by layout" rows of noise.
 - A part is filmed from the first frame its animations are on screen: in the frame it appears, they may still be waiting to start, and it shows as it would at rest.
 - The self-check leaves out frames from before the take starts: the preview shows nothing there to compare.
+- A part that was seen when picked but had no shape of its own (a heading of text only) is given its shape as soon as it animates, from the box measured then, as a part made after the pick is. Measured at the end, it could be gone: Magic UI's rotating word fades out and is removed, and was "left out of the drawing".
 - A part still on the page but no longer drawn at the end of the take (display: none, by a class) is hidden from when it went, as a removed one is.
 **Why:** the full sweep, now 278 elements, all within 1.4 px but three: MUI's ripple (fixed), GitHub's dialog, and Stripe's caret (2 px). GitHub's dialog plays its 200 ms animation late and in steps over a second on that heavy page: the self-check is right to say the page did not play what its CSS says.
 

@@ -245,6 +245,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 70 | GitHub | A dialog checked 8 px off: the page played its 200 ms animation late and in steps over a second | The self-check is right; parts are now filmed only once their animations are on screen (D144) |
 | 71 | Editor | Playing NumberFlow's capture (30 tracks) with the CPU slowed four times: frames of 83 ms | The description is worked out per edit, not per frame: 33 ms (D145) |
 | 72 | Stripe | The nav caret, 2 px off in every sweep: translate set apart from an animated transform was dropped | translate, rotate and scale are kept with transform (D147): 0 px |
+| 73 | Magic UI | The rotating word's outgoing heading was "left out of the drawing": text only, and gone by the end of the take | Shaped as soon as it animates (D144) |
 
 After this pass the sweep checks 279 elements on 32 sites: all within 1.4 px of the page but GitHub's dialog, which the page plays late. Stripe's caret, the other, is fixed (72).
 

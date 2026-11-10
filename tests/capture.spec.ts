@@ -1526,3 +1526,24 @@ test('a part a script moves with the scroll is a "scroll" take', async ({ page }
   expect(capture.trigger).toBe('scroll');
   expect(capture.tracks.some((track) => track.origin === 'script')).toBe(true);
 });
+
+test('a text-only part that fades out and leaves keeps its fade', async ({ page }) => {
+  await openFixtures(page);
+  const takes = await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.cssText = 'position: fixed; left: 20px; top: 20px; width: 160px; height: 60px';
+    const word = document.createElement('h3');
+    word.textContent = 'Word';
+    host.append(word);
+    document.body.append(host);
+    window.MotionCapture.record(host);
+    // As Magic UI's rotating word: fade out, then taken away.
+    await word.animate({ opacity: [1, 0] }, { duration: 250, fill: 'forwards' }).finished;
+    word.remove();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    return window.MotionCapture.stop();
+  });
+  const capture = captureOf(takes.find((take) => take.capture !== null) ?? takes[0]);
+  expect(capture.notShown.join(' ')).not.toContain('left out of the simplified drawing');
+  expect(capture.tracks.map((track) => track.property)).toContain('opacity');
+});

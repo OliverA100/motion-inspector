@@ -2186,10 +2186,13 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // ends, and then it could not be. Parts that were there but hidden (a
     // panel about to open) are measured at the end, when their size is known.
     for (const seen of fresh) {
+      // So is one that was there and seen when picked but had no shape of
+      // its own (a heading of text only, faded out and then removed: Magic
+      // UI's rotating word): its box is the one measured then.
       if (
         seen.pseudoElement === null &&
         seen.onDocumentTimeline &&
-        !existedAtPick.has(seen.target) &&
+        (!existedAtPick.has(seen.target) || snapshot.boxAtPick.has(seen.target)) &&
         snapshot.rootElement.contains(seen.target)
       ) {
         addLateShape(snapshot, seen.target);
