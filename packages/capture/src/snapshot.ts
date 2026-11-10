@@ -44,16 +44,27 @@ export type RawShape = {
   box: { x: number; y: number; width: number; height: number };
   radius: [number, number, number, number];
   fill: string | null;
-  stroke: { color: string; width: number } | null;
+  stroke: { color: string; width: number; sides: [string, string, string, string] | null } | null;
   opacity: number;
   transformOrigin: { x: number; y: number };
   clip: boolean;
+  icon: RawIconPath[] | null;
   children: RawShape[];
+};
+
+export type RawIconPath = {
+  d: string;
+  matrix: [number, number, number, number, number, number];
+  fill: string | null;
+  stroke: { color: string; width: number; cap: string; join: string } | null;
+  followsText: boolean;
 };
 
 export type Snapshot = {
   root: RawShape;
   rootElement: Element;
+  // The color of the page behind the picked element.
+  backdrop: string;
   selector: string;
   // Which shape each element became. Elements that are not here were left out.
   shapeIdOf: Map<Element, string>;
@@ -148,8 +159,43 @@ function layoutPosition(element: HTMLElement): { x: number; y: number } {
 
 // The layout box of an element, relative to the root element.
 // Falls back to the drawn box for things that have no layout offsets (SVG).
+// How much larger an element is drawn than its layout size, from transforms
+// on it or on its parents (a hero that is tilted and scaled, for example).
+// On-screen distances are divided by this to get layout distances.
+function drawnScale(element: Element): number {
+  if (!(element instanceof HTMLElement) || element.offsetWidth === 0) return 1;
+  const drawn = element.getBoundingClientRect().width;
+  return drawn > 0 ? drawn / element.offsetWidth : 1;
+}
+
+function nearestHtmlParent(element: Element): HTMLElement | null {
+  // parentElement is typed HTMLElement, but inside SVG it is an SVG element.
+  let current: Element | null = element.parentElement;
+  while (current !== null && !(current instanceof HTMLElement)) current = current.parentElement;
+  return current instanceof HTMLElement ? current : null;
+}
+
 function layoutBox(element: Element, walk: Walk): Box {
   const root = walk.rootElement;
+  // SVG has no layout offsets. It is placed by how far it is drawn from its
+  // nearest HTML parent, scaled back to layout size, from that parent's
+  // layout box. Using its on-screen position directly put icons in the wrong
+  // place inside a tilted page (found on a real site).
+  if (!(element instanceof HTMLElement) && root instanceof HTMLElement) {
+    const anchor = nearestHtmlParent(element);
+    if (anchor !== null) {
+      const anchorBox = layoutBox(anchor, walk);
+      const scale = drawnScale(anchor);
+      const drawn = element.getBoundingClientRect();
+      const drawnAnchor = anchor.getBoundingClientRect();
+      return {
+        x: anchorBox.x + (drawn.left - drawnAnchor.left) / scale,
+        y: anchorBox.y + (drawn.top - drawnAnchor.top) / scale,
+        width: drawn.width / scale,
+        height: drawn.height / scale,
+      };
+    }
+  }
   if (element instanceof HTMLElement && root instanceof HTMLElement) {
     const own = layoutPosition(element);
     const origin = layoutPosition(root);
@@ -177,7 +223,6 @@ type Walk = {
   count: number;
   leftOut: number;
   flattenedBackground: boolean;
-  unevenBorder: boolean;
   // The shape made for each element, to adjust after the walk.
   shapeOf: Map<Element, RawShape>;
   // How many shapes may be made in this walk.
@@ -207,6 +252,179 @@ function readResting(element: Element): Map<string, string> {
   );
 }
 
+// ---------- Icons ----------
+
+// What an icon is made of. <text> is left out: page text is never copied.
+const GEOMETRY = 'path, circle, ellipse, rect, line, polyline, polygon';
+// Parts of an SVG that define things rather than draw them.
+const NOT_DRAWN = 'defs, clipPath, mask, symbol, marker, pattern';
+const MOST_ICON_PATHS = 16;
+const LONGEST_PATH_DATA = 8000;
+
+function length(value: SVGAnimatedLength): number {
+  return value.baseVal.value;
+}
+
+// The outline of one SVG part as path data, or null.
+function pathDataOf(element: Element, style: CSSStyleDeclaration): string | null {
+  if (element instanceof SVGPathElement) {
+    // CSS can set the path (the d property). Chrome then reports path("...").
+    const fromCss = /^path\("(.*)"\)$/.exec(style.getPropertyValue('d'));
+    return fromCss?.[1] ?? element.getAttribute('d');
+  }
+  if (element instanceof SVGCircleElement || element instanceof SVGEllipseElement) {
+    const cx = length(element.cx);
+    const cy = length(element.cy);
+    const rx = element instanceof SVGCircleElement ? length(element.r) : length(element.rx);
+    const ry = element instanceof SVGCircleElement ? length(element.r) : length(element.ry);
+    if (rx <= 0 || ry <= 0) return null;
+    return `M${cx - rx} ${cy}A${rx} ${ry} 0 1 0 ${cx + rx} ${cy}A${rx} ${ry} 0 1 0 ${cx - rx} ${cy}Z`;
+  }
+  if (element instanceof SVGRectElement) {
+    const x = length(element.x);
+    const y = length(element.y);
+    const width = length(element.width);
+    const height = length(element.height);
+    if (width <= 0 || height <= 0) return null;
+    const rx = Math.min(length(element.rx) || length(element.ry), width / 2);
+    const ry = Math.min(length(element.ry) || length(element.rx), height / 2);
+    if (rx <= 0 || ry <= 0) return `M${x} ${y}H${x + width}V${y + height}H${x}Z`;
+    return (
+      `M${x + rx} ${y}H${x + width - rx}A${rx} ${ry} 0 0 1 ${x + width} ${y + ry}` +
+      `V${y + height - ry}A${rx} ${ry} 0 0 1 ${x + width - rx} ${y + height}` +
+      `H${x + rx}A${rx} ${ry} 0 0 1 ${x} ${y + height - ry}V${y + ry}A${rx} ${ry} 0 0 1 ${x + rx} ${y}Z`
+    );
+  }
+  if (element instanceof SVGLineElement) {
+    return `M${length(element.x1)} ${length(element.y1)}L${length(element.x2)} ${length(element.y2)}`;
+  }
+  if (element instanceof SVGPolylineElement || element instanceof SVGPolygonElement) {
+    const points = Array.from(element.points, (point) => `${point.x} ${point.y}`);
+    if (points.length < 2) return null;
+    return `M${points.join('L')}${element instanceof SVGPolygonElement ? 'Z' : ''}`;
+  }
+  return null;
+}
+
+function paintOf(value: string): string | null {
+  // A gradient or pattern fill is reported as url(...). It is drawn in the
+  // text color instead, which is what most icon sets fall back to.
+  if (value === 'none' || value === '') return null;
+  return value;
+}
+
+// The outline of every part of an SVG icon, or null when it cannot be
+// copied: parts reused with <use>, nested SVGs, or too much detail. Those
+// are drawn as a simple mark instead.
+function iconPaths(svg: SVGSVGElement): RawIconPath[] | null {
+  if (svg.querySelector('use, foreignObject, image, svg') !== null) return null;
+  const parts = Array.from(svg.querySelectorAll(GEOMETRY)).filter(
+    (part) => part.closest(NOT_DRAWN) === null,
+  );
+  if (parts.length === 0 || parts.length > MOST_ICON_PATHS) return null;
+  const textColor = getComputedStyle(svg).color;
+  const paths: RawIconPath[] = [];
+  for (const part of parts) {
+    if (!(part instanceof SVGGraphicsElement)) return null;
+    const style = getComputedStyle(part);
+    if (style.display === 'none' || style.visibility === 'hidden') continue;
+    const d = pathDataOf(part, style);
+    // The matrix from the part's coordinates to the SVG's own box, in px.
+    // It includes the viewBox and any transform inside the SVG, but not CSS
+    // transforms on the SVG or its parents, which the preview applies itself.
+    const ctm = part.getCTM();
+    if (d === null || d.length > LONGEST_PATH_DATA || ctm === null) return null;
+    const fillValue = style.fill.startsWith('url(') ? textColor : paintOf(style.fill);
+    const strokeValue = style.stroke.startsWith('url(') ? textColor : paintOf(style.stroke);
+    const strokeWidth = parseFloat(style.strokeWidth);
+    paths.push({
+      d,
+      matrix: [ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f],
+      fill: fillValue,
+      stroke:
+        strokeValue === null || !(strokeWidth > 0)
+          ? null
+          : {
+              color: strokeValue,
+              width: strokeWidth,
+              cap: style.strokeLinecap,
+              join:
+                style.strokeLinejoin === 'round' || style.strokeLinejoin === 'bevel'
+                  ? style.strokeLinejoin
+                  : 'miter',
+            },
+      followsText: fillValue === textColor || strokeValue === textColor,
+    });
+  }
+  return paths.length > 0 ? paths : null;
+}
+
+function originOf(style: CSSStyleDeclaration, box: Box): { x: number; y: number } {
+  const [x, y] = style.transformOrigin.split(' ').map(parseFloat);
+  return {
+    x: Number.isFinite(x) ? (x ?? 0) : box.width / 2,
+    y: Number.isFinite(y) ? (y ?? 0) : box.height / 2,
+  };
+}
+
+// An SVG icon is drawn from its own outline, in its own colors, so an arrow
+// previews as an arrow (found on a real site, where icons were gray squares
+// that hid both their color and their movement). Only the geometry is
+// copied. When the outline cannot be copied, it is drawn as a simple mark:
+// a dot for a filled icon, a ring for an outlined one.
+function iconShape(element: Element, style: CSSStyleDeclaration, rect: Box, id: string): RawShape {
+  const opacity = Math.min(Math.max(parseFloat(style.opacity), 0), 1);
+  const paths = element instanceof SVGSVGElement ? iconPaths(element) : null;
+  if (paths !== null) {
+    return {
+      id,
+      label: labelOf(element),
+      kind: 'image',
+      box: rect,
+      radius: [0, 0, 0, 0],
+      fill: null,
+      stroke: null,
+      opacity,
+      transformOrigin: originOf(style, rect),
+      clip: false,
+      icon: paths,
+      children: [],
+    };
+  }
+  // The colors are those of the first part drawn inside, since an <svg>
+  // element's own fill is black unless something sets it.
+  const firstPart = Array.from(element.querySelectorAll(`${GEOMETRY}, use`)).find(
+    (part) => part.closest(NOT_DRAWN) === null,
+  );
+  const paint = firstPart === undefined ? style : getComputedStyle(firstPart);
+  const filled = paint.fill !== 'none' && paint.fill !== '' && !paint.fill.startsWith('url(');
+  const stroked =
+    paint.stroke !== 'none' && paint.stroke !== '' && !paint.stroke.startsWith('url(');
+  const color = filled ? paint.fill : stroked ? paint.stroke : style.color;
+  const size = Math.max(4, Math.min(rect.width, rect.height) * 0.45);
+  return {
+    id,
+    label: labelOf(element),
+    kind: 'image',
+    box: {
+      x: rect.x + (rect.width - size) / 2,
+      y: rect.y + (rect.height - size) / 2,
+      width: size,
+      height: size,
+    },
+    radius: [size / 2, size / 2, size / 2, size / 2],
+    fill: filled || !stroked ? color : null,
+    stroke: !filled && stroked ? { color, width: Math.max(1.5, size / 8), sides: null } : null,
+    opacity,
+    transformOrigin: { x: size / 2, y: size / 2 },
+    clip: false,
+    icon: null,
+    children: [],
+  };
+}
+
+// ---------- Boxes ----------
+
 function boxShape(
   walk: Walk,
   element: Element,
@@ -220,16 +438,17 @@ function boxShape(
   // A gradient or picture cannot be a flat fill. It is drawn as plain gray.
   if (hasBackgroundImage && !hasColor) walk.flattenedBackground = true;
   const borderWidth = parseFloat(style.borderTopWidth);
-  // A shape has one border color. A border with a different color on each
-  // side (a spinner with one colored edge) is drawn in the top color only.
-  if (
-    borderWidth > 0 &&
-    [style.borderRightColor, style.borderBottomColor, style.borderLeftColor].some(
-      (color) => color !== style.borderTopColor,
-    )
-  ) {
-    walk.unevenBorder = true;
-  }
+  // A border with a different color on each side keeps each color. A
+  // spinner is a ring with one side transparent: drawn in one color, it was
+  // a full ring whose turning could not be seen (found on a real site).
+  const sides: [string, string, string, string] = [
+    style.borderTopColor,
+    style.borderRightColor,
+    style.borderBottomColor,
+    style.borderLeftColor,
+  ];
+  const uneven = sides.some((color) => color !== style.borderTopColor);
+  const shownSide = sides.find(isVisibleColor);
   const origin = style.transformOrigin.split(' ').map((part) => parseFloat(part));
   const corner = (value: string): number => radiusOf(value, rect.width, rect.height);
   return {
@@ -251,12 +470,13 @@ function boxShape(
           ? UNKNOWN_FILL
           : null,
     stroke:
-      borderWidth > 0 && style.borderTopStyle !== 'none' && isVisibleColor(style.borderTopColor)
-        ? { color: style.borderTopColor, width: borderWidth }
+      borderWidth > 0 && style.borderTopStyle !== 'none' && shownSide !== undefined
+        ? { color: shownSide, width: borderWidth, sides: uneven ? sides : null }
         : null,
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
     transformOrigin: { x: origin[0] ?? rect.width / 2, y: origin[1] ?? rect.height / 2 },
     clip: style.overflowX !== 'visible' || style.overflowY !== 'visible',
+    icon: null,
     children: [],
   };
 }
@@ -274,6 +494,7 @@ function textBars(
   // far it is from its parent as drawn, added to the parent's layout box.
   // If the parent is moved by a transform, that movement cancels out.
   const drawnParent = parent.element.getBoundingClientRect();
+  const scale = drawnScale(parent.element);
   const range = document.createRange();
   range.selectNodeContents(node);
   return Array.from(range.getClientRects()).flatMap((rect, index): RawShape[] => {
@@ -284,15 +505,15 @@ function textBars(
     }
     walk.count += 1;
     // A bar half as tall as the line, in the middle of it.
-    const height = rect.height / 2;
+    const height = rect.height / scale / 2;
     const bar: RawShape = {
       id: `${parentId}.t${walk.count}-${index}`,
       label: 'text',
       kind: 'text',
       box: {
-        x: parent.box.x + (rect.left - drawnParent.left),
-        y: parent.box.y + (rect.top - drawnParent.top) + height / 2,
-        width: rect.width,
+        x: parent.box.x + (rect.left - drawnParent.left) / scale,
+        y: parent.box.y + (rect.top - drawnParent.top) / scale + height / 2,
+        width: rect.width / scale,
         height,
       },
       radius: [height / 2, height / 2, height / 2, height / 2],
@@ -301,6 +522,7 @@ function textBars(
       opacity: 1,
       transformOrigin: { x: rect.width / 2, y: height / 2 },
       clip: false,
+      icon: null,
       children: [],
     };
     walk.ownerOf.set(bar, parent.element);
@@ -346,7 +568,12 @@ function shapesFor(
     return [];
   }
   const id = getsShape ? (isRoot ? 's0' : `${parentId}.${walk.count}`) : parentId;
-  const shape = getsShape ? boxShape(walk, element, style, rect, id, isImage) : null;
+  const isIcon = element.tagName.toLowerCase() === 'svg';
+  const shape = !getsShape
+    ? null
+    : isIcon
+      ? iconShape(element, style, rect, id)
+      : boxShape(walk, element, style, rect, id, isImage);
   if (shape !== null) {
     walk.count += 1;
     walk.snapshot.shapeIdOf.set(element, id);
@@ -401,6 +628,35 @@ export function cssName(name: string): string {
   return name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 }
 
+// The color of the page behind an element: what is drawn under its middle,
+// skipping the element itself and parents that paint nothing. This finds a
+// card the element sits on even when the card is not one of its parents.
+// A photo or gradient behind it is given a neutral gray: its pixels are
+// never copied. Pages are white when nothing sets a color.
+function backdropOf(element: Element): string {
+  const rect = element.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  const onScreen = x >= 0 && y >= 0 && x < window.innerWidth && y < window.innerHeight;
+  const below = onScreen
+    ? document.elementsFromPoint(x, y).filter((item) => !element.contains(item))
+    : [];
+  let current = element.parentElement;
+  while (current !== null) {
+    if (!below.includes(current)) below.push(current);
+    current = current.parentElement;
+  }
+  for (const item of below) {
+    if (IMAGE_TAGS.includes(item.tagName.toLowerCase()) && item.tagName.toLowerCase() !== 'svg') {
+      return IMAGE_FILL;
+    }
+    const style = getComputedStyle(item);
+    if (isVisibleColor(style.backgroundColor)) return style.backgroundColor;
+    if (style.backgroundImage !== 'none') return IMAGE_FILL;
+  }
+  return 'rgb(255, 255, 255)';
+}
+
 export function takeSnapshot(rootElement: Element): Snapshot {
   const walk: Walk = {
     rootElement,
@@ -408,7 +664,6 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     count: 0,
     leftOut: 0,
     flattenedBackground: false,
-    unevenBorder: false,
     shapeOf: new Map(),
     limit: MOST_SHAPES,
     readsResting: true,
@@ -437,16 +692,32 @@ export function takeSnapshot(rootElement: Element): Snapshot {
 
   // A shape's opacity is its resting opacity. If the opacity was already
   // animating when it was read, the number is wherever the animation
-  // happened to be, not a resting value. Such a shape is drawn at full
-  // opacity, and its track takes it from there.
+  // happened to be, not a resting value. A running transition knows where
+  // it started, which is the value before the trigger, so that is used.
+  // This matters when recording moves to a parent in the middle of a hover:
+  // an arrow waiting to fade in was drawn fully visible (found on a real
+  // site). Anything else is drawn at full opacity, and its track takes it
+  // from there.
+  const startedFrom = new Map<Element, number>();
+  for (const animation of animationsUnder(rootElement, walk.snapshot.shadowRoots)) {
+    const effect = animation.effect;
+    if (!(animation instanceof CSSTransition) || animation.transitionProperty !== 'opacity')
+      continue;
+    if (!(effect instanceof KeyframeEffect) || effect.target === null) continue;
+    const from = Number(effect.getKeyframes()[0]?.['opacity']);
+    if (Number.isFinite(from)) startedFrom.set(effect.target, Math.min(Math.max(from, 0), 1));
+  }
   for (const [element, properties] of animatingAtPick) {
     const shape = walk.shapeOf.get(element);
-    if (shape !== undefined && properties.has('opacity')) shape.opacity = 1;
+    if (shape !== undefined && properties.has('opacity')) {
+      shape.opacity = startedFrom.get(element) ?? 1;
+    }
   }
 
   return {
     root,
     rootElement,
+    backdrop: backdropOf(rootElement),
     runningAtPick,
     shapeOf: walk.shapeOf,
     boxAtPick: walk.boxAtPick,
@@ -462,11 +733,6 @@ export function takeSnapshot(rootElement: Element): Snapshot {
         : []),
       ...(walk.flattenedBackground
         ? ['A gradient or image background is drawn as a flat gray fill.']
-        : []),
-      ...(walk.unevenBorder
-        ? [
-            'A border with a different color on each side is drawn in one color, so a rotation of that shape may not be visible in the preview.',
-          ]
         : []),
     ],
   };
@@ -496,7 +762,6 @@ function lateWalk(snapshot: Snapshot): Walk {
     count,
     leftOut: 0,
     flattenedBackground: false,
-    unevenBorder: false,
     shapeOf: snapshot.shapeOf,
     limit: count + LATE_SHAPES,
     readsResting: false,

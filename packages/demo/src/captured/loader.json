@@ -23,7 +23,13 @@
     "fill": null,
     "stroke": {
       "color": "rgb(47, 111, 237)",
-      "width": 3
+      "width": 3,
+      "sides": [
+        "rgb(47, 111, 237)",
+        "rgb(212, 212, 212)",
+        "rgb(212, 212, 212)",
+        "rgb(212, 212, 212)"
+      ]
     },
     "opacity": 1,
     "transformOrigin": {
@@ -31,6 +37,7 @@
       "y": 16
     },
     "clip": false,
+    "icon": null,
     "children": []
   },
   "tracks": [
@@ -86,7 +93,6 @@
       }
     }
   ],
-  "notShown": [
-    "A border with a different color on each side is drawn in one color, so a rotation of that shape may not be visible in the preview."
-  ]
+  "backdrop": "rgb(255, 255, 255)",
+  "notShown": []
 }

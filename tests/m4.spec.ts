@@ -187,11 +187,11 @@ test('rows from one animation move together until one is unlinked', async ({ pag
 test('a fade is drawn to its full value, whatever the resting opacity', async ({ page }) => {
   // The list items rest at opacity 0.2 and fade to 1. The preview once
   // multiplied the two, and the items never got past 0.2.
-  // Of the pixels that are painted at all, how many are almost fully
-  // opaque. At the end the rows are at opacity 1: nearly all of them (98%
-  // when measured). With the bug the rows stop at opacity 0.2: almost none
-  // (2%). Comparing the start with the end is not enough: the bug also makes
-  // the end more opaque than the start.
+  // The rows are gray (212) on the page's white. Of the pixels that differ
+  // from the white at all, how many are the full gray. At the end the rows
+  // are at opacity 1: nearly all of them. With the bug the rows stop at
+  // opacity 0.2, about 246: almost none. The backdrop is left out of the
+  // count, since it is solid either way.
   await page.goto('/?sample=stagger-list&time=480&quiet');
   await page.waitForTimeout(200);
   const share = await page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
@@ -199,13 +199,52 @@ test('a fade is drawn to its full value, whatever the resting opacity', async ({
     if (context === null) return 0;
     const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
     let painted = 0;
-    let solid = 0;
-    for (let index = 3; index < data.length; index += 4) {
-      const alpha = data[index] ?? 0;
-      if (alpha > 0) painted += 1;
-      if (alpha > 200) solid += 1;
+    let full = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const red = data[index] ?? 0;
+      const green = data[index + 1] ?? 0;
+      const blue = data[index + 2] ?? 0;
+      const gray = Math.abs(red - green) < 6 && Math.abs(green - blue) < 6;
+      if (!gray || red > 250) continue;
+      painted += 1;
+      if (red <= 222) full += 1;
     }
-    return solid / Math.max(painted, 1);
+    return full / Math.max(painted, 1);
   });
-  expect(share).toBeGreaterThan(0.9);
+  expect(share).toBeGreaterThan(0.8);
+});
+
+test('icons are drawn from their outlines, and a hidden parent hides what is inside it', async ({
+  page,
+}) => {
+  // The icon button: a white arrow on a dark circle slides out, a near-black
+  // arrow (#111) slides in on a white circle. Count near-black pixels: the
+  // dark circle over the card is about 70, so only the incoming arrow is
+  // this dark.
+  const nearBlack = (time: number) =>
+    page.goto(`/?sample=icon-button&time=${time}&quiet`).then(async () => {
+      await page.waitForTimeout(200);
+      return page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+        const context = canvas.getContext('2d');
+        if (context === null) return -1;
+        const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+        let count = 0;
+        for (let index = 0; index < data.length; index += 4) {
+          if (
+            (data[index] ?? 255) < 40 &&
+            (data[index + 1] ?? 255) < 40 &&
+            (data[index + 2] ?? 255) < 40
+          ) {
+            count += 1;
+          }
+        }
+        return count;
+      });
+    });
+  // At the start, the incoming arrow's span is at opacity 0. Its SVG is at
+  // opacity 1 itself, but must not be drawn (it once was).
+  expect(await nearBlack(0)).toBe(0);
+  // At the end it is fully shown, drawn as an arrow in its own color (an
+  // icon was once a gray square).
+  expect(await nearBlack(900)).toBeGreaterThan(30);
 });

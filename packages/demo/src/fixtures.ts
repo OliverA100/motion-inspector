@@ -124,3 +124,11 @@ onTrigger(panelFixture, 'toggle', () => {
   panel.style.height = opening ? `${panel.scrollHeight}px` : '0px';
   panel.addEventListener('transitionend', done, { once: true });
 });
+
+// 16. Icon button. After the first hover, the outgoing arrow rests at
+// "none" instead of "translate(0px) rotate(0deg)": the same place, written
+// another way.
+const iconButton = inside(fixture('icon-button'), '.fx-icon-button');
+iconButton.addEventListener('mouseenter', () => iconButton.classList.add('was-hovered'), {
+  once: true,
+});

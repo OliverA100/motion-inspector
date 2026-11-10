@@ -28,6 +28,7 @@
       "y": 44
     },
     "clip": false,
+    "icon": null,
     "children": [
       {
         "id": "s0.1",
@@ -53,6 +54,7 @@
           "y": 12
         },
         "clip": false,
+        "icon": null,
         "children": []
       }
     ]
@@ -210,5 +212,6 @@
       }
     }
   ],
+  "backdrop": "rgb(255, 255, 255)",
   "notShown": []
 }

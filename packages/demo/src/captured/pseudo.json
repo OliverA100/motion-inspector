@@ -28,6 +28,7 @@
       "y": 12.15
     },
     "clip": false,
+    "icon": null,
     "children": [
       {
         "id": "s0.t2-0",
@@ -35,29 +36,31 @@
         "kind": "text",
         "box": {
           "x": 0,
-          "y": 5.25,
-          "width": 63.77,
-          "height": 8.5
+          "y": 5.27,
+          "width": 64,
+          "height": 8.53
         },
         "radius": [
-          4.25,
-          4.25,
-          4.25,
-          4.25
+          4.27,
+          4.27,
+          4.27,
+          4.27
         ],
         "fill": "rgb(28, 28, 28)",
         "stroke": null,
         "opacity": 1,
         "transformOrigin": {
           "x": 31.88,
-          "y": 4.25
+          "y": 4.27
         },
         "clip": false,
+        "icon": null,
         "children": []
       }
     ]
   },
   "tracks": [],
+  "backdrop": "rgb(255, 255, 255)",
   "notShown": [
     "An animation on ::after of span.fx-pseudo is not shown, because it runs on a pseudo-element, which has no shape of its own."
   ]

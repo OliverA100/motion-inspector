@@ -108,6 +108,15 @@ const samples: Sample[] = [
   },
   { id: 'shadow', fixture: 'shadow', trigger: hover, recordMs: 700, take: 0, repeatable: true },
   { id: 'pseudo', fixture: 'pseudo', trigger: hover, recordMs: 700, take: 0, repeatable: true },
+  // Recording moves from the picked arrows to the button that holds them.
+  {
+    id: 'icon-button',
+    fixture: 'icon-button',
+    trigger: hover,
+    recordMs: 1000,
+    take: 0,
+    repeatable: true,
+  },
   {
     id: 'interrupted',
     fixture: 'button-hover',

@@ -151,6 +151,33 @@ function rawTrack(shapeIds: string[]): fc.Arbitrary<unknown> {
 
 type RawShape = { id: string; children: RawShape[] };
 
+// Path data from the commands and numbers SVG allows.
+const pathData = fc
+  .array(
+    fc.tuple(
+      fc.constantFrom('M', 'L', 'h', 'v', 'C', 'a', 'Z'),
+      fc.array(anyNumber, { maxLength: 4 }),
+    ),
+    { maxLength: 6 },
+  )
+  .map((parts) => parts.map(([command, numbers]) => `${command}${numbers.join(' ')}`).join(' '));
+
+const iconPath = fc.record({
+  d: pathData,
+  matrix: fc.tuple(anyNumber, anyNumber, anyNumber, anyNumber, anyNumber, anyNumber),
+  fill: fc.oneof(fc.constant(null), fc.string()),
+  stroke: fc.oneof(
+    fc.constant(null),
+    fc.record({
+      color: fc.string(),
+      width: zeroOrMore,
+      cap: fc.constantFrom('butt', 'round', 'square'),
+      join: fc.constantFrom('miter', 'round', 'bevel'),
+    }),
+  ),
+  followsText: fc.boolean(),
+});
+
 function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
   return fc.record({
     id: fc.constant(''),
@@ -159,10 +186,21 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
     box: fc.record({ x: anyNumber, y: anyNumber, width: zeroOrMore, height: zeroOrMore }),
     radius: fc.tuple(zeroOrMore, zeroOrMore, zeroOrMore, zeroOrMore),
     fill: fc.oneof(fc.constant(null), fc.string()),
-    stroke: fc.oneof(fc.constant(null), fc.record({ color: fc.string(), width: zeroOrMore })),
+    stroke: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        color: fc.string(),
+        width: zeroOrMore,
+        sides: fc.oneof(
+          fc.constant(null),
+          fc.tuple(fc.string(), fc.string(), fc.string(), fc.string()),
+        ),
+      }),
+    ),
     opacity: zeroToOne,
     transformOrigin: fc.record({ x: anyNumber, y: anyNumber }),
     clip: fc.boolean(),
+    icon: fc.oneof(fc.constant(null), fc.array(iconPath, { minLength: 1, maxLength: 3 })),
     children,
   });
 }
@@ -191,6 +229,7 @@ export const rawCapture: fc.Arbitrary<unknown> = rawRoot
       source: fc.record({ url: fc.string(), selector: fc.string(), capturedAt: fc.string() }),
       root: fc.constant(root),
       tracks: fc.array(rawTrack(idsOf(root)), { maxLength: 6 }),
+      backdrop: fc.oneof(fc.constant(null), fc.string()),
       notShown: fc.array(fc.string(), { maxLength: 3 }),
     }),
   );

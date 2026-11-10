@@ -28,31 +28,33 @@
       "y": 18.15
     },
     "clip": false,
+    "icon": null,
     "children": [
       {
         "id": "s0.t2-0",
         "label": "text",
         "kind": "text",
         "box": {
-          "x": 16,
-          "y": 13.25,
-          "width": 63.77,
-          "height": 8.5
+          "x": 16.04,
+          "y": 13.28,
+          "width": 63.92,
+          "height": 8.52
         },
         "radius": [
-          4.25,
-          4.25,
-          4.25,
-          4.25
+          4.26,
+          4.26,
+          4.26,
+          4.26
         ],
         "fill": "rgb(255, 255, 255)",
         "stroke": null,
         "opacity": 1,
         "transformOrigin": {
           "x": 31.88,
-          "y": 4.25
+          "y": 4.26
         },
         "clip": false,
+        "icon": null,
         "children": []
       }
     ]
@@ -170,7 +172,7 @@
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.227) 0px 3.67535px 9.49098px 0px",
+          "value": "rgba(0, 0, 0, 0.227) 0px 3.67528px 9.49079px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -215,7 +217,7 @@
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-1.07014px)",
+          "value": "translateY(-1.07011px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -263,5 +265,6 @@
       }
     }
   ],
+  "backdrop": "rgb(255, 255, 255)",
   "notShown": []
 }

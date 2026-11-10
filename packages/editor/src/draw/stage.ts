@@ -1,5 +1,6 @@
 // Draws the simplified component: boxes, bars for text, flat boxes for
-// images. Child shapes move inside their parent's transform.
+// images, and icons from their own outlines. Child shapes move inside their
+// parent's transform.
 
 import type { Shape, ShapeId } from '@motion-inspector/core';
 import type { Size } from '../pieces/Canvas';
@@ -42,6 +43,9 @@ export type StageData = {
   // The ghost trail: the poses of every shape at several moments. Only the
   // selected shape is drawn from each. Empty when the trail is off.
   ghosts: Pose[][];
+  // The color of the page behind the component, painted behind it. null
+  // leaves the stage's own background.
+  backdrop: string | null;
   theme: Theme;
 };
 
@@ -67,15 +71,22 @@ function shapePath(context: CanvasRenderingContext2D, shape: Shape, pose: Pose |
 // for the shape and for each child. Children inherit the transform.
 // textColor is the nearest animated text color above this shape. CSS color
 // is inherited, so a text bar takes it from whichever parent animates it.
+// alpha is the shape's opacity times its parents' opacities: in CSS, a
+// parent's opacity fades everything inside it (found on a real site, where
+// an arrow inside a hidden span was drawn).
 function walk(
   context: CanvasRenderingContext2D,
   shape: Shape,
   poses: Pose[],
-  paint: (shape: Shape, pose: Pose | null, textColor: string | null) => void,
+  paint: (shape: Shape, pose: Pose | null, textColor: string | null, alpha: number) => void,
   textColor: string | null = null,
+  parentAlpha = 1,
 ): void {
   const pose = poses.find((candidate) => candidate.shapeId === shape.id) ?? null;
   const inherited = pose?.textColor ?? textColor;
+  // An animated opacity is the element's opacity at that moment. It
+  // replaces the resting one, it does not multiply it.
+  const alpha = parentAlpha * (pose?.opacity ?? shape.opacity);
   context.save();
   if (pose !== null && pose.matrix !== null) {
     const originX = shape.box.x + shape.transformOrigin.x;
@@ -84,7 +95,7 @@ function walk(
     context.transform(...pose.matrix);
     context.translate(-originX, -originY);
   }
-  paint(shape, pose, inherited);
+  paint(shape, pose, inherited, alpha);
   // A shape that cuts off its content, or whose size is animating, clips
   // its children. The second case covers accordions and drawers: CSS adds
   // overflow: hidden only while they animate, so it is not there when the
@@ -93,8 +104,87 @@ function walk(
     shapePath(context, shape, pose);
     context.clip();
   }
-  for (const child of shape.children) walk(context, child, poses, paint, inherited);
+  for (const child of shape.children) walk(context, child, poses, paint, inherited, alpha);
   context.restore();
+}
+
+// One side of a shape's outline, for a border whose sides differ in color.
+// As in CSS, a side runs to the middle of each corner it meets. Sides are
+// 0 top, 1 right, 2 bottom, 3 left.
+function sidePath(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  side: number,
+): void {
+  const { x, y } = shape.box;
+  const width = Math.max(pose?.width ?? shape.box.width, 0);
+  const height = Math.max(pose?.height ?? shape.box.height, 0);
+  const radii = (pose?.radius ?? shape.radius).map((value) => Math.max(value, 0));
+  const [topLeft = 0, topRight = 0, bottomRight = 0, bottomLeft = 0] = radii;
+  // Radii that do not fit are scaled down together, as the browser does.
+  const fit = Math.min(
+    1,
+    width / Math.max(topLeft + topRight, 1e-9),
+    width / Math.max(bottomLeft + bottomRight, 1e-9),
+    height / Math.max(topLeft + bottomLeft, 1e-9),
+    height / Math.max(topRight + bottomRight, 1e-9),
+  );
+  // Each corner: its center, radius, and the angle where its arc begins.
+  const corners = [
+    { cx: x + topLeft * fit, cy: y + topLeft * fit, r: topLeft * fit, start: Math.PI },
+    {
+      cx: x + width - topRight * fit,
+      cy: y + topRight * fit,
+      r: topRight * fit,
+      start: Math.PI * 1.5,
+    },
+    {
+      cx: x + width - bottomRight * fit,
+      cy: y + height - bottomRight * fit,
+      r: bottomRight * fit,
+      start: 0,
+    },
+    {
+      cx: x + bottomLeft * fit,
+      cy: y + height - bottomLeft * fit,
+      r: bottomLeft * fit,
+      start: Math.PI / 2,
+    },
+  ];
+  const from = corners[side];
+  const to = corners[(side + 1) % 4];
+  if (from === undefined || to === undefined) return;
+  const eighth = Math.PI / 4;
+  context.beginPath();
+  context.arc(from.cx, from.cy, from.r, from.start + eighth, from.start + 2 * eighth);
+  context.arc(to.cx, to.cy, to.r, to.start, to.start + eighth);
+}
+
+// An icon's outline, in the shape's own coordinates. Parts drawn in the
+// text color follow an animated text color above them, as on the page.
+function drawIcon(context: CanvasRenderingContext2D, shape: Shape, textColor: string | null): void {
+  if (shape.icon === null) return;
+  for (const part of shape.icon) {
+    const color = (own: string): string =>
+      part.followsText && textColor !== null ? textColor : own;
+    context.save();
+    context.translate(shape.box.x, shape.box.y);
+    context.transform(...part.matrix);
+    const path = new Path2D(part.d);
+    if (part.fill !== null) {
+      context.fillStyle = color(part.fill);
+      context.fill(path);
+    }
+    if (part.stroke !== null) {
+      context.strokeStyle = color(part.stroke.color);
+      context.lineWidth = part.stroke.width;
+      context.lineCap = part.stroke.cap;
+      context.lineJoin = part.stroke.join;
+      context.stroke(path);
+    }
+    context.restore();
+  }
 }
 
 function drawFilled(
@@ -105,10 +195,8 @@ function drawFilled(
   theme: Theme,
   scale: number,
 ): void {
-  walk(context, root, poses, (shape, pose, textColor) => {
-    // An animated opacity is the element's opacity at that moment. It
-    // replaces the resting one, it does not multiply it.
-    context.globalAlpha = pose?.opacity ?? shape.opacity;
+  walk(context, root, poses, (shape, pose, textColor, alpha) => {
+    context.globalAlpha = alpha;
     shapePath(context, shape, pose);
     const fill =
       shape.kind === 'text' && textColor !== null ? textColor : (pose?.fill ?? shape.fill);
@@ -124,11 +212,21 @@ function drawFilled(
       context.fill();
       context.shadowColor = 'transparent';
     }
-    if (shape.stroke !== null) {
+    if (shape.stroke !== null && shape.stroke.sides !== null && pose?.strokeColor == null) {
+      context.lineWidth = shape.stroke.width;
+      shape.stroke.sides.forEach((color, side) => {
+        sidePath(context, shape, pose, side);
+        context.strokeStyle = color;
+        context.stroke();
+      });
+      // The selection outline below follows the whole shape again.
+      shapePath(context, shape, pose);
+    } else if (shape.stroke !== null) {
       context.strokeStyle = pose?.strokeColor ?? shape.stroke.color;
       context.lineWidth = shape.stroke.width;
       context.stroke();
     }
+    drawIcon(context, shape, pose?.textColor ?? textColor);
     context.globalAlpha = 1;
     if (shape.id === selectedShapeId) {
       context.strokeStyle = theme.accent;
@@ -292,8 +390,15 @@ function caption(context: CanvasRenderingContext2D, theme: Theme, text: string, 
   context.fillText(text, x + 12, 10);
 }
 
+function paintBackdrop(context: CanvasRenderingContext2D, data: StageData, area: Area): void {
+  if (data.backdrop === null) return;
+  context.fillStyle = data.backdrop;
+  context.fillRect(area.x, area.y, area.width, area.height);
+}
+
 export function drawStage(context: CanvasRenderingContext2D, data: StageData, size: Size): void {
   const { root, theme } = data;
+  paintBackdrop(context, data, mineArea(data.compare, size));
   if (data.compare === 'overlay') {
     inArea(context, root, mineArea('overlay', size), (scale) => drawMine(context, data, scale));
     return;
@@ -302,6 +407,7 @@ export function drawStage(context: CanvasRenderingContext2D, data: StageData, si
   const half = size.width / 2;
   // The two halves start below their captions.
   const height = size.height - CAPTION_HEIGHT;
+  paintBackdrop(context, data, { x: 0, y: CAPTION_HEIGHT, width: half, height });
   inArea(context, root, { x: 0, y: CAPTION_HEIGHT, width: half, height }, (scale) => {
     drawFilled(context, root, data.original, null, theme, scale);
   });

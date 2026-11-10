@@ -115,9 +115,35 @@ No crash on any page, and every capture passed core's checks before and after.
 **Cause:** the preview multiplied the resting opacity by the animated one. My hand-made samples all rested at opacity 1, so it never showed until a real capture.
 **Fix:** the animated opacity replaces the resting one. The test for it was first written wrong (it passed with the bug); it now checks that it fails when the bug is put back.
 
+## Second pass: a user's own site (oliverhassan.dev)
+
+Found from a screen recording the user sent of the extension on their portfolio: a round arrow button on a tilted card. The preview showed gray boxes, no circles, misplaced icons, and several identical takes for one hover. Checked afterwards with `node tests/compare.cjs oliverhassan`, which photographs the real page and the preview at the same six moments: they now match frame for frame. A fixture shaped like the button (`icon-button`) and tests cover each fix.
+
+### 9. A hover and its leave were separate takes (D102)
+**Cause:** values compared as text: Tailwind's spelled-out resting transform against Chrome's `none`.
+**Fix:** values are compared by meaning.
+
+### 10. Icons were gray squares, in the wrong place (D98)
+**Cause:** SVG was drawn as a flat image box, placed by its on-screen position, which inside a tilted, scaled card is not its layout position.
+**Fix:** icons are drawn from their outlines in their own colors. SVG and text are placed relative to their nearest HTML parent, with on-screen distances divided by how much that parent is scaled.
+
+### 11. The circles next to the arrows were missing, or recording jumped to a huge parent (D101)
+**Fix:** recording moves to the nearby parent when something next to the pick starts at the same moment, never to a parent much larger than the pick.
+
+### 12. An arrow waiting to slide in was drawn (two causes)
+**Cause 1:** after recording moved to the parent mid-hover, the arrow's resting opacity was read while it was already fading, and set to 1. **Fix:** a running transition's start value is used, which is the value before the trigger.
+**Cause 2:** the preview drew each shape at its own opacity, ignoring its parents'. In CSS a parent's opacity fades everything inside it. **Fix:** opacities multiply down the tree (an animated opacity still replaces the same shape's resting one).
+
+### 13. The button was shown on the wrong background (D99)
+**Fix:** the preview is painted on the color drawn behind the element.
+
+### 14. Bootstrap's spinner did not visibly turn (D100)
+**Fix:** each border side keeps its own color.
+
 ## Known limits seen on real sites
 
 - **Siblings do not reflow.** When a panel grows, the items below it stay where they were in the preview. The preview has no layout engine.
-- **Images and gradients are flat gray**, so two slides of a carousel look the same.
-- **A multi-colored border is drawn in one color**, so a spinner with one colored edge does not visibly turn.
+- **Images and gradients are flat gray**, so two slides of a carousel look the same. Image data is never copied.
+- **Text is drawn as bars.** Page text is never copied.
+- **A toggle's knob drawn as a background image** (Bootstrap's switch) is not shown.
 - **SVG animations (SMIL) and JavaScript-driven animations are not captured.**

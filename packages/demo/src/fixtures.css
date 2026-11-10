@@ -501,3 +501,99 @@ fx-shadow-card {
     transform: translate3d(0, 0, 0);
   }
 }
+
+/* 16. Icon button. Shaped like one found on a real site: a round button on
+   a tilted, scaled card. The arrows are SVG paths. The circles are siblings
+   of the arrows, so picking the arrows must still bring them in. The
+   outgoing arrow's resting transform is written two ways that mean the
+   same thing (as Tailwind does), so the hover and the leave only match when
+   values are compared by meaning. */
+
+.fx-tilted-card {
+  display: grid;
+  place-items: center;
+  width: 160px;
+  height: 110px;
+  border-radius: var(--radius-2);
+  background: #e8e2d8;
+  transform: rotate(-6deg) scale(1.25);
+}
+
+.fx-icon-button {
+  position: relative;
+  display: flex;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.fx-icon-button__dark,
+.fx-icon-button__light {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transition: transform 400ms ease-out;
+}
+
+.fx-icon-button__dark {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.fx-icon-button__light {
+  background: #ffffff;
+  transform: scale(0);
+}
+
+.fx-icon-button:hover .fx-icon-button__dark {
+  transform: scale(0);
+}
+
+.fx-icon-button:hover .fx-icon-button__light {
+  transform: scale(1);
+}
+
+.fx-icon-button__arrows {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.fx-icon-button__out,
+.fx-icon-button__in {
+  position: absolute;
+  display: flex;
+  transition:
+    transform 400ms ease-out,
+    opacity 400ms ease-out;
+}
+
+.fx-icon-button__out {
+  color: #ffffff;
+  transform: translate(0px) rotate(0deg);
+}
+
+.fx-icon-button.was-hovered:not(:hover) .fx-icon-button__out {
+  transform: none;
+}
+
+.fx-icon-button:hover .fx-icon-button__out {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.fx-icon-button__in {
+  color: #111111;
+  transform: translateX(-100%);
+  opacity: 0;
+  transition-delay: 100ms;
+}
+
+.fx-icon-button:hover .fx-icon-button__in {
+  transform: translateX(0);
+  opacity: 1;
+}

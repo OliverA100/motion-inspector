@@ -28,31 +28,33 @@
       "y": 18.15
     },
     "clip": false,
+    "icon": null,
     "children": [
       {
         "id": "s0.t2-0",
         "label": "text",
         "kind": "text",
         "box": {
-          "x": 16,
-          "y": 13.25,
-          "width": 63.77,
-          "height": 8.5
+          "x": 16.04,
+          "y": 13.28,
+          "width": 63.92,
+          "height": 8.52
         },
         "radius": [
-          4.25,
-          4.25,
-          4.25,
-          4.25
+          4.26,
+          4.26,
+          4.26,
+          4.26
         ],
         "fill": "rgb(255, 255, 255)",
         "stroke": null,
         "opacity": 1,
         "transformOrigin": {
           "x": 31.88,
-          "y": 4.25
+          "y": 4.26
         },
         "clip": false,
+        "icon": null,
         "children": []
       }
     ]
@@ -161,5 +163,6 @@
       }
     }
   ],
+  "backdrop": "rgb(255, 255, 255)",
   "notShown": []
 }

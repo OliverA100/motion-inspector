@@ -13,6 +13,7 @@ import linearEasingJson from './captured/linear-easing.json';
 import loaderJson from './captured/loader.json';
 import morphJson from './captured/morph.json';
 import popJson from './captured/pop.json';
+import iconButtonJson from './captured/icon-button.json';
 import pseudoJson from './captured/pseudo.json';
 import shadowJson from './captured/shadow.json';
 import staggerListJson from './captured/stagger-list.json';
@@ -142,6 +143,7 @@ export const samples: { id: string; name: string; capture: Capture }[] = [
   { id: 'shadow', name: 'Shadow root', capture: captured(shadowJson) },
   { id: 'interrupted', name: 'Interrupted hover', capture: captured(interruptedJson) },
   { id: 'pseudo', name: 'Pseudo-element (not shown)', capture: captured(pseudoJson) },
+  { id: 'icon-button', name: 'Icon button', capture: captured(iconButtonJson) },
   { id: 'hundred', name: 'Stress: 100 tracks', capture: hundredTracks },
   { id: 'nothing', name: 'Stress: nothing captured', capture: nothingCaptured },
 ];

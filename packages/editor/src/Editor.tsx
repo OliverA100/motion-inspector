@@ -283,6 +283,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               hoveredShapeId={model.hoveredShapeId}
               ghostTrail={model.ghostTrail}
               ghosts={ghosts}
+              backdrop={edited.backdrop}
               onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
               onGhostTrailChange={(on) => dispatch({ kind: 'ghostTrailSet', on })}
               onShowOriginalChange={(show) => dispatch({ kind: 'originalShown', show })}

@@ -219,6 +219,53 @@
             <button class="trigger" data-trigger="toggle" type="button">Open or close</button>
           </div>
         </section>
+
+        <section class="fixture" data-fixture="icon-button">
+          <header>
+            <h2>Icon button</h2>
+            <p>
+              A round button on a tilted card. On hover one arrow slides out and another slides in,
+              while two circles <em>next to</em> the arrows swap. Pick the arrows.
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-tilted-card">
+              <span class="fx-icon-button">
+                <span class="fx-icon-button__dark"></span>
+                <span class="fx-icon-button__light"></span>
+                <span class="fx-icon-button__arrows" data-root>
+                  <span class="fx-icon-button__out"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      width="24"
+                      height="24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="square"
+                    >
+                      <path d="M4 12h12" />
+                      <path d="M12 6l6 6-6 6" /></svg
+                  ></span>
+                  <span class="fx-icon-button__in"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      width="24"
+                      height="24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="square"
+                    >
+                      <path d="M4 12h12" />
+                      <path d="M12 6l6 6-6 6" /></svg
+                  ></span>
+                </span>
+              </span>
+            </div>
+          </div>
+          <div class="fixture__controls">Hover the button</div>
+        </section>
       </div>
     </main>
 

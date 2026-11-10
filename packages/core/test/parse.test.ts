@@ -31,6 +31,43 @@ describe('parseCapture', () => {
     );
   });
 
+  test('takes saved before icons, sides and the backdrop were read still load', () => {
+    const old = JSON.parse(JSON.stringify(cardLift)) as Record<string, unknown>;
+    delete old['backdrop'];
+    const strip = (shape: Record<string, unknown>): void => {
+      delete shape['icon'];
+      const stroke = shape['stroke'] as Record<string, unknown> | null;
+      if (stroke !== null) delete stroke['sides'];
+      (shape['children'] as Record<string, unknown>[]).forEach(strip);
+    };
+    strip(old['root'] as Record<string, unknown>);
+    const parsed = parseCapture(old);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.backdrop).toBeNull();
+      expect(parsed.value.root.icon).toBeNull();
+    }
+  });
+
+  test('icon path data holds only path commands and numbers, and stays small', () => {
+    const withIcon = (d: string, parts = 1) => {
+      const raw = JSON.parse(JSON.stringify(cardLift)) as { root: Record<string, unknown> };
+      raw.root['icon'] = Array.from({ length: parts }, () => ({
+        d,
+        matrix: [1, 0, 0, 1, 0, 0],
+        fill: '#000',
+        stroke: null,
+        followsText: false,
+      }));
+      return parseCapture(raw);
+    };
+    expect(withIcon('M 4 12 H 16').ok).toBe(true);
+    expect(withIcon('M 4 12 url(#x)').ok).toBe(false);
+    expect(withIcon('<script>').ok).toBe(false);
+    expect(withIcon('M0 0'.repeat(3000)).ok).toBe(false);
+    expect(withIcon('M0 0', 17).ok).toBe(false);
+  });
+
   test('a valid capture comes back unchanged from JSON', () => {
     fc.assert(
       fc.property(capture, (value) => {

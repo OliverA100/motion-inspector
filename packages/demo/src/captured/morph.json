@@ -28,6 +28,7 @@
       "y": 28
     },
     "clip": false,
+    "icon": null,
     "children": []
   },
   "tracks": [
@@ -293,5 +294,6 @@
       }
     }
   ],
+  "backdrop": "rgb(255, 255, 255)",
   "notShown": []
 }

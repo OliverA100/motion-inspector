@@ -66,7 +66,7 @@ function shape(
     box: { x: look.x ?? 0, y: look.y ?? 0, width, height },
     radius: [radius, radius, radius, radius],
     fill: look.fill === undefined ? ACCENT : look.fill,
-    stroke: look.stroke === undefined ? null : { color: look.stroke, width: 1 },
+    stroke: look.stroke === undefined ? null : { color: look.stroke, width: 1, sides: null },
     opacity: 1,
     transformOrigin: { x: width / 2, y: height / 2 },
     clip: false,

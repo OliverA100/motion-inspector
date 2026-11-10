@@ -23,6 +23,7 @@ import type {
   Capture,
   Easing,
   GroupId,
+  IconPath,
   Iterations,
   Keyframe,
   ParsedValue,
@@ -365,13 +366,38 @@ function parseFill(value: unknown): Result<string | null> {
   return value === null ? ok(null) : text(value);
 }
 
+type Sides = [string, string, string, string];
+
+function parseSides(value: unknown): Result<Sides> {
+  return andThen(listOf(value, text), (colors): Result<Sides> => {
+    const [top, right, bottom, left] = colors;
+    if (
+      colors.length !== 4 ||
+      top === undefined ||
+      right === undefined ||
+      bottom === undefined ||
+      left === undefined
+    ) {
+      return fail('Expected 4 colors, one per side.');
+    }
+    return ok([top, right, bottom, left]);
+  });
+}
+
 function parseStroke(value: unknown): Result<Shape['stroke']> {
   if (value === null) return ok(null);
   return andThen(fields(value), (source) => {
     const color = at('color', text(get(source, 'color')));
     const width = at('width', notNegative(get(source, 'width')));
-    if (!color.ok || !width.ok) return failAll([...errorsOf(color), ...errorsOf(width)]);
-    return ok({ color: color.value, width: width.value });
+    // Takes saved before sides were read have none. They still load.
+    const rawSides = get(source, 'sides');
+    const sides = at(
+      'sides',
+      rawSides === undefined || rawSides === null ? ok(null) : parseSides(rawSides),
+    );
+    if (!color.ok || !width.ok || !sides.ok)
+      return failAll([color, width, sides].flatMap(errorsOf));
+    return ok({ color: color.value, width: width.value, sides: sides.value });
   });
 }
 
@@ -382,6 +408,85 @@ function parsePoint2d(value: unknown): Result<{ x: number; y: number }> {
     if (!x.ok || !y.ok) return failAll([...errorsOf(x), ...errorsOf(y)]);
     return ok({ x: x.value, y: y.value });
   });
+}
+
+// An icon outline is kept small: a page could put a huge path in an SVG.
+export const MOST_ICON_PATHS = 16;
+export const LONGEST_PATH_DATA = 8000;
+const PATH_DATA = /^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\-\s]*$/;
+const LINE_CAPS = ['butt', 'round', 'square'] as const;
+const LINE_JOINS = ['miter', 'round', 'bevel'] as const;
+
+function parsePathData(value: unknown): Result<string> {
+  return andThen(text(value), (d) =>
+    d.length > LONGEST_PATH_DATA
+      ? fail(`Path data is longer than ${LONGEST_PATH_DATA} characters.`)
+      : PATH_DATA.test(d)
+        ? ok(d)
+        : fail('Path data can hold only path commands and numbers.'),
+  );
+}
+
+function parseMatrix(value: unknown): Result<IconPath['matrix']> {
+  return andThen(listOf(value, number), (numbers): Result<IconPath['matrix']> => {
+    const [a, b, c, d, e, f] = numbers;
+    if (
+      numbers.length !== 6 ||
+      a === undefined ||
+      b === undefined ||
+      c === undefined ||
+      d === undefined ||
+      e === undefined ||
+      f === undefined
+    ) {
+      return fail('Expected 6 numbers.');
+    }
+    return ok([a, b, c, d, e, f]);
+  });
+}
+
+function parseIconStroke(value: unknown): Result<IconPath['stroke']> {
+  if (value === null) return ok(null);
+  return andThen(fields(value), (source) => {
+    const color = at('color', text(get(source, 'color')));
+    const width = at('width', notNegative(get(source, 'width')));
+    const cap = at('cap', oneOf(get(source, 'cap'), LINE_CAPS));
+    const join = at('join', oneOf(get(source, 'join'), LINE_JOINS));
+    if (!color.ok || !width.ok || !cap.ok || !join.ok) {
+      return failAll([color, width, cap, join].flatMap(errorsOf));
+    }
+    return ok({ color: color.value, width: width.value, cap: cap.value, join: join.value });
+  });
+}
+
+function parseIconPath(value: unknown): Result<IconPath> {
+  return andThen(fields(value), (source) => {
+    const d = at('d', parsePathData(get(source, 'd')));
+    const matrix = at('matrix', parseMatrix(get(source, 'matrix')));
+    const fill = at('fill', parseFill(get(source, 'fill')));
+    const stroke = at('stroke', parseIconStroke(get(source, 'stroke')));
+    const followsText = at('followsText', boolean(get(source, 'followsText')));
+    if (!d.ok || !matrix.ok || !fill.ok || !stroke.ok || !followsText.ok) {
+      return failAll([d, matrix, fill, stroke, followsText].flatMap(errorsOf));
+    }
+    return ok({
+      d: d.value,
+      matrix: matrix.value,
+      fill: fill.value,
+      stroke: stroke.value,
+      followsText: followsText.value,
+    });
+  });
+}
+
+// Takes saved before icons were copied have no icon field. They still load.
+function parseIcon(value: unknown): Result<Shape['icon']> {
+  if (value === null || value === undefined) return ok(null);
+  return andThen(listOf(value, parseIconPath), (paths) =>
+    paths.length > MOST_ICON_PATHS
+      ? fail(`An icon can have at most ${MOST_ICON_PATHS} parts.`)
+      : ok(paths),
+  );
 }
 
 function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
@@ -397,6 +502,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const opacity = at('opacity', andThen(number(get(source, 'opacity')), unitInterval));
     const transformOrigin = at('transformOrigin', parsePoint2d(get(source, 'transformOrigin')));
     const clip = at('clip', boolean(get(source, 'clip')));
+    const icon = at('icon', parseIcon(get(source, 'icon')));
     const children = at(
       'children',
       listOf(get(source, 'children'), (child) => parseShapeAtDepth(child, depth + 1)),
@@ -412,6 +518,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !opacity.ok ||
       !transformOrigin.ok ||
       !clip.ok ||
+      !icon.ok ||
       !children.ok
     ) {
       return failAll(
@@ -426,6 +533,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           opacity,
           transformOrigin,
           clip,
+          icon,
           children,
         ].flatMap(errorsOf),
       );
@@ -441,6 +549,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       opacity: opacity.value,
       transformOrigin: transformOrigin.value,
       clip: clip.value,
+      icon: icon.value,
       children: children.value,
     });
   });
@@ -486,13 +595,17 @@ export function parseCapture(value: unknown): Result<Capture> {
     const root = at('root', parseShape(get(source, 'root')));
     const tracks = at('tracks', listOf(get(source, 'tracks'), parseTrack));
     const notShown = at('notShown', listOf(get(source, 'notShown'), text));
-    if (!captureSource.ok || !root.ok || !tracks.ok || !notShown.ok) {
-      return failAll([captureSource, root, tracks, notShown].flatMap(errorsOf));
+    // Takes saved before the backdrop was read have none. They still load.
+    const rawBackdrop = get(source, 'backdrop');
+    const backdrop = at('backdrop', rawBackdrop === undefined ? ok(null) : parseFill(rawBackdrop));
+    if (!captureSource.ok || !root.ok || !tracks.ok || !notShown.ok || !backdrop.ok) {
+      return failAll([captureSource, root, tracks, notShown, backdrop].flatMap(errorsOf));
     }
     return checkReferences({
       source: captureSource.value,
       root: root.value,
       tracks: tracks.value,
+      backdrop: backdrop.value,
       notShown: notShown.value,
     });
   });

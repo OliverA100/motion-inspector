@@ -516,3 +516,28 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** below 960 px wide the preview sticks to the top of the page (under the extension's own bar) while the timeline, curve, speed graph and export scroll underneath. There, its title and hint are hidden and its canvas is 140 px tall. The columns become `display: contents` so the preview stays stuck past the timeline. Keyboard focus is kept below it with `scroll-padding-top`.
 **Why:** asked for: "I scroll to tweak something and I can't see the motion anymore". Tweaking is pointless without seeing the result.
 **Gave up:** about a third of a side panel is always the preview. The layout test now measures from the top of the page, where nothing is stuck.
+
+### D98. Icons are drawn from their own outlines
+**Chose:** a new field, `Shape.icon`: for an SVG icon, the outline of each part (`path`, `circle`, `rect`, `line`, `polyline`, `polygon`, `ellipse`) as path data, the matrix from the part to the icon's box (Chrome's `getCTM()`, which includes the viewBox), and its fill, stroke, line cap and join. Parts colored with `currentColor` follow an animated text color. Path data may hold only path commands and numbers, at most 8,000 characters and 16 parts; anything beyond that, or an icon built with `<use>`, a nested `<svg>` or an embedded image, is drawn as a dot or ring in the icon's own color. This is a change to the locked format.
+**Why:** a user's screen recording of their own site: the arrows of a round button were gray squares, and they asked for "arrows should look like arrows on the preview". The outline is geometry, so it stays within "shapes only": no text and no image data is copied.
+**Gave up:** gradient fills inside icons are drawn in the text color. Animations inside an SVG (on its paths) are still not drawn. Takes saved before this have no `icon` field; the parser reads a missing field as `null` so they still open. The type itself has no optional field.
+
+### D99. The preview is painted on the color behind the element
+**Chose:** a new field, `Capture.backdrop`: the background color of whatever is drawn under the middle of the picked element (`document.elementsFromPoint`), skipping the element itself and anything that paints nothing. A photo, image or gradient there gives a neutral gray. The stage fills its preview area with it.
+**Why:** on the same site the button is dark and see-through on a light photo card, and the page itself is dark. On the stage's own background, the button's edge and its see-through dark circle were hard to read. The card is not a parent of the button, so walking up the parents found the dark page instead.
+**Gave up:** the backdrop is one flat color, read once when the element is picked.
+
+### D100. Each side of a border keeps its color
+**Chose:** `Shape.stroke.sides`: the four side colors, top, right, bottom, left, when they differ. The stage draws each side separately, from the middle of one corner to the middle of the next, as CSS does. This replaces the note "a border with a different color on each side is drawn in one color".
+**Why:** Bootstrap's spinner is a ring with one transparent side. In one color it was a full ring, and its turning could not be seen. Now it is a turning "C", frame for frame against the page.
+**Gave up:** border styles (dashed, dotted) are still drawn solid.
+
+### D101. Recording moves to a parent when something next to the pick starts with it
+**Chose:** recording moves to the smallest nearby parent (at most four levels up) that holds a new animation outside the picked element, in two cases: the picked element has nothing of its own (as before), or the animation started within 150 ms of one inside it, so it has the same trigger. Parents more than three times as wide or tall as the picked element (at least 120 px) are never used, and animations already running when recording began never move it.
+**Why:** the user picked the arrows of a round button. The dark and white circles behind them are siblings of the arrows, so the preview showed arrows with no circles. Without the size limit, recording moved to a 436 by 251 invisible hover area that faded in on the same hover.
+**Gave up:** two unrelated things that happen to start together, next to each other, are recorded together.
+
+### D102. A hover and its leave are matched by what their values mean
+**Chose:** when deciding whether a take undoes the one before it (D96), values are compared after reading them: transforms as the matrix of their functions (within 0.01), other values by their parsed numbers, and as text only when they cannot be read.
+**Why:** Tailwind writes a resting transform as `translate(0px) rotate(0deg) skew(0deg, 0deg) skewY(0deg) scaleX(1) scaleY(1)`, and after a hover Chrome reports the same state as `none`. Compared as text, the leave did not match, and the user saw several identical "moves left 28 px" takes for one hover.
+**Gave up:** nothing that was found. Two values that differ by less than 0.01 in every matrix number count as the same.

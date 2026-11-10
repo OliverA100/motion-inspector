@@ -142,13 +142,13 @@ test('loader: already running when picked, repeats forever, a full turn is 360 d
     kind: 'transform',
     functions: [{ fn: 'rotate', deg: 360 }],
   });
-  // The spinner has one blue side. A shape has one border color, so the
-  // capture says what that costs instead of hiding it.
-  expect(capture.notShown).toEqual([
-    'A border with a different color on each side is drawn in one color, so a rotation of that shape may not be visible in the preview.',
-  ]);
+  // The spinner has one blue side. Each side keeps its own color, so the
+  // turning shows in the preview (it was once a full ring in one color).
+  const sides = capture.root.stroke?.sides ?? [];
+  expect(new Set(sides).size).toBe(2);
+  expect(capture.notShown).toEqual([]);
   expect(describeCapture(capture)).toBe(
-    'The element rotates 360 degrees over 900 ms. It moves at a steady speed. It repeats forever. 1 thing is left out of this preview.',
+    'The element rotates 360 degrees over 900 ms. It moves at a steady speed. It repeats forever.',
   );
 });
 
@@ -547,6 +547,98 @@ test('recording moves to the parent only when the picked element has nothing of 
   await page.waitForTimeout(800);
   const takes = await page.evaluate(() => window.MotionCapture.stop());
   expect(captureOf(takes[0]).source.selector).toBe('div.fx-card');
+});
+
+test('icon button: the circles next to the picked arrows come in, the arrows are drawn as arrows, and hover and leave are one take', async ({
+  page,
+}) => {
+  // Shaped like a button found on a real site, where the preview showed
+  // gray squares, no circles, and the leave as a separate take.
+  await openFixtures(page);
+  const selector = rootSelector('icon-button');
+  await page.evaluate((target) => {
+    window.movedTo = new Promise<string>((resolve) => {
+      window.MotionCapture.record(target, undefined, resolve);
+    });
+  }, selector);
+  await page.hover(selector);
+  // The arrows have animations of their own. The circles next to them start
+  // at the same moment, so recording moves to the button that holds both.
+  expect(await page.evaluate(() => window.movedTo)).toBe('span.fx-icon-button');
+  await page.waitForTimeout(900);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1200);
+  const takes = await page.evaluate(() => window.MotionCapture.stop());
+
+  // The outgoing arrow rests at "translate(0px) rotate(0deg)" before the
+  // hover and at "none" after it. Compared by meaning, they match, so the
+  // leave joins the hover.
+  const capture = onlyCapture(takes);
+  const shapes = flattenShapes(capture.root);
+  const out = capture.tracks.filter(
+    (item) => item.property === 'transform' && item.keyframes[0]?.value.includes('rotate'),
+  );
+  expect(out.length).toBeGreaterThan(0);
+  expect(capture.tracks.some((item) => item.keyframes.at(-1)?.value === 'none')).toBe(true);
+
+  // Both circles are in the drawing.
+  expect(shapes.map((shape) => shape.fill)).toEqual(
+    expect.arrayContaining(['rgba(0, 0, 0, 0.7)', 'rgb(255, 255, 255)']),
+  );
+
+  // Each arrow is drawn from its own outline, in layout size and place,
+  // although the card it sits on is tilted and scaled.
+  const icons = shapes.filter((shape) => shape.icon !== null);
+  expect(icons).toHaveLength(2);
+  for (const icon of icons) {
+    expect(icon.icon?.map((part) => part.d)).toEqual([
+      // As Chrome reports it: the same path, written out in full.
+      'M 4 12 H 16',
+      'M 12 6 L 18 12 L 12 18',
+    ]);
+    expect(icon.icon?.[0]?.stroke).toEqual({
+      color: expect.any(String),
+      width: 1.75,
+      cap: 'square',
+      join: 'miter',
+    });
+    expect(icon.icon?.[0]?.matrix).toEqual([1, 0, 0, 1, 0, 0]);
+    expect(icon.icon?.[0]?.followsText).toBe(true);
+    expect(icon.box.width).toBeCloseTo(24, 0);
+    expect(icon.box.height).toBeCloseTo(24, 0);
+  }
+  const arrowParts = shapes.filter((shape) => shape.children.some((child) => child.icon !== null));
+  expect(arrowParts.map((shape) => [Math.round(shape.box.x), Math.round(shape.box.y)])).toEqual([
+    [16, 16],
+    [16, 16],
+  ]);
+  // The arrow waiting to slide in is hidden at rest, even though recording
+  // moved to the button after its fade had begun.
+  expect(arrowParts.map((shape) => shape.opacity)).toEqual([1, 0]);
+
+  // The card behind the button is the backdrop.
+  expect(capture.backdrop).toBe('rgb(232, 226, 216)');
+});
+
+test('icons too complex to copy are drawn as a mark in their own color', async ({ page }) => {
+  await openFixtures(page);
+  const raw = await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.cssText =
+      'position:fixed;left:20px;top:20px;width:40px;height:40px;color:rgb(200, 0, 0)';
+    // A part reused with <use> is not followed.
+    host.innerHTML =
+      '<svg width="40" height="40" viewBox="0 0 10 10"><defs><circle id="dot" cx="5" cy="5" r="4" /></defs><use href="#dot" fill="currentColor" /></svg>';
+    document.body.append(host);
+    window.MotionCapture.record(host);
+    host.animate({ opacity: [1, 0.5] }, 200);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    return window.MotionCapture.stop();
+  });
+  const capture = captureOf(raw[0] ?? { capture: null, problems: ['no take'], raw: null });
+  const icon = flattenShapes(capture.root).find((shape) => shape.kind === 'image');
+  expect(icon?.icon).toBeNull();
+  expect(icon?.fill ?? icon?.stroke?.color).toBe('rgb(200, 0, 0)');
 });
 
 // ---------- The picker ----------

@@ -23,7 +23,8 @@
     "fill": "rgb(250, 250, 250)",
     "stroke": {
       "color": "rgb(228, 228, 228)",
-      "width": 1
+      "width": 1,
+      "sides": null
     },
     "opacity": 1,
     "transformOrigin": {
@@ -31,6 +32,7 @@
       "y": 49
     },
     "clip": false,
+    "icon": null,
     "children": [
       {
         "id": "s0.1",
@@ -56,6 +58,7 @@
           "y": 20
         },
         "clip": false,
+        "icon": null,
         "children": []
       },
       {
@@ -82,6 +85,7 @@
           "y": 4
         },
         "clip": false,
+        "icon": null,
         "children": []
       },
       {
@@ -108,6 +112,7 @@
           "y": 4
         },
         "clip": false,
+        "icon": null,
         "children": []
       }
     ]
@@ -176,5 +181,6 @@
       }
     }
   ],
+  "backdrop": "rgb(255, 255, 255)",
   "notShown": []
 }

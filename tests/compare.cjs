@@ -42,14 +42,34 @@ const cases = [
   { name: 'daisyui-button', url: 'https://daisyui.com/components/button/', pick: 'main .btn', trigger: 'hover' },
   { name: 'daisyui-loading', url: 'https://daisyui.com/components/loading/', pick: 'main .loading', trigger: 'none' },
   { name: 'mui-button', url: 'https://mui.com/material-ui/react-button/', pick: 'main .MuiButton-contained', trigger: 'hover' },
+  // The round arrow button on a tilted card (from a user's screen recording).
+  // Its two circles are next to the picked part, not inside it, so the
+  // page's animations are paused from the parent up.
+  {
+    name: 'oliverhassan-arrow',
+    url: 'https://oliverhassan.dev/',
+    viewport: { width: 947, height: 960 },
+    prepare: () => {
+      const button = [...document.querySelectorAll('span.relative.flex')].find((el) => {
+        const r = el.getBoundingClientRect();
+        return Math.abs(r.width - r.height) < 3 && r.width > 30 && r.width < 90 && el.querySelector('svg');
+      });
+      button?.setAttribute('data-mi-pick', '');
+    },
+    pick: '[data-mi-pick]',
+    pauseFrom: 1,
+    waitUntil: 'networkidle',
+    trigger: 'hover',
+  },
   { name: 'animate-style', url: 'https://animate.style/', pick: '.animate__animated', trigger: 'none' },
 ];
 
 // In the real page: wait for the element's animations, then pause them all
 // and return how far apart they started and how long the whole thing is.
-async function pauseAll(page, selector) {
-  return page.evaluate(async (sel) => {
-    const element = document.querySelector(sel);
+async function pauseAll(page, selector, levelsUp = 0) {
+  return page.evaluate(async ([sel, up]) => {
+    let element = document.querySelector(sel);
+    for (let i = 0; i < up; i += 1) element = element.parentElement;
     const roots = [element, ...element.querySelectorAll('*')].flatMap((el) => (el.shadowRoot ? [el.shadowRoot] : []));
     const animations = [...element.getAnimations({ subtree: true }), ...roots.flatMap((r) => r.getAnimations())].filter(
       (a) => a.timeline instanceof DocumentTimeline,
@@ -68,7 +88,7 @@ async function pauseAll(page, selector) {
     animations.forEach((a) => a.pause());
     window.__compare = { animations, offsets: starts.map((s) => s - first) };
     return { count: animations.length, length: Math.max(...ends, 1) };
-  }, selector);
+  }, [selector, levelsUp]);
 }
 
 async function seekReal(page, timeMs) {
@@ -82,8 +102,9 @@ async function seekReal(page, timeMs) {
 }
 
 async function realFrames(page, c) {
-  await page.goto(c.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.goto(c.url, { waitUntil: c.waitUntil ?? 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(2000);
+  if (c.prepare) await page.evaluate(c.prepare);
   await page.evaluate(captureScript + '\n;window.MotionCapture = MotionCapture;');
   const target = page.locator(c.pick).first();
   if ((await target.count()) === 0) return { error: `Nothing matches ${c.pick}` };
@@ -98,7 +119,7 @@ async function realFrames(page, c) {
   if (c.trigger === 'click') await page.locator(c.clickTarget).first().click({ force: true });
   await page.waitForTimeout(40);
 
-  const paused = await pauseAll(page, selector);
+  const paused = await pauseAll(page, selector, c.pauseFrom ?? 0);
   if (paused === null) {
     await page.waitForTimeout(800);
     const takes = await page.evaluate(() => window.MotionCapture.stop());
@@ -161,7 +182,7 @@ async function montage(browser, c, real, preview, description, notes) {
   const browser = await chromium.launch();
   const summary = [];
   for (const c of cases.filter((x) => only === undefined || x.name.includes(only))) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const context = await browser.newContext({ viewport: c.viewport ?? { width: 1280, height: 800 } });
     const page = await context.newPage();
     let line;
     try {

@@ -23,6 +23,8 @@ type Props = {
   // Whether the ghost trail is on, and its poses (empty when it is off).
   ghostTrail: boolean;
   ghosts: Pose[][];
+  // The color of the page behind the component.
+  backdrop: string | null;
   onCompareChange: (compare: Compare) => void;
   onGhostTrailChange: (on: boolean) => void;
   onShowOriginalChange: (show: boolean) => void;
@@ -42,8 +44,17 @@ const NARROW_HEIGHT = 140;
 const NARROW_PX = 560;
 
 export function Stage(props: Props) {
-  const { root, mine, original, showOriginal, compare, selectedShapeId, hoveredShapeId, ghosts } =
-    props;
+  const {
+    root,
+    mine,
+    original,
+    showOriginal,
+    compare,
+    selectedShapeId,
+    hoveredShapeId,
+    ghosts,
+    backdrop,
+  } = props;
   const theme = useTheme();
   const [size, setSize] = useState<Size | null>(null);
   // Shorter on a narrow panel, where it stays at the top while the rest
@@ -62,11 +73,23 @@ export function Stage(props: Props) {
           selectedShapeId,
           hoveredShapeId,
           ghosts,
+          backdrop,
           theme,
         },
         canvasSize,
       ),
-    [root, mine, original, compare, showOriginal, selectedShapeId, hoveredShapeId, ghosts, theme],
+    [
+      root,
+      mine,
+      original,
+      compare,
+      showOriginal,
+      selectedShapeId,
+      hoveredShapeId,
+      ghosts,
+      backdrop,
+      theme,
+    ],
   );
 
   const under = (event: PointerEvent<HTMLDivElement>): ShapeId | null => {

@@ -10,7 +10,13 @@
 // animation and ends when nothing has been running for a moment. Each take
 // becomes one Capture.
 
-import { parseCapture, parseEasing, type Capture, type Easing } from '@motion-inspector/core';
+import {
+  parseCapture,
+  parseEasing,
+  type Capture,
+  type Easing,
+  type TransformFunction,
+} from '@motion-inspector/core';
 import { readValue } from './readValue';
 import { addLateShape, animationsUnder, cssName, labelOf, type Snapshot } from './snapshot';
 
@@ -40,15 +46,34 @@ export type RecorderOptions = {
 // page transitions, which are not what was picked.
 const NEARBY_LEVELS = 4;
 
-function isNearbyParent(candidate: Element, picked: Element): boolean {
+// The smallest of the picked element's nearest parents that contains an
+// animated element, or null. Parents much larger than the picked element are
+// not considered: an animation somewhere in a whole page section is not
+// part of a button.
+function nearbyParentHolding(target: Element, picked: Element): Element | null {
+  const pickedBox = picked.getBoundingClientRect();
+  // At most three times as wide and as tall (nine times the area), with a
+  // floor for tiny elements. A 436 x 251 hover area around a 57 px button
+  // fades in on the same hover, but the button is what was picked.
+  const largest = {
+    width: Math.max(pickedBox.width * 3, 120),
+    height: Math.max(pickedBox.height * 3, 120),
+  };
   let current: Element | null = picked.parentElement;
   for (let level = 0; level < NEARBY_LEVELS && current !== null; level += 1) {
-    if (current === document.body || current === document.documentElement) return false;
-    if (current === candidate) return true;
+    if (current === document.body || current === document.documentElement) return null;
+    const box = current.getBoundingClientRect();
+    if (box.width > largest.width || box.height > largest.height) return null;
+    if (current.contains(target)) return current;
     current = current.parentElement;
   }
-  return false;
+  return null;
 }
+
+// An animation that starts this close to one on the picked element has the
+// same trigger. A dark circle that grows behind an arrow, on the same hover,
+// is part of what was picked (found on a real site).
+const SAME_TRIGGER_MS = 150;
 
 export type Recorder = { stop: () => void };
 
@@ -356,6 +381,7 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
     },
     root: snapshot.root,
     tracks,
+    backdrop: snapshot.backdrop,
     notShown: [...snapshot.notes, ...built.flatMap((item) => item.notShown)],
   };
   // Core checks everything. Nothing reaches the editor without passing.
@@ -366,6 +392,44 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
 }
 
 // ---------- In and back ----------
+
+// Two values for one property mean the same thing. They are compared as
+// numbers: Tailwind writes a resting transform as "translate(0px) rotate(0deg)
+// skew(0deg, 0deg) scaleX(1) scaleY(1)" and Chrome reports the same state as
+// "none" (found on a real site, where a hover and its leave then failed to
+// match).
+const SAME = 0.01;
+
+function asMatrix(functions: TransformFunction[]): DOMMatrix {
+  return functions.reduce((matrix, item) => {
+    switch (item.fn) {
+      case 'translate':
+        return matrix.translate(item.x, item.y);
+      case 'scale':
+        return matrix.scale(item.x, item.y);
+      case 'rotate':
+        return matrix.rotate(item.deg);
+      case 'skew':
+        return matrix.skewX(item.xDeg).skewY(item.yDeg);
+    }
+  }, new DOMMatrix());
+}
+
+function sameValue(property: string, first: string, second: string, element: Element): boolean {
+  if (first === second) return true;
+  const box = element.getBoundingClientRect();
+  const a = readValue(property, first, box);
+  const b = readValue(property, second, box);
+  if (a === null || b === null || a.kind !== b.kind) return false;
+  if (a.kind === 'transform' && b.kind === 'transform') {
+    const m = asMatrix(a.functions);
+    const n = asMatrix(b.functions);
+    return [m.a - n.a, m.b - n.b, m.c - n.c, m.d - n.d, m.e - n.e, m.f - n.f].every(
+      (difference) => Math.abs(difference) < SAME,
+    );
+  }
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 // How long the motion rests between going and coming back, at most. The
 // real wait is however long the pointer stayed, which can be seconds of
@@ -394,7 +458,11 @@ function isWayBackOf(previous: Seen[], next: Seen[]): boolean {
         back.properties.every((property) => {
           const began = valuesOf(there, property)[0]?.value;
           const ends = valuesOf(back, property).at(-1)?.value;
-          return began !== undefined && began === ends;
+          return (
+            began !== undefined &&
+            ends !== undefined &&
+            sameValue(property, began, ends, back.target)
+          );
         }),
     ),
   );
@@ -448,12 +516,25 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
 
   // An animation on a nearby parent of the picked element, if there is one
   // that has not been looked at yet.
-  const animatedParent = (): Element | null => {
+  // Animations that were already running when recording began belong to
+  // something else on the page (a loader, a slideshow). They never move the
+  // recording.
+  for (const animation of document.getAnimations()) parentsChecked.add(animation);
+  let lastPickedStart = -Infinity;
+
+  // A nearby parent that holds a new animation outside the picked element:
+  // either the picked element has nothing of its own, or the animation
+  // started at the same moment as one inside it.
+  const animatedParent = (now: number): Element | null => {
     for (const animation of document.getAnimations()) {
       if (parentsChecked.has(animation)) continue;
       parentsChecked.add(animation);
       const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
-      if (target !== null && isNearbyParent(target, snapshot.rootElement)) return target;
+      if (target === null || snapshot.rootElement.contains(target)) continue;
+      const together = now - lastPickedStart <= SAME_TRIGGER_MS;
+      if (foundAnything && !together) continue;
+      const parent = nearbyParentHolding(target, snapshot.rootElement);
+      if (parent !== null) return parent;
     }
     return null;
   };
@@ -528,11 +609,13 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     if (fresh.length > 0) {
       lastActivity = now;
       foundAnything = true;
+      lastPickedStart = now;
     }
 
-    // Nothing on the picked element so far. Is its parent the one moving?
-    if (!foundAnything && options.onParentAnimation !== undefined) {
-      const parent = animatedParent();
+    // Is a nearby parent part of this motion? Either the picked element has
+    // nothing of its own, or something next to it moved at the same moment.
+    if (options.onParentAnimation !== undefined) {
+      const parent = animatedParent(now);
       if (parent !== null) {
         stopped = true;
         options.onParentAnimation(parent);

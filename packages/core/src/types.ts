@@ -37,6 +37,9 @@ export type Capture = {
   source: { url: string; selector: string; capturedAt: string };
   root: Shape;
   tracks: Track[];
+  // The color of the page behind the picked element, so a white button on
+  // a dark page is previewed on dark. null when it could not be read.
+  backdrop: string | null;
   // What the preview leaves out, each in plain words: animations we saw but
   // cannot draw, and things drawn more simply than on the page.
   notShown: string[];
@@ -55,14 +58,39 @@ export type Shape = {
   // Top left, top right, bottom right, bottom left. In px.
   radius: [number, number, number, number];
   fill: string | null;
-  stroke: { color: string; width: number } | null;
+  // sides: the color of each side, top, right, bottom, left, when they
+  // differ (a spinner is a ring with one side transparent). null when all
+  // sides are the color.
+  stroke: { color: string; width: number; sides: [string, string, string, string] | null } | null;
   opacity: UnitInterval;
   transformOrigin: { x: number; y: number };
   // True when the shape cuts off what is inside it (CSS overflow other than
   // visible). A carousel hides the slides outside its frame this way.
   clip: boolean;
+  // The outline of an SVG icon, so an arrow previews as an arrow. Only
+  // geometry is copied, never text or image data. null for everything
+  // that is not an icon, and for icons too complex to copy.
+  icon: IconPath[] | null;
   children: Shape[];
 };
+
+// One part of an SVG icon.
+export type IconPath = {
+  // SVG path data: path commands and numbers only.
+  d: string;
+  // From the path's own coordinates to the shape's box, in px, as the six
+  // numbers a, b, c, d, e, f of a 2D matrix. It includes the icon's viewBox.
+  matrix: [number, number, number, number, number, number];
+  fill: string | null;
+  // The width is in the path's own coordinates, like SVG's stroke-width.
+  stroke: { color: string; width: number; cap: LineCap; join: LineJoin } | null;
+  // True when the colors come from the CSS text color (currentColor). An
+  // animated text color above the icon then recolors it, as on the page.
+  followsText: boolean;
+};
+
+export type LineCap = 'butt' | 'round' | 'square';
+export type LineJoin = 'miter' | 'round' | 'bevel';
 
 // ---------- Tracks ----------
 
