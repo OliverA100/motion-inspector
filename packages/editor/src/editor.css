@@ -140,11 +140,6 @@ html {
   gap: var(--space-2);
 }
 
-/* Hidden, but still taking its space. */
-.panel__tools.is-hidden {
-  visibility: hidden;
-}
-
 .panel__label {
   font-size: var(--text-small);
   color: var(--color-text-muted);

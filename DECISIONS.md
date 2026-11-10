@@ -240,7 +240,7 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Gave up:** after one extreme curve the chart stays zoomed out until another track is selected.
 
 ### D44. The original is optional, and only drawn where it differs
-**Chose:** one toggle, "Show the original (dashed)", for the stage, curve, speed graph and timeline. When it is on, a dashed line is still only drawn where the original is not the same as mine.
+**Chose:** one toggle, "Dashed lines for the original", for the outline on the preview and the dashed curve, speed line and timeline bars. When it is on, a dashed line is still only drawn where the original is not the same as mine. Side by side is a separate choice and is not affected: the first version of this toggle also closed side by side, which was a surprise, because that view has no dashed lines.
 **Why:** before any edit the two are identical, so the dashed lines sat exactly on the solid ones and only added noise.
 **Gave up:** with nothing edited there is no dashed line to show that the feature exists. The toggle's label says what it is.
 

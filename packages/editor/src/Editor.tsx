@@ -166,7 +166,7 @@ export function Editor({ capture, initialMsgs = [], showFrameTime = false }: Pro
           </div>
           <div className="mi__actions">
             <Toggle
-              label="Show the original (dashed)"
+              label="Dashed lines for the original"
               checked={showOriginal}
               onChange={(show) => dispatch({ kind: 'originalShown', show })}
             />

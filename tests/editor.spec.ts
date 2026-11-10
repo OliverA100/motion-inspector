@@ -171,14 +171,18 @@ test('a row can be unticked to leave it out, and ticked to bring it back', async
   await expect(description).toContainText('moves up 2 px and changes its shadow');
 });
 
-test('the original can be switched off', async ({ page }) => {
+test('the dashed lines can be switched off, and side by side still works', async ({ page }) => {
   await openPaused(page, 'card-lift', 0, 400);
-  const toggle = page.getByRole('checkbox', { name: 'Show the original (dashed)' });
-  await expect(toggle).toBeChecked();
-  await expect(page.getByRole('radio', { name: 'Side by side' })).toBeVisible();
-  await toggle.uncheck();
-  // The compare choice has nothing to compare with, so it is hidden.
-  await expect(page.getByRole('radio', { name: 'Side by side' })).toBeHidden();
+  const dashed = page.getByRole('checkbox', { name: 'Dashed lines for the original' });
+  const sideBySide = page.getByRole('radio', { name: 'Side by side' });
+  await expect(dashed).toBeChecked();
+  await sideBySide.click();
+  await expect(sideBySide).toBeChecked();
+
+  // Side by side has no dashed lines, so this must not change it.
+  await dashed.uncheck();
+  await expect(sideBySide).toBeVisible();
+  await expect(sideBySide).toBeChecked();
 });
 
 // Where the main blocks of the page are. If any of these numbers change
@@ -231,9 +235,9 @@ for (const width of [1280, 360]) {
     }
 
     // Switch the original off and on, compare side by side.
-    await page.getByRole('checkbox', { name: 'Show the original (dashed)' }).uncheck();
+    await page.getByRole('checkbox', { name: 'Dashed lines for the original' }).uncheck();
     await same();
-    await page.getByRole('checkbox', { name: 'Show the original (dashed)' }).check();
+    await page.getByRole('checkbox', { name: 'Dashed lines for the original' }).check();
     await page.getByRole('radio', { name: 'Side by side' }).click();
     await same();
 

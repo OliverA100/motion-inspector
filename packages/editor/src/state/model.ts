@@ -25,7 +25,9 @@ export type Model = {
   // In ms from the start of the take.
   timeMs: number;
   compare: Compare;
-  // Whether the original is drawn at all (the dashed gray lines).
+  // Whether the original's dashed gray lines are drawn: the outline on the
+  // preview, and the dashed curve, speed line and timeline bars.
+  // Side by side is a separate choice (compare) and is not affected.
   showOriginal: boolean;
   // Tracks taken out of the preview, as indexes into edited.tracks.
   // Sorted, no repeats. A hidden track is kept, only not shown or exported.

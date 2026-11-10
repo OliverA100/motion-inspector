@@ -14,7 +14,8 @@ type Props = {
   root: Shape;
   mine: Pose[];
   original: Pose[];
-  // When false, the original is not drawn and the compare choice is hidden.
+  // Whether the dashed outline of the original is drawn in "On top" mode.
+  // It does not affect "Side by side", which has no dashed lines.
   showOriginal: boolean;
   compare: Compare;
   selectedShapeId: ShapeId | null;
@@ -29,7 +30,8 @@ const COMPARE_OPTIONS: { value: Compare; text: string }[] = [
 export function Stage(props: Props) {
   const { root, mine, original, showOriginal, selectedShapeId } = props;
   const theme = useTheme();
-  const compare = showOriginal ? props.compare : 'mine';
+  const compare =
+    props.compare === 'side-by-side' ? 'side-by-side' : showOriginal ? 'overlay' : 'mine';
   const draw = useCallback<Draw>(
     (context, size) =>
       drawStage(context, { root, mine, original, compare, selectedShapeId, theme }, size),
@@ -40,8 +42,7 @@ export function Stage(props: Props) {
     <section className="panel">
       <header className="panel__head">
         <h2 className="panel__title">Preview</h2>
-        {/* Kept in the layout when hidden, so nothing moves when it returns. */}
-        <div className={showOriginal ? 'panel__tools' : 'panel__tools is-hidden'}>
+        <div className="panel__tools">
           <span className="panel__label">Original</span>
           <Segmented
             label="Where to draw the original"
