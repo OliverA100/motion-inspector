@@ -470,4 +470,4 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** `openPanelOnActionClick` is off. `chrome.action.onClicked` opens the side panel with `chrome.sidePanel.open`, and tells an open panel that the tab in front can now be inspected. This corrects D82.
 **Why:** the first real test. With Chrome opening the panel by itself, every page said "Motion Inspector has no access to this tab yet". The icon click that Chrome handles does not grant `activeTab`. A click the extension handles does. This was the one thing M6 could not test, and it was wrong.
 **Gave up:** access is per tab. To inspect a different tab, the icon has to be clicked once on that tab too. The panel says so when it happens.
-**Still not verified by a test:** a test cannot click a toolbar icon. This fix follows Chrome's documented pattern, and needs to be confirmed by hand.
+**Verified by hand, not by a test:** a test cannot click a toolbar icon. Confirmed working in installed Chrome on 2026-11-13: after clicking the icon on a tab, "Pick element" works on that tab.

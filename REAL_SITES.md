@@ -52,3 +52,4 @@ For each site: the address, what you picked, what you expected, what happened, a
 **Cause:** the toolbar click was left to Chrome, to open the side panel by itself. Chrome does not grant `activeTab` for that click, so the extension had access to nothing. It also hides the tab's address in that case, so the fallback had no site to ask for.
 **Fix:** the extension now handles the toolbar click itself, which is the gesture that grants access, and opens the panel from there (DECISIONS.md, D88).
 **To use it:** rebuild, reload the extension, and click the icon on the tab you want to inspect.
+**Confirmed:** working in installed Chrome on 2026-11-13.
