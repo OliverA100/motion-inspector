@@ -66,7 +66,36 @@ describe('the states of the side panel', () => {
     ).toBe(false);
   });
 
-  test('captured: the new take is selected and shown, and listening goes on', () => {
+  test('a take that arrives while the pointer is in the panel is listed, not shown', () => {
+    // The hover-out that plays as the user moves to the panel must not
+    // replace the hover they just captured.
+    const panel = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked' },
+      { kind: 'takeArrived', take: take('hover') },
+      { kind: 'pointerMoved', inPanel: true },
+      { kind: 'takeArrived', take: take('hover-out') },
+    ]);
+    expect(panel.takes.map((item) => item.id)).toEqual(['hover-out', 'hover']);
+    expect(selectedTake(panel)?.id).toBe('hover');
+    // With nothing shown yet, a take is shown wherever the pointer is.
+    const empty = run([
+      { kind: 'pointerMoved', inPanel: true },
+      { kind: 'takeArrived', take: take('x') },
+    ]);
+    expect(selectedTake(empty)?.id).toBe('x');
+  });
+
+  test('picking on the page counts as leaving the panel', () => {
+    const panel = run([
+      { kind: 'pointerMoved', inPanel: true },
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked' },
+    ]);
+    expect(panel.pointerInPanel).toBe(false);
+  });
+
+  test('captured: each new take is shown while the pointer is on the page, and listening goes on', () => {
     const panel = run([
       { kind: 'pickStarted' },
       { kind: 'elementPicked' },

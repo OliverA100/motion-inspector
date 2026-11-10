@@ -491,3 +491,18 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** `tests/real-sites.cjs` for breadth, `tests/compare.cjs` to put the page's frames beside the preview's. Both stay out of the regular test run: they depend on sites that change, and the comparison needs eyes.
 **Why:** tests that only check data passed while the preview drew fades at a fifth of their strength. Looking at the frames found it in the first minute.
 **Gave up:** the comparison is not automatic. A regression test was added for each bug it found, on a fixture that does not change.
+
+### D93. The same property starting again is always a new take
+**Chose:** when an animation starts on an element and property that the take already has, the take ends and a new one begins, whether or not the earlier animation had finished. This narrows D11 and the M0 note "animations that follow each other without overlap stay in one take": that still holds for different properties.
+**Why:** found walking the flow as a user. The pointer is on the element while picking it, so leaving and coming back quickly gave one take with "moves down 0.3 px, moves up 2 px": two tracks for one value, which the preview cannot show sensibly.
+**Gave up:** a keyframe-free sequence such as "move right, then move back" written as two transitions on one property is now two takes. It was never one coherent track anyway.
+
+### D94. A new take is shown unless the pointer is in the panel
+**Chose:** each take that arrives is shown at once, except while the pointer is over the side panel, when it is only added to the list. Each take in the list shows a one-line summary ("Moves up 6 px and scales to 1.03 over 400 ms").
+**Why:** found walking the flow. Moving from the page to the panel plays the element's hover-out, which replaced the hover that had just been captured. A first attempt (keep the first take of a recording) failed too: picking leaves the pointer on the element, so the first take is often a leftover hover-out.
+**Gave up:** while the pointer is in the panel, new takes do not appear on their own; the user picks them from the list.
+
+### D95. The panel puts what comes next on screen
+**Chose:** in the side panel, Copy CSS and Copy for AI sit at the top with Undo, Redo and Reset, and show "Copied" on the button. "Show the original" moved into the Preview panel, "Unticked rows also leave the original" into the Timeline. The description is smaller and reserves four lines, the preview is shorter, and the hints are one or two lines.
+**Why:** walking the flow at 360 px, after a capture the preview started at the bottom edge of the panel and the copy buttons were 2,700 px down. Now the preview starts in view and copying is one click away.
+**Gave up:** the Export panel no longer has its own buttons inside the editor (it still does when shown alone, on the pieces page).

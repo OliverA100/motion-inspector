@@ -60,9 +60,12 @@ html {
   line-height: 1.4;
 }
 
+/* In the side panel the description is smaller, so it does not push the
+   preview off the screen. Most fit in four lines. */
 @media (max-width: 600px) {
   .mi__description {
-    min-height: calc(6 * 1.4em);
+    min-height: calc(4 * 1.4em);
+    font-size: var(--text-body);
   }
 }
 
@@ -648,19 +651,30 @@ html {
   overflow-wrap: anywhere;
 }
 
+/* One line that never wraps: the note, cut with an ellipsis if it is too
+   long, then the button. It spans the whole width whatever the note says
+   (the fields grid would otherwise shrink it to its content). */
 .fields__link {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-self: stretch;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-3);
   margin: 0;
   font-size: var(--text-small);
   color: var(--color-text-muted);
 }
 
-.fields__link.is-off {
-  visibility: hidden;
+.fields__link > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline__extra {
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--hairline) solid var(--color-border);
 }
 
 .fields .fields__link .btn {

@@ -7,7 +7,7 @@
 
 import { StrictMode, useEffect, useReducer, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { parseCapture } from '@motion-inspector/core';
+import { describeCapture, parseCapture } from '@motion-inspector/core';
 import { Editor } from '@motion-inspector/editor';
 import { FROM_PAGE, type FromPage, type ToPage } from './messages';
 import './panel.css';
@@ -129,11 +129,12 @@ function statusText(panel: Panel): string {
     case 'listening': {
       // Say so when the thing being watched is not the thing that was clicked.
       const moved =
-        status.movedTo === null
-          ? ''
-          : ` The animation is on a parent of what you picked, ${status.movedTo}, so that is now being watched.`;
-      if (status.found > 0) {
-        return `Listening… ${status.found} ${status.found === 1 ? 'take' : 'takes'} captured.${moved} Trigger it again for another, or press Stop.`;
+        status.movedTo === null ? '' : ` Watching ${status.movedTo}, the part that moves.`;
+      if (status.found === 1) {
+        return `Listening… 1 take, shown below.${moved} Trigger it again for another, or press Stop.`;
+      }
+      if (status.found > 1) {
+        return `Listening… ${status.found} takes, newest at the top of the list.${moved}`;
       }
       return showTip(panel)
         ? `Listening…${moved} Nothing yet. Try hovering or clicking the element.`
@@ -144,6 +145,13 @@ function statusText(panel: Panel): string {
     case 'cannot-inspect':
       return 'This page cannot be inspected.';
   }
+}
+
+// The first sentence of the description, without "The element".
+function summaryOf(take: StoredTake): string {
+  const first = describeCapture(take.capture).split('. ')[0] ?? '';
+  const trimmed = first.replace(/^The element /, '').replace(/\.$/, '');
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
 function takeTime(take: StoredTake): string {
@@ -228,6 +236,19 @@ function PanelApp() {
     };
     chrome.tabs.onUpdated.addListener(onUpdated);
     return () => chrome.tabs.onUpdated.removeListener(onUpdated);
+  }, []);
+
+  // Where the pointer is: over this panel, or not (on the page).
+  useEffect(() => {
+    const root = document.documentElement;
+    const enter = (): void => dispatch({ kind: 'pointerMoved', inPanel: true });
+    const leave = (): void => dispatch({ kind: 'pointerMoved', inPanel: false });
+    root.addEventListener('mouseenter', enter);
+    root.addEventListener('mouseleave', leave);
+    return () => {
+      root.removeEventListener('mouseenter', enter);
+      root.removeEventListener('mouseleave', leave);
+    };
   }, []);
 
   // Count the time spent listening, for the tip after 5 seconds.
@@ -381,11 +402,12 @@ function PanelApp() {
                   aria-pressed={take.id === panel.selectedId}
                   onClick={() => dispatch({ kind: 'takeSelected', id: take.id })}
                 >
-                  <code>{take.capture.source.selector}</code>
-                  <span>
-                    {take.capture.tracks.length}{' '}
-                    {take.capture.tracks.length === 1 ? 'track' : 'tracks'} · {takeTime(take)}
+                  <span className="xp__take-head">
+                    <code>{take.capture.source.selector}</code>
+                    <span>{takeTime(take)}</span>
                   </span>
+                  {/* What it does, so a hover and its hover-out can be told apart. */}
+                  <span className="xp__take-summary">{summaryOf(take)}</span>
                 </button>
               </li>
             ))}

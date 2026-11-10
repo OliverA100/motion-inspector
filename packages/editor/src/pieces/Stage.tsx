@@ -25,6 +25,7 @@ type Props = {
   ghosts: Pose[][];
   onCompareChange: (compare: Compare) => void;
   onGhostTrailChange: (on: boolean) => void;
+  onShowOriginalChange: (show: boolean) => void;
   // The shape under the pointer changed. null when it left every shape.
   onHover: (shapeId: ShapeId | null) => void;
   // A shape was clicked.
@@ -36,7 +37,7 @@ const COMPARE_OPTIONS: { value: Compare; text: string }[] = [
   { value: 'side-by-side', text: 'Side by side' },
 ];
 
-const HEIGHT = 280;
+const HEIGHT = 240;
 
 export function Stage(props: Props) {
   const { root, mine, original, showOriginal, compare, selectedShapeId, hoveredShapeId, ghosts } =
@@ -79,6 +80,11 @@ export function Stage(props: Props) {
         <h2 className="panel__title">Preview</h2>
         <div className="panel__tools">
           <Toggle
+            label="Show the original (dashed)"
+            checked={showOriginal}
+            onChange={props.onShowOriginalChange}
+          />
+          <Toggle
             label="Ghost trail"
             checked={props.ghostTrail}
             onChange={props.onGhostTrailChange}
@@ -92,9 +98,8 @@ export function Stage(props: Props) {
         </div>
       </header>
       <p className="panel__hint">
-        A simplified copy of the element. Point at a part to find it on the timeline, click to
-        select it. The ghost trail shows the selected part at equal time steps: far apart means
-        fast.
+        Point at a part to find it on the timeline, click to select it. Ghost trail: equal time
+        steps, so far apart is fast.
       </p>
       <div
         className={hoveredShapeId === null ? 'stage' : 'stage is-pointing'}

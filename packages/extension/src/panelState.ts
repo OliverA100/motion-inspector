@@ -37,6 +37,9 @@ export type Panel = {
   notice: string | null;
   // What the capture script reported as wrong, for the debug report.
   problems: string[];
+  // True while the pointer is over the panel. The user is reading or
+  // editing here, so a new take must not replace what they are looking at.
+  pointerInPanel: boolean;
 };
 
 export type PanelMsg =
@@ -57,7 +60,8 @@ export type PanelMsg =
   | { kind: 'takeSelected'; id: string }
   | { kind: 'takesCleared' }
   | { kind: 'saveFailed'; why: string }
-  | { kind: 'noticeDismissed' };
+  | { kind: 'noticeDismissed' }
+  | { kind: 'pointerMoved'; inPanel: boolean };
 
 export const MOST_TAKES = 20;
 // After this long with nothing found, the panel offers a tip.
@@ -69,6 +73,7 @@ export const initialPanel: Panel = {
   selectedId: null,
   notice: null,
   problems: [],
+  pointerInPanel: false,
 };
 
 export function selectedTake(panel: Panel): StoredTake | null {
@@ -97,8 +102,14 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
     case 'pickCancelled':
       return panel.status.kind === 'picking' ? { ...panel, status: { kind: 'idle' } } : panel;
 
+    // Picking happens on the page, so the pointer has left the panel, even
+    // if the browser did not say so (it may not, when the mouse moves fast).
     case 'elementPicked':
-      return { ...panel, status: { kind: 'listening', waitedMs: 0, found: 0, movedTo: null } };
+      return {
+        ...panel,
+        status: { kind: 'listening', waitedMs: 0, found: 0, movedTo: null },
+        pointerInPanel: false,
+      };
 
     case 'waited':
       return panel.status.kind === 'listening'
@@ -114,8 +125,17 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
             ? { kind: 'idle' }
             : panel.status;
       const takes = [msg.take, ...panel.takes.filter((take) => take.id !== msg.take.id)];
-      // A new capture is shown at once.
-      return { ...panel, status, takes: takes.slice(0, MOST_TAKES), selectedId: msg.take.id };
+      // A new take is shown at once, unless the pointer is in the panel.
+      // Moving the mouse from the page to the panel plays the element's
+      // hover-out, and that must not replace the hover just captured. It
+      // goes into the list instead (found walking the flow as a user would).
+      const keep = panel.pointerInPanel && panel.selectedId !== null;
+      return {
+        ...panel,
+        status,
+        takes: takes.slice(0, MOST_TAKES),
+        selectedId: keep ? panel.selectedId : msg.take.id,
+      };
     }
 
     case 'movedToParent':
@@ -162,6 +182,11 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
 
     case 'noticeDismissed':
       return { ...panel, notice: null };
+
+    case 'pointerMoved':
+      return panel.pointerInPanel === msg.inPanel
+        ? panel
+        : { ...panel, pointerInPanel: msg.inPanel };
   }
 }
 

@@ -9,6 +9,7 @@ import { captureToCss, copyForAiText, describeCapture, type Capture } from '@mot
 import { ErrorBoundary } from './ErrorBoundary';
 import { CurveEditor } from './pieces/CurveEditor';
 import { ExportPanel } from './pieces/ExportPanel';
+import { useCopy } from './pieces/useCopy';
 import { Button, Toggle } from './pieces/controls';
 import { FrameTime } from './pieces/FrameTime';
 import { Playback } from './pieces/Playback';
@@ -211,6 +212,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
     );
   }, [probes, ghostTrack, shownEdited]);
 
+  const copier = useCopy();
   const exportCss = useMemo(() => captureToCss(shownEdited), [shownEdited]);
   const exportForAi = useMemo(() => copyForAiText(shownEdited), [shownEdited]);
 
@@ -236,11 +238,6 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
             </p>
           </div>
           <div className="mi__actions">
-            <Toggle
-              label="Show the original (dashed)"
-              checked={showOriginal}
-              onChange={(show) => dispatch({ kind: 'originalShown', show })}
-            />
             <div className="mi__buttons">
               <Button disabled={!canUndo(history)} onClick={() => dispatch({ kind: 'undone' })}>
                 Undo
@@ -255,11 +252,22 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                 Reset everything
               </Button>
             </div>
-            <Toggle
-              label="Unticked rows also leave the original"
-              checked={hideInOriginal}
-              onChange={(on) => dispatch({ kind: 'hideInOriginalSet', on })}
-            />
+            {/* What the user came for, at the top. The Export panel below
+                shows the CSS and shares this status. */}
+            {hasTracks ? (
+              <div className="mi__buttons">
+                <Button onClick={() => copier.copy('CSS', exportCss)}>
+                  {copier.status.kind === 'copied' && copier.status.what === 'CSS'
+                    ? 'Copied'
+                    : 'Copy CSS'}
+                </Button>
+                <Button primary onClick={() => copier.copy('Spec for AI', exportForAi)}>
+                  {copier.status.kind === 'copied' && copier.status.what === 'Spec for AI'
+                    ? 'Copied'
+                    : 'Copy for AI'}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </header>
 
@@ -277,6 +285,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               ghosts={ghosts}
               onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
               onGhostTrailChange={(on) => dispatch({ kind: 'ghostTrailSet', on })}
+              onShowOriginalChange={(show) => dispatch({ kind: 'originalShown', show })}
               onHover={(shapeId) => dispatch({ kind: 'shapeHovered', shapeId })}
               // Clicking a shape selects its first row on the timeline.
               onPick={(shapeId) => {
@@ -401,7 +410,9 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               </>
             ) : null}
 
-            {hasTracks ? <ExportPanel css={exportCss} aiText={exportForAi} /> : null}
+            {hasTracks ? (
+              <ExportPanel css={exportCss} aiText={exportForAi} copier={copier} />
+            ) : null}
 
             {edited.notShown.length > 0 || notPreviewed.length > 0 ? (
               <section className="panel">

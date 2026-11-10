@@ -77,6 +77,7 @@ function StagePiece() {
         ghosts={ghosts}
         onCompareChange={setCompare}
         onGhostTrailChange={setGhostTrail}
+        onShowOriginalChange={() => {}}
         onHover={setHovered}
         onPick={() => {}}
       />

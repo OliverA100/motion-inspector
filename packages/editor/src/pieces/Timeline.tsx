@@ -83,6 +83,8 @@ type Props = {
   // Called when a number field is left: typing in it was one change.
   onEditEnd: () => void;
   onDragChange: (dragging: boolean) => void;
+  // Shown at the bottom, above the shortcuts. The editor puts a toggle here.
+  extra?: ReactNode;
 };
 
 // Two layouts, chosen by the width of the panel.
@@ -345,9 +347,8 @@ export function Timeline(props: Props) {
         {props.controls}
       </header>
       <p className="panel__hint">
-        When each property animates. The lighter block is its delay, the solid bar is how long it
-        runs. Drag the bar to change the delay, or the grip at its right end to change the duration.
-        Drag the ruler to move through time.
+        Light block: delay. Solid bar: duration. Drag the bar, or the grip at its end, to change
+        them. Drag the ruler to move through time.
       </p>
       {/* The rows scroll inside this box. The ruler is pinned to its top, so
           the play controls above and the timing fields below stay in view
@@ -496,11 +497,16 @@ export function Timeline(props: Props) {
         >
           Reset this row
         </Button>
-        {/* Always in the layout, hidden when the row is not linked. */}
-        <p className={linked ? 'fields__link' : 'fields__link is-off'}>
+        {/* One line, always there, so nothing moves when it changes. */}
+        <p className="fields__link">
           <span>
-            Shares its timing and curve with {selected?.linkedCount ?? 0} other{' '}
-            {selected?.linkedCount === 1 ? 'row' : 'rows'} from the same animation.
+            {/* A space, not nothing: an empty line wraps differently and
+                the panel would change height. */}
+            {selected === null
+              ? '\u00a0'
+              : linked
+                ? `Shares its timing and curve with ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}.`
+                : 'Has its own timing and curve.'}
           </span>
           <Button
             disabled={!linked}
@@ -510,6 +516,7 @@ export function Timeline(props: Props) {
           </Button>
         </p>
       </div>
+      {props.extra !== undefined ? <div className="timeline__extra">{props.extra}</div> : null}
 
       <p className="panel__foot">
         <kbd>Space</kbd> play or pause · <kbd>←</kbd> <kbd>→</kbd> one frame · with <kbd>Shift</kbd>{' '}

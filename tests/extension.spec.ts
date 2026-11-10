@@ -92,17 +92,17 @@ test('pick, trigger, and the capture arrives in the panel and plays', async ({
   const before = await panel.locator('.xp__take').count();
   await site.hover('.fx-card');
 
-  // In the panel: a new take is listed first and selected, and the editor shows it.
+  // In the panel: the new take is listed at the top, and shown.
   await expect(panel.locator('.xp__take')).toHaveCount(before + 1);
   await expect(panel.locator('.xp__take').first()).toHaveAttribute('aria-pressed', 'true');
-  await expect(panel.locator('.xp__take code').first()).toHaveText('div.fx-card');
+  await expect(panel.locator('.xp__take[aria-pressed="true"] code')).toHaveText('div.fx-card');
   await expect(panel.locator('.mi__description')).toHaveText(
     'The element moves up 6 px and scales to 1.03 over 400 ms. It starts fast, overshoots by 10%, then settles.',
   );
-  await expect(status(panel)).toContainText('captured.');
+  await expect(status(panel)).toContainText('Listening…');
   // The click landed on a part inside the card. The panel says that the
   // card itself is what is being watched.
-  await expect(status(panel)).toContainText('on a parent of what you picked, div.fx-card');
+  await expect(status(panel)).toContainText('Watching div.fx-card, the part that moves.');
   // A new capture plays once when it arrives, then stops on its last frame.
   await expect(panel.locator('.playback__time')).toHaveText('400 ms of 400 ms');
 
@@ -197,6 +197,32 @@ test('takes are saved, and are there again after the panel is reopened', async (
   await expect(panel.getByRole('heading', { name: 'Three steps' })).toBeVisible();
 });
 
+test('moving the mouse off the element does not replace what was captured', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.mouse.move(0, 0);
+  await site.click('.fx-button');
+  await site.mouse.move(0, 0);
+  await site.waitForTimeout(800);
+  const before = await panel.locator('.xp__take').count();
+  await site.hover('.fx-button');
+  await expect(panel.locator('.xp__take')).toHaveCount(before + 1);
+  const shown = await panel.locator('.mi__description').innerText();
+  // The user moves to the panel. Leaving the button plays its hover-out:
+  // a new take, listed, but not shown.
+  await site.mouse.move(0, 0);
+  // The pointer enters the panel. A test's mouse never leaves its own tab,
+  // so the event a real pointer causes is sent by hand.
+  await panel.locator('html').dispatchEvent('mouseenter');
+  await expect(panel.locator('.xp__take')).toHaveCount(before + 2);
+  await expect(panel.locator('.xp__take').first()).toContainText('Moves down 2 px');
+  await expect(panel.locator('.mi__description')).toHaveText(shown);
+});
+
 test('several takes are listed, and any one can be opened', async ({ context, extensionId }) => {
   const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
   await panel.getByRole('button', { name: 'Pick element' }).click();
@@ -208,9 +234,9 @@ test('several takes are listed, and any one can be opened', async ({ context, ex
   await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 4000 });
   await site.click('[data-fixture="bounce"] [data-trigger="play"]');
   await expect(panel.locator('.xp__take')).toHaveCount(2, { timeout: 4000 });
-  await expect(status(panel)).toContainText('2 takes captured.');
+  await expect(status(panel)).toContainText('2 takes,');
 
-  // Newest first, and selected. Open the older one.
+  // Newest at the top of the list, and shown. Open the older one.
   await expect(panel.locator('.xp__take').first()).toHaveAttribute('aria-pressed', 'true');
   await panel.locator('.xp__take').nth(1).click();
   await expect(panel.locator('.xp__take').nth(1)).toHaveAttribute('aria-pressed', 'true');

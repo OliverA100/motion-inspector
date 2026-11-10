@@ -414,6 +414,26 @@ test('an interrupted hover is two takes, and the shortened one is marked', async
   expect(describeCapture(hoverOut)).toContain('The browser shortened this transition');
 });
 
+test('a hover already under way when recording starts, and its hover-out, are two takes', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  // The pointer is on the button while it is picked, as with a real click.
+  await page.hover('.fx-button');
+  await page.evaluate(
+    (target) => window.MotionCapture.record(target),
+    rootSelector('button-hover'),
+  );
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(700);
+  const takes = await page.evaluate(() => window.MotionCapture.stop());
+  // Never one take holding both the hover and its hover-out.
+  for (const take of takes) {
+    const transforms = captureOf(take).tracks.filter((item) => item.property === 'transform');
+    expect(transforms.length).toBeLessThanOrEqual(1);
+  }
+});
+
 test('two separate triggers are two takes', async ({ page }) => {
   const takes = await captureFixture(
     page,

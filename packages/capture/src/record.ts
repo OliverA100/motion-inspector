@@ -414,23 +414,37 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
 
     // The same property on the same element restarted before it was done
     // (hover out during hover in). That is a new take, not a second track.
-    const replacedBy = fresh.map((seen) =>
-      take.find(
+    //
+    // The new ones are taken in the order they started. Each is compared
+    // with the take as it was before this frame, and with the ones already
+    // handled in this frame:
+    // - Two hover-outs in one frame (transform and shadow) both replace
+    //   their hover-ins. The first ends the take; the second must still be
+    //   compared with its hover-in, which is no longer in the take.
+    // - A hover-in and its hover-out can both be new in one frame (the
+    //   pointer was on the element while picking, then left). They must
+    //   still end up in two takes.
+    const before = take;
+    const handled: Seen[] = [];
+    for (const seen of [...fresh].sort((first, second) => first.startTime - second.startTime)) {
+      // The same property on the same element starting again is a new
+      // take, even when the earlier one had finished: a take with two
+      // tracks for one value cannot be previewed. Only an earlier one that
+      // was still running can have been shortened.
+      const replaced = [...before, ...handled].find(
         (earlier) =>
           earlier.target === seen.target &&
           earlier.pseudoElement === seen.pseudoElement &&
-          earlier.ended !== 'finished' &&
           sharesProperty(earlier, seen),
-      ),
-    );
-    fresh.forEach((seen, index) => {
-      const replaced = replacedBy[index];
-      if (replaced !== undefined) seen.interrupted = isReversal(replaced, seen);
-    });
-    if (replacedBy.some((replaced) => replaced !== undefined)) endTake();
-
+      );
+      if (replaced !== undefined) {
+        seen.interrupted = replaced.ended !== 'finished' && isReversal(replaced, seen);
+        if (take.includes(replaced)) endTake();
+      }
+      take = [...take, seen];
+      handled.push(seen);
+    }
     if (fresh.length > 0) {
-      take = [...take, ...fresh];
       lastActivity = now;
       foundAnything = true;
     }

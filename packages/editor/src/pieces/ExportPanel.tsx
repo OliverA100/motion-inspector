@@ -1,64 +1,47 @@
 // Export: the CSS for my version, shown live, with two copy buttons.
 // It takes the two texts as plain strings. Core writes them.
+//
+// Alone, it has its own copy buttons. In the editor, the buttons are at the
+// top of the page and share their status with this panel (`copier`).
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from './controls';
+import { useCopy, type Copier } from './useCopy';
 
 type Props = {
   // The CSS for the edited capture.
   css: string;
   // The Markdown spec for a coding assistant: description, table, CSS, JSON.
   aiText: string;
+  // A copier shared with buttons elsewhere. Without it, the panel shows its
+  // own buttons.
+  copier?: Copier;
 };
 
-type Status =
-  | { kind: 'idle' }
-  | { kind: 'copied'; what: string }
-  // The browser refused. Show the text selected, to be copied by hand.
-  | { kind: 'failed'; text: string };
-
-const SHOW_COPIED_MS = 1600;
-
-export function ExportPanel({ css, aiText }: Props) {
-  const [status, setStatus] = useState<Status>({ kind: 'idle' });
+export function ExportPanel({ css, aiText, copier }: Props) {
+  const own = useCopy();
+  const { status, copy } = copier ?? own;
   const manualRef = useRef<HTMLTextAreaElement>(null);
 
-  // "Copied" goes away by itself after a moment.
+  // When copying failed, show and select the text so one key press copies it.
   useEffect(() => {
-    if (status.kind !== 'copied') return;
-    const timer = window.setTimeout(() => setStatus({ kind: 'idle' }), SHOW_COPIED_MS);
-    return () => window.clearTimeout(timer);
+    if (status.kind !== 'failed') return;
+    manualRef.current?.scrollIntoView({ block: 'nearest' });
+    manualRef.current?.select();
   }, [status]);
-
-  // When copying failed, select the text so one key press copies it.
-  useEffect(() => {
-    if (status.kind === 'failed') manualRef.current?.select();
-  }, [status]);
-
-  const copy = (what: string, text: string): void => {
-    // The clipboard can be refused: no permission, or a page that is not
-    // secure. That must never fail silently.
-    const attempt = navigator.clipboard?.writeText(text);
-    if (attempt === undefined) {
-      setStatus({ kind: 'failed', text });
-      return;
-    }
-    attempt.then(
-      () => setStatus({ kind: 'copied', what }),
-      () => setStatus({ kind: 'failed', text }),
-    );
-  };
 
   return (
     <section className="panel">
       <header className="panel__head">
         <h2 className="panel__title">Export</h2>
-        <div className="panel__tools">
-          <Button onClick={() => copy('CSS', css)}>Copy CSS</Button>
-          <Button primary onClick={() => copy('Spec for AI', aiText)}>
-            Copy for AI
-          </Button>
-        </div>
+        {copier === undefined ? (
+          <div className="panel__tools">
+            <Button onClick={() => copy('CSS', css)}>Copy CSS</Button>
+            <Button primary onClick={() => copy('Spec for AI', aiText)}>
+              Copy for AI
+            </Button>
+          </div>
+        ) : null}
       </header>
       {/* One line, always present, so the panel never changes height. */}
       <p className="panel__hint" role="status">
