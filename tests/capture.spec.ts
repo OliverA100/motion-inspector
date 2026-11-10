@@ -1496,3 +1496,33 @@ test('a part set to display: none during the take is hidden from then on', async
   expect(hidden?.keyframes.at(-1)?.value).toBe('hidden');
   expect(hidden?.startOffset ?? 0).toBeGreaterThan(250);
 });
+
+test('a part a script moves with the scroll is a "scroll" take', async ({ page }) => {
+  await openFixtures(page);
+  const takes = await page.evaluate(async () => {
+    const box = document.createElement('div');
+    box.style.cssText =
+      'position: fixed; left: 20px; top: 20px; width: 120px; height: 80px; overflow-y: auto; background: #eee';
+    const tall = document.createElement('div');
+    tall.style.cssText = 'height: 600px';
+    const dot = document.createElement('div');
+    dot.style.cssText = 'position: sticky; top: 0; width: 20px; height: 20px; background: #333';
+    tall.append(dot);
+    box.append(tall);
+    document.body.append(box);
+    // As ScrollTrigger does: the dot slides across as the box scrolls.
+    box.addEventListener('scroll', () => {
+      dot.style.transform = `translateX(${box.scrollTop / 5}px)`;
+    });
+    window.MotionCapture.record(box);
+    for (let step = 1; step <= 25; step += 1) {
+      box.scrollTop = step * 16;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    return window.MotionCapture.stop();
+  });
+  const capture = captureOf(takes.find((take) => take.capture !== null) ?? takes[0]);
+  expect(capture.trigger).toBe('scroll');
+  expect(capture.tracks.some((track) => track.origin === 'script')).toBe(true);
+});

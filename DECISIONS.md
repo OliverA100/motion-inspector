@@ -840,3 +840,7 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 ### D145. The description is not worked out on every frame
 **Chose:** the editor works out the plain-words description when the capture or an edit changes, as it already did for the exports and the self-check, not on every render. It samples every track's curve, and during playback every frame renders.
 **Why:** measured with the CPU slowed four times, playing NumberFlow's capture (about 30 tracks): one frame in twenty took 83 ms, the worst 100 ms, and the description was a third of all the time. Now 33 ms at worst, the rest React's development overhead.
+
+### D146. Motion a script ties to the scroll is named "On scroll"
+**Chose:** scrolling is noted on the page, at most every 100 ms. A take during which the page keeps scrolling after it starts (two scroll events or more within 600 ms of its start) is named "scroll", as a scroll-driven CSS animation is. Scrolling that ends before it starts (a card scrolled into view, then hovered or clicked) does not count.
+**Why:** a script that moves parts with the scroll (GSAP's ScrollTrigger) was named by whatever crossed under the pointer as the page moved: "Hover in". The first rule, any scroll just before, named an ordinary click "scroll": a click scrolls its button into view first.

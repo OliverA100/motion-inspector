@@ -1242,7 +1242,7 @@ function followsFor(
 // coming onto or leaving an element, a press, a key, focus. Listened to
 // passively on the document; nothing is stopped or changed.
 type PageEvent = {
-  type: 'over' | 'out' | 'down' | 'key' | 'focus' | 'blur';
+  type: 'over' | 'out' | 'down' | 'key' | 'focus' | 'blur' | 'scroll';
   time: number;
   target: EventTarget | null;
   related: EventTarget | null;
@@ -1302,6 +1302,17 @@ function listenToPage(): void {
   document.addEventListener('keydown', note('key'), options);
   document.addEventListener('focusin', note('focus'), options);
   document.addEventListener('focusout', note('blur'), options);
+  // Scrolling, at most every 100 ms: it fires every frame.
+  document.addEventListener(
+    'scroll',
+    (event) => {
+      const last = pageEvents[pageEvents.length - 1];
+      const now = asNumber(document.timeline.currentTime) ?? 0;
+      if (last?.type === 'scroll' && now - last.time < 100) return;
+      note('scroll')(event);
+    },
+    options,
+  );
 }
 
 function within(root: Element, target: EventTarget | null): boolean {
@@ -1335,6 +1346,16 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
   const start =
     take.length > 0 ? Math.min(...take.map((seen) => seen.startTime)) : (scriptStart ?? 0);
   const near = pageEvents.filter((event) => event.time <= start + 50 && event.time >= start - 700);
+  // While the page scrolls, things pass under a pointer that stands still:
+  // those crossings are not hovers. A script moving parts with the scroll
+  // (GSAP's ScrollTrigger) is named by the scroll.
+  // Only scrolling that goes on after it starts moving: a hover or a click
+  // just after scrolling a card into view is still a hover or a click.
+  const scrolled =
+    pageEvents.filter(
+      (event) => event.type === 'scroll' && event.time > start + 10 && event.time <= start + 600,
+    ).length >= 2;
+  if (scrolled) return 'scroll';
   for (const event of [...near].reverse()) {
     const crosses = within(root, event.target) && !within(root, event.related);
     if (event.type === 'over' && crosses) return 'hover';
