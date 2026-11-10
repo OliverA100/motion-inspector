@@ -217,7 +217,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 49 | Chakra | A collapsed panel hidden with display: none was filmed as fully visible | A part with no box is filmed as unseen (D134) |
 | 50 | daisyUI | A card flip lost its front face's turn: rotateY(180deg) to rotateY(0deg) was taken as no change, 129 px off | Transforms must also agree as 3D matrices to be "no change" (D134) |
 
-## Eighth pass: speed while recording, the parent's perspective, Vercel's peel, and new kinds of sites (D135 to D142)
+## Eighth pass: speed while recording, the parent's perspective, Vercel's peel, and new kinds of sites (D135 to D146)
 
 `node tests/freeze-sites.cjs` records real pages as the extension does (whole pages picked too) and times their frames; with PROFILE=1 it says which capture functions took the time.
 
@@ -241,6 +241,11 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 66 | Magic UI | A spinning border light (conic gradient) was a flat color; the button's label hid under a black panel after it (z-index); a marquee read "changes transform to translateX(calc(-100% - 16px))"; loops were "Already running" | Conic gradients, stacking order, calc() lengths, "Loops" (D143) |
 | 67 | Aceternity | The 3D card's hover was dropped after recording moved to its parent, and its leave was fitted as a follow from rest (5.8 px) | A moved recording keeps what is happening; a follow needs the pointer on it (D143). 2.2 px and 0 px |
 | 68 | Mantine, Ant Design | Accordions, collapse, modal | Within 0 px. Ant's modal: only its mask is followed (its dialog sits beside it in an empty container) |
+| 69 | MUI | The removed ripple made six "moved by layout" rows (read at -385 px, 0 wide after it left) | Removed parts are not sampled (D144) |
+| 70 | GitHub | A dialog checked 8 px off: the page played its 200 ms animation late and in steps over a second | The self-check is right; parts are now filmed only once their animations are on screen (D144) |
+| 71 | Editor | Playing NumberFlow's capture (30 tracks) with the CPU slowed four times: frames of 83 ms | The description is worked out per edit, not per frame: 33 ms (D145) |
+
+After this pass the sweep checks 279 elements on 32 sites: all within 1.4 px of the page but two, GitHub's dialog (the page plays it late) and Stripe's nav caret (2 px).
 
 ## Known limits seen on real sites
 
