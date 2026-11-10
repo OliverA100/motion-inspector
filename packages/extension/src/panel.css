@@ -1,5 +1,6 @@
-/* The side panel's own parts: the bar at the top, the state messages, and
-   the list of takes. The editor below brings its own styles. */
+/* The side panel's own parts: the toolbar at the top, the state messages,
+   and the list of takes. The editor below brings its own styles. Quiet, like
+   a system sidebar: one toolbar, few words, the motion in the middle. */
 
 @import '../../editor/src/tokens.css';
 
@@ -8,6 +9,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font: var(--weight-regular) var(--text-body) / 1.45 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
 }
 
 .xp *,
@@ -21,7 +23,7 @@ body {
   outline-offset: 2px;
 }
 
-/* ---------- The bar: one action, and what is happening ---------- */
+/* ---------- The toolbar: what to do, and what is happening ---------- */
 
 .xp__bar {
   position: sticky;
@@ -30,23 +32,15 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-surface);
-  border-bottom: var(--hairline) solid var(--color-border);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--color-bg) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--color-border);
 }
 
 .xp__name {
-  font-weight: var(--weight-medium);
-}
-
-/* Room for the longest status, so the bar does not change height. */
-.xp__status {
-  flex: 1 1 100%;
-  min-height: 2.9em;
-  margin: 0;
-  font-size: var(--text-small);
-  color: var(--color-text-muted);
+  font-weight: 600;
 }
 
 .xp__buttons {
@@ -55,161 +49,239 @@ body {
   margin-left: auto;
 }
 
+/* One short line, only when there is something to say. */
+.xp__status {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+}
+
+.xp__status:empty {
+  display: none;
+}
+
 .xp .btn {
   height: var(--control-height);
   padding: 0 var(--space-3);
   font: inherit;
   font-size: var(--text-small);
+  font-weight: var(--weight-medium);
   color: var(--color-text);
-  background: transparent;
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-1);
+  background: var(--color-fill);
+  border: 0;
+  border-radius: 7px;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .xp .btn:hover {
-  border-color: var(--color-text-muted);
+  background: var(--color-fill-strong);
 }
 
-.xp .btn--primary {
+.xp .btn--primary,
+.xp .btn--primary:hover {
   color: var(--color-on-accent);
   background: var(--color-accent);
-  border-color: var(--color-accent);
-  font-weight: var(--weight-medium);
 }
 
 .xp .btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- More: a small menu for what is rarely needed ---------- */
+
+.xp__menu {
+  position: relative;
+}
+
+.xp__menu summary {
+  display: grid;
+  place-items: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  color: var(--color-text);
+  border-radius: 7px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.xp__menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.xp__menu summary:hover,
+.xp__menu[open] summary {
+  background: var(--color-fill);
+}
+
+.xp__menu-items {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 180px;
+  padding: var(--space-1);
+  background: var(--color-surface);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.xp__menu-items button {
+  height: 28px;
+  padding: 0 var(--space-2);
+  font: inherit;
+  text-align: left;
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.xp__menu-items button:hover:not(:disabled) {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.xp__menu-items button:disabled {
+  color: var(--color-text-muted);
   cursor: default;
 }
 
 /* ---------- Messages ---------- */
 
+/* First open: one line and the button above. */
+.xp__empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+}
+
+.xp__empty h2 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.xp__empty p {
+  max-width: 28ch;
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
 .xp__message {
-  margin: var(--space-4);
+  margin: var(--space-3);
   padding: var(--space-4);
   background: var(--color-surface);
-  border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-2);
+  box-shadow: var(--shadow-card);
 }
 
 .xp__message h2 {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-1);
   font-size: var(--text-body);
-  font-weight: var(--weight-medium);
+  font-weight: 600;
 }
 
-.xp__message p,
-.xp__message ol {
+.xp__message p {
   margin: 0;
   font-size: var(--text-small);
   color: var(--color-text-muted);
 }
 
-.xp__message ol {
-  display: grid;
-  gap: var(--space-2);
-  padding-left: var(--space-4);
-}
-
-.xp__message strong {
-  font-weight: var(--weight-medium);
-  color: var(--color-text);
+.xp__message p + p {
+  margin-top: var(--space-3);
 }
 
 .xp__notice {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin: var(--space-4) var(--space-4) 0;
-  padding: var(--space-3);
-  font-size: var(--text-small);
-  border: var(--hairline) solid var(--color-accent);
-  border-radius: var(--radius-2);
-}
-
-/* ---------- Takes ---------- */
-
-.xp__takes {
-  margin: var(--space-4) var(--space-4) 0;
-  background: var(--color-surface);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-2);
-  overflow: hidden;
-}
-
-.xp__takes-head {
-  display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  margin: var(--space-3) var(--space-3) 0;
   padding: var(--space-2) var(--space-3);
-  border-bottom: var(--hairline) solid var(--color-border);
+  font-size: var(--text-small);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border-radius: 10px;
 }
 
-.xp__takes-head h2 {
-  margin: 0;
-  font-size: var(--text-body);
-  font-weight: var(--weight-medium);
+/* ---------- Takes: compact rows, like a sidebar list ---------- */
+
+.xp__takes {
+  margin: var(--space-3) var(--space-3) 0;
+  padding: var(--space-1);
+  background: var(--color-surface);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-card);
 }
 
 /* A few takes show at once. More scroll inside. */
 .xp__groups {
-  max-height: 240px;
+  max-height: 200px;
   overflow-y: auto;
 }
 
-/* Takes of one element, under its name. */
 .xp__group + .xp__group {
-  border-top: var(--hairline) solid var(--color-border);
+  margin-top: var(--space-1);
 }
 
+/* The element the takes belong to. */
 .xp__group-name {
   display: flex;
   justify-content: space-between;
   gap: var(--space-2);
   margin: 0;
-  padding: var(--space-2) var(--space-3) 0;
-  font-size: var(--text-small);
+  padding: var(--space-1) var(--space-2) 2px;
+  font-size: 11px;
   color: var(--color-text-muted);
 }
 
 .xp__group-name code {
+  min-width: 0;
   font-family: var(--font-mono);
-  color: var(--color-text);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .xp__take-list {
+  display: grid;
+  gap: 1px;
   margin: 0;
-  padding: var(--space-1) 0;
+  padding: 0;
   list-style: none;
 }
 
 .xp__take {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: 6px var(--space-2);
   font: inherit;
   font-size: var(--text-small);
   color: inherit;
   text-align: left;
   background: transparent;
   border: 0;
-  border-radius: 0;
+  border-radius: 7px;
   cursor: pointer;
 }
 
 .xp__take:hover {
-  background: var(--color-grid);
+  background: var(--color-fill);
 }
 
 .xp__take[aria-pressed='true'] {
-  background: var(--color-grid);
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  color: var(--color-on-accent);
+  background: var(--color-accent);
 }
 
 .xp__take-head {
@@ -222,29 +294,23 @@ body {
 /* What set it off: the take's name. */
 .xp__trigger {
   font-weight: var(--weight-medium);
-  color: var(--color-text);
-}
-
-.xp__take[aria-pressed='true'] .xp__trigger {
-  color: var(--color-accent);
 }
 
 .xp__take-meta {
-  color: var(--color-text-muted);
+  opacity: 0.7;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-/* Never cut: it is how two takes of one element are told apart. */
+/* What it does, on one line; the editor below says it in full. */
 .xp__take-summary {
-  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
 }
 
 .xp__hint {
   font-size: var(--text-small);
   color: var(--color-text-muted);
-}
-
-.xp__debug {
-  padding: var(--space-4);
 }

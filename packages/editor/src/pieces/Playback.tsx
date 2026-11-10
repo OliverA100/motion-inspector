@@ -3,7 +3,8 @@
 
 import { formatNumber } from '@motion-inspector/core';
 import type { Speed } from '../state/model';
-import { Button, Toggle } from './controls';
+import { IconButton, IconToggle } from './controls';
+import { LoopIcon, PauseIcon, PlayIcon } from './icons';
 
 type Props = {
   playing: boolean;
@@ -26,18 +27,23 @@ const SPEEDS: { value: Speed; text: string }[] = [
 export function Playback(props: Props) {
   return (
     <div className="playback">
-      {/* The same width for "Play" and "Pause", so nothing beside it moves. */}
-      <span className="playback__play">
-        <Button primary onClick={props.onPlayToggle}>
-          {props.playing ? 'Pause' : 'Play'}
-        </Button>
-      </span>
+      <IconButton
+        primary
+        label={props.playing ? 'Pause' : 'Play'}
+        icon={props.playing ? <PauseIcon /> : <PlayIcon />}
+        onClick={props.onPlayToggle}
+      />
       <output className="playback__time">
         {formatNumber(Math.round(props.timeMs))}
         <span> of {formatNumber(Math.round(props.totalMs))} ms</span>
       </output>
       <span className="playback__end">
-        <Toggle label="Loop" checked={props.loop} onChange={props.onLoopChange} />
+        <IconToggle
+          label="Loop"
+          icon={<LoopIcon />}
+          checked={props.loop}
+          onChange={props.onLoopChange}
+        />
         {/* A small menu: four buttons took a row of their own. */}
         <select
           className="playback__speed"

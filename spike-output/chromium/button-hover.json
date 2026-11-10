@@ -18,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 60.5,
-      "timelineTimeAtFirstSight": 139.1,
-      "startTimeWhenReady": 155.75499999977183,
+      "firstSeenAtMs": 49.5,
+      "timelineTimeAtFirstSight": 123.1,
+      "startTimeWhenReady": 139.75099999515805,
       "keyframes": [
         {
           "offset": 0,
@@ -217,9 +217,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 60.70000000298023,
-      "timelineTimeAtFirstSight": 139.1,
-      "startTimeWhenReady": 155.75499999977183,
+      "firstSeenAtMs": 49.79999999701977,
+      "timelineTimeAtFirstSight": 123.1,
+      "startTimeWhenReady": 139.75099999515805,
       "keyframes": [
         {
           "offset": 0,
@@ -440,42 +440,42 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 60.1000000089407,
+      "atMs": 49.20000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 60.1000000089407,
+      "atMs": 49.20000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 60.1000000089407,
+      "atMs": 49.20000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 60.1000000089407,
+      "atMs": 49.20000000298023,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
       "elapsedTime": 0.18,
-      "atMs": 259.79999999701977,
+      "atMs": 249,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.18,
-      "atMs": 259.79999999701977,
+      "atMs": 249,
       "targetClassName": "fx-button"
     }
   ]

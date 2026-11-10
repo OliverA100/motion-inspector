@@ -54,50 +54,81 @@ html {
    sentence a little longer or shorter. */
 .mi__description {
   max-width: 60ch;
-  min-height: calc(3 * 1.4em);
+  min-height: calc(2 * 1.4em);
   margin: 0;
   font-size: var(--text-title);
+  font-weight: var(--weight-medium);
   line-height: 1.4;
+  letter-spacing: -0.01em;
 }
 
 /* In the side panel the description is smaller, so it does not push the
    preview off the screen. Most fit in four lines. */
 @media (max-width: 600px) {
   .mi__description {
-    min-height: calc(4 * 1.4em);
-    font-size: var(--text-body);
+    min-height: calc(3 * 1.4em);
+    font-size: 14px;
   }
 }
 
-/* A long selector wraps inside the word. It never widens the page. */
+/* Under the description: the check badge and where it came from. */
+.mi__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* The page and the number of tracks; the selector is in its tooltip. */
 .mi__source {
-  margin: var(--space-2) 0 0;
+  min-width: 0;
   font-size: var(--text-small);
   color: var(--color-text-muted);
   overflow-wrap: anywhere;
 }
 
-/* How close the preview is to the page, measured. */
+/* How close the preview is to the page, measured: a small pill. */
 .mi__check {
-  margin: var(--space-1) 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 22px;
+  padding: 0 var(--space-2);
   font-size: var(--text-small);
-  color: var(--color-text-muted);
+  font-weight: var(--weight-medium);
+  color: var(--color-warn);
+  background: color-mix(in srgb, var(--color-warn) 12%, transparent);
+  border-radius: var(--radius-pill);
+  cursor: default;
 }
 
-.mi__top > div:first-child {
+.mi__check.is-close {
+  color: var(--color-good);
+  background: color-mix(in srgb, var(--color-good) 12%, transparent);
+}
+
+.mi__summary {
   min-width: 0;
+  flex: 1 1 320px;
 }
 
 .mi__actions {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .mi__buttons {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* Undo, redo and reset: a quiet group of icons. */
+.mi__buttons--icons {
+  gap: 2px;
 }
 
 /* ---------- Layout: one column, two on wide screens ---------- */
@@ -140,11 +171,10 @@ html {
   /* The parts below the preview are tabs: one shows at a time. */
   .mi__tabs {
     display: flex;
-    gap: var(--space-1);
-    padding: var(--space-1);
-    background: var(--color-surface);
-    border: var(--hairline) solid var(--color-border);
-    border-radius: var(--radius-2);
+    gap: 2px;
+    padding: 2px;
+    background: var(--color-fill);
+    border-radius: 9px;
   }
 
   .mi__pane[data-active='false'] {
@@ -154,7 +184,7 @@ html {
   /* Keyboard focus and scrolling into view stop below the stuck preview,
      never under it. */
   html {
-    scroll-padding-top: calc(var(--mi-sticky-top, 0px) + 220px);
+    scroll-padding-top: calc(var(--mi-sticky-top, 0px) + 300px);
   }
 }
 
@@ -164,7 +194,6 @@ html {
   position: sticky;
   top: var(--mi-sticky-top, 0px);
   z-index: 5;
-  box-shadow: 0 1px 0 var(--color-border);
 }
 
 /* ---------- Sections ---------- */
@@ -183,31 +212,45 @@ html {
 .mi__tab {
   flex: 1 1 0;
   min-width: 0;
-  height: var(--control-height);
+  height: 26px;
   padding: 0 var(--space-2);
   font: inherit;
   font-size: var(--text-small);
-  color: var(--color-text-muted);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
   background: transparent;
   border: 0;
-  border-radius: var(--radius-1);
+  border-radius: 7px;
   cursor: pointer;
-}
-
-.mi__tab:hover {
-  color: var(--color-text);
+  transition: background-color var(--duration-ui) var(--ease-ui);
 }
 
 .mi__tab[aria-pressed='true'] {
-  color: var(--color-text);
-  font-weight: var(--weight-medium);
-  background: var(--color-grid);
+  background: var(--color-selected);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Play, time and speed, under the preview. */
 .stage__controls {
   padding: var(--space-2) var(--space-3);
-  border-top: var(--hairline) solid var(--color-border);
+}
+
+/* The view's options: small icons in the corner above the preview. */
+.stage__tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  /* Room below, so a focus ring never reaches over the preview. */
+  padding: var(--space-2) var(--space-2) var(--space-1);
+}
+
+.stage__hint {
+  margin: 0 auto 0 var(--space-1);
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
 }
 
 /* ---------- Panels ---------- */
@@ -215,8 +258,8 @@ html {
 .panel {
   min-width: 0;
   background: var(--color-surface);
-  border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-2);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -224,17 +267,20 @@ html {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-  min-height: 44px;
+  gap: var(--space-2);
+  min-height: 40px;
   padding: var(--space-2) var(--space-3);
-  border-bottom: var(--hairline) solid var(--color-border);
+}
+
+/* Tools sit at the end of the head; a "?" sits right after the title. */
+.panel__head > :last-child:not(.panel__title):not(.help-tip) {
+  margin-left: auto;
 }
 
 .panel__title {
   margin: 0;
   font-size: var(--text-body);
-  font-weight: var(--weight-medium);
+  font-weight: 600;
 }
 
 .panel__term {
@@ -373,30 +419,119 @@ html {
   padding: 0 var(--space-3);
   font: inherit;
   font-size: var(--text-small);
+  font-weight: var(--weight-medium);
   color: var(--color-text);
-  background: transparent;
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-1);
+  background: var(--color-fill);
+  border: 0;
+  border-radius: 7px;
   cursor: pointer;
   white-space: nowrap;
   transition:
     background-color var(--duration-ui) var(--ease-ui),
-    border-color var(--duration-ui) var(--ease-ui);
+    opacity var(--duration-ui) var(--ease-ui);
 }
 
 .btn:hover {
-  border-color: var(--color-text-muted);
+  background: var(--color-fill-strong);
 }
 
 .btn:active {
-  background: var(--color-grid);
+  opacity: 0.7;
 }
 
 .btn:disabled {
   color: var(--color-text-muted);
-  border-color: var(--color-border);
-  opacity: 0.6;
+  background: var(--color-fill);
+  opacity: 0.5;
   cursor: default;
+}
+
+/* A button that shows an icon: no fill until pointed at. */
+.icon-btn,
+.icon-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-ui) var(--ease-ui),
+    color var(--duration-ui) var(--ease-ui);
+}
+
+.icon-btn:hover:not(:disabled),
+.icon-toggle:hover {
+  background: var(--color-fill);
+}
+
+.icon-btn:disabled {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Play: a round accent button. */
+.icon-btn--primary {
+  width: 32px;
+  height: 32px;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+}
+
+.icon-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent);
+  opacity: 0.88;
+}
+
+/* An icon toggle that is on shows in the accent color. */
+.icon-toggle.is-on {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.icon-toggle {
+  position: relative;
+}
+
+/* The checkbox stays for keyboards and screen readers, out of sight,
+   inside its toggle. */
+.icon-toggle input {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.icon-toggle:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.icon {
+  display: block;
+}
+
+/* A "?" whose tooltip says how a section works. */
+.help-tip {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-pill);
+  cursor: help;
+}
+
+.help-tip:hover {
+  color: var(--color-text);
 }
 
 .field input:disabled {
@@ -424,39 +559,36 @@ html {
 .segmented {
   display: inline-flex;
   flex-wrap: wrap;
+  gap: 2px;
   max-width: 100%;
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-1);
-  overflow: hidden;
+  padding: 2px;
+  background: var(--color-fill);
+  border-radius: 8px;
 }
 
 .segmented button {
-  height: calc(var(--control-height) - 2px);
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 24px;
   padding: 0 var(--space-2);
   font: inherit;
   font-size: var(--text-small);
-  color: var(--color-text-muted);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
   background: transparent;
   border: 0;
+  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
-  transition:
-    background-color var(--duration-ui) var(--ease-ui),
-    color var(--duration-ui) var(--ease-ui);
-}
-
-.segmented button + button {
-  border-left: var(--hairline) solid var(--color-border);
-}
-
-.segmented button:hover {
-  color: var(--color-text);
+  transition: background-color var(--duration-ui) var(--ease-ui);
 }
 
 .segmented button[aria-checked='true'] {
-  color: var(--color-text);
-  font-weight: var(--weight-medium);
-  background: var(--color-grid);
+  background: var(--color-selected);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .toggle {
@@ -495,9 +627,9 @@ html {
   font: var(--text-small) var(--font-mono);
   text-align: right;
   color: var(--color-text);
-  background: transparent;
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-1);
+  background: var(--color-fill);
+  border: 0;
+  border-radius: 7px;
 }
 
 .field__unit,
@@ -513,12 +645,6 @@ html {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-}
-
-/* "Play" and "Pause" get the same width. */
-.playback__play .btn {
-  width: 64px;
-  padding: 0;
 }
 
 /* The widest time is reserved, so the controls beside it never move. */
@@ -546,10 +672,11 @@ html {
   padding: 0 var(--space-1);
   font: inherit;
   font-size: var(--text-small);
+  font-weight: var(--weight-medium);
   color: var(--color-text);
-  background: var(--color-surface);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-1);
+  background: var(--color-fill);
+  border: 0;
+  border-radius: 7px;
 }
 
 /* ---------- Timeline ---------- */

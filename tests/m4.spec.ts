@@ -453,7 +453,7 @@ for (const [name, trigger, waitMs] of [
       JSON.stringify(capture),
     );
     await page.goto('/?capture=session&quiet&time=0');
-    await expect(page.locator('.mi__check')).toHaveText(/^Checked against the page: within/);
+    await expect(page.locator('.mi__check')).toHaveText(/^Matches the page · [\d.]+ px$/);
   });
 }
 
@@ -480,7 +480,10 @@ test('a preview that is wrong is reported as off, with the part and the time', a
     JSON.stringify(wrong),
   );
   await page.goto('/?capture=session&quiet&time=0');
-  await expect(page.locator('.mi__check')).toHaveText(
+  await expect(page.locator('.mi__check')).toHaveText(/^Off by [\d.]+ px$/);
+  // The whole sentence is its tooltip.
+  await expect(page.locator('.mi__check')).toHaveAttribute(
+    'title',
     /^Checked against the page: off by up to [\d.]+ px and \d+% opacity, most on .+ at \d+ ms\.$/,
   );
 });
@@ -515,7 +518,7 @@ test('a tilt card follows the pointer in the preview, tapered as on the page', a
     JSON.stringify(capture),
   );
   await page.goto('/?capture=session&quiet');
-  await expect(page.locator('.mi__check')).toHaveText(/^Checked against the page: within/);
+  await expect(page.locator('.mi__check')).toHaveText(/^Matches the page · [\d.]+ px$/);
   await expect(page.locator('.mi__description')).toContainText('follows the pointer');
 
   // The height of the blue card at its left and right ends, on the canvas.

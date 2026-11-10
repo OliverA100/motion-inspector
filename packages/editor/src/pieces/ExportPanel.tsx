@@ -49,7 +49,7 @@ export function ExportPanel({ css, aiText, copier }: Props) {
           ? `Copied: ${status.what}.`
           : status.kind === 'failed'
             ? 'Could not copy. The text is selected below. Press Cmd+C or Ctrl+C.'
-            : 'The CSS for your version, updated as you edit. "Copy for AI" adds a description, a table of the tracks and the capture data, to paste into a coding assistant.'}
+            : 'Your version, updated as you edit.'}
       </p>
       {status.kind === 'failed' ? (
         <textarea

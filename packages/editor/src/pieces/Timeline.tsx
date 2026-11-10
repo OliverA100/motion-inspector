@@ -28,7 +28,8 @@ import {
 } from '../draw/timeline';
 import { useTheme } from '../theme';
 import { Canvas, type Draw, type Size } from './Canvas';
-import { Button, NumberField } from './controls';
+import { Button, NumberField, HelpTip } from './controls';
+import { HelpIcon } from './icons';
 
 export type TimelineTrack = {
   // The plain word for the property, or null when there is none.
@@ -347,12 +348,12 @@ export function Timeline(props: Props) {
     <section className="panel">
       <header className="panel__head">
         <h2 className="panel__title">Timeline</h2>
+        <HelpTip
+          icon={<HelpIcon />}
+          text="Light block: delay. Solid bar: duration. Drag the bar, or the grip at its end, to change them. Drag the ruler to move through time. Double-click a bar to reset it. Keys: Space plays or pauses; the left and right arrows step one frame, ten with Shift; 1 to 4 set the speed; hold Alt while dragging to turn off snapping."
+        />
         {props.controls ?? null}
       </header>
-      <p className="panel__hint">
-        Light block: delay. Solid bar: duration. Drag the bar, or the grip at its end, to change
-        them. Drag the ruler to move through time.
-      </p>
       {/* The rows scroll inside this box. The ruler is pinned to its top, so
           the timing fields below stay in view
           however many rows there are. */}
@@ -521,12 +522,6 @@ export function Timeline(props: Props) {
         </p>
       </div>
       {props.extra !== undefined ? <div className="timeline__extra">{props.extra}</div> : null}
-
-      <p className="panel__foot">
-        <kbd>Space</kbd> play or pause · <kbd>←</kbd> <kbd>→</kbd> one frame · with <kbd>Shift</kbd>{' '}
-        ten frames · <kbd>1</kbd> to <kbd>4</kbd> speed · hold <kbd>Alt</kbd> while dragging to turn
-        off snapping · double-click a bar to reset it
-      </p>
     </section>
   );
 }

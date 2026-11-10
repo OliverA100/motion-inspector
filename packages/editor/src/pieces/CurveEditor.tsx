@@ -35,7 +35,8 @@ import {
 import { curveFeel } from '../state/selectors';
 import { useTheme } from '../theme';
 import { Canvas, type Draw, type Size } from './Canvas';
-import { Button, NumberField, Segmented } from './controls';
+import { Button, NumberField, Segmented, HelpTip } from './controls';
+import { HelpIcon } from './icons';
 
 type Props = {
   original: Easing;
@@ -220,9 +221,13 @@ export function CurveEditor(props: Props) {
   return (
     <section className="panel">
       <header className="panel__head">
-        <h2 className="panel__title">
-          Curve <code className="panel__term">{props.term}</code>
+        <h2 className="panel__title" title={props.term}>
+          Curve
         </h2>
+        <HelpTip
+          icon={<HelpIcon />}
+          text={`How the value gets from start to end (${props.term}). Left to right is time; the steeper, the faster. Start handle: drag right for a slower start, up for a faster one. End handle: drag left for a gentler stop, above the top line to overshoot. Double-click a handle to put it back.`}
+        />
         <Button
           // Compared as data, not by shape: two different steps easings can
           // happen to agree at every point that is sampled.
@@ -243,10 +248,6 @@ export function CurveEditor(props: Props) {
           />
         ) : null}
       </header>
-      <p className="panel__hint">
-        How the selected property gets from its start value to its end value. Left to right is time.
-        The steeper the line, the faster it moves.
-      </p>
 
       <div
         ref={wrapperRef}
@@ -374,12 +375,6 @@ export function CurveEditor(props: Props) {
           </>
         ) : (
           <>
-            <dl className="guide">
-              <dt>Start handle</dt>
-              <dd>Drag right for a slower start. Drag up for a faster one.</dd>
-              <dt>End handle</dt>
-              <dd>Drag left for a gentler stop. Drag above the top line to overshoot.</dd>
-            </dl>
             <div className="presets" role="group" aria-label="Ready-made curves">
               {PRESETS.map((preset) => {
                 const [x1, y1, x2, y2] = preset.values;

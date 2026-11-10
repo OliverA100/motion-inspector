@@ -32,10 +32,75 @@ export function Button({
   );
 }
 
+// A button that shows an icon. Its name is said by screen readers and
+// shown as a tooltip.
+export function IconButton({
+  label,
+  icon,
+  onClick,
+  disabled = false,
+  primary = false,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  primary?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={primary ? 'icon-btn icon-btn--primary' : 'icon-btn'}
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {icon}
+    </button>
+  );
+}
+
+// A "?" that tells how something works, when pointed at or focused.
+// Help that used to be paragraphs lives here, out of the way.
+export function HelpTip({ text, icon }: { text: string; icon: ReactNode }) {
+  return (
+    <span className="help-tip" role="img" tabIndex={0} aria-label={text} title={text}>
+      {icon}
+    </span>
+  );
+}
+
+// An on or off choice shown as an icon: a checkbox to screen readers.
+export function IconToggle({
+  label,
+  icon,
+  checked,
+  onChange,
+}: {
+  label: string;
+  icon: ReactNode;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className={checked ? 'icon-toggle is-on' : 'icon-toggle'} title={label}>
+      <input
+        type="checkbox"
+        aria-label={label}
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      {icon}
+    </label>
+  );
+}
+
 type SegmentedProps<Value extends string | number> = {
   // Read by screen readers as the name of the group.
   label: string;
-  options: { value: Value; text: string }[];
+  // icon: shown instead of the text, which becomes its name and tooltip.
+  options: { value: Value; text: string; icon?: ReactNode }[];
   value: Value;
   onChange: (value: Value) => void;
 };
@@ -55,9 +120,11 @@ export function Segmented<Value extends string | number>({
           type="button"
           role="radio"
           aria-checked={option.value === value}
+          aria-label={option.icon === undefined ? undefined : option.text}
+          title={option.icon === undefined ? undefined : option.text}
           onClick={() => onChange(option.value)}
         >
-          {option.text}
+          {option.icon ?? option.text}
         </button>
       ))}
     </div>
@@ -101,7 +168,7 @@ export function NumberField({ label, term, value, unit, min, onChange, onDone }:
   const [draft, setDraft] = useState<string | null>(null);
   const shown = value === null ? '' : String(Math.round(value * 100) / 100);
   return (
-    <label className="field">
+    <label className="field" title={term}>
       <span className="field__label">{label}</span>
       <input
         type="number"
@@ -122,7 +189,6 @@ export function NumberField({ label, term, value, unit, min, onChange, onDone }:
         }}
       />
       <span className="field__unit">{unit}</span>
-      <code className="field__term">{term}</code>
     </label>
   );
 }

@@ -49,13 +49,16 @@ async function open(context: BrowserContext, extensionId: string, url: string) {
 
 test('first open: three steps and one button', async ({ context, extensionId }) => {
   const { panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
-  await expect(panel.getByRole('heading', { name: 'Three steps' })).toBeVisible();
-  await expect(panel.getByText('Pick.')).toBeVisible();
-  await expect(panel.getByText('Trigger.')).toBeVisible();
-  await expect(panel.getByText('Tweak.')).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Capture a motion' })).toBeVisible();
+  await expect(
+    panel.getByText('Pick an element on the page, then hover or click it.'),
+  ).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Pick element' })).toBeVisible();
-  await expect(panel.getByRole('button')).toHaveCount(2); // Pick element, and the dev-only debug button
-  await expect(status(panel)).toHaveText('Ready when you are.');
+  // One button, and a menu for what is rarely needed.
+  await expect(panel.getByRole('button')).toHaveCount(1);
+  await expect(panel.getByLabel('More')).toBeVisible();
+  // Nothing to say yet: the status line is empty.
+  await expect(status(panel)).toHaveText('');
 });
 
 test('the capture script is not on the page until Pick element is pressed', async ({
@@ -159,7 +162,7 @@ test('stop with nothing found says what the cause might be', async ({ context, e
   await expect(status(panel)).toContainText('Listening…');
   await panel.getByRole('button', { name: 'Stop' }).click();
   await expect(panel.getByRole('heading', { name: 'No animation was found' })).toBeVisible();
-  await expect(panel.getByText('driven by JavaScript frame by frame')).toBeVisible();
+  await expect(panel.getByText('Try its parent, or the part that moves')).toBeVisible();
   // It stays. (It once vanished after a third of a second, when stop was
   // confirmed a second time.)
   await panel.waitForTimeout(1000);
@@ -174,11 +177,9 @@ test('after 5 seconds of listening with nothing found, it offers a tip', async (
   await panel.getByRole('button', { name: 'Pick element' }).click();
   await site.bringToFront();
   await site.click('h1');
+  await expect(status(panel)).toHaveText('Listening… Hover or click it on the page.');
   await expect(status(panel)).toHaveText(
-    'Listening… Now hover or click it on the page, or Play the hover. Recording stops by itself when the motion is done.',
-  );
-  await expect(status(panel)).toHaveText(
-    'Listening… Nothing yet. Try hovering or clicking the element, or Play the hover.',
+    'Listening… Nothing yet: hover or click it, or play the hover.',
     { timeout: 8000 },
   );
 });
@@ -220,10 +221,11 @@ test('takes are saved, and are there again after the panel is reopened', async (
   await expect(panel.locator('.xp__group-name code').first()).toHaveText('button.fx-button');
   await expect(panel.locator('.mi__description')).toHaveText(description);
 
-  await panel.getByRole('button', { name: 'Clear all' }).click();
+  await panel.getByLabel('More').click();
+  await panel.getByRole('button', { name: 'Clear all takes' }).click();
   await expect(panel.locator('.xp__take')).toHaveCount(0);
   await panel.reload();
-  await expect(panel.getByRole('heading', { name: 'Three steps' })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Capture a motion' })).toBeVisible();
 });
 
 test('a hover and its leave are one take in the panel', async ({ context, extensionId }) => {
@@ -301,7 +303,7 @@ test('Play the hover moves the pointer in and out, and the take is a hover and i
   const hovers = panel.locator('.xp__take', { hasText: 'Hover in and out' });
   const before = await hovers.count();
 
-  await expect(status(panel)).toContainText('Play the hover');
+  await expect(panel.getByRole('button', { name: 'Play the hover' })).toBeVisible();
   await panel.getByRole('button', { name: 'Play the hover' }).click();
   // The page must be in front for its frames to run.
   await site.bringToFront();

@@ -139,3 +139,21 @@ export function selfCheckWords(checks: ShapeCheck[]): string | null {
   const worst = checks.reduce((first, second) => (second.px > first.px ? second : first));
   return `Checked against the page: off by up to ${pxWords} and ${opacityWords}, most on ${worst.label} at ${Math.round(worst.worstAtMs)} ms.`;
 }
+
+// The same, as a small badge: a few words, and the sentence for its tooltip.
+export function selfCheckBadge(
+  checks: ShapeCheck[],
+): { close: boolean; text: string; detail: string } | null {
+  const detail = selfCheckWords(checks);
+  if (detail === null) return null;
+  const px = Math.max(...checks.map((check) => check.px));
+  const opacity = Math.max(...checks.map((check) => check.opacity));
+  const close = px < 1.5 && opacity <= 0.02;
+  const pxWords = px < 0.05 ? '0 px' : `${px < 10 ? px.toFixed(1) : Math.round(px)} px`;
+  const text = close
+    ? `Matches the page · ${pxWords}`
+    : px >= 1.5
+      ? `Off by ${pxWords}`
+      : `Off by ${Math.round(opacity * 100)}% opacity`;
+  return { close, text, detail };
+}

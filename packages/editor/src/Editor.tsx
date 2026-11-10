@@ -10,7 +10,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { CurveEditor } from './pieces/CurveEditor';
 import { ExportPanel } from './pieces/ExportPanel';
 import { useCopy } from './pieces/useCopy';
-import { Button, Toggle } from './pieces/controls';
+import { Button, Toggle, IconButton } from './pieces/controls';
 import { FrameTime } from './pieces/FrameTime';
 import { Playback } from './pieces/Playback';
 import { SpeedGraph } from './pieces/SpeedGraph';
@@ -18,7 +18,8 @@ import { Stage } from './pieces/Stage';
 import { layoutReach } from './draw/stage';
 import { Timeline } from './pieces/Timeline';
 import { createProbe, isPreviewed, type Probe } from './probe';
-import { selfCheck, selfCheckWords } from './selfCheck';
+import { selfCheck, selfCheckBadge } from './selfCheck';
+import { CheckIcon, RedoIcon, ResetIcon, UndoIcon, WarnIcon } from './pieces/icons';
 import { useFollowing, withFollows } from './following';
 import type { Msg, Speed } from './state/model';
 import {
@@ -249,11 +250,11 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
 
   // The capture played against the film of the page. Worked out once per
   // capture: edits change my version, not what the page did.
-  const checkWords = useMemo(
+  const check = useMemo(
     () =>
       probes === null
         ? null
-        : selfCheckWords(selfCheck(original, (time) => probes.original.poses(original, time))),
+        : selfCheckBadge(selfCheck(original, (time) => probes.original.poses(original, time))),
     [probes, original],
   );
 
@@ -274,30 +275,48 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
     <div className="mi">
       <div className="mi__inner">
         <header className="mi__top">
-          <div>
+          <div className="mi__summary">
             {/* The plain-words description comes first. */}
             <p className="mi__description">{describeCapture(shownEdited)}</p>
-            <p className="mi__source">
-              <code>{edited.source.selector}</code> on {hostOf(edited.source.url)} ·{' '}
-              {plural(edited.tracks.length, 'track')}
-              {edited.notShown.length > 0 ? ` · ${edited.notShown.length} not shown` : ''}
-            </p>
-            {checkWords === null ? null : <p className="mi__check">{checkWords}</p>}
+            <div className="mi__meta">
+              {check === null ? null : (
+                <span
+                  className={check.close ? 'mi__check is-close' : 'mi__check'}
+                  title={check.detail}
+                >
+                  {check.close ? <CheckIcon /> : <WarnIcon />}
+                  {check.text}
+                </span>
+              )}
+              <span
+                className="mi__source"
+                title={`${edited.source.selector} on ${hostOf(edited.source.url)}`}
+              >
+                {hostOf(edited.source.url)} · {plural(edited.tracks.length, 'track')}
+                {edited.notShown.length > 0 ? ` · ${edited.notShown.length} not shown` : ''}
+              </span>
+            </div>
           </div>
           <div className="mi__actions">
-            <div className="mi__buttons">
-              <Button disabled={!canUndo(history)} onClick={() => dispatch({ kind: 'undone' })}>
-                Undo
-              </Button>
-              <Button disabled={!canRedo(history)} onClick={() => dispatch({ kind: 'redone' })}>
-                Redo
-              </Button>
-              <Button
+            <div className="mi__buttons mi__buttons--icons">
+              <IconButton
+                label="Undo"
+                icon={<UndoIcon />}
+                disabled={!canUndo(history)}
+                onClick={() => dispatch({ kind: 'undone' })}
+              />
+              <IconButton
+                label="Redo"
+                icon={<RedoIcon />}
+                disabled={!canRedo(history)}
+                onClick={() => dispatch({ kind: 'redone' })}
+              />
+              <IconButton
+                label="Reset everything"
+                icon={<ResetIcon />}
                 disabled={!isAnythingEdited(model)}
                 onClick={() => dispatch({ kind: 'allReset' })}
-              >
-                Reset everything
-              </Button>
+              />
             </div>
             {/* What the user came for, at the top. The Export panel below
                 shows the CSS and shares this status. */}
@@ -350,8 +369,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
               onPointer={following.setPointer}
               {...(follows.length > 0
                 ? {
-                    pointerHint:
-                      'Move the pointer over the preview: the parts that follow it on the page follow it here, with the same lag.',
+                    pointerHint: 'Move the pointer over the preview: it follows.',
                   }
                 : {})}
               onCompareChange={(compare) => dispatch({ kind: 'compareSet', compare })}
@@ -426,10 +444,8 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                     <h2 className="panel__title">Nothing to play</h2>
                   </header>
                   <p className="panel__note">
-                    No animation in this capture can be played back. It may be driven by JavaScript
-                    frame by frame, drawn on a canvas, or tied to scrolling. Those cannot be
-                    captured yet. Try picking a different element, or triggering the animation
-                    again.
+                    Nothing here can be played back. It may be drawn on a canvas or tied to
+                    scrolling. Try another element, or trigger it again.
                   </p>
                 </section>
               )}

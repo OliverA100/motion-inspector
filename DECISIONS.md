@@ -703,3 +703,13 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - The preview fits around what clip-paths leave visible and what is drawn, not around empty wrappers.
 **Why:** Vercel's cards peel their corner back on hover: a spring writes clip-path polygons on two layers, and a mirrored flap carries a gradient. Nothing of it was captured. Now it checks within about 2.5 px against the page.
 **Gave up:** a gradient a script changes (the flap's shading) is drawn as it was when picked. Background images other than gradients, and other properties, are not filmed.
+
+### D132. A quieter interface
+**Chose:** fewer words and fewer boxes, nothing taken away.
+- The panel has one toolbar: Pick element (or Play the hover and Stop), and a "More" menu for clearing takes and the debug report. The status is one short line, and none when there is nothing to say. First open shows one heading and one sentence.
+- Takes are compact rows; the time of day is in a tooltip.
+- In the editor, the self-check is a small badge ("Matches the page · 0.3 px", green, or "Off by 8.5 px", amber) whose tooltip has the full sentence. Undo, redo and reset are icons. The view's options (original, ghost trail, single or side by side) are icons above a larger preview. Play is a round button.
+- Help that was paragraphs (how the timeline, the curve and the speed graph work, and the keys) is behind a "?" beside each title. CSS terms under the fields are their tooltips.
+- Colors, type and shapes follow the system's own (gray fills instead of outlines, cards with a soft shadow, the system blue), in light and dark. The fixtures page keeps its own fixed look: it is test data.
+**Why:** asked for: "too messy, too much text; minimal, intuitive and easy to use".
+**Gave up:** the help is one step further away: pointed at, not read at a glance.

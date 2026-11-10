@@ -98,7 +98,7 @@ test('nothing captured: it says so, lists what could not be shown, and nothing b
   );
   await expect(page.getByText('sits in the flow of text')).toBeVisible();
   // It says why, and does not show an empty timeline or curve.
-  await expect(page.getByText('It may be driven by JavaScript frame by frame')).toBeVisible();
+  await expect(page.getByText('Nothing here can be played back.')).toBeVisible();
   await expect(page.getByRole('slider', { name: 'Time' })).toHaveCount(0);
   await expect(page.locator('.slot')).toHaveCount(0);
   // The controls still answer, even with nothing to play.

@@ -118,33 +118,29 @@ async function loadTakes(): Promise<StoredTake[]> {
 
 // ---------- What the panel says ----------
 
+// One short line, or nothing: the buttons and the page say the rest.
 function statusText(panel: Panel): string {
   const status = panel.status;
   switch (status.kind) {
     case 'idle':
-      if (panel.stoppedByItself) {
-        return 'Got it. Recording stopped by itself once the motion was complete. Record again to capture it once more.';
-      }
-      return panel.takes.length === 0
-        ? 'Ready when you are.'
-        : 'Pick another element, or keep editing below.';
+      return panel.stoppedByItself ? 'Recording stopped by itself.' : '';
     case 'picking':
-      return 'Click an element on the page. Esc cancels. The up and down arrows move to its parent or first child.';
+      return 'Click an element on the page. Esc cancels.';
     case 'listening': {
       // Say so when the thing being watched is not the thing that was clicked.
       const moved =
         status.movedTo === null ? '' : ` Watching ${status.movedTo}, the part that moves.`;
       if (status.found > 0) {
-        return `Listening…${moved} Got ${status.found === 1 ? 'a take' : `${status.found} takes`}. Move the pointer off the element and recording stops by itself.`;
+        return `Listening…${moved} ${status.found === 1 ? '1 take' : `${status.found} takes`}.`;
       }
       return showTip(panel)
-        ? `Listening…${moved} Nothing yet. Try hovering or clicking the element, or Play the hover.`
-        : `Listening…${moved} Now hover or click it on the page, or Play the hover. Recording stops by itself when the motion is done.`;
+        ? `Listening…${moved} Nothing yet: hover or click it, or play the hover.`
+        : `Listening…${moved} Hover or click it on the page.`;
     }
     case 'nothing-found':
-      return 'Stopped. No animation was found.';
+      return 'Stopped.';
     case 'cannot-inspect':
-      return 'This page cannot be inspected.';
+      return '';
   }
 }
 
@@ -478,8 +474,40 @@ function PanelApp() {
             </>
           )}
         </div>
+        <details className="xp__menu">
+          <summary aria-label="More" title="More">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="3.5" cy="8" r="1.3" fill="currentColor" />
+              <circle cx="8" cy="8" r="1.3" fill="currentColor" />
+              <circle cx="12.5" cy="8" r="1.3" fill="currentColor" />
+            </svg>
+          </summary>
+          <div className="xp__menu-items">
+            <button
+              type="button"
+              disabled={panel.takes.length === 0}
+              onClick={(event) => {
+                dispatch({ kind: 'takesCleared' });
+                event.currentTarget.closest('details')?.removeAttribute('open');
+              }}
+            >
+              Clear all takes
+            </button>
+            {IS_DEVELOPMENT ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  copyDebugReport();
+                  event.currentTarget.closest('details')?.removeAttribute('open');
+                }}
+              >
+                Copy debug report
+              </button>
+            ) : null}
+          </div>
+        </details>
         <p className="xp__status" role="status">
-          {statusText(panel)}
+          {copied !== '' ? copied : statusText(panel)}
         </p>
       </header>
 
@@ -505,10 +533,7 @@ function PanelApp() {
               <button type="button" className="btn btn--primary" onClick={allowAllSites}>
                 Allow on all sites
               </button>{' '}
-              <span className="xp__hint">
-                Once, so switching pages never needs the toolbar icon again. You can take it back in
-                Chrome's extension settings.
-              </span>
+              <span className="xp__hint">Then no page needs the toolbar icon again.</span>
             </p>
           )}
         </section>
@@ -517,44 +542,19 @@ function PanelApp() {
       {status.kind === 'nothing-found' ? (
         <section className="xp__message">
           <h2>No animation was found</h2>
-          <p>
-            Motion Inspector sees CSS transitions, CSS keyframe animations and Web Animations. This
-            one may be driven by JavaScript frame by frame, drawn on a canvas, or tied to scrolling.
-            Things to try: pick a parent of the element, pick the part that actually moves, or
-            trigger it again after pressing Pick element.
-          </p>
+          <p>Try its parent, or the part that moves, then trigger it again.</p>
         </section>
       ) : null}
 
       {panel.takes.length === 0 && status.kind === 'idle' ? (
-        <section className="xp__message">
-          <h2>Three steps</h2>
-          <ol>
-            <li>
-              <strong>Pick.</strong> Press Pick element, then click the part of the page that moves.
-            </li>
-            <li>
-              <strong>Trigger.</strong> Hover or click it on the page, so it animates.
-            </li>
-            <li>
-              <strong>Tweak.</strong> Change its curve and timing here, then copy the result.
-            </li>
-          </ol>
+        <section className="xp__empty">
+          <h2>Capture a motion</h2>
+          <p>Pick an element on the page, then hover or click it.</p>
         </section>
       ) : null}
 
       {panel.takes.length > 0 ? (
-        <section className="xp__takes">
-          <div className="xp__takes-head">
-            <h2>Takes</h2>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => dispatch({ kind: 'takesCleared' })}
-            >
-              Clear all
-            </button>
-          </div>
+        <section className="xp__takes" aria-label="Takes">
           <div className="xp__groups">
             {groupsOf(panel.takes).map((group) => (
               <div key={group.key} className="xp__group">
@@ -573,8 +573,8 @@ function PanelApp() {
                       >
                         <span className="xp__take-head">
                           <span className="xp__trigger">{triggerWords(take)}</span>
-                          <span className="xp__take-meta">
-                            {lengthWords(take)} · {takeTime(take)}
+                          <span className="xp__take-meta" title={takeTime(take)}>
+                            {lengthWords(take)}
                           </span>
                         </span>
                         {/* What it does, so two takes of one element can be told apart. */}
@@ -591,15 +591,6 @@ function PanelApp() {
 
       {/* A new take replaces the editor, so it plays once as it arrives. */}
       {shown !== null ? <Editor key={shown.id} capture={shown.capture} /> : null}
-
-      {IS_DEVELOPMENT ? (
-        <div className="xp__debug">
-          <button type="button" className="btn" onClick={copyDebugReport}>
-            Copy debug report
-          </button>{' '}
-          <span role="status">{copied}</span>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -8,7 +8,8 @@ import { drawStage, pointInRoot, shapeAt, type Pose } from '../draw/stage';
 import type { Compare } from '../state/model';
 import { useTheme } from '../theme';
 import { Canvas, type Draw, type Size } from './Canvas';
-import { Segmented, Toggle } from './controls';
+import { IconToggle, Segmented } from './controls';
+import { GhostIcon, OriginalIcon, SingleIcon, SplitIcon } from './icons';
 
 type Props = {
   root: Shape;
@@ -46,13 +47,13 @@ type Props = {
   pointerHint?: string;
 };
 
-const COMPARE_OPTIONS: { value: Compare; text: string }[] = [
-  { value: 'overlay', text: 'Single' },
-  { value: 'side-by-side', text: 'Side by side' },
+const COMPARE_OPTIONS = [
+  { value: 'overlay' as Compare, text: 'Single', icon: <SingleIcon /> },
+  { value: 'side-by-side' as Compare, text: 'Side by side', icon: <SplitIcon /> },
 ];
 
-const HEIGHT = 240;
-const NARROW_HEIGHT = 140;
+const HEIGHT = 300;
+const NARROW_HEIGHT = 200;
 const NARROW_PX = 560;
 
 export function Stage(props: Props) {
@@ -133,35 +134,34 @@ export function Stage(props: Props) {
   return (
     // panel--stage: on one column it stays in view while the rest scrolls.
     <section className="panel panel--stage">
-      <header className="panel__head">
-        <h2 className="panel__title">Preview</h2>
-        <div className="panel__tools">
-          <Toggle
-            label="Show the original (dashed)"
-            checked={showOriginal}
-            onChange={props.onShowOriginalChange}
-          />
-          <Toggle
-            label="Ghost trail"
-            checked={props.ghostTrail}
-            onChange={props.onGhostTrailChange}
-          />
-          <Segmented
-            label="One preview, or the original beside mine"
-            options={COMPARE_OPTIONS}
-            value={compare}
-            onChange={props.onCompareChange}
-          />
-        </div>
-      </header>
-      <p className="panel__hint">
-        {props.pointerHint ??
-          'Point at a part to find it on the timeline, click to select it. Ghost trail: equal time steps, so far apart is fast.'}
-      </p>
+      {/* The view's options, as small icons; each says what it is when
+          pointed at. */}
+      <div className="stage__tools">
+        {props.pointerHint === undefined ? null : (
+          <p className="stage__hint">{props.pointerHint}</p>
+        )}
+        <IconToggle
+          label="Show the original (dashed)"
+          icon={<OriginalIcon />}
+          checked={showOriginal}
+          onChange={props.onShowOriginalChange}
+        />
+        <IconToggle
+          label="Ghost trail"
+          icon={<GhostIcon />}
+          checked={props.ghostTrail}
+          onChange={props.onGhostTrailChange}
+        />
+        <Segmented
+          label="One preview, or the original beside mine"
+          options={COMPARE_OPTIONS}
+          value={compare}
+          onChange={props.onCompareChange}
+        />
+      </div>
       <div
         className={hoveredShapeId === null ? 'stage' : 'stage is-pointing'}
-        // On a narrow panel the hint above is hidden. It stays here.
-        title="Point at a part to find it on the timeline, click to select it."
+        title="Point at a part to find it on the timeline, click to select it. Ghost trail: equal time steps, so far apart is fast."
         onPointerMove={(event) => {
           const shapeId = under(event);
           // Only say so when it changes, not on every pixel of movement.
