@@ -53,7 +53,7 @@ describe('describeCapture on the sample captures', () => {
 
   test('morph: four corner tracks read as one', () => {
     expect(describeCapture(morph)).toBe(
-      'The element changes background color from rgb(212, 212, 212) to rgb(47, 111, 237) and rounds its corners from 8 px to 50% over 500 ms. It eases in and out.',
+      'The element turns its background from gray to blue and rounds its corners from 8 px to 50% over 500 ms. It eases in and out.',
     );
   });
 
@@ -65,7 +65,7 @@ describe('describeCapture on the sample captures', () => {
 
   test('interrupted transition and the not-shown count', () => {
     expect(describeCapture(interruptedHover)).toBe(
-      'The element moves down 1.66 px over 149.12 ms. It starts fast and slows down. The browser shortened this transition, because it reversed one that was still running. 1 thing is left out of this preview.',
+      'The element moves down 1.7 px over 149 ms. It starts fast and slows down. The browser shortened this transition, because it reversed one that was still running. 1 thing is left out of this preview.',
     );
   });
 

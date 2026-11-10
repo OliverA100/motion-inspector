@@ -5,7 +5,13 @@
 // plain data and callbacks. Nothing here knows about browser extensions.
 
 import { useEffect, useMemo, useReducer, useState } from 'react';
-import { captureToCss, copyForAiText, describeCapture, type Capture } from '@motion-inspector/core';
+import {
+  captureToCss,
+  copyForAiText,
+  describeCapture,
+  shorthandOf,
+  type Capture,
+} from '@motion-inspector/core';
 import { ErrorBoundary } from './ErrorBoundary';
 import { CurveEditor } from './pieces/CurveEditor';
 import { ExportPanel } from './pieces/ExportPanel';
@@ -32,6 +38,7 @@ import {
   linkedCount,
   isTrackEdited,
   plainName,
+  collapsedRows,
   segmentLabels,
   selectedTracks,
   takeLengthMs,
@@ -232,6 +239,37 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
     // "model" is only read for the parts that are listed.
     [original, edited, hiddenTracks, model.hoveredShapeId],
   );
+  // One row for the longhands of a shorthand that move as one; the timeline
+  // works in rows, the model in tracks.
+  const rowGroups = useMemo(() => collapsedRows(edited), [edited]);
+  const shownRows = useMemo(
+    () =>
+      rowGroups.flatMap((members) => {
+        const first = rows[members[0] ?? -1];
+        if (first === undefined) return [];
+        if (members.length === 1) return [first];
+        const shorthand = shorthandOf(first.property) ?? first.property;
+        return [
+          {
+            ...first,
+            property: shorthand,
+            name: plainName(shorthand),
+            shown: members.some((index) => rows[index]?.shown === true),
+            edited: members.some((index) => rows[index]?.edited === true),
+            // The row's own sides are not "other rows".
+            linkedCount: Math.max(0, first.linkedCount - (members.length - 1)),
+          },
+        ];
+      }),
+    [rowGroups, rows],
+  );
+  const trackOfRow = (row: number): number => rowGroups[row]?.[0] ?? row;
+  const rowOfTrack = (track: number | null): number | null => {
+    if (track === null) return null;
+    const row = rowGroups.findIndex((members) => members.includes(track));
+    return row < 0 ? null : row;
+  };
+  const eachTrackOfRow = (row: number): number[] => rowGroups[row] ?? [row];
 
   // The ghost trail: where everything is at equal steps through the
   // selected track. Worked out when the edits or the selection change, not
@@ -265,6 +303,10 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
   // A capture with nothing to play shows no timeline and no curve.
   const hasTracks = edited.tracks.length > 0;
   const selected = selectedTracks(model);
+  const description = describeCapture(shownEdited);
+  // More than three lines or so: shown short until asked for.
+  const longDescription = description.length > 180;
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
   const segments = selected === null ? null : segmentLabels(selected.mine);
   const notPreviewed = Array.from(
     new Set(edited.tracks.map((track) => track.property).filter((name) => !isPreviewed(name))),
@@ -276,8 +318,29 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
       <div className="mi__inner">
         <header className="mi__top">
           <div className="mi__summary">
-            {/* The plain-words description comes first. */}
-            <p className="mi__description">{describeCapture(shownEdited)}</p>
+            {/* The plain-words description comes first. A long one shows its
+                first lines; the rest is a click away. */}
+            <p
+              id="mi-description"
+              className={
+                longDescription && !descriptionOpen
+                  ? 'mi__description is-clamped'
+                  : 'mi__description'
+              }
+            >
+              {description}
+            </p>
+            {longDescription ? (
+              <button
+                type="button"
+                className="mi__more"
+                aria-expanded={descriptionOpen}
+                aria-controls="mi-description"
+                onClick={() => setDescriptionOpen(!descriptionOpen)}
+              >
+                {descriptionOpen ? 'Less' : 'More'}
+              </button>
+            ) : null}
             <div className="mi__meta">
               {check === null ? null : (
                 <span
@@ -400,8 +463,8 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
             <div className="mi__pane" data-active={tab === 'timeline'}>
               {hasTracks ? (
                 <Timeline
-                  tracks={rows}
-                  selectedIndex={model.selectedTrack}
+                  tracks={shownRows}
+                  selectedIndex={rowOfTrack(model.selectedTrack)}
                   // A new capture starts with a fresh timeline scale.
                   key={
                     original.source.capturedAt + original.source.selector + original.tracks.length
@@ -410,28 +473,43 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                   originalTotalMs={takeLengthMs(original)}
                   playheadMs={timeMs}
                   showOriginal={showOriginal}
-                  onSelect={(trackIndex) =>
+                  onSelect={(row) =>
                     dispatch(
-                      trackIndex === null
+                      row === null
                         ? { kind: 'trackDeselected' }
-                        : { kind: 'trackSelected', trackIndex },
+                        : { kind: 'trackSelected', trackIndex: trackOfRow(row) },
                     )
                   }
-                  onToggle={(trackIndex) => dispatch({ kind: 'trackToggled', trackIndex })}
+                  onToggle={(row) => {
+                    // A row of several sides shows or hides them all.
+                    const tracks = eachTrackOfRow(row);
+                    const hide = shownRows[row]?.shown === true;
+                    for (const trackIndex of tracks) {
+                      if ((rows[trackIndex]?.shown === true) === hide) {
+                        dispatch({ kind: 'trackToggled', trackIndex });
+                      }
+                    }
+                  }}
                   onScrub={(time) => dispatch({ kind: 'scrubbed', timeMs: time })}
-                  onDelayChange={(trackIndex, delayMs) =>
-                    dispatch({ kind: 'delayChanged', trackIndex, delayMs })
+                  onDelayChange={(row, delayMs) =>
+                    dispatch({ kind: 'delayChanged', trackIndex: trackOfRow(row), delayMs })
                   }
-                  onDurationChange={(trackIndex, durationMs) =>
-                    dispatch({ kind: 'durationChanged', trackIndex, durationMs })
+                  onDurationChange={(row, durationMs) =>
+                    dispatch({ kind: 'durationChanged', trackIndex: trackOfRow(row), durationMs })
                   }
-                  onReset={(trackIndex) => dispatch({ kind: 'trackReset', trackIndex })}
-                  onUnlink={(trackIndex) => dispatch({ kind: 'trackUnlinked', trackIndex })}
-                  onHoverRow={(trackIndex) =>
+                  onReset={(row) => {
+                    for (const trackIndex of eachTrackOfRow(row)) {
+                      dispatch({ kind: 'trackReset', trackIndex });
+                    }
+                  }}
+                  onUnlink={(row) =>
+                    dispatch({ kind: 'trackUnlinked', trackIndex: trackOfRow(row) })
+                  }
+                  onHoverRow={(row) =>
                     dispatch({
                       kind: 'shapeHovered',
                       shapeId:
-                        trackIndex === null ? null : (edited.tracks[trackIndex]?.shapeId ?? null),
+                        row === null ? null : (edited.tracks[trackOfRow(row)]?.shapeId ?? null),
                     })
                   }
                   onCommit={commit}

@@ -62,6 +62,30 @@ html {
   letter-spacing: -0.01em;
 }
 
+/* A long description: its first three lines, and More. */
+.mi__description.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.mi__more {
+  justify-self: start;
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--color-accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.mi__more:hover {
+  text-decoration: underline;
+}
+
 /* In the side panel the description is smaller, so it does not push the
    preview off the screen. Most fit in four lines. */
 @media (max-width: 600px) {

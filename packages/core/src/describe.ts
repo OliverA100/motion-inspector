@@ -24,6 +24,19 @@ function rounded(value: number): string {
   return formatNumber(Math.round(value * 100) / 100);
 }
 
+// A size or an angle as a person would say it: whole numbers from 10 up,
+// one decimal below. Measured motion is 311.34 px; people say 311.
+function spoken(value: number): string {
+  return Math.abs(value) >= 10
+    ? formatNumber(Math.round(value))
+    : formatNumber(Math.round(value * 10) / 10);
+}
+
+// A time in whole milliseconds.
+function ms(value: number): string {
+  return formatNumber(Math.round(value));
+}
+
 function joinWithAnd(parts: string[]): string {
   if (parts.length <= 1) return parts.join('');
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
@@ -36,7 +49,7 @@ function valueInWords(keyframe: Keyframe): string {
     case 'number':
       return rounded(parsed.value);
     case 'length':
-      return parsed.px === 0 ? '0' : `${rounded(parsed.px)} px`;
+      return parsed.px === 0 ? '0' : `${spoken(parsed.px)} px`;
     case 'percent':
       return `${rounded(parsed.value)}%`;
     case 'color': {
@@ -82,8 +95,8 @@ function differs(first: number, second: number): boolean {
 function movePhrases(from: Pose, to: Pose): string[] {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
-  const sideways = `${rounded(Math.abs(dx))} px`;
-  const vertical = `${rounded(Math.abs(dy))} px`;
+  const sideways = `${spoken(Math.abs(dx))} px`;
+  const vertical = `${spoken(Math.abs(dy))} px`;
   const movesX = differs(dx, 0);
   const movesY = differs(dy, 0);
   const move =
@@ -113,7 +126,7 @@ function movePhrases(from: Pose, to: Pose): string[] {
 
   const turn = to.degrees - from.degrees;
   const rotate = differs(turn, 0)
-    ? [`rotates ${rounded(Math.abs(turn))} degrees${turn < 0 ? ' counterclockwise' : ''}`]
+    ? [`rotates ${spoken(Math.abs(turn))} degrees${turn < 0 ? ' counterclockwise' : ''}`]
     : [];
 
   return [...move, ...scale, ...rotate];
@@ -143,7 +156,7 @@ function sameMeaning(first: Keyframe, second: Keyframe): boolean {
   );
 }
 
-function phraseBetween(property: string, from: Keyframe, to: Keyframe): string {
+function phraseBetween(property: string, from: Keyframe, to: Keyframe, backdrop: Rgb): string {
   if (sameMeaning(from, to)) return `holds its ${property}`;
 
   const fromPose = poseOf(from.parsed);
@@ -156,11 +169,10 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe): string {
   const fromWords = valueInWords(from);
   const toWords = valueInWords(to);
   if (property === 'opacity' && from.parsed?.kind === 'number' && to.parsed?.kind === 'number') {
-    return `fades from ${rounded(from.parsed.value * 100)}% to ${rounded(to.parsed.value * 100)}%`;
+    return `fades from ${ms(from.parsed.value * 100)}% to ${ms(to.parsed.value * 100)}%`;
   }
-  if (property === 'background-color') {
-    return `changes background color from ${fromWords} to ${toWords}`;
-  }
+  const colorPhrase = colorChange(property, from, to, backdrop);
+  if (colorPhrase !== null) return colorPhrase;
   if (property === 'border-radius') return `rounds its corners from ${fromWords} to ${toWords}`;
   if (property === 'box-shadow') return 'changes its shadow';
   if (property === 'background-position-x' || property === 'background-position-y') {
@@ -175,6 +187,95 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe): string {
   const quotable =
     fromWords.length <= SHORT_ENOUGH_TO_QUOTE && toWords.length <= SHORT_ENOUGH_TO_QUOTE;
   return quotable ? `changes ${property} from ${fromWords} to ${toWords}` : `changes ${property}`;
+}
+
+// ---------- Colors in words ----------
+
+type Rgb = { r: number; g: number; b: number };
+
+// What the part's color sits on: the page's backdrop, white when unknown.
+function backdropOf(capture: Capture): Rgb {
+  const match = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(capture.backdrop ?? '');
+  return match === null
+    ? { r: 255, g: 255, b: 255 }
+    : { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]) };
+}
+
+// The color as seen: a see-through color laid over the backdrop.
+function seen(color: { r: number; g: number; b: number; a: number }, under: Rgb): Rgb {
+  return {
+    r: color.r * color.a + under.r * (1 - color.a),
+    g: color.g * color.a + under.g * (1 - color.a),
+    b: color.b * color.a + under.b * (1 - color.a),
+  };
+}
+
+// Hue in degrees, saturation and lightness from 0 to 1.
+function hsl({ r, g, b }: Rgb): { h: number; s: number; l: number } {
+  const [red, green, blue] = [r / 255, g / 255, b / 255];
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d < 1e-9) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h =
+    max === red
+      ? ((green - blue) / d + 6) % 6
+      : max === green
+        ? (blue - red) / d + 2
+        : (red - green) / d + 4;
+  return { h: h * 60, s, l };
+}
+
+// A plain name for a color, close enough for a sentence.
+function colorName(color: Rgb): string {
+  const { h, s, l } = hsl(color);
+  if (l > 0.94) return 'white';
+  if (l < 0.08) return 'black';
+  if (s < 0.15) return 'gray';
+  const hues: [number, string][] = [
+    [15, 'red'],
+    [45, 'orange'],
+    [65, 'yellow'],
+    [170, 'green'],
+    [200, 'teal'],
+    [255, 'blue'],
+    [290, 'purple'],
+    [345, 'pink'],
+    [360, 'red'],
+  ];
+  return hues.find(([upTo]) => h < upTo)?.[1] ?? 'red';
+}
+
+// What a color property is the color of, for a sentence.
+function colorNoun(property: string): string | null {
+  if (property === 'background-color') return 'background';
+  if (property === 'color') return 'text';
+  if (property === 'border-color' || /^border-(top|right|bottom|left)-color$/.test(property)) {
+    return 'border';
+  }
+  if (property === 'outline-color') return 'outline';
+  if (property === 'fill' || property === 'stroke') return property;
+  return null;
+}
+
+// "turns its background from blue to purple", "darkens its border". The
+// exact values are in the timeline and the exports.
+function colorChange(property: string, from: Keyframe, to: Keyframe, backdrop: Rgb): string | null {
+  const noun = colorNoun(property);
+  const a = from.parsed;
+  const b = to.parsed;
+  if (noun === null || a?.kind !== 'color' || b?.kind !== 'color') return null;
+  const before = seen(a, backdrop);
+  const after = seen(b, backdrop);
+  const nameBefore = colorName(before);
+  const nameAfter = colorName(after);
+  if (nameBefore !== nameAfter) return `turns its ${noun} from ${nameBefore} to ${nameAfter}`;
+  const lighter = hsl(after).l - hsl(before).l;
+  if (lighter < -0.02) return `darkens its ${noun}`;
+  if (lighter > 0.02) return `lightens its ${noun}`;
+  return `shifts its ${noun} color slightly`;
 }
 
 // A rough "how different are these two keyframes", to find the far end of
@@ -200,7 +301,7 @@ function distance(first: Keyframe, second: Keyframe): number {
   );
 }
 
-function changePhrase(group: PropertyGroup): string {
+function changePhrase(group: PropertyGroup, backdrop: Rgb): string {
   const keyframes = group.tracks[0]?.keyframes ?? [];
   const first = keyframes[0];
   const last = keyframes[keyframes.length - 1];
@@ -211,10 +312,15 @@ function changePhrase(group: PropertyGroup): string {
     const farthest = keyframes.reduce((best, keyframe) =>
       distance(first, keyframe) > distance(first, best) ? keyframe : best,
     );
-    return `${phraseBetween(group.property, first, farthest)} and back`;
+    return `${phraseBetween(group.property, first, farthest, backdrop)} and back`;
   }
-  const phrase = phraseBetween(group.property, first, last);
-  return keyframes.length > 2 ? `${phrase} through ${keyframes.length} keyframes` : phrase;
+  const phrase = phraseBetween(group.property, first, last, backdrop);
+  // Keyframes an author wrote say the motion has stages (a bounce). Those
+  // fitted to measured motion are only how closely it was followed.
+  const measured = group.tracks[0]?.origin === 'script';
+  return keyframes.length > 2 && !measured
+    ? `${phrase} through ${keyframes.length} keyframes`
+    : phrase;
 }
 
 // ---------- The feel of the curve ----------
@@ -310,7 +416,9 @@ function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
   return {
     shape,
     isRoot: shape.id === capture.root.id,
-    phrases: movementFirst(groupByShorthand(tracks)).map(changePhrase),
+    phrases: movementFirst(groupByShorthand(tracks)).map((group) =>
+      changePhrase(group, backdropOf(capture)),
+    ),
     durationMs: Math.max(...tracks.map((track) => track.timing.duration)),
     delayMs: Math.min(...tracks.map(effectiveDelay)),
     mainTrack,
@@ -341,12 +449,13 @@ function staggerWords(delays: number[]): string {
   const lowest = sorted[0] ?? 0;
   const highest = sorted[sorted.length - 1] ?? 0;
   if (gaps.every((gap) => !differs(gap, 0))) {
-    return lowest > 0 ? ` after a ${rounded(lowest)} ms delay` : '';
+    // Under a millisecond is no delay anyone would write.
+    return lowest >= 1 ? ` after a ${ms(lowest)} ms delay` : '';
   }
   if (gaps.every((gap) => !differs(gap, firstGap))) {
-    return `, one after another, ${rounded(firstGap)} ms apart`;
+    return `, one after another, ${ms(firstGap)} ms apart`;
   }
-  return `, with delays from ${rounded(lowest)} to ${rounded(highest)} ms`;
+  return `, with delays from ${ms(lowest)} to ${ms(highest)} ms`;
 }
 
 function sentencesFor(motions: ShapeMotion[]): string[] {
@@ -363,7 +472,7 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
   const delays = staggerWords(motions.map((motion) => motion.delayMs));
 
   return [
-    `${subject} ${joinWithAnd(first.phrases)} over ${rounded(first.durationMs)} ms${delays}.`,
+    `${subject} ${joinWithAnd(first.phrases)} over ${ms(first.durationMs)} ms${delays}.`,
     easingSentence(first.mainTrack, pronoun),
     repeatSentence(first.mainTrack, pronoun),
     first.goesBack

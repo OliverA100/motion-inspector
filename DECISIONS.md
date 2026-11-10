@@ -783,3 +783,13 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 - On wide screens, Export and the notes sit under the timeline, so the two columns end near each other; the export text wraps instead of running past the panel's edge.
 **Why:** a pass over new kinds of sites (Sonner, NumberFlow, hamburger icons, Radix, Mantine, GSAP) and the full sweep: 221 elements, all within 1.4 px but MUI's ripple (100% opacity off) and Stripe's caret (2 px).
 **Gave up:** NumberFlow's digits are columns of numbers behind a CSS mask, which is not drawn: the motion is right, the picture does not read as numbers. Only parts inside the element are filmed for a variable, at most 80.
+
+### D140. Fewer, plainer words: one row per shorthand, colors named, a short headline
+**Chose:**
+- Longhands of one shorthand (border color, border width, corners, padding, margin) on one part that start together with the same timing are linked at capture, with their ways back. The timeline shows them as one row named by the shorthand ("Border color", border-color); its checkbox shows or hides all of them, and timing edits reach all of them through the link. The table of shorthands is core's, shared by capture, the description and the export; padding and margin were added to it.
+- Every property a capture can hold has a plain name in the timeline ("Clip", "Background image", "Shown or hidden", "Margin, left"...).
+- The description speaks as a person would: sizes and angles of 10 or more in whole numbers, smaller ones to a tenth (311.34 px is 311 px); times in whole ms; delays under 1 ms left out. "Through N keyframes" is kept for keyframes an author wrote (a bounce has stages) and left out for measured motion, where it only says how closely the film was followed.
+- Color changes are named, not quoted: the color as seen over the page's backdrop, roughly named (gray, blue, purple...): "turns its background from gray to blue", "darkens its border". The exact values stay in the timeline, Copy CSS and Copy for AI.
+- A description longer than about three lines shows its first three, and More. The whole text stays in the page for screen readers.
+**Why:** the side panel on Vercel's card read "changes clip-path through 22 keyframes over 549.9 ms... moves 311.34 px left... from rgba(0, 0, 0, 0.08) to rgba(0, 0, 0, 0.21)", over eight rows, four of them one border.
+**Gave up:** a color's name is approximate, by hue ranges.

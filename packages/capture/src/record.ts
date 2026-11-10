@@ -17,6 +17,7 @@ import {
   MOST_POINTER_SAMPLES,
   parseCapture,
   parseEasing,
+  shorthandOf,
   type Capture,
   type Easing,
   type Follow,
@@ -383,6 +384,48 @@ function removalTracksFor(
       },
     ];
   });
+}
+
+type Linkable = {
+  shapeId: unknown;
+  property: unknown;
+  groupId: string | null;
+  startOffset?: unknown;
+  timing?: unknown;
+};
+
+// Longhands of one shorthand on one part that start together with the same
+// timing are linked, with their ways back: one timing to edit, one row to
+// show. Animations that already share a group of their own are left alone.
+function linkFamilies(tracks: Linkable[]): void {
+  const own = (track: Linkable): boolean =>
+    track.groupId === null ||
+    track.groupId === `${String(track.shapeId)}:${String(track.property)}`;
+  const sets = new Map<string, Linkable[]>();
+  for (const track of tracks) {
+    const family = shorthandOf(String(track.property));
+    if (family === null || !own(track)) continue;
+    const key = [
+      String(track.shapeId),
+      family,
+      JSON.stringify(track.startOffset),
+      JSON.stringify(track.timing),
+    ].join('|');
+    sets.set(key, [...(sets.get(key) ?? []), track]);
+  }
+  for (const set of sets.values()) {
+    if (set.length < 2) continue;
+    const first = set[0];
+    if (first === undefined) continue;
+    const group = `${String(first.shapeId)}:${shorthandOf(String(first.property)) ?? ''}`;
+    // Their ways back, linked to them already, come too.
+    const old = new Set(set.map((track) => track.groupId).filter((id) => id !== null));
+    for (const track of tracks) {
+      if (set.includes(track) || (track.groupId !== null && old.has(track.groupId))) {
+        track.groupId = group;
+      }
+    }
+  }
 }
 
 // An animation of CSS variables only (custom properties). What it moves is
@@ -1298,6 +1341,7 @@ function buildTake(
       track.groupId = group;
     }
   });
+  linkFamilies(tracks);
   // Each moving part hides its back, or not, as it did when its first
   // animation in this take began.
   const backfaces = new Map<Element, boolean>();

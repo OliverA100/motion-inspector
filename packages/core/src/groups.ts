@@ -32,7 +32,21 @@ const SHORTHANDS: { shorthand: string; longhands: string[] }[] = [
       'border-left-width',
     ],
   },
+  {
+    shorthand: 'padding',
+    longhands: ['padding-top', 'padding-right', 'padding-bottom', 'padding-left'],
+  },
+  {
+    shorthand: 'margin',
+    longhands: ['margin-top', 'margin-right', 'margin-bottom', 'margin-left'],
+  },
 ];
+
+// The shorthand a longhand belongs to ("border-color" for
+// "border-top-color"), or null.
+export function shorthandOf(property: string): string | null {
+  return SHORTHANDS.find((entry) => entry.longhands.includes(property))?.shorthand ?? null;
+}
 
 // One property as a person would name it, and the tracks behind it.
 // `tracks` has one item, or all the longhands of a shorthand.

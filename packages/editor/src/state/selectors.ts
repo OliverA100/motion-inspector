@@ -13,6 +13,7 @@ import {
   type Easing,
   type ParsedValue,
   type Track,
+  shorthandOf,
 } from '@motion-inspector/core';
 import type { Model } from './model';
 
@@ -158,6 +159,34 @@ export function timelineRows(original: Capture, edited: Capture): TimelineRowDat
   }));
 }
 
+// The rows as shown: the longhands of one shorthand that are linked, on one
+// part, one way (a border-color transition is four tracks, one per side)
+// are one row, named by the shorthand. members: the tracks behind each row,
+// the first one standing for them.
+export function collapsedRows(capture: Capture): number[][] {
+  const rows: number[][] = [];
+  capture.tracks.forEach((track, index) => {
+    const shorthand = shorthandOf(track.property);
+    const back = isWayBack(capture.tracks, index);
+    const row =
+      shorthand === null || track.groupId === null
+        ? undefined
+        : rows.find((members) => {
+            const first = capture.tracks[members[0] ?? -1];
+            return (
+              first !== undefined &&
+              first.groupId === track.groupId &&
+              first.shapeId === track.shapeId &&
+              shorthandOf(first.property) === shorthand &&
+              isWayBack(capture.tracks, members[0] ?? -1) === back
+            );
+          });
+    if (row === undefined) rows.push([index]);
+    else row.push(index);
+  });
+  return rows;
+}
+
 // Where the playhead sits on the selected curve, as an input from 0 to 1.
 // null when playback is not inside that curve at this time.
 export function curvePlayhead(track: Track, segmentIndex: number, timeMs: number): number | null {
@@ -217,7 +246,43 @@ const PLAIN_NAMES: { property: string; name: string }[] = [
   { property: 'border-right-color', name: 'Border color, right' },
   { property: 'border-bottom-color', name: 'Border color, bottom' },
   { property: 'border-left-color', name: 'Border color, left' },
+  { property: 'border-color', name: 'Border color' },
+  { property: 'border-width', name: 'Border width' },
+  { property: 'border-radius', name: 'Corners' },
+  { property: 'padding', name: 'Padding' },
+  { property: 'margin', name: 'Margin' },
+  { property: 'border-top-width', name: 'Border width, top' },
+  { property: 'border-right-width', name: 'Border width, right' },
+  { property: 'border-bottom-width', name: 'Border width, bottom' },
+  { property: 'border-left-width', name: 'Border width, left' },
   ...CORNERS,
+  { property: 'clip-path', name: 'Clip' },
+  { property: 'filter', name: 'Filter' },
+  { property: 'backdrop-filter', name: 'Backdrop filter' },
+  { property: 'color', name: 'Text color' },
+  { property: 'background-image', name: 'Background image' },
+  { property: 'background-position-x', name: 'Background, across' },
+  { property: 'background-position-y', name: 'Background, down' },
+  { property: 'visibility', name: 'Shown or hidden' },
+  { property: 'left', name: 'Position, left' },
+  { property: 'right', name: 'Position, right' },
+  { property: 'top', name: 'Position, top' },
+  { property: 'bottom', name: 'Position, bottom' },
+  { property: 'margin-top', name: 'Margin, top' },
+  { property: 'margin-right', name: 'Margin, right' },
+  { property: 'margin-bottom', name: 'Margin, bottom' },
+  { property: 'margin-left', name: 'Margin, left' },
+  { property: 'padding-top', name: 'Padding, top' },
+  { property: 'padding-right', name: 'Padding, right' },
+  { property: 'padding-bottom', name: 'Padding, bottom' },
+  { property: 'padding-left', name: 'Padding, left' },
+  { property: 'outline-color', name: 'Outline color' },
+  { property: 'outline-width', name: 'Outline width' },
+  { property: 'outline-offset', name: 'Outline offset' },
+  { property: 'fill', name: 'Fill' },
+  { property: 'stroke', name: 'Stroke' },
+  { property: 'stroke-dashoffset', name: 'Dash offset' },
+  { property: 'stroke-dasharray', name: 'Dashes' },
 ];
 
 // The plain word for a CSS property, shown before the CSS term.

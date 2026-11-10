@@ -261,7 +261,8 @@ describe('plain words', () => {
   test('properties get a plain name where there is one', () => {
     expect(plainName('transform')).toBe('Move and scale');
     expect(plainName('border-top-left-radius')).toBe('Corner, top left');
-    expect(plainName('filter')).toBeNull();
+    expect(plainName('filter')).toBe('Filter');
+    expect(plainName('letter-spacing')).toBeNull();
   });
 });
 
