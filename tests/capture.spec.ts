@@ -1248,3 +1248,28 @@ test('a card that tilts toward the pointer is captured as following it, with its
   expect(capture.notShown).toEqual([]);
   expect(describeCapture(capture)).toMatch(/follows the pointer/);
 });
+
+test('a corner peeled back by a script writing clip-path is fitted as a clip-path track', async ({
+  page,
+}) => {
+  const takes = await captureFixture(
+    page,
+    'peel',
+    async (p) => {
+      const card = p.locator('[data-fixture="peel"] [data-root]');
+      await card.scrollIntoViewIfNeeded();
+      await card.hover();
+      await p.waitForTimeout(1500);
+    },
+    300,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  const clip = capture?.tracks.find(
+    (track) => track.origin === 'script' && track.property === 'clip-path',
+  );
+  expect(clip).toBeDefined();
+  // From the 40 px cut to the 120 px one, the same polygon all the way.
+  expect(clip?.keyframes[0]?.value).toContain('calc(100% - 40px)');
+  expect(clip?.keyframes.at(-1)?.value).toContain('calc(100% - 120px)');
+  expect(clip?.keyframes.at(-1)?.value).toMatch(/^polygon\(/);
+});

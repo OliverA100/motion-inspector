@@ -989,3 +989,33 @@ fx-shadow-card {
 .fx-tilt__bar--short {
   width: 60%;
 }
+
+/* 33. Corner peel: a clip-path written by a script. */
+.fx-peel {
+  position: relative;
+  width: 220px;
+  height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.fx-peel__back,
+.fx-peel__front {
+  position: absolute;
+  inset: 0;
+}
+.fx-peel__back {
+  background: #2f6fed;
+}
+.fx-peel__front {
+  background: #f4f4f4;
+  clip-path: polygon(0px 0px, 100% 0px, 100% calc(100% - 40px), calc(100% - 40px) 100%, 0px 100%);
+}
+.fx-peel__bar {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 90px;
+  height: 12px;
+  border-radius: 6px;
+  background: #222222;
+}

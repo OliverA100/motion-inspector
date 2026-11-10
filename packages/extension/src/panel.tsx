@@ -9,7 +9,8 @@ import { StrictMode, useEffect, useReducer, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describeCapture, parseCapture, type Trigger } from '@motion-inspector/core';
 import { Editor, takeLengthMs } from '@motion-inspector/editor';
-import { FROM_PAGE, type FromPage, type ToPage } from './messages';
+import { FROM_PAGE, PANEL_PORT, type FromPage, type PageRect, type ToPage } from './messages';
+import { playHover } from './playHover';
 import './panel.css';
 import {
   initialPanel,
@@ -137,8 +138,8 @@ function statusText(panel: Panel): string {
         return `Listening…${moved} Got ${status.found === 1 ? 'a take' : `${status.found} takes`}. Move the pointer off the element and recording stops by itself.`;
       }
       return showTip(panel)
-        ? `Listening…${moved} Nothing yet. Try hovering or clicking the element.`
-        : `Listening…${moved} Now hover or click it on the page. Recording stops by itself when the motion is done.`;
+        ? `Listening…${moved} Nothing yet. Try hovering or clicking the element, or Play the hover.`
+        : `Listening…${moved} Now hover or click it on the page, or Play the hover. Recording stops by itself when the motion is done.`;
     }
     case 'nothing-found':
       return 'Stopped. No animation was found.';
@@ -233,6 +234,8 @@ function PanelApp() {
   }, []);
   const loaded = useRef(false);
   const [copied, setCopied] = useState('');
+  // True while "Play the hover" is moving the pointer.
+  const [playing, setPlaying] = useState(false);
 
   // Saved takes, once, when the panel opens.
   useEffect(() => {
@@ -294,7 +297,16 @@ function PanelApp() {
       }
     };
     chrome.runtime.onMessage.addListener(onMessage);
-    return () => chrome.runtime.onMessage.removeListener(onMessage);
+    // Accepting the page's connection is all: it is ended by Chrome when
+    // this panel closes, which tells the page to stop.
+    const onConnect = (port: chrome.runtime.Port): void => {
+      if (port.name !== PANEL_PORT) port.disconnect();
+    };
+    chrome.runtime.onConnect.addListener(onConnect);
+    return () => {
+      chrome.runtime.onMessage.removeListener(onMessage);
+      chrome.runtime.onConnect.removeListener(onConnect);
+    };
   }, []);
 
   // Switching tabs, or the page in front changing, needs no reopening: the
@@ -372,6 +384,25 @@ function PanelApp() {
     tellPage({ type: 'again' });
   };
 
+  // Moves a pointer over the recorded element with Chrome's debugger, so
+  // its hover and its way back are recorded without doing them by hand.
+  const playTheHover = async (): Promise<void> => {
+    const id = tabId.current;
+    if (id === null || playing) return;
+    setPlaying(true);
+    try {
+      const where: unknown = await chrome.tabs.sendMessage(id, { type: 'where' } satisfies ToPage);
+      if (where === null || typeof where !== 'object') {
+        throw new Error('the element is no longer on the page');
+      }
+      await playHover(id, where as PageRect);
+    } catch (error) {
+      dispatch({ kind: 'hoverFailed', why: messageOf(error) });
+    } finally {
+      setPlaying(false);
+    }
+  };
+
   const tellPage = (message: ToPage): void => {
     if (tabId.current === null) {
       dispatch({ kind: 'stopped', auto: false });
@@ -417,13 +448,23 @@ function PanelApp() {
               Cancel
             </button>
           ) : status.kind === 'listening' ? (
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => tellPage({ type: 'stop' })}
-            >
-              Stop
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn"
+                disabled={playing}
+                onClick={() => void playTheHover()}
+              >
+                {playing ? 'Playing the hover…' : 'Play the hover'}
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => tellPage({ type: 'stop' })}
+              >
+                Stop
+              </button>
+            </>
           ) : (
             <>
               {panel.canRecordAgain && tabId.current !== null ? (

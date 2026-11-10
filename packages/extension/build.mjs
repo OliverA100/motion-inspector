@@ -66,7 +66,11 @@ const manifest = {
   //   scripting  to inject the capture script, only on "Pick element"
   //   sidePanel  to show the panel
   //   storage    to keep the last 20 takes
-  permissions: ['activeTab', 'scripting', 'sidePanel', 'storage'],
+  //   debugger   for "Play the hover" only: a pointer moved by the extension
+  //              sets CSS :hover, which events made by a script cannot. Chrome
+  //              does not allow it to be optional. Attached only while the
+  //              hover plays (Chrome shows a bar then), and detached after.
+  permissions: ['activeTab', 'scripting', 'sidePanel', 'storage', 'debugger'],
   // Nothing here is granted up front. It only lists what MAY be asked for:
   // when activeTab does not cover a tab, "Pick element" asks for that one site.
   optional_host_permissions: ['*://*/*'],

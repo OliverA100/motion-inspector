@@ -572,3 +572,57 @@ test('a tilt card follows the pointer in the preview, tapered as on the page', a
   const [backLeft, backRight] = await ends();
   expect(Math.abs(backLeft - backRight)).toBeLessThanOrEqual(2);
 });
+
+test('a corner peeled back by a script is drawn peeling in the preview', async ({ page }) => {
+  const takes = await captureFixture(
+    page,
+    'peel',
+    async (p) => {
+      const card = p.locator('[data-fixture="peel"] [data-root]');
+      await card.scrollIntoViewIfNeeded();
+      await card.hover();
+      await p.waitForTimeout(1500);
+    },
+    300,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
+  // The blue behind the cut corner, counted at a moment of the take.
+  const blueAt = async (time: number): Promise<number> => {
+    await page.goto(`/?capture=session&quiet&time=${time}`);
+    await page.waitForTimeout(200);
+    if (process.env.SHOT) {
+      await page.locator('.stage').screenshot({ path: `${process.env.SHOT}-${time}.png` });
+      console.log(
+        JSON.stringify(
+          capture?.tracks.map((track) => [track.property, track.origin, track.keyframes[0]?.value]),
+        ),
+        JSON.stringify(capture?.notShown),
+      );
+    }
+    return page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const context = canvas.getContext('2d');
+      if (context === null) return 0;
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      let count = 0;
+      for (let index = 0; index < data.length; index += 4) {
+        const red = data[index] ?? 0;
+        const green = data[index + 1] ?? 0;
+        const blue = data[index + 2] ?? 0;
+        if (Math.abs(red - 47) < 25 && Math.abs(green - 111) < 25 && Math.abs(blue - 237) < 25) {
+          count += 1;
+        }
+      }
+      return count;
+    });
+  };
+  const start = await blueAt(0);
+  const end = await blueAt(5000);
+  // The cut grows from 40 by 28 px to 120 by 84 px: about nine times the area.
+  expect(start).toBeGreaterThan(0);
+  expect(end).toBeGreaterThan(start * 5);
+});

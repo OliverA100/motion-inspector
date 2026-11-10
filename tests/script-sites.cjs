@@ -17,6 +17,20 @@ const EDITOR = 'http://localhost:5173';
 const sites = [
   { name: 'vanilla-tilt', url: 'https://micku7zu.github.io/vanilla-tilt.js/', selector: '[data-tilt]', act: 'circle' },
   { name: 'atropos', url: 'https://atroposjs.com/', selector: '.atropos-inner', act: 'circle' },
+  {
+    name: 'vercel-backends',
+    url: 'https://vercel.com/home',
+    // The card whose corner peels back on hover, found from its heading.
+    mark: () => {
+      const heading = [...document.querySelectorAll('p')].find((p) => p.textContent === 'Backends');
+      let card = heading;
+      while (card?.parentElement && card.getBoundingClientRect().height < 300) card = card.parentElement;
+      card = card?.parentElement?.parentElement?.parentElement ?? null;
+      card?.setAttribute('data-mi-target', '');
+    },
+    selector: '[data-mi-target]',
+    act: 'hover',
+  },
   { name: 'motion-dev', url: 'https://motion.dev/', selector: 'a[href*="docs"]', act: 'hover' },
   { name: 'react-spring', url: 'https://www.react-spring.dev/', selector: 'a[href*="docs"]', act: 'hover' },
 ];
@@ -51,6 +65,10 @@ async function act(page, box, kind) {
     try {
       await page.goto(site.url, { waitUntil: 'networkidle', timeout: 30000 });
       await page.waitForTimeout(1500);
+      if (site.mark !== undefined) {
+        await page.getByText('Backends', { exact: true }).first().scrollIntoViewIfNeeded().catch(() => {});
+        await page.evaluate(site.mark);
+      }
       const element = page.locator(site.selector).first();
       await element.scrollIntoViewIfNeeded({ timeout: 5000 });
       await page.waitForTimeout(500);
@@ -78,6 +96,11 @@ async function act(page, box, kind) {
         const check = await editor.locator('.mi__check').textContent({ timeout: 2000 }).catch(() => null);
         const description = await editor.locator('.mi__description').textContent();
         await editor.screenshot({ path: resolve(out, `${site.name}-${index + 1}.png`) });
+        // Halfway through, and the capture itself, to look at by hand.
+        await editor.goto(`${EDITOR}/?capture=session&quiet&time=${Math.round(capture.tracks.reduce((most, track) => Math.max(most, track.startOffset + track.timing.delay + track.timing.duration), 0) / 2)}`);
+        await editor.waitForTimeout(600);
+        await editor.locator('.stage').screenshot({ path: resolve(out, `${site.name}-${index + 1}-middle.png`) });
+        writeFileSync(resolve(out, `${site.name}-${index + 1}.json`), JSON.stringify(capture, null, 1));
         results.push({
           site: site.name,
           take: index + 1,

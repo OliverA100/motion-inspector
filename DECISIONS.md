@@ -682,3 +682,24 @@ The sweep also counts motion driven by script frame by frame (inline styles chan
 **Chose:** the 3D transform is no longer only flattened. A flat element under a 3D transform with perspective is seen through a projective map: the six numbers of matrix() plus two more, g and h (w = g x + h y + 1). Capture films them (`taper` on each measured frame), including a parent's `perspective`, and the probe reads them from animated transforms. The stage draws a turned shape once on its own canvas, then puts that picture down in a 6 by 6 grid of triangles, each with the canvas transform that puts its three corners exactly where the turn puts them.
 **Why:** flattening threw away the direction of a tilt: rotateY(8deg) and rotateY(-8deg) both only made the card 1% narrower, so a tilt card barely moved in the preview. Canvas 2D has no perspective transform, and drawing each half's layers separately let them blend along the seam.
 **Gave up:** the picture is drawn at the stage's resolution, then mapped, so a strongly turned shape is a little softer than the rest. A shape turned past edge-on is drawn flat.
+
+### D129. Play the hover, with Chrome's debugger
+**Chose:** the `debugger` permission is required, used only by "Play the hover": while recording, the panel attaches the debugger to the tab, moves a pointer in from the left, across the element and out to the right (`Input.dispatchMouseEvent`), and detaches. CSS :hover and the page's own pointer handlers react as they would to a person. The page is only pointed at: nothing is paused, changed or restyled.
+**Why:** asked for: "when I pick an element can't the tool activate the animation for me". Events made by a script never set :hover; a pointer from the debugger does. The brief's permission list left `debugger` out; asked, and chosen: required for everyone, because Chrome does not allow `debugger` as an optional permission (its permissions page names it among the eight that cannot be).
+**Gave up:** Chrome warns about the permission when installing, and shows "started debugging this browser" while the hover plays. The extension asks for five permissions, not four.
+
+### D130. Closing the panel stops the page
+**Chose:** the injected bridge keeps a connection open to the panel. Chrome ends it when the panel closes, and the page then cancels picking and stops recording.
+**Why:** asked for: "when I close the extension the picker should stop". The picker stayed on the page with nothing to report to.
+
+### D131. Drawn properties a script changes are filmed too
+**Chose:**
+- Besides transform and opacity, the film keeps the computed text of clip-path, filter, background-color, background-position, box-shadow and color. Where a script changes one and the text around its numbers stays the same, each number is fitted (D124) and the keyframes are written back as CSS text: one track per property.
+- A wrapper that only clips with a clip-path gets a shape, so its cut is drawn.
+- The preview reads clip-path lengths written as calc() of px and %.
+- A script's transform track keeps a turn or a mirror that holds still: it replaces the whole transform.
+- A hover merged with its way back keeps its film in order: the way back starts where the film shows the part moving again.
+- With several background layers, the most opaque one is drawn.
+- The preview fits around what clip-paths leave visible and what is drawn, not around empty wrappers.
+**Why:** Vercel's cards peel their corner back on hover: a spring writes clip-path polygons on two layers, and a mirrored flap carries a gradient. Nothing of it was captured. Now it checks within about 2.5 px against the page.
+**Gave up:** a gradient a script changes (the flap's shading) is drawn as it was when picked. Background images other than gradients, and other properties, are not filmed.

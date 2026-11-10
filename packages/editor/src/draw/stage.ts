@@ -5,7 +5,7 @@
 import { findShape, type Capture, type Shape, type ShapeId } from '@motion-inspector/core';
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
-import { clipPathOf } from './clipPath';
+import { clipCorners, clipPathOf } from './clipPath';
 
 // A 2D transform as the six numbers of a matrix: a, b, c, d, e, f.
 export type Matrix = [number, number, number, number, number, number];
@@ -723,13 +723,38 @@ function restBounds(root: Shape): Area {
   const visit = (shape: Shape, parent: DOMMatrix): void => {
     const matrix = parent.multiply(placement(shape, null));
     const { x, y, width, height } = shape.box;
-    for (const [px, py] of [
-      [x, y],
-      [x + width, y],
-      [x, y + height],
-      [x + width, y + height],
-    ] as const) {
-      corners.push(matrix.transformPoint(new DOMPoint(px, py)));
+    // A clip-path shows only part of the shape and of what is inside it.
+    // Fitted around that part: a mirrored flap whose box lies far off
+    // (Vercel's peeled corner) would otherwise shrink the whole preview.
+    const clipped =
+      shape.clipPath === null || shape.clipPath === 'none'
+        ? null
+        : clipCorners(shape.clipPath, shape.box);
+    if (clipped !== null) {
+      for (const point of clipped) {
+        corners.push(matrix.transformPoint(new DOMPoint(point.x, point.y)));
+      }
+      return;
+    }
+    // A wrapper that draws nothing itself is fitted around what is in it
+    // only: its own box may reach far past it (found on Vercel).
+    const drawsNothing =
+      shape !== root &&
+      shape.kind === 'box' &&
+      shape.fill === null &&
+      shape.gradient === null &&
+      shape.stroke === null &&
+      shape.shadow === null &&
+      shape.children.length > 0;
+    if (!drawsNothing) {
+      for (const [px, py] of [
+        [x, y],
+        [x + width, y],
+        [x, y + height],
+        [x + width, y + height],
+      ] as const) {
+        corners.push(matrix.transformPoint(new DOMPoint(px, py)));
+      }
     }
     for (const child of shape.children) visit(child, matrix);
   };

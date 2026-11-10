@@ -126,6 +126,30 @@ test('Escape on the page cancels picking, and the panel goes back to idle', asyn
   await expect(site.locator('[data-motion-inspector="picker"]')).toHaveCount(0);
 });
 
+test('closing the panel stops the picker on the page, and recording too', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.hover('.fx-card');
+  await expect(site.locator('[data-motion-inspector="picker"]')).toHaveCount(1);
+  await panel.close();
+  await expect(site.locator('[data-motion-inspector="picker"]')).toHaveCount(0);
+  await expect.poll(() => site.evaluate(() => 'motionInspectorSession' in window)).toBe(false);
+
+  // While recording: the same, and the page is left as it was.
+  const second = await context.newPage();
+  await second.goto(`chrome-extension://${extensionId}/panel.html`);
+  await second.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.click('.fx-card');
+  await expect(status(second)).toContainText('Listening…');
+  await second.close();
+  await expect.poll(() => site.evaluate(() => 'motionInspectorSession' in window)).toBe(false);
+});
+
 test('stop with nothing found says what the cause might be', async ({ context, extensionId }) => {
   const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
   await panel.getByRole('button', { name: 'Pick element' }).click();
@@ -151,10 +175,10 @@ test('after 5 seconds of listening with nothing found, it offers a tip', async (
   await site.bringToFront();
   await site.click('h1');
   await expect(status(panel)).toHaveText(
-    'Listening… Now hover or click it on the page. Recording stops by itself when the motion is done.',
+    'Listening… Now hover or click it on the page, or Play the hover. Recording stops by itself when the motion is done.',
   );
   await expect(status(panel)).toHaveText(
-    'Listening… Nothing yet. Try hovering or clicking the element.',
+    'Listening… Nothing yet. Try hovering or clicking the element, or Play the hover.',
     { timeout: 8000 },
   );
 });
@@ -262,6 +286,29 @@ test('recording stops by itself when the motion is done, and can record again', 
   await expect(panel.locator('.xp__take')).toHaveCount(2, { timeout: 4000 });
 });
 
+test('Play the hover moves the pointer in and out, and the take is a hover and its leave', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.mouse.move(0, 0);
+  await site.click('.fx-button');
+  // Off the button, and let the pick's own hover finish.
+  await site.mouse.move(0, 0);
+  await site.waitForTimeout(1200);
+  const hovers = panel.locator('.xp__take', { hasText: 'Hover in and out' });
+  const before = await hovers.count();
+
+  await expect(status(panel)).toContainText('Play the hover');
+  await panel.getByRole('button', { name: 'Play the hover' }).click();
+  // The page must be in front for its frames to run.
+  await site.bringToFront();
+  await expect(hovers).toHaveCount(before + 1, { timeout: 8000 });
+  await expect(status(panel)).toContainText('Recording stopped by itself', { timeout: 8000 });
+});
+
 test('the real build asks for nothing it does not need', async () => {
   const manifest = JSON.parse(
     (await import('node:fs')).readFileSync(
@@ -269,7 +316,14 @@ test('the real build asks for nothing it does not need', async () => {
       'utf8',
     ),
   ) as { permissions: string[]; host_permissions?: string[]; content_scripts?: unknown };
-  expect(manifest.permissions.sort()).toEqual(['activeTab', 'scripting', 'sidePanel', 'storage']);
+  // debugger: for "Play the hover" (D129); Chrome does not allow it optional.
+  expect(manifest.permissions.sort()).toEqual([
+    'activeTab',
+    'debugger',
+    'scripting',
+    'sidePanel',
+    'storage',
+  ]);
   // No access to any site up front, and no script that runs on every page.
   expect(manifest.host_permissions).toBeUndefined();
   expect(manifest.content_scripts).toBeUndefined();

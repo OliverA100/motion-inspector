@@ -35,6 +35,7 @@ import {
   labelOf,
   containingBlock,
   type Box,
+  FILMED_STYLES,
   frameNow,
   layoutNow,
   type RawShape,
@@ -628,8 +629,52 @@ type FilmFrame = {
   matrix: [number, number, number, number, number, number];
   taper: [number, number] | null;
   opacity: number;
+  // The computed text of FILMED_STYLES, in that order.
+  styles: string[];
 };
 type Film = Map<Element, FilmFrame[]>;
+
+const NUMBER = /-?\d*\.?\d+(?:e[+-]?\d+)?/g;
+
+// The numbers in a property's text over the film, with the text around them
+// kept: "polygon(0px 0px, 100% calc(100% - 112px), …)" has slots for each
+// number. null when the text around them changes (another shape, another
+// function), which cannot be blended.
+function numberSlots(texts: string[]): {
+  numbers: number[][];
+  tolerances: number[];
+  write: (values: number[]) => string;
+} | null {
+  const first = texts[0] ?? '';
+  const between = first.split(NUMBER);
+  const perFrame = texts.map((text) => (text.match(NUMBER) ?? []).map(Number));
+  const count = perFrame[0]?.length ?? 0;
+  const same = texts.every(
+    (text, index) =>
+      text.split(NUMBER).join('|') === between.join('|') && perFrame[index]?.length === count,
+  );
+  if (!same || count === 0) return null;
+  const numbers = Array.from({ length: count }, (_slot, slot) =>
+    perFrame.map((values) => values[slot] ?? 0),
+  );
+  // Half a pixel or percent; a tenth of a degree; for small plain numbers
+  // (a brightness, an alpha) half a percent.
+  const tolerances = numbers.map((values, slot) => {
+    const unit = between[slot + 1] ?? '';
+    if (unit.startsWith('px') || unit.startsWith('%')) return 0.5;
+    if (unit.startsWith('deg')) return 0.1;
+    return Math.max(...values.map(Math.abs)) > 2 ? 0.5 : 0.005;
+  });
+  const write = (values: number[]): string =>
+    between
+      .map((text, slot) =>
+        slot === 0
+          ? text
+          : `${round(values[slot - 1] ?? 0, (tolerances[slot - 1] ?? 0.5) < 0.05 ? 4 : 2)}${text}`,
+      )
+      .join('');
+  return { numbers, tolerances, write };
+}
 
 // How often the page is filmed: about 25 times a second.
 const FILM_EVERY_MS = 38;
@@ -702,8 +747,18 @@ function scriptTracksFor(
     // parts in every keyframe so they can be blended.
     const moves = (values: number[], tolerance: number): boolean =>
       Math.max(...values) - Math.min(...values) >= tolerance;
-    const turns = moves(angles, 0.1);
-    const sizes = moves(scaleX, 0.005) || moves(scaleY, 0.005);
+    // Written when they change, and also when they hold still away from
+    // none: the track replaces the whole transform, so a part turned or
+    // mirrored throughout (the flap of a peeled corner on Vercel) must stay
+    // so.
+    const away = (values: number[], from: number, tolerance: number): boolean =>
+      values.some((value) => Math.abs(value - from) >= tolerance);
+    const turns = moves(angles, 0.1) || away(angles, 0, 0.1);
+    const sizes =
+      moves(scaleX, 0.005) ||
+      moves(scaleY, 0.005) ||
+      away(scaleX, 1, 0.005) ||
+      away(scaleY, 1, 0.005);
     const groups: {
       property: string;
       channels: { values: number[]; tolerance: number }[];
@@ -738,12 +793,29 @@ function scriptTracksFor(
         channels: [{ values: frames.map((frame) => frame.opacity), tolerance: 0.01 }],
         write: ([value = 1]) => `${round(value, 3)}`,
       },
+      // The other drawn properties, number by number.
+      ...FILMED_STYLES.flatMap((property, which) => {
+        const texts = frames.map((frame) => frame.styles[which] ?? '');
+        if (new Set(texts).size < 2) return [];
+        const slots = numberSlots(texts);
+        if (slots === null) return [];
+        return [
+          {
+            property,
+            channels: slots.numbers.map((values, slot) => ({
+              values,
+              tolerance: slots.tolerances[slot] ?? 0.5,
+            })),
+            write: slots.write,
+          },
+        ];
+      }),
     ];
     for (const group of groups) {
       const own =
-        group.property === 'opacity'
-          ? animated.has('opacity')
-          : TRANSFORM_PROPERTIES.some((property) => animated.has(property));
+        group.property === 'transform'
+          ? TRANSFORM_PROPERTIES.some((property) => animated.has(property))
+          : animated.has(group.property);
       if (own) continue;
       const still = group.channels.every((channel) => {
         const values = channel.values;
@@ -1327,7 +1399,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
             [0, 1].some(
               (index) =>
                 Math.abs((item.taper?.[index] ?? 0) - (first.taper?.[index] ?? 0)) > 0.00002,
-            ),
+            ) ||
+            // A clip-path, a color, a glow.
+            item.styles.some((text, index) => text !== first.styles[index]),
         )
       );
     });
@@ -1442,14 +1516,63 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         Math.min(...finished.map((seen) => seen.startTime)) -
         Math.min(...back.map((seen) => seen.startTime));
       const merged = [...previous, ...back];
-      const mergedSamples = [
-        ...previousSamples,
-        ...finishedSamples.map((sample) => ({ ...sample, time: sample.time - shift })),
-      ];
-      const mergedFilm: Film = new Map(previousFilm);
-      for (const [element, frames] of finishedFilm) {
-        const shifted = frames.map((item) => ({ ...item, time: item.time - shift }));
-        mergedFilm.set(element, [...(mergedFilm.get(element) ?? []), ...shifted]);
+      // The way back is moved earlier, to shorten the hold. Readings from
+      // the moment it began move with it (a script starts moving at once,
+      // so its first frames can still be in the first take); readings in
+      // the part of the hold that is cut out go, or time would run back.
+      // When the pointer left, if it did: a script reacts to that at once,
+      // a frame before the transitions start.
+      const transitionsBegan = Math.min(...finished.map((seen) => seen.startTime));
+      const left = pageEvents
+        .filter(
+          (event) =>
+            event.type === 'out' &&
+            within(snapshot.rootElement, event.target) &&
+            !within(snapshot.rootElement, event.related) &&
+            event.time <= transitionsBegan &&
+            event.time >= transitionsBegan - 300,
+        )
+        .at(-1);
+      const backBegan = Math.min(transitionsBegan, left?.time ?? Infinity);
+      const rejoin = <Item extends { time: number }>(
+        there: Item[],
+        back: Item[],
+        began = backBegan,
+      ): Item[] => {
+        const moved = [...there.filter((item) => item.time >= began), ...back].map((item) => ({
+          ...item,
+          time: item.time - shift,
+        }));
+        const from = moved[0]?.time ?? Infinity;
+        return [...there.filter((item) => item.time < Math.min(began, from)), ...moved];
+      };
+      // For film, the way back begins where the part starts moving again
+      // after the hold, read from the film itself: the first frame that
+      // differs from the one before, from shortly before the leave.
+      const resumed = (frames: FilmFrame[]): number => {
+        const differs = (one: FilmFrame, other: FilmFrame): boolean =>
+          Math.abs(one.opacity - other.opacity) > 0.001 ||
+          one.matrix.some((value, index) => Math.abs(value - (other.matrix[index] ?? 0)) > 0.001) ||
+          one.styles.some((text, index) => text !== other.styles[index]);
+        for (let index = 1; index < frames.length; index += 1) {
+          const frame = frames[index];
+          const before = frames[index - 1];
+          if (frame === undefined || before === undefined || frame.time < backBegan - 200) continue;
+          if (differs(frame, before)) return Math.min(frame.time, backBegan);
+        }
+        return backBegan;
+      };
+      const mergedSamples = rejoin(previousSamples, finishedSamples);
+      const mergedFilm: Film = new Map();
+      for (const element of new Set([...previousFilm.keys(), ...finishedFilm.keys()])) {
+        mergedFilm.set(
+          element,
+          rejoin(
+            previousFilm.get(element) ?? [],
+            finishedFilm.get(element) ?? [],
+            resumed(previousFilm.get(element) ?? []),
+          ),
+        );
       }
       previous = null;
       previousSamples = [];

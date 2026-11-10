@@ -210,3 +210,35 @@ tilt.addEventListener('pointermove', (event) => {
   );
 });
 tilt.addEventListener('pointerleave', () => tiltTo(0, 0));
+
+// 33. Corner peel. A spring moves the cut corner from 40 px to 120 px on
+// hover and back on leave, written to the inline clip-path every frame.
+const peel = inside(fixture('peel'), '.fx-peel');
+const peelFront = inside(fixture('peel'), '.fx-peel__front');
+let peelTo = 40;
+let peelAt = 40;
+let peelSpeed = 0;
+let peeling = false;
+let peelLast = 0;
+const peelStep = (now: number): void => {
+  const dt = Math.min(Math.max(now - peelLast, 0) / 1000, 1 / 30);
+  peelLast = now;
+  peelSpeed += (200 * (peelTo - peelAt) - 22 * peelSpeed) * dt;
+  peelAt += peelSpeed * dt;
+  const settled = Math.abs(peelTo - peelAt) < 0.05 && Math.abs(peelSpeed) < 0.05;
+  if (settled) peelAt = peelTo;
+  const x = peelAt.toFixed(2);
+  const y = (peelAt * 0.7).toFixed(2);
+  peelFront.style.clipPath = `polygon(0px 0px, 100% 0px, 100% calc(100% - ${x}px), calc(100% - ${y}px) 100%, 0px 100%)`;
+  if (settled) peeling = false;
+  else requestAnimationFrame(peelStep);
+};
+const peelTowards = (to: number): void => {
+  peelTo = to;
+  if (peeling) return;
+  peeling = true;
+  peelLast = performance.now();
+  requestAnimationFrame(peelStep);
+};
+peel.addEventListener('pointerenter', () => peelTowards(120));
+peel.addEventListener('pointerleave', () => peelTowards(40));

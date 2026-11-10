@@ -19,8 +19,16 @@ export type FromPage =
 
 // From the panel to the page.
 // again: record the element picked last once more, without picking.
-export type ToPage = { type: 'stop' } | { type: 'cancel' } | { type: 'again' };
+// where: the page answers with the recorded element's box in the window
+// (a PageRect, or null), for "Play the hover".
+export type ToPage = { type: 'stop' } | { type: 'cancel' } | { type: 'again' } | { type: 'where' };
+
+export type PageRect = { x: number; y: number; width: number; height: number };
 
 // Every message from the page carries this, so the panel can tell them
 // apart from anything else that uses chrome.runtime messages.
 export const FROM_PAGE = 'motion-inspector';
+
+// The page keeps a connection open to the panel under this name. When the
+// panel closes, Chrome ends it, and the page stops picking and recording.
+export const PANEL_PORT = 'motion-inspector-panel';

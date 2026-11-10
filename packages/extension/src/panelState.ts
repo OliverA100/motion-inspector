@@ -70,6 +70,8 @@ export type PanelMsg =
   | { kind: 'takeSelected'; id: string }
   | { kind: 'takesCleared' }
   | { kind: 'saveFailed'; why: string }
+  // "Play the hover" could not move the pointer.
+  | { kind: 'hoverFailed'; why: string }
   | { kind: 'noticeDismissed' }
   | { kind: 'pointerMoved'; inPanel: boolean };
 
@@ -208,6 +210,11 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
     case 'takesCleared':
       return { ...panel, takes: [], selectedId: null };
 
+    case 'hoverFailed':
+      return {
+        ...panel,
+        notice: `The hover could not be played (${msg.why}). Move the pointer over the element yourself.`,
+      };
     case 'saveFailed':
       return {
         ...panel,

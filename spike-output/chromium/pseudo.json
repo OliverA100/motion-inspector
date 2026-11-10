@@ -18,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 47.79999999701977,
+      "firstSeenAtMs": 47.5,
       "timelineTimeAtFirstSight": 121.4,
-      "startTimeWhenReady": 138.07400000223424,
+      "startTimeWhenReady": 138.0360000039218,
       "keyframes": [
         {
           "offset": 0,
@@ -259,21 +259,21 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 47.3999999910593,
+      "atMs": 47.099999994039536,
       "targetClassName": "fx-pseudo"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 47.3999999910593,
+      "atMs": 47.099999994039536,
       "targetClassName": "fx-pseudo"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.3,
-      "atMs": 363.8999999910593,
+      "atMs": 380.20000000298023,
       "targetClassName": "fx-pseudo"
     }
   ]

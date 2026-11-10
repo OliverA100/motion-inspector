@@ -105,6 +105,18 @@ export function recordAgain(
   return true;
 }
 
+// Where the element being recorded is in the window, for "Play the hover".
+// Scrolled into view first when it is not. null when nothing is recorded.
+export function recordedRect(): { x: number; y: number; width: number; height: number } | null {
+  if (lastElement === null || !lastElement.isConnected) return null;
+  const box = lastElement.getBoundingClientRect();
+  const inView =
+    box.top >= 0 && box.left >= 0 && box.bottom <= innerHeight && box.right <= innerWidth;
+  if (!inView) lastElement.scrollIntoView({ block: 'center', inline: 'center' });
+  const now = lastElement.getBoundingClientRect();
+  return { x: now.x, y: now.y, width: now.width, height: now.height };
+}
+
 export function cancelPicking(): void {
   picker?.cancel();
   picker = null;

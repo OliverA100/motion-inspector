@@ -78,9 +78,8 @@ function topLevel(text: string): string[] {
 }
 
 // The top layer of a background-image, and its function name.
-function topLayer(backgroundImage: string): { name: string; inside: string } | null {
-  const layer = topLevel(backgroundImage)[0] ?? '';
-  const match = /^([a-z-]+)\((.*)\)$/s.exec(layer);
+function layerParts(layer: string): { name: string; inside: string } | null {
+  const match = /^([a-z-]+)\((.*)\)$/s.exec(layer.trim());
   if (match === null) return null;
   return { name: match[1] ?? '', inside: match[2] ?? '' };
 }
@@ -162,15 +161,50 @@ function angleOf(text: string, box: Size): number | null {
   return null;
 }
 
+// One gradient is drawn per shape. With several layers, the one that shows
+// most: the most opaque on average. A faint grid of lines over a strong
+// color (Vercel's blueprint cards) is drawn as the color.
 export function readGradient(
   backgroundImage: string,
   box: Size,
   sizing: Sizing | null = null,
 ): RawGradient | null {
+  const layers = topLevel(backgroundImage);
+  // CSS repeats a shorter list of sizes or positions for the later layers.
+  const pick = (list: string, index: number): string => {
+    const items = topLevel(list);
+    return items[index] ?? items[items.length - 1] ?? list;
+  };
+  let best: RawGradient | null = null;
+  let bestShows = -1;
+  layers.forEach((layer, index) => {
+    const layerSizing =
+      sizing === null
+        ? null
+        : {
+            size: pick(sizing.size, index),
+            x: pick(sizing.x, index),
+            y: pick(sizing.y, index),
+            repeat: pick(sizing.repeat, index),
+          };
+    const read = readLayer(layer, box, layerSizing);
+    if (read === null) return;
+    const shows =
+      read.stops.reduce((sum, stop) => sum + (rgba(stop.color)?.a ?? 0), 0) /
+      Math.max(read.stops.length, 1);
+    if (shows > bestShows + 0.05) {
+      best = read;
+      bestShows = shows;
+    }
+  });
+  return best;
+}
+
+function readLayer(layerText: string, box: Size, sizing: Sizing | null): RawGradient | null {
   const tile = sizing === null ? null : tileOf(sizing, box);
   // Directions and px stops are measured on the image, which is the tile.
   if (tile !== null) box = { width: tile.width, height: tile.height };
-  const layer = topLayer(backgroundImage);
+  const layer = layerParts(layerText);
   if (layer === null || (layer.name !== 'linear-gradient' && layer.name !== 'radial-gradient')) {
     return null;
   }
@@ -212,16 +246,20 @@ export function readGradient(
     : { kind: 'radial', stops: placed, tile };
 }
 
-// The average color of a gradient's stops, weighted by how opaque each is.
+// The average color of a gradient's stops, all layers, weighted by how
+// opaque each is.
 // null for a picture (url) or when no color can be read.
 export function gradientColor(backgroundImage: string): string | null {
   if (backgroundImage.includes('url(')) return null;
-  const layer = topLayer(backgroundImage);
-  if (layer === null) return null;
-  const colors = topLevel(layer.inside).flatMap((part) => {
-    const stop = stopParts(part);
-    const color = stop === null ? null : rgba(stop.color);
-    return color === null ? [] : [color];
+  // Every layer's stops: the colors that show weigh the most.
+  const colors = topLevel(backgroundImage).flatMap((text) => {
+    const layer = layerParts(text);
+    if (layer === null) return [];
+    return topLevel(layer.inside).flatMap((part) => {
+      const stop = stopParts(part);
+      const color = stop === null ? null : rgba(stop.color);
+      return color === null ? [] : [color];
+    });
   });
   if (colors.length === 0) return null;
   const totalAlpha = colors.reduce((sum, color) => sum + color.a, 0);

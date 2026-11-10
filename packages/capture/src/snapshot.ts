@@ -1193,7 +1193,11 @@ function shapesFor(
   const clips =
     (style.overflowX !== 'visible' || style.overflowY !== 'visible') &&
     element.childElementCount > 0;
-  const getsShape = isRoot || force || paints || clips || mayAnimate(style);
+  // A clip-path cuts what is inside too, so a wrapper that only clips is
+  // kept as well (Vercel's peeled card: the front layer's corner is cut on
+  // a wrapper that paints nothing, and its script changes that cut).
+  const clipShape = style.clipPath !== 'none' && element.childElementCount > 0;
+  const getsShape = isRoot || force || paints || clips || clipShape || mayAnimate(style);
 
   if (getsShape && walk.count >= walk.limit) {
     walk.leftOut += 1;
@@ -1548,13 +1552,27 @@ function parentPerspective(element: Element, style: CSSStyleDeclaration): DOMMat
   return new DOMMatrix().translate(dx, dy).multiply(perspective).translate(-dx, -dy);
 }
 
+// Other drawn properties a script may change frame by frame, filmed as
+// computed text: a corner peeled back by a clip-path (Vercel's cards), a
+// glow, a color, a sweep of a background.
+export const FILMED_STYLES = [
+  'clip-path',
+  'filter',
+  'background-color',
+  'background-position-x',
+  'background-position-y',
+  'box-shadow',
+  'color',
+] as const;
+
 // One frame of film: an element's transform now, as it looks on the page
 // (flat, plus how a 3D turn tapers it, its parent's perspective included),
-// and its opacity.
+// its opacity, and the computed text of FILMED_STYLES.
 export function frameNow(element: Element): {
   matrix: [number, number, number, number, number, number];
   taper: [number, number] | null;
   opacity: number;
+  styles: string[];
 } {
   const style = getComputedStyle(element);
   const opacity = parseFloat(style.opacity);
@@ -1576,6 +1594,7 @@ export function frameNow(element: Element): {
     matrix: matrix.every(Number.isFinite) ? matrix : [1, 0, 0, 1, 0, 0],
     taper: flat || !Number.isFinite(g) || !Number.isFinite(h) ? null : [g, h],
     opacity: Number.isFinite(opacity) ? opacity : 1,
+    styles: FILMED_STYLES.map((property) => style.getPropertyValue(property)),
   };
 }
 

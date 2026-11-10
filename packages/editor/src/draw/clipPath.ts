@@ -1,7 +1,8 @@
 // A computed CSS clip-path as a canvas path, in the coordinates of the box
 // it clips. Only basic shapes are read: polygon(), inset(), circle(),
-// ellipse() and path(). Anything else (url(), calc()) gives null, and then
-// nothing is clipped.
+// ellipse() and path(). Lengths may be calc() of px and % (Vercel's peeled
+// corners: "calc(100% - 112px)"). Anything else (url()) gives null, and
+// then nothing is clipped.
 //
 // The input is a computed value, which Chrome writes in one fixed form
 // ("polygon(50% 50%, 0% 0%, 100% 0%)", "inset(0px 50% 0px 0px)"), so this
@@ -13,9 +14,48 @@ type Box = { x: number; y: number; width: number; height: number };
 // anything else.
 function lengthOf(text: string, size: number): number | null {
   const value = text.trim();
+  // calc() of px and %, as Chrome computes it: "calc(100% - 40px)",
+  // "calc(-40px + 100%)". Terms are added up.
+  const sum = inside(value, 'calc');
+  if (sum !== null) {
+    const tokens = sum.match(/[+-](?=\s)|-?[\d.]+(?:e[+-]?\d+)?(?:%|px)?/g) ?? [];
+    let total = 0;
+    let sign = 1;
+    for (const token of tokens) {
+      if (token === '+' || token === '-') {
+        sign = token === '-' ? -1 : 1;
+        continue;
+      }
+      const term = lengthOf(token, size);
+      if (term === null) return null;
+      total += sign * term;
+      sign = 1;
+    }
+    return tokens.length === 0 ? null : total;
+  }
   if (/^-?[\d.]+(e[+-]?\d+)?%$/.test(value)) return (parseFloat(value) / 100) * size;
   if (/^-?[\d.]+(e[+-]?\d+)?(px)?$/.test(value)) return parseFloat(value);
   return null;
+}
+
+// Splits on a separator outside parentheses: "calc(100% - 4px) 0px" is
+// two lengths, not four words.
+function topLevel(text: string, separator: RegExp): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const character of text) {
+    if (character === '(') depth += 1;
+    if (character === ')') depth -= 1;
+    if (depth === 0 && separator.test(character)) {
+      if (current.trim() !== '') parts.push(current.trim());
+      current = '';
+    } else {
+      current += character;
+    }
+  }
+  if (current.trim() !== '') parts.push(current.trim());
+  return parts;
 }
 
 function inside(value: string, name: string): string | null {
@@ -47,21 +87,54 @@ function radiusOf(text: string, size: number, center: number, box: number): numb
   return lengthOf(text, size);
 }
 
+// The corners of a polygon() or inset() clip, in the box's coordinates:
+// what can be seen of the shape, for fitting the preview around it. null
+// for other shapes.
+export function clipCorners(value: string, box: Box): { x: number; y: number }[] | null {
+  const text = value.trim();
+  const polygon = inside(text, 'polygon');
+  if (polygon !== null) {
+    const points = topLevel(polygon.replace(/^(nonzero|evenodd)\s*,/, ''), /,/).map((pair) => {
+      const [x = '', y = ''] = topLevel(pair, /\s/);
+      const px = lengthOf(x, box.width);
+      const py = lengthOf(y, box.height);
+      return px === null || py === null ? null : { x: box.x + px, y: box.y + py };
+    });
+    return points.length < 3 || points.some((point) => point === null)
+      ? null
+      : (points as { x: number; y: number }[]);
+  }
+  const inset = inside(text, 'inset');
+  if (inset !== null) {
+    const sides = topLevel(inset.split(' round ')[0] ?? '', /\s/);
+    const [top = '0', right = top, bottom = top, left = right] = sides;
+    const t = lengthOf(top, box.height);
+    const r = lengthOf(right, box.width);
+    const b = lengthOf(bottom, box.height);
+    const l = lengthOf(left, box.width);
+    if (t === null || r === null || b === null || l === null) return null;
+    return [
+      { x: box.x + l, y: box.y + t },
+      { x: box.x + box.width - r, y: box.y + t },
+      { x: box.x + l, y: box.y + box.height - b },
+      { x: box.x + box.width - r, y: box.y + box.height - b },
+    ];
+  }
+  return null;
+}
+
 export function clipPathOf(value: string, box: Box): Path2D | null {
   const text = value.trim();
   const path = new Path2D();
 
   const polygon = inside(text, 'polygon');
   if (polygon !== null) {
-    const points = polygon
-      .replace(/^(nonzero|evenodd)\s*,/, '')
-      .split(',')
-      .map((pair) => {
-        const [x = '', y = ''] = pair.trim().split(/\s+/);
-        const px = lengthOf(x, box.width);
-        const py = lengthOf(y, box.height);
-        return px === null || py === null ? null : { x: box.x + px, y: box.y + py };
-      });
+    const points = topLevel(polygon.replace(/^(nonzero|evenodd)\s*,/, ''), /,/).map((pair) => {
+      const [x = '', y = ''] = topLevel(pair, /\s/);
+      const px = lengthOf(x, box.width);
+      const py = lengthOf(y, box.height);
+      return px === null || py === null ? null : { x: box.x + px, y: box.y + py };
+    });
     if (points.length < 3 || points.some((point) => point === null)) return null;
     points.forEach((point, index) => {
       if (point === null) return;
@@ -75,7 +148,7 @@ export function clipPathOf(value: string, box: Box): Path2D | null {
   const inset = inside(text, 'inset');
   if (inset !== null) {
     // Rounded corners ("round 8px") are left out: the clip is square.
-    const sides = (inset.split(' round ')[0] ?? '').trim().split(/\s+/);
+    const sides = topLevel(inset.split(' round ')[0] ?? '', /\s/);
     const [top = '0', right = top, bottom = top, left = right] = sides;
     const t = lengthOf(top, box.height);
     const r = lengthOf(right, box.width);
