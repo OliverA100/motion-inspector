@@ -76,3 +76,28 @@ onTrigger(waapi, 'start-missing', () => {
 onTrigger(waapi, 'end-missing', () => {
   waapiBox.animate([{ opacity: 0.2, offset: 0 }], { duration: 600 });
 });
+
+// 13. Shadow root. A small custom element whose markup and styles live in
+// an open shadow root, the way component libraries ship them.
+class ShadowCard extends HTMLElement {
+  constructor() {
+    super();
+    const root = this.attachShadow({ mode: 'open' });
+    root.innerHTML = `
+      <style>
+        .card {
+          width: 120px;
+          height: 56px;
+          border-radius: 8px;
+          background: #2f6fed;
+          transition: transform 300ms ease-out;
+        }
+        .card:hover {
+          transform: translateY(-4px);
+        }
+      </style>
+      <div class="card"></div>
+    `;
+  }
+}
+customElements.define('fx-shadow-card', ShadowCard);

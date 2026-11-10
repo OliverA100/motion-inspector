@@ -1,0 +1,151 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "div.fx-pop",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "div.fx-pop",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    "radius": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "fill": "rgb(47, 111, 237)",
+    "stroke": null,
+    "opacity": 0.9,
+    "transformOrigin": {
+      "x": 24,
+      "y": 24
+    },
+    "children": []
+  },
+  "tracks": [
+    {
+      "shapeId": "s0",
+      "property": "transform",
+      "origin": "css-animation",
+      "groupId": "animation-1",
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "scale(0.6)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "scale",
+                "x": 0.6,
+                "y": 0.6
+              }
+            ]
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.58,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.58,
+            "y2": 1
+          },
+          "implicit": true
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 500,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "none",
+        "easing": {
+          "kind": "linear"
+        }
+      }
+    },
+    {
+      "shapeId": "s0",
+      "property": "opacity",
+      "origin": "css-animation",
+      "groupId": "animation-1",
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "0.3",
+          "parsed": {
+            "kind": "number",
+            "value": 0.3
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.58,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "0.9",
+          "parsed": {
+            "kind": "number",
+            "value": 0.9
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.58,
+            "y2": 1
+          },
+          "implicit": true
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 500,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "none",
+        "easing": {
+          "kind": "linear"
+        }
+      }
+    }
+  ],
+  "notShown": []
+}

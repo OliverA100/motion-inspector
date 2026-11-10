@@ -37,7 +37,8 @@ export type Capture = {
   source: { url: string; selector: string; capturedAt: string };
   root: Shape;
   tracks: Track[];
-  // Animations we saw but cannot draw, each described in plain words.
+  // What the preview leaves out, each in plain words: animations we saw but
+  // cannot draw, and things drawn more simply than on the page.
   notShown: string[];
 };
 

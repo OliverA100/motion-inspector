@@ -104,7 +104,17 @@ Rules for capture, based on this:
 
 Never set by any fixture. The only value other than `"auto"` is the `"replace"` on the start keyframe Chrome adds to a CSS animation. Following the M0 review, `Track.composite` is dropped from the format. Animations with `add` or `accumulate` go to `notShown`.
 
+## Pseudo-elements, shadow roots, scroll-driven animations (tested)
+
+Recorded at the start of M5, before the real capture code.
+
+| Case | What Chrome does | What capture does |
+| --- | --- | --- |
+| Animation on `::after` | `effect.target` is the element itself. `effect.pseudoElement` is `"::after"`. It is returned by `getAnimations({ subtree: true })` like any other. | Checks `pseudoElement` first. If it is set, the animation goes to `notShown`, because there is no shape for a pseudo-element. Without that check it would be drawn as if the whole element moved. |
+| Animation inside an open shadow root | `host.getAnimations({ subtree: true })` does **not** return it. `host.shadowRoot.getAnimations()` does. | On every frame, also asks each open shadow root under the picked element. The snapshot walks into open shadow roots too, so the shapes exist. |
+| Scroll-driven animation | `animation.timeline` is a `ScrollTimeline` (or `ViewTimeline`). `getTiming().duration` is `"auto"`. `currentTime`, `startTime` and the computed duration are percentages of the scroll range, as objects, not numbers of milliseconds. | Anything whose timeline is not a `DocumentTimeline` goes to `notShown`. Its times are never read as numbers. |
+
 ## Not covered by the spike
 
-- Pseudo-elements, shadow roots and scroll-driven timelines. Fixtures and assertions for these come at the start of M5, before the real capture code (see `docs/milestone-notes.md`).
 - `iterationStart` or `endDelay` other than zero.
+- Closed shadow roots. Their content cannot be reached from outside at all.

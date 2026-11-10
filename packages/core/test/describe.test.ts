@@ -65,7 +65,7 @@ describe('describeCapture on the sample captures', () => {
 
   test('interrupted transition and the not-shown count', () => {
     expect(describeCapture(interruptedHover)).toBe(
-      'The element moves down 1.66 px over 149.12 ms. It starts fast and slows down. The browser shortened this transition, because it reversed one that was still running. 1 animation is not shown.',
+      'The element moves down 1.66 px over 149.12 ms. It starts fast and slows down. The browser shortened this transition, because it reversed one that was still running. 1 thing is left out of this preview.',
     );
   });
 

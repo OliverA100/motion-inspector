@@ -4,6 +4,7 @@
   "records": [
     {
       "constructorName": "CSSAnimation",
+      "foundVia": "subtree",
       "transitionProperty": null,
       "animationName": "fx-steps",
       "id": "",
@@ -19,9 +20,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 101.19999999552965,
-      "timelineTimeAtFirstSight": 105.7,
-      "startTimeWhenReady": 138.96899999963352,
+      "firstSeenAtMs": 52.29999999701977,
+      "timelineTimeAtFirstSight": 104.8,
+      "startTimeWhenReady": 104.87000000284752,
       "keyframes": [
         {
           "offset": 0,
@@ -260,14 +261,14 @@
       "type": "animationstart",
       "name": "fx-steps",
       "elapsedTime": 0,
-      "atMs": 109.59999999403954,
+      "atMs": 68.89999999850988,
       "targetClassName": "fx-steps__dot"
     },
     {
       "type": "animationend",
       "name": "fx-steps",
       "elapsedTime": 1,
-      "atMs": 1091.2999999970198,
+      "atMs": 1069.6999999955297,
       "targetClassName": "fx-steps__dot"
     }
   ]

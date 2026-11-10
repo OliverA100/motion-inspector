@@ -1,0 +1,167 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "div.fx-waapi",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "div.fx-waapi",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 40,
+      "height": 40
+    },
+    "radius": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "fill": "rgb(47, 111, 237)",
+    "stroke": null,
+    "opacity": 0.9,
+    "transformOrigin": {
+      "x": 20,
+      "y": 20
+    },
+    "children": []
+  },
+  "tracks": [
+    {
+      "shapeId": "s0",
+      "property": "transform",
+      "origin": "web-animation",
+      "groupId": "animation-1",
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateX(0px) scale(1)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "fn": "scale",
+                "x": 1,
+                "y": 1
+              }
+            ]
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0.42,
+            "y1": 0,
+            "x2": 1,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "translateX(48px) scale(1.2)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 48,
+                "y": 0
+              },
+              {
+                "fn": "scale",
+                "x": 1.2,
+                "y": 1.2
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 600,
+        "iterations": {
+          "kind": "count",
+          "count": 2
+        },
+        "direction": "alternate",
+        "fill": "none",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0.2,
+          "y1": 0,
+          "x2": 0,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0",
+      "property": "opacity",
+      "origin": "web-animation",
+      "groupId": "animation-1",
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "0.9",
+          "parsed": {
+            "kind": "number",
+            "value": 0.9
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0.42,
+            "y1": 0,
+            "x2": 1,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "0.4",
+          "parsed": {
+            "kind": "number",
+            "value": 0.4
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 600,
+        "iterations": {
+          "kind": "count",
+          "count": 2
+        },
+        "direction": "alternate",
+        "fill": "none",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0.2,
+          "y1": 0,
+          "x2": 0,
+          "y2": 1
+        }
+      }
+    }
+  ],
+  "notShown": []
+}

@@ -15,6 +15,10 @@ const SAMPLES = [
   'steps',
   'linear-spring',
   'interrupted',
+  'web-animation',
+  'pop',
+  'shadow',
+  'pseudo',
   'hundred',
   'nothing',
 ];
@@ -43,7 +47,8 @@ for (const width of [360, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/?sample=${sample}&quiet`);
       await expect(page.locator('.mi__description')).not.toBeEmpty();
-      if (sample !== 'nothing') await expect(time(page)).toHaveText(/^\d+ ms of \d+ ms$/);
+      if (sample !== 'nothing' && sample !== 'pseudo')
+        await expect(time(page)).toHaveText(/^\d+ ms of \d+ ms$/);
       // Let it play for a moment, then check again.
       await page.waitForTimeout(300);
       expect(await fitsTheWindow(page)).toBe(true);
@@ -88,7 +93,9 @@ test('nothing captured: it says so, lists what could not be shown, and nothing b
   const errors = watchForErrors(page);
   await page.goto('/?sample=nothing&quiet');
   await expect(page.locator('.mi__description')).toContainText('No animations were captured.');
-  await expect(page.locator('.mi__description')).toContainText('2 animations are not shown.');
+  await expect(page.locator('.mi__description')).toContainText(
+    '2 things are left out of this preview.',
+  );
   await expect(page.getByText('it runs on a pseudo-element')).toBeVisible();
   // It says why, and does not show an empty timeline or curve.
   await expect(page.getByText('It may be driven by JavaScript frame by frame')).toBeVisible();

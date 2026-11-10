@@ -8,10 +8,12 @@
     "test:spike": "pnpm --filter @motion-inspector/capture build:spike && playwright test tests/spike.spec.ts",
     "screenshots": "playwright test tests/screenshots.spec.ts --project=chrome",
     "test": "pnpm -r test",
-    "test:browser": "pnpm --filter @motion-inspector/capture build:spike && playwright test tests/spike.spec.ts tests/editor.spec.ts tests/robust.spec.ts tests/m4.spec.ts",
+    "test:browser": "pnpm --filter @motion-inspector/capture build:spike && pnpm --filter @motion-inspector/capture build && playwright test tests/spike.spec.ts tests/capture.spec.ts tests/samples.spec.ts tests/editor.spec.ts tests/robust.spec.ts tests/m4.spec.ts",
     "test:editor": "playwright test tests/editor.spec.ts",
     "test:robust": "playwright test tests/robust.spec.ts",
-    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,css}\" \"packages/*/test/**/*.ts\" \"tests/**/*.ts\" \"packages/*/*.html\""
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,css}\" \"packages/*/test/**/*.ts\" \"tests/**/*.ts\" \"packages/*/*.html\"",
+    "test:capture": "pnpm --filter @motion-inspector/capture build && playwright test tests/capture.spec.ts",
+    "samples:update": "pnpm --filter @motion-inspector/capture build && UPDATE_SAMPLES=1 playwright test tests/samples.spec.ts --project=chrome"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",

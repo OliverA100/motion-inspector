@@ -1,17 +1,23 @@
 // The sample captures the demo site offers, by name.
+//
+// They are real: recorded by the capture script on the fixtures page and
+// saved in ./captured (see tests/samples.spec.ts). A test records them
+// again on every run and fails if capture now produces something else.
 
-import {
-  bounce,
-  buttonHover,
-  cardLift,
-  dots,
-  interruptedHover,
-  linearSpring,
-  loader,
-  morph,
-  staggerList,
-  stepsSample,
-} from '@motion-inspector/core/src/samples';
+import bounceJson from './captured/bounce.json';
+import buttonHoverJson from './captured/button-hover.json';
+import cardLiftJson from './captured/card-lift.json';
+import dotsJson from './captured/dots.json';
+import interruptedJson from './captured/interrupted.json';
+import linearEasingJson from './captured/linear-easing.json';
+import loaderJson from './captured/loader.json';
+import morphJson from './captured/morph.json';
+import popJson from './captured/pop.json';
+import pseudoJson from './captured/pseudo.json';
+import shadowJson from './captured/shadow.json';
+import staggerListJson from './captured/stagger-list.json';
+import stepsJson from './captured/steps.json';
+import webAnimationJson from './captured/web-animation.json';
 import { parseCapture, type Capture } from '@motion-inspector/core';
 
 // ---------- Stress samples: not real captures, made to test the limits ----------
@@ -115,17 +121,26 @@ const nothingCaptured = built({
   ],
 });
 
+// A saved capture goes through the same check as any other data.
+function captured(json: unknown): Capture {
+  return built(json);
+}
+
 export const samples: { id: string; name: string; capture: Capture }[] = [
-  { id: 'card-lift', name: 'Card lift', capture: cardLift },
-  { id: 'button-hover', name: 'Button hover', capture: buttonHover },
-  { id: 'stagger-list', name: 'Staggered list', capture: staggerList },
-  { id: 'loader', name: 'Loader', capture: loader },
-  { id: 'bounce', name: 'Bounce', capture: bounce },
-  { id: 'dots', name: 'Staggered dots', capture: dots },
-  { id: 'morph', name: 'Color and radius morph', capture: morph },
-  { id: 'steps', name: 'Steps', capture: stepsSample },
-  { id: 'linear-spring', name: 'Linear easing', capture: linearSpring },
-  { id: 'interrupted', name: 'Interrupted hover', capture: interruptedHover },
+  { id: 'card-lift', name: 'Card lift', capture: captured(cardLiftJson) },
+  { id: 'button-hover', name: 'Button hover', capture: captured(buttonHoverJson) },
+  { id: 'stagger-list', name: 'Staggered list', capture: captured(staggerListJson) },
+  { id: 'loader', name: 'Loader', capture: captured(loaderJson) },
+  { id: 'bounce', name: 'Bounce', capture: captured(bounceJson) },
+  { id: 'dots', name: 'Staggered dots', capture: captured(dotsJson) },
+  { id: 'morph', name: 'Color and radius morph', capture: captured(morphJson) },
+  { id: 'steps', name: 'Steps', capture: captured(stepsJson) },
+  { id: 'linear-spring', name: 'Linear easing', capture: captured(linearEasingJson) },
+  { id: 'web-animation', name: 'Web animation', capture: captured(webAnimationJson) },
+  { id: 'pop', name: 'Pop in', capture: captured(popJson) },
+  { id: 'shadow', name: 'Shadow root', capture: captured(shadowJson) },
+  { id: 'interrupted', name: 'Interrupted hover', capture: captured(interruptedJson) },
+  { id: 'pseudo', name: 'Pseudo-element (not shown)', capture: captured(pseudoJson) },
   { id: 'hundred', name: 'Stress: 100 tracks', capture: hundredTracks },
   { id: 'nothing', name: 'Stress: nothing captured', capture: nothingCaptured },
 ];

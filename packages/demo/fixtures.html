@@ -163,6 +163,42 @@
             <button class="trigger" data-trigger="play" type="button">Play</button>
           </div>
         </section>
+
+        <section class="fixture" data-fixture="pseudo">
+          <header>
+            <h2>Pseudo-element</h2>
+            <p>Transition on <code>::after</code></p>
+          </header>
+          <div class="fixture__stage">
+            <span class="fx-pseudo" data-root>Hover me</span>
+          </div>
+          <div class="fixture__controls">Hover the text</div>
+        </section>
+
+        <section class="fixture" data-fixture="shadow">
+          <header>
+            <h2>Shadow root</h2>
+            <p>Transition inside an open shadow root</p>
+          </header>
+          <div class="fixture__stage">
+            <fx-shadow-card data-root></fx-shadow-card>
+          </div>
+          <div class="fixture__controls">Hover the card</div>
+        </section>
+
+        <section class="fixture" data-fixture="scroll">
+          <header>
+            <h2>Scroll-driven</h2>
+            <p><code>animation-timeline: scroll()</code></p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-scroll" data-root>
+              <div class="fx-scroll__bar"></div>
+              <div class="fx-scroll__content"></div>
+            </div>
+          </div>
+          <div class="fixture__controls">Scroll inside the box</div>
+        </section>
       </div>
     </main>
 

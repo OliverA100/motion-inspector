@@ -1,0 +1,568 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "ul.fx-list",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "ul.fx-list",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 160,
+      "height": 80
+    },
+    "radius": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "fill": null,
+    "stroke": null,
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 80,
+      "y": 40
+    },
+    "children": [
+      {
+        "id": "s0.1",
+        "label": "li",
+        "kind": "box",
+        "box": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 14
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(212, 212, 212)",
+        "stroke": null,
+        "opacity": 0.2,
+        "transformOrigin": {
+          "x": 80,
+          "y": 7
+        },
+        "children": []
+      },
+      {
+        "id": "s0.2",
+        "label": "li",
+        "kind": "box",
+        "box": {
+          "x": 0,
+          "y": 22,
+          "width": 160,
+          "height": 14
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(212, 212, 212)",
+        "stroke": null,
+        "opacity": 0.2,
+        "transformOrigin": {
+          "x": 80,
+          "y": 7
+        },
+        "children": []
+      },
+      {
+        "id": "s0.3",
+        "label": "li",
+        "kind": "box",
+        "box": {
+          "x": 0,
+          "y": 44,
+          "width": 160,
+          "height": 14
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(212, 212, 212)",
+        "stroke": null,
+        "opacity": 0.2,
+        "transformOrigin": {
+          "x": 80,
+          "y": 7
+        },
+        "children": []
+      },
+      {
+        "id": "s0.4",
+        "label": "li",
+        "kind": "box",
+        "box": {
+          "x": 0,
+          "y": 66,
+          "width": 160,
+          "height": 14
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(212, 212, 212)",
+        "stroke": null,
+        "opacity": 0.2,
+        "transformOrigin": {
+          "x": 80,
+          "y": 7
+        },
+        "children": []
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "shapeId": "s0.1",
+      "property": "opacity",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "0.2",
+          "parsed": {
+            "kind": "number",
+            "value": 0.2
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "1",
+          "parsed": {
+            "kind": "number",
+            "value": 1
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0.1",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateX(-12px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": -12,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0.2",
+      "property": "opacity",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "0.2",
+          "parsed": {
+            "kind": "number",
+            "value": 0.2
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "1",
+          "parsed": {
+            "kind": "number",
+            "value": 1
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 60,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0.2",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateX(-12px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": -12,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 60,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0.3",
+      "property": "opacity",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "0.2",
+          "parsed": {
+            "kind": "number",
+            "value": 0.2
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "1",
+          "parsed": {
+            "kind": "number",
+            "value": 1
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 120,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0.3",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateX(-12px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": -12,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 120,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0.4",
+      "property": "opacity",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "0.2",
+          "parsed": {
+            "kind": "number",
+            "value": 0.2
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "1",
+          "parsed": {
+            "kind": "number",
+            "value": 1
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 180,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0.4",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateX(-12px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": -12,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 180,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    }
+  ],
+  "notShown": []
+}

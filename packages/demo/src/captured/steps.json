@@ -1,0 +1,127 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "div.fx-steps",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "div.fx-steps",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 144,
+      "height": 24
+    },
+    "radius": [
+      4,
+      4,
+      4,
+      4
+    ],
+    "fill": null,
+    "stroke": {
+      "color": "rgb(228, 228, 228)",
+      "width": 1
+    },
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 72,
+      "y": 12
+    },
+    "children": [
+      {
+        "id": "s0.1",
+        "label": "div.fx-steps__dot",
+        "kind": "box",
+        "box": {
+          "x": 1,
+          "y": 1,
+          "width": 24,
+          "height": 22
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(47, 111, 237)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 12,
+          "y": 11
+        },
+        "children": []
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "shapeId": "s0.1",
+      "property": "transform",
+      "origin": "css-animation",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateX(0px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "steps",
+            "count": 5,
+            "position": "end"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "translateX(120px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 120,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "steps",
+            "count": 5,
+            "position": "end"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 1000,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "none",
+        "easing": {
+          "kind": "linear"
+        }
+      }
+    }
+  ],
+  "notShown": []
+}

@@ -47,6 +47,9 @@ export type SpikeKeyframe = {
 
 export type SpikeRecord = {
   constructorName: string;
+  // "subtree": returned by root.getAnimations({ subtree: true }).
+  // "shadow-root": only found by asking an open shadow root directly.
+  foundVia: 'subtree' | 'shadow-root';
   transitionProperty: string | null;
   animationName: string | null;
   id: string;
@@ -229,7 +232,11 @@ function readKeyframes(effect: KeyframeEffect): SpikeKeyframe[] {
   });
 }
 
-function readAnimation(current: Session, animation: Animation): SpikeRecord | null {
+function readAnimation(
+  current: Session,
+  animation: Animation,
+  foundVia: SpikeRecord['foundVia'],
+): SpikeRecord | null {
   const effect = animation.effect;
   if (!(effect instanceof KeyframeEffect)) return null;
 
@@ -242,6 +249,7 @@ function readAnimation(current: Session, animation: Animation): SpikeRecord | nu
 
   const record: SpikeRecord = {
     constructorName: animation.constructor.name,
+    foundVia,
     transitionProperty: animation instanceof CSSTransition ? animation.transitionProperty : null,
     animationName: animation instanceof CSSAnimation ? animation.animationName : null,
     id: animation.id,
@@ -300,13 +308,30 @@ function readAnimation(current: Session, animation: Animation): SpikeRecord | nu
   return record;
 }
 
+// Every open shadow root on the root element or inside it.
+function shadowRootsUnder(root: Element): ShadowRoot[] {
+  return [root, ...Array.from(root.querySelectorAll('*'))].flatMap((element) =>
+    element.shadowRoot === null ? [] : [element.shadowRoot],
+  );
+}
+
 function poll(): void {
   if (session === null) return;
   const current = session;
-  for (const animation of current.root.getAnimations({ subtree: true })) {
+  const found: { animation: Animation; foundVia: SpikeRecord['foundVia'] }[] = [
+    ...current.root
+      .getAnimations({ subtree: true })
+      .map((animation) => ({ animation, foundVia: 'subtree' as const })),
+    ...shadowRootsUnder(current.root).flatMap((shadowRoot) =>
+      shadowRoot
+        .getAnimations()
+        .map((animation) => ({ animation, foundVia: 'shadow-root' as const })),
+    ),
+  ];
+  for (const { animation, foundVia } of found) {
     if (current.seen.has(animation)) continue;
     current.seen.add(animation);
-    const record = readAnimation(current, animation);
+    const record = readAnimation(current, animation, foundVia);
     if (record !== null) current.records.push(record);
   }
   current.frame = requestAnimationFrame(poll);

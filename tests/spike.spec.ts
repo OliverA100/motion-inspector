@@ -487,3 +487,60 @@ test('CSS animation with no end keyframe: Chrome adds it, with the resting value
   expect(valueOf(last(pop), 'opacity')).toBe('0.9');
   expect(read(pop.readAfterFinish, 'opacity')?.resolved).toBe('0.9');
 });
+
+test('pseudo-element: the target is the host, and pseudoElement names the part', async ({
+  page,
+}, testInfo) => {
+  const dump = await record(page, testInfo, {
+    name: 'pseudo',
+    fixture: 'pseudo',
+    trigger: hover,
+    recordMs: 500,
+  });
+
+  const underline = only(dump.records);
+  // The animation runs on ::after, but its target is the element itself.
+  expect(underline.target?.className).toBe('fx-pseudo');
+  expect(underline.pseudoElement).toBe('::after');
+  // It is found like any other animation in the subtree.
+  expect(underline.foundVia).toBe('subtree');
+  expect(valueOf(last(underline), 'transform')).toBe('scaleX(1)');
+});
+
+test('shadow root: getAnimations({ subtree: true }) on the host does not look inside', async ({
+  page,
+}, testInfo) => {
+  const dump = await record(page, testInfo, {
+    name: 'shadow',
+    fixture: 'shadow',
+    trigger: hover,
+    recordMs: 500,
+  });
+
+  const lift = only(dump.records);
+  // Only asking the shadow root itself finds it.
+  expect(lift.foundVia).toBe('shadow-root');
+  expect(lift.target?.className).toBe('card');
+  expect(valueOf(last(lift), 'transform')).toBe('translateY(-4px)');
+});
+
+test('scroll-driven: the timeline is a ScrollTimeline, and its times are not numbers', async ({
+  page,
+}, testInfo) => {
+  const dump = await record(page, testInfo, {
+    name: 'scroll',
+    fixture: 'scroll',
+    trigger: async (page, selector) => {
+      await page.locator(selector).evaluate((element) => element.scrollTo(0, 60));
+    },
+    recordMs: 300,
+  });
+
+  const progress = only(dump.records);
+  expect(progress.timelineType).toBe('ScrollTimeline');
+  // The duration is "auto", and the times are percentages of the scroll
+  // range (objects), not milliseconds.
+  expect(timing(progress).duration).toBe('auto');
+  expect(typeof progress.currentTime).toBe('object');
+  expect(typeof computedTiming(progress).duration).toBe('object');
+});

@@ -4,6 +4,7 @@
   "records": [
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "opacity",
       "animationName": null,
       "id": "",
@@ -19,9 +20,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.100000001490116,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 109.0909999984433,
+      "firstSeenAtMs": 53.099999994039536,
+      "timelineTimeAtFirstSight": 115.5,
+      "startTimeWhenReady": 115.46399999497226,
       "keyframes": [
         {
           "offset": 0,
@@ -204,6 +205,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "transform",
       "animationName": null,
       "id": "",
@@ -219,9 +221,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.29999999701977,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 109.0909999984433,
+      "firstSeenAtMs": 53.399999998509884,
+      "timelineTimeAtFirstSight": 115.5,
+      "startTimeWhenReady": 115.46399999497226,
       "keyframes": [
         {
           "offset": 0,
@@ -438,6 +440,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "opacity",
       "animationName": null,
       "id": "",
@@ -453,9 +456,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.29999999701977,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 109.0909999984433,
+      "firstSeenAtMs": 53.399999998509884,
+      "timelineTimeAtFirstSight": 115.5,
+      "startTimeWhenReady": 115.46399999497226,
       "keyframes": [
         {
           "offset": 0,
@@ -638,6 +641,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "transform",
       "animationName": null,
       "id": "",
@@ -653,9 +657,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.29999999701977,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 109.0909999984433,
+      "firstSeenAtMs": 53.399999998509884,
+      "timelineTimeAtFirstSight": 115.5,
+      "startTimeWhenReady": 115.46399999497226,
       "keyframes": [
         {
           "offset": 0,
@@ -872,6 +876,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "opacity",
       "animationName": null,
       "id": "",
@@ -887,9 +892,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.29999999701977,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 109.0909999984433,
+      "firstSeenAtMs": 53.399999998509884,
+      "timelineTimeAtFirstSight": 115.5,
+      "startTimeWhenReady": 115.46399999497226,
       "keyframes": [
         {
           "offset": 0,
@@ -1072,6 +1077,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "transform",
       "animationName": null,
       "id": "",
@@ -1087,9 +1093,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.399999998509884,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 109.0909999984433,
+      "firstSeenAtMs": 53.399999998509884,
+      "timelineTimeAtFirstSight": 115.5,
+      "startTimeWhenReady": 115.46399999497226,
       "keyframes": [
         {
           "offset": 0,
@@ -1306,6 +1312,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "opacity",
       "animationName": null,
       "id": "",
@@ -1321,9 +1328,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.399999998509884,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 109.0909999984433,
+      "firstSeenAtMs": 53.5,
+      "timelineTimeAtFirstSight": 115.5,
+      "startTimeWhenReady": 115.46399999497226,
       "keyframes": [
         {
           "offset": 0,
@@ -1506,6 +1513,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "transform",
       "animationName": null,
       "id": "",
@@ -1521,9 +1529,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 56.399999998509884,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 109.0909999984433,
+      "firstSeenAtMs": 53.5,
+      "timelineTimeAtFirstSight": 115.5,
+      "startTimeWhenReady": 115.46399999497226,
       "keyframes": [
         {
           "offset": 0,
@@ -1744,168 +1752,168 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.599999994039536,
       "targetClassName": ""
     },
     {
       "type": "transitionrun",
       "name": "opacity",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionrun",
       "name": "opacity",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionstart",
       "name": "opacity",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionrun",
       "name": "opacity",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionrun",
       "name": "opacity",
       "elapsedTime": 0,
-      "atMs": 55.600000001490116,
+      "atMs": 52.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionstart",
       "name": "opacity",
       "elapsedTime": 0,
-      "atMs": 122.19999999552965,
+      "atMs": 118.5,
       "targetClassName": ""
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 122.19999999552965,
+      "atMs": 118.5,
       "targetClassName": ""
     },
     {
       "type": "transitionstart",
       "name": "opacity",
       "elapsedTime": 0,
-      "atMs": 188.89999999850988,
+      "atMs": 185.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 188.89999999850988,
+      "atMs": 185.69999999552965,
       "targetClassName": ""
     },
     {
       "type": "transitionstart",
       "name": "opacity",
       "elapsedTime": 0,
-      "atMs": 239.60000000149012,
+      "atMs": 235.89999999850988,
       "targetClassName": ""
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 239.60000000149012,
+      "atMs": 236,
       "targetClassName": ""
     },
     {
       "type": "transitionend",
       "name": "opacity",
       "elapsedTime": 0.3,
-      "atMs": 355.29999999701977,
+      "atMs": 353.09999999403954,
       "targetClassName": ""
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.3,
-      "atMs": 355.29999999701977,
+      "atMs": 353.09999999403954,
       "targetClassName": ""
     },
     {
       "type": "transitionend",
       "name": "opacity",
       "elapsedTime": 0.3,
-      "atMs": 421.8999999985099,
+      "atMs": 420,
       "targetClassName": ""
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.3,
-      "atMs": 421.8999999985099,
+      "atMs": 420,
       "targetClassName": ""
     },
     {
       "type": "transitionend",
       "name": "opacity",
       "elapsedTime": 0.3,
-      "atMs": 488.5,
+      "atMs": 487,
       "targetClassName": ""
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.3,
-      "atMs": 488.5,
+      "atMs": 487,
       "targetClassName": ""
     },
     {
       "type": "transitionend",
       "name": "opacity",
       "elapsedTime": 0.3,
-      "atMs": 538.5,
+      "atMs": 536.1999999955297,
       "targetClassName": ""
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.3,
-      "atMs": 538.5,
+      "atMs": 536.1999999955297,
       "targetClassName": ""
     }
   ]

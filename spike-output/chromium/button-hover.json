@@ -4,6 +4,7 @@
   "records": [
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "box-shadow",
       "animationName": null,
       "id": "",
@@ -17,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 79.90000000596046,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 125.81399999908172,
+      "firstSeenAtMs": 52.899999998509884,
+      "timelineTimeAtFirstSight": 107,
+      "startTimeWhenReady": 106.95700000360375,
       "keyframes": [
         {
           "offset": 0,
@@ -202,6 +203,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "transform",
       "animationName": null,
       "id": "",
@@ -215,9 +217,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 80.20000000298023,
-      "timelineTimeAtFirstSight": 109.1,
-      "startTimeWhenReady": 125.81399999908172,
+      "firstSeenAtMs": 53.100000001490116,
+      "timelineTimeAtFirstSight": 107,
+      "startTimeWhenReady": 106.95700000360375,
       "keyframes": [
         {
           "offset": 0,
@@ -438,42 +440,42 @@
       "type": "transitionrun",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 79.5,
+      "atMs": 52.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "transform",
       "elapsedTime": 0,
-      "atMs": 79.5,
+      "atMs": 52.600000001490116,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionrun",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 79.5,
+      "atMs": 52.600000001490116,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionstart",
       "name": "box-shadow",
       "elapsedTime": 0,
-      "atMs": 79.5,
+      "atMs": 52.600000001490116,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "box-shadow",
       "elapsedTime": 0.18,
-      "atMs": 256,
+      "atMs": 235.5,
       "targetClassName": "fx-button"
     },
     {
       "type": "transitionend",
       "name": "transform",
       "elapsedTime": 0.18,
-      "atMs": 256,
+      "atMs": 235.5,
       "targetClassName": "fx-button"
     }
   ]

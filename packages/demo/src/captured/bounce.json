@@ -1,0 +1,212 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "div.fx-bounce",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "div.fx-bounce",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 24,
+      "height": 88
+    },
+    "radius": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "fill": null,
+    "stroke": null,
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 12,
+      "y": 44
+    },
+    "children": [
+      {
+        "id": "s0.1",
+        "label": "div.fx-ball",
+        "kind": "box",
+        "box": {
+          "x": 0,
+          "y": 64,
+          "width": 24,
+          "height": 24
+        },
+        "radius": [
+          12,
+          12,
+          12,
+          12
+        ],
+        "fill": "rgb(47, 111, 237)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 12,
+          "y": 12
+        },
+        "children": []
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "shapeId": "s0.1",
+      "property": "transform",
+      "origin": "css-animation",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "translateY(-56px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": -56
+              }
+            ]
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0.42,
+            "y1": 0,
+            "x2": 1,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 0.4,
+          "value": "translateY(0px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.58,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 0.6,
+          "value": "translateY(-20px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": -20
+              }
+            ]
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0.42,
+            "y1": 0,
+            "x2": 1,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 0.8,
+          "value": "translateY(0px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.58,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 0.9,
+          "value": "translateY(-6px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": -6
+              }
+            ]
+          },
+          "easing": {
+            "kind": "cubic-bezier",
+            "x1": 0.42,
+            "y1": 0,
+            "x2": 1,
+            "y2": 1
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "translateY(0px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 900,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "none",
+        "easing": {
+          "kind": "linear"
+        }
+      }
+    }
+  ],
+  "notShown": []
+}

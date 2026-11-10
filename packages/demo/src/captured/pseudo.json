@@ -1,0 +1,62 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "span.fx-pseudo",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "span.fx-pseudo",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 64,
+      "height": 24
+    },
+    "radius": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "fill": null,
+    "stroke": null,
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 31.88,
+      "y": 12.15
+    },
+    "children": [
+      {
+        "id": "s0.t2-0",
+        "label": "text",
+        "kind": "text",
+        "box": {
+          "x": 0,
+          "y": 5.25,
+          "width": 63.77,
+          "height": 8.5
+        },
+        "radius": [
+          4.25,
+          4.25,
+          4.25,
+          4.25
+        ],
+        "fill": "rgb(28, 28, 28)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 31.88,
+          "y": 4.25
+        },
+        "children": []
+      }
+    ]
+  },
+  "tracks": [],
+  "notShown": [
+    "An animation on ::after of span.fx-pseudo is not shown, because it runs on a pseudo-element, which has no shape of its own."
+  ]
+}

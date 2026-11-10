@@ -385,3 +385,45 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** `radiusPx` reads a percentage part and a px part with their own signs, from `8px`, `50%`, `calc(25% + 4px)` or `calc(-3.92px + 50%)`, and never returns a negative number. The stage also holds radii and sizes at zero before drawing.
 **Why:** a real crash, found by the test that opens every sample. Part-way through a morph from `8px` to `50%`, Chrome reports the px part first and negative. The first version read only up to the first space, got -3.92, and the canvas threw.
 **Gave up:** nothing. It has a unit test for each form.
+
+## Capture (M5)
+
+### D73. Shapes are measured by their layout box, not as drawn
+**Chose:** a shape's position and size come from `offsetLeft`, `offsetTop`, `offsetWidth` and `offsetHeight`, added up to the picked element. Text bars, which have no layout offsets, are placed by their distance from their parent as drawn, added to the parent's layout box.
+**Why:** `getBoundingClientRect` reports the box as it is drawn right now. A 32 px loader measured 41 px mid-spin. List items resting at `translateX(-12px)` had that offset built into their shape, and the preview then applied it a second time.
+**Gave up:** an SVG element has no layout offsets and falls back to the drawn box. A resting scale or rotation on a parent is not removed from its text bars.
+
+### D74. Which elements get a shape
+**Chose:** the picked element always does. A descendant does if it paints something (a background color, a background image, a border, or it is an image), or if it looks set up to animate (it has a transition, an animation or `will-change`). At most 40 shapes. What is inside an image is not drawn.
+**Why:** an element that paints nothing but carries a transform still needs a shape, or its children would not move with it. There is no way to know at pick time what will animate, so "set up to animate" is the hint.
+**Gave up:** an element animated only by a class added later, with no transition on it at pick time, has no shape, and its animation is listed under "not shown" with that reason.
+
+### D75. A take ends after 200 ms of quiet, and an endless animation does not keep it open
+**Chose:** a take is "active" while a finite animation in it is running. After 200 ms with none, it ends. An animation that repeats forever never counts as running for this.
+**Why:** a loader would otherwise keep its take open for ever, and nothing would reach the editor.
+**Gave up:** a finite animation that starts more than 200 ms after the previous one ended begins a new take, even if a person would call it the same motion.
+
+### D76. New animations in one frame are compared with the take as it was
+**Chose:** on each frame every new animation is read first. Then each is checked against the take from before that frame, to see whether it replaced something still running.
+**Why:** a real bug. On hover-out, two transitions arrive in one frame (one per property). The first ended the old take, so the second no longer found the transition it replaced and was not marked as shortened.
+**Gave up:** nothing.
+
+### D77. Keyframes that Chrome added are marked too
+**Chose:** `implicit` is true for a keyframe capture filled in (for `element.animate()`) and also for one Chrome added to a CSS animation with a missing `from` or `to`. Chrome marks its own with `composite: "replace"`.
+**Why:** in both cases the author did not write it, and the CSS export should not either.
+**Gave up:** this depends on a detail of how Chrome reports generated keyframes. A test asserts it, so a change will be noticed.
+
+### D78. A resting value is not read from a property that is animating
+**Chose:** a shape's opacity is 1 when the opacity was already animating at pick time.
+**Why:** the sample of the staggered dots came out different on every run, because each dot's "resting" opacity was wherever its animation happened to be.
+**Gave up:** a shape whose real resting opacity is below 1, and which is also animating opacity when picked, is drawn too opaque when its track is not running.
+
+### D79. The demo's samples are real captures, checked on every run
+**Chose:** the capture script is run on the fixtures page and its output is saved as JSON in `packages/demo/src/captured`. `tests/samples.spec.ts` records them again on every test run and fails if they differ. `pnpm samples:update` rewrites them.
+**Why:** the brief asks for real samples, and a saved file that nothing checks would go stale without anyone knowing.
+**Gave up:** the check runs in installed Chrome only, because text is measured a hair differently in each browser. The interrupted hover is saved but not compared, since how far it gets before being interrupted differs each time. Core's unit tests still use the hand-written samples, where every number is known.
+
+### D80. "Not shown" also lists what is drawn more simply
+**Chose:** the list holds animations that cannot be drawn and also drawing notes: parts left out, a gradient drawn as flat gray, a multi-colored border drawn in one color. The description counts them as "things left out of this preview".
+**Why:** each of these makes the preview differ from the page, and the brief asks that limits are explained and never hidden. A spinner with one colored edge is drawn as a uniform ring, so its rotation cannot be seen: that has to be said.
+**Gave up:** the format's `notShown` was meant for animations only. One list is simpler than two, but its name is now a little narrow.

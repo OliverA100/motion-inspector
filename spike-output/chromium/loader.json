@@ -4,6 +4,7 @@
   "records": [
     {
       "constructorName": "CSSAnimation",
+      "foundVia": "subtree",
       "transitionProperty": null,
       "animationName": "fx-spin",
       "id": "",
@@ -15,11 +16,11 @@
       "pseudoElement": null,
       "timelineType": "DocumentTimeline",
       "playState": "running",
-      "startTime": 21.964999999909196,
-      "currentTime": 16.667000000090802,
-      "firstSeenAtMs": 0.4000000059604645,
-      "timelineTimeAtFirstSight": 38.632,
-      "startTimeWhenReady": 21.964999999909196,
+      "startTime": 22.52500000031432,
+      "currentTime": 33.37299999968568,
+      "firstSeenAtMs": 0.6000000014901161,
+      "timelineTimeAtFirstSight": 55.898,
+      "startTimeWhenReady": 22.52500000031432,
       "keyframes": [
         {
           "offset": 0,
@@ -110,8 +111,8 @@
         "activeDuration": "Infinity",
         "currentIteration": 0,
         "endTime": "Infinity",
-        "localTime": 16.667000000090802,
-        "progress": 0.018518888888989782
+        "localTime": 33.37299999968568,
+        "progress": 0.037081111110761865
       },
       "transitionStyle": {
         "property": "all",
@@ -123,8 +124,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.993238, 0.116095, -0.116095, 0.993238, 0, 0)",
-            "computed": "rotate(6.6668deg)"
+            "resolved": "matrix(0.972981, 0.230885, -0.230885, 0.972981, 0, 0)",
+            "computed": "rotate(13.3492deg)"
           }
         },
         {
@@ -223,8 +224,8 @@
         {
           "cssName": "transform",
           "read": {
-            "resolved": "matrix(0.993238, 0.116095, -0.116095, 0.993238, 0, 0)",
-            "computed": "rotate(6.6668deg)"
+            "resolved": "matrix(0.972981, 0.230885, -0.230885, 0.972981, 0, 0)",
+            "computed": "rotate(13.3492deg)"
           }
         }
       ],

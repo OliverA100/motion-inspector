@@ -4,6 +4,7 @@
   "records": [
     {
       "constructorName": "CSSAnimation",
+      "foundVia": "subtree",
       "transitionProperty": null,
       "animationName": "fx-bounce",
       "id": "",
@@ -19,9 +20,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 92.89999999850988,
-      "timelineTimeAtFirstSight": 178.3,
-      "startTimeWhenReady": 211.58300000388408,
+      "firstSeenAtMs": 55.20000000298023,
+      "timelineTimeAtFirstSight": 164.2,
+      "startTimeWhenReady": 164.17299999739043,
       "keyframes": [
         {
           "offset": 0,
@@ -420,14 +421,14 @@
       "type": "animationstart",
       "name": "fx-bounce",
       "elapsedTime": 0,
-      "atMs": 103.29999999701977,
+      "atMs": 71.39999999850988,
       "targetClassName": "fx-ball is-playing"
     },
     {
       "type": "animationend",
       "name": "fx-bounce",
       "elapsedTime": 0.9,
-      "atMs": 986.5,
+      "atMs": 971.7999999970198,
       "targetClassName": "fx-ball is-playing"
     }
   ]

@@ -4,6 +4,7 @@
   "records": [
     {
       "constructorName": "Animation",
+      "foundVia": "subtree",
       "transitionProperty": null,
       "animationName": null,
       "id": "",
@@ -17,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 76.39999999850988,
-      "timelineTimeAtFirstSight": 105.9,
-      "startTimeWhenReady": 122.5380000032601,
+      "firstSeenAtMs": 93.10000000149012,
+      "timelineTimeAtFirstSight": 104.4,
+      "startTimeWhenReady": 137.68800000252668,
       "keyframes": [
         {
           "offset": null,

@@ -1,0 +1,91 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "div.fx-loader",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "div.fx-loader",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    "radius": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "fill": null,
+    "stroke": {
+      "color": "rgb(47, 111, 237)",
+      "width": 3
+    },
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 16,
+      "y": 16
+    },
+    "children": []
+  },
+  "tracks": [
+    {
+      "shapeId": "s0",
+      "property": "transform",
+      "origin": "css-animation",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": true
+        },
+        {
+          "offset": 1,
+          "value": "rotate(360deg)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "rotate",
+                "deg": 360
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 900,
+        "iterations": {
+          "kind": "infinite"
+        },
+        "direction": "normal",
+        "fill": "none",
+        "easing": {
+          "kind": "linear"
+        }
+      }
+    }
+  ],
+  "notShown": [
+    "A border with a different color on each side is drawn in one color, so a rotation of that shape may not be visible in the preview."
+  ]
+}

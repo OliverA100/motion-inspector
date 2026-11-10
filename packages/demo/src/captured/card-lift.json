@@ -1,0 +1,176 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "div.fx-card",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "div.fx-card",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 140,
+      "height": 98
+    },
+    "radius": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "fill": "rgb(250, 250, 250)",
+    "stroke": {
+      "color": "rgb(228, 228, 228)",
+      "width": 1
+    },
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 70,
+      "y": 49
+    },
+    "children": [
+      {
+        "id": "s0.1",
+        "label": "div.fx-card__image",
+        "kind": "box",
+        "box": {
+          "x": 13,
+          "y": 13,
+          "width": 114,
+          "height": 40
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(212, 212, 212)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 57,
+          "y": 20
+        },
+        "children": []
+      },
+      {
+        "id": "s0.2",
+        "label": "div.fx-card__line",
+        "kind": "box",
+        "box": {
+          "x": 13,
+          "y": 61,
+          "width": 114,
+          "height": 8
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(212, 212, 212)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 57,
+          "y": 4
+        },
+        "children": []
+      },
+      {
+        "id": "s0.3",
+        "label": "div.fx-card__line",
+        "kind": "box",
+        "box": {
+          "x": 13,
+          "y": 77,
+          "width": 68,
+          "height": 8
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(212, 212, 212)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 34.2,
+          "y": 4
+        },
+        "children": []
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "shapeId": "s0",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "translateY(-6px) scale(1.03)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": -6
+              },
+              {
+                "fn": "scale",
+                "x": 1.03,
+                "y": 1.03
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 400,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0.34,
+          "y1": 1.56,
+          "x2": 0.64,
+          "y2": 1
+        }
+      }
+    }
+  ],
+  "notShown": []
+}

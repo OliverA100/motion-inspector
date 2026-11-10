@@ -341,6 +341,12 @@ export function describeCapture(capture: Capture): string {
     ...(left === 0 ? [] : [left === 1 ? '1 more shape animates.' : `${left} more shapes animate.`]),
     ...(notShown === 0
       ? []
-      : [notShown === 1 ? '1 animation is not shown.' : `${notShown} animations are not shown.`]),
+      : [
+          // The list holds animations that cannot be drawn, and also things
+          // drawn more simply than on the page. "Left out" covers both.
+          notShown === 1
+            ? '1 thing is left out of this preview.'
+            : `${notShown} things are left out of this preview.`,
+        ]),
   ].join(' ');
 }

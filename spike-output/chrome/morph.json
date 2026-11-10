@@ -4,6 +4,7 @@
   "records": [
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "background-color",
       "animationName": null,
       "id": "",
@@ -17,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 78.60000000149012,
-      "timelineTimeAtFirstSight": 104.1,
-      "startTimeWhenReady": 120.73200000304496,
+      "firstSeenAtMs": 53.19999999552965,
+      "timelineTimeAtFirstSight": 119.2,
+      "startTimeWhenReady": 119.17799999355339,
       "keyframes": [
         {
           "offset": 0,
@@ -202,6 +203,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "border-bottom-left-radius",
       "animationName": null,
       "id": "",
@@ -215,9 +217,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 78.70000000298023,
-      "timelineTimeAtFirstSight": 104.1,
-      "startTimeWhenReady": 120.73200000304496,
+      "firstSeenAtMs": 53.399999998509884,
+      "timelineTimeAtFirstSight": 119.2,
+      "startTimeWhenReady": 119.17799999355339,
       "keyframes": [
         {
           "offset": 0,
@@ -400,6 +402,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "border-bottom-right-radius",
       "animationName": null,
       "id": "",
@@ -413,9 +416,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 78.70000000298023,
-      "timelineTimeAtFirstSight": 104.1,
-      "startTimeWhenReady": 120.73200000304496,
+      "firstSeenAtMs": 53.399999998509884,
+      "timelineTimeAtFirstSight": 119.2,
+      "startTimeWhenReady": 119.17799999355339,
       "keyframes": [
         {
           "offset": 0,
@@ -598,6 +601,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "border-top-left-radius",
       "animationName": null,
       "id": "",
@@ -611,9 +615,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 78.70000000298023,
-      "timelineTimeAtFirstSight": 104.1,
-      "startTimeWhenReady": 120.73200000304496,
+      "firstSeenAtMs": 53.399999998509884,
+      "timelineTimeAtFirstSight": 119.2,
+      "startTimeWhenReady": 119.17799999355339,
       "keyframes": [
         {
           "offset": 0,
@@ -796,6 +800,7 @@
     },
     {
       "constructorName": "CSSTransition",
+      "foundVia": "subtree",
       "transitionProperty": "border-top-right-radius",
       "animationName": null,
       "id": "",
@@ -809,9 +814,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 78.80000000447035,
-      "timelineTimeAtFirstSight": 104.1,
-      "startTimeWhenReady": 120.73200000304496,
+      "firstSeenAtMs": 53.5,
+      "timelineTimeAtFirstSight": 119.2,
+      "startTimeWhenReady": 119.17799999355339,
       "keyframes": [
         {
           "offset": 0,
@@ -998,105 +1003,105 @@
       "type": "transitionrun",
       "name": "background-color",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "background-color",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionrun",
       "name": "border-top-left-radius",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "border-top-left-radius",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionrun",
       "name": "border-top-right-radius",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "border-top-right-radius",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionrun",
       "name": "border-bottom-left-radius",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "border-bottom-left-radius",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionrun",
       "name": "border-bottom-right-radius",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionstart",
       "name": "border-bottom-right-radius",
       "elapsedTime": 0,
-      "atMs": 78.20000000298023,
+      "atMs": 52.899999998509884,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "background-color",
       "elapsedTime": 0.5,
-      "atMs": 590.9000000059605,
+      "atMs": 552.0999999940395,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "border-bottom-left-radius",
       "elapsedTime": 0.5,
-      "atMs": 590.9000000059605,
+      "atMs": 552.0999999940395,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "border-bottom-right-radius",
       "elapsedTime": 0.5,
-      "atMs": 590.9000000059605,
+      "atMs": 552.0999999940395,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "border-top-left-radius",
       "elapsedTime": 0.5,
-      "atMs": 590.9000000059605,
+      "atMs": 552.0999999940395,
       "targetClassName": "fx-morph"
     },
     {
       "type": "transitionend",
       "name": "border-top-right-radius",
       "elapsedTime": 0.5,
-      "atMs": 590.9000000059605,
+      "atMs": 552.0999999940395,
       "targetClassName": "fx-morph"
     }
   ]

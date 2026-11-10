@@ -383,3 +383,68 @@ body {
     opacity: 0.3;
   }
 }
+
+/* ---------- 12. Pseudo-element: an underline that grows on ::after ---------- */
+
+.fx-pseudo {
+  position: relative;
+  padding-bottom: var(--space-1);
+  font-weight: var(--weight-medium);
+}
+
+.fx-pseudo::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 300ms ease-out;
+}
+
+.fx-pseudo:hover::after {
+  transform: scaleX(1);
+}
+
+/* ---------- 13. Shadow root: the styles are inside the component ---------- */
+/* See fixtures.ts: <fx-shadow-card> attaches an open shadow root. */
+
+fx-shadow-card {
+  display: block;
+}
+
+/* ---------- 14. Scroll-driven: progress follows scrolling, not time ---------- */
+
+.fx-scroll {
+  width: 160px;
+  height: 72px;
+  overflow-y: auto;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-1);
+}
+
+.fx-scroll__bar {
+  position: sticky;
+  top: 0;
+  height: 4px;
+  background: var(--color-accent);
+  transform-origin: left;
+  animation: fx-progress linear both;
+  animation-timeline: scroll(nearest);
+}
+
+.fx-scroll__content {
+  height: 240px;
+}
+
+@keyframes fx-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

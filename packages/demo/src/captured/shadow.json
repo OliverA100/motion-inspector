@@ -1,0 +1,118 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "fx-shadow-card",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "fx-shadow-card",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 120,
+      "height": 56
+    },
+    "radius": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "fill": null,
+    "stroke": null,
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 60,
+      "y": 28
+    },
+    "children": [
+      {
+        "id": "s0.1",
+        "label": "div.card",
+        "kind": "box",
+        "box": {
+          "x": 0,
+          "y": 0,
+          "width": 120,
+          "height": 56
+        },
+        "radius": [
+          8,
+          8,
+          8,
+          8
+        ],
+        "fill": "rgb(47, 111, 237)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 60,
+          "y": 28
+        },
+        "children": []
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "shapeId": "s0.1",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "translateY(-4px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": -4
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    }
+  ],
+  "notShown": []
+}

@@ -1,0 +1,163 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "button.fx-button",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "button.fx-button",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 96,
+      "height": 36
+    },
+    "radius": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "fill": "rgb(47, 111, 237)",
+    "stroke": null,
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 47.88,
+      "y": 18.15
+    },
+    "children": [
+      {
+        "id": "s0.t2-0",
+        "label": "text",
+        "kind": "text",
+        "box": {
+          "x": 16,
+          "y": 13.25,
+          "width": 63.77,
+          "height": 8.5
+        },
+        "radius": [
+          4.25,
+          4.25,
+          4.25,
+          4.25
+        ],
+        "fill": "rgb(255, 255, 255)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 31.88,
+          "y": 4.25
+        },
+        "children": []
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "shapeId": "s0",
+      "property": "box-shadow",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "rgba(0, 0, 0, 0.25) 0px 6px 16px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 180,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "translateY(-2px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 0,
+                "y": -2
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 180,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    }
+  ],
+  "notShown": []
+}

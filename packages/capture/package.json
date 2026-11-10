@@ -4,10 +4,14 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build:spike": "vite build --config vite.spike.config.ts"
+    "build:spike": "vite build --config vite.spike.config.ts",
+    "build": "vite build --config vite.capture.config.ts"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
+  },
+  "dependencies": {
+    "@motion-inspector/core": "workspace:*"
   }
 }

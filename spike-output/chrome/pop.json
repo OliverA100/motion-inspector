@@ -4,6 +4,7 @@
   "records": [
     {
       "constructorName": "CSSAnimation",
+      "foundVia": "subtree",
       "transitionProperty": null,
       "animationName": "fx-pop",
       "id": "",
@@ -17,9 +18,9 @@
       "playState": "running",
       "startTime": null,
       "currentTime": 0,
-      "firstSeenAtMs": 80.30000000447035,
-      "timelineTimeAtFirstSight": 108.1,
-      "startTimeWhenReady": 124.80700000014622,
+      "firstSeenAtMs": 81.39999999850988,
+      "timelineTimeAtFirstSight": 145,
+      "startTimeWhenReady": 161.62900000199443,
       "keyframes": [
         {
           "offset": 0,
@@ -264,14 +265,14 @@
       "type": "animationstart",
       "name": "fx-pop",
       "elapsedTime": 0,
-      "atMs": 89,
+      "atMs": 90.89999999850988,
       "targetClassName": "fx-pop is-playing"
     },
     {
       "type": "animationend",
       "name": "fx-pop",
       "elapsedTime": 0.5,
-      "atMs": 588.6000000014901,
+      "atMs": 590.3000000044703,
       "targetClassName": "fx-pop is-playing"
     }
   ]

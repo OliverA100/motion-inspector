@@ -1,0 +1,148 @@
+{
+  "source": {
+    "url": "http://localhost:5173/fixtures.html",
+    "selector": "div.fx-linear",
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "root": {
+    "id": "s0",
+    "label": "div.fx-linear",
+    "kind": "box",
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 144,
+      "height": 48
+    },
+    "radius": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "fill": null,
+    "stroke": null,
+    "opacity": 1,
+    "transformOrigin": {
+      "x": 72,
+      "y": 24
+    },
+    "children": [
+      {
+        "id": "s0.1",
+        "label": "div.fx-linear__box",
+        "kind": "box",
+        "box": {
+          "x": 0,
+          "y": 8,
+          "width": 32,
+          "height": 32
+        },
+        "radius": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "fill": "rgb(47, 111, 237)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 16,
+          "y": 16
+        },
+        "children": []
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "shapeId": "s0.1",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "none",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "translateX(96px)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "translate",
+                "x": 96,
+                "y": 0
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 700,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "linear-points",
+          "points": [
+            {
+              "input": 0,
+              "output": 0
+            },
+            {
+              "input": 0.09,
+              "output": 0.22
+            },
+            {
+              "input": 0.27,
+              "output": 0.86
+            },
+            {
+              "input": 0.36,
+              "output": 1.11
+            },
+            {
+              "input": 0.42,
+              "output": 1.16
+            },
+            {
+              "input": 0.6,
+              "output": 1.04
+            },
+            {
+              "input": 0.72,
+              "output": 0.98
+            },
+            {
+              "input": 1,
+              "output": 1
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "notShown": []
+}
