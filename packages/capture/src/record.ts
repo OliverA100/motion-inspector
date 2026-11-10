@@ -828,7 +828,8 @@ function layoutTracksFor(
         })),
         timing: {
           delay: 0,
-          duration: span,
+          // In whole ms: half a millisecond is not worth saying.
+          duration: Math.max(1, Math.round(span)),
           iterations: { kind: 'count', count: 1 },
           direction: 'normal',
           fill: 'both',
@@ -1093,7 +1094,8 @@ function scriptTracksFor(
         }),
         timing: {
           delay: 0,
-          duration: span,
+          // In whole ms: half a millisecond is not worth saying.
+          duration: Math.max(1, Math.round(span)),
           iterations: { kind: 'count', count: 1 },
           direction: 'normal',
           fill: 'both',
