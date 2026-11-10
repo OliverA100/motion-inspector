@@ -42,6 +42,7 @@ const cases = [
   { name: 'fixture-reveal', url: `${EDITOR}/fixtures.html`, pick: '.fx-reveal', trigger: 'hover' },
   { name: 'fixture-clip-loader', url: `${EDITOR}/fixtures.html`, pick: '.fx-clip-loader', trigger: 'none' },
   { name: 'fixture-switches', url: `${EDITOR}/fixtures.html`, pick: '.fx-switches', trigger: 'click', clickTarget: '[data-fixture="switches"] [data-trigger="toggle"]' },
+  { name: 'fixture-skeleton', url: `${EDITOR}/fixtures.html`, pick: '.fx-skeleton', trigger: 'none' },
   { name: 'fixture-icon-button', url: `${EDITOR}/fixtures.html`, pick: '.fx-icon-button__arrows', trigger: 'hover' },
   // Real sites.
   { name: 'bootstrap-button', url: 'https://getbootstrap.com/docs/5.3/components/buttons/', pick: '.bd-example .btn-primary', trigger: 'hover' },

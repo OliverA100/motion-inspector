@@ -174,6 +174,21 @@ Not tool problems, and left alone: Bulma's and w3schools' buttons sit under a pr
 | 31 | Everywhere | Text was one bar per line; gradients one color; dashes solid | Word bars (D111), gradient direction (D110), dashes (D112) |
 | 32 | Text rolls | A line rolling out of a clipping wrapper was drawn in full | The frame (D113) |
 
+## Fifth pass: product sites (D117)
+
+`node tests/sweep.cjs m-` at 1440 by 900 on 23 product sites. Most of their motion is CSS transitions on hover (colors, small lifts, icon nudges, chevrons, underlines), and it is captured. Found and fixed:
+
+| # | Seen on | What was wrong | Fix |
+|---|---|---|---|
+| 33 | Webflow | A take was rejected: two shapes added during it had the same id | Ids from a forward-only counter, and a last check |
+| 34 | Resend | A spinning border (a CSS variable animated) passed in silence | Listed as not shown |
+| 35 | Mercury | The wordmark (more than 16 SVG parts) became a dot | Icons up to 64 parts |
+| 36 | Retool | Shimmering text drew a dark box; a glow drew full rings | Text-clipped backgrounds color the text; gradient-border masks are rings; tiles and resting filters |
+| 37 | Fixture | A skeleton loader's highlight did not move | Gradient tiles and background-position |
+| 38 | Figma | "scales to 1 wide by 1 tall" | "scales from 0 wide by 1 tall to full size" |
+
+Script-driven motion (inline styles changing every frame, no browser animation) was found on 3 elements in 23 sites. Animated SVG groups (Railway's trains) are listed as left out.
+
 ## Known limits seen on real sites
 
 - **Siblings do not reflow.** When a panel grows, the items below it stay where they were in the preview. The preview has no layout engine.
@@ -185,3 +200,5 @@ Not tool problems, and left alone: Bulma's and w3schools' buttons sit under a pr
 - **Click ripples** (MUI) are created and removed by script during the click, and are often gone before they can be measured.
 - **Menus and dialogs that open elsewhere** (a portal at the end of the page) are not part of the picked element. Pick them when open.
 - **A pseudo-element in the flow of text** (an inline arrow after a link) is listed, not drawn: its box cannot be measured.
+- **Motion driven by script frame by frame** (some Framer Motion or GSAP effects) is not captured: the browser does not report it as an animation.
+- **Animated SVG groups** (`<g>`) are listed, not drawn.

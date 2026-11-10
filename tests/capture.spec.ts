@@ -710,6 +710,7 @@ test('a ::before fill sweeps behind the label, drawn before it', async ({ page }
   expect(tracksOn(capture, fill.id).map((item) => item.keyframes.map((k) => k.value))).toEqual([
     ['scaleX(0)', 'scaleX(1)'],
   ]);
+  expect(describeCapture(capture)).toContain('scales from 0 wide by 1 tall to full size');
 });
 
 test('perspective(1px) translateZ(0) is read as flat, so a grow reads as a scale', async ({
@@ -772,6 +773,7 @@ test('a card keeps its shadow, a gradient keeps its direction, and a filter is c
       { color: 'rgba(32, 152, 209, 1)', at: 0 },
       { color: 'rgba(47, 111, 237, 1)', at: 1 },
     ],
+    tile: null,
   });
   expect(track(capture, 'filter').keyframes.map((k) => k.value)).toEqual([
     'none',
@@ -927,6 +929,97 @@ test('switch thumbs that move by calc() are read in px', async ({ page }) => {
     { kind: 'length', px: 23 },
   ]);
   expect(track(capture, 'translate').keyframes.at(-1)?.value).toContain('100%');
+});
+
+test('parts that appear during a take never share an id', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .late-root { position: fixed; left: 20px; top: 20px; width: 160px; padding: 8px; background: #eee }
+      .late-root .late-child { display: none; height: 20px; background: #2f6fed }
+      .late-root.open .late-child { display: block; animation: late-in 300ms }
+      .late-root.open::after { content: ""; position: absolute; left: 0; bottom: 0; width: 100%; height: 2px; background: red; animation: late-in 300ms }
+      @keyframes late-in { from { opacity: 0 } }`;
+    document.head.append(style);
+    const root = document.createElement('div');
+    root.className = 'late-root';
+    root.innerHTML = 'Menu<div class="late-child"></div>';
+    document.body.append(root);
+    window.MotionCapture.record(root);
+    root.classList.add('open');
+  });
+  await page.waitForTimeout(700);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+  const ids = flattenShapes(capture.root).map((shape) => shape.id);
+  expect(new Set(ids).size).toBe(ids.length);
+  // Both parts that appeared are drawn, each with its fade.
+  expect(capture.tracks.filter((item) => item.property === 'opacity')).toHaveLength(2);
+});
+
+test('an animation of a CSS variable alone is listed, not passed over', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @property --turn { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+      .var-ring { position: fixed; left: 20px; top: 20px; width: 40px; height: 40px;
+        background: conic-gradient(from var(--turn), red, blue); animation: var-spin 1s linear infinite }
+      @keyframes var-spin { to { --turn: 360deg } }`;
+    document.head.append(style);
+    const ring = document.createElement('div');
+    ring.className = 'var-ring';
+    document.body.append(ring);
+  });
+  await page.evaluate(() =>
+    window.MotionCapture.record(document.querySelector('.var-ring') as Element),
+  );
+  await page.waitForTimeout(500);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+  expect(capture.tracks).toEqual([]);
+  expect(capture.notShown.join(' ')).toContain('only changes CSS variables');
+});
+
+test('text that shows a background through its letters, and a gradient border', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .shine-root { position: fixed; left: 20px; top: 20px; display: flex; gap: 12px; padding: 8px; background: #111 }
+      .shine-text { background: linear-gradient(90deg, rgb(255, 0, 0), rgb(0, 0, 255)); -webkit-background-clip: text; background-clip: text; color: transparent }
+      .glow { position: relative; width: 100px; height: 40px }
+      .glow::before { content: ""; position: absolute; inset: 0; padding: 2px; border-radius: 8px;
+        background: radial-gradient(rgb(0, 255, 0), rgb(0, 0, 255));
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor; mask-composite: exclude }`;
+    document.head.append(style);
+    const root = document.createElement('div');
+    root.className = 'shine-root';
+    root.innerHTML = '<span class="shine-text">Loading</span><div class="glow"></div>';
+    document.body.append(root);
+    window.MotionCapture.record(root);
+    root.animate({ opacity: [1, 0.5] }, 100);
+  });
+  await page.waitForTimeout(500);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
+  const shapes = flattenShapes(capture.root);
+  // The text is drawn in the gradient's colors; the box behind it is not.
+  const text = shapes.find((shape) => shape.kind === 'text');
+  expect(text?.fill).toBe('rgba(128, 0, 128, 1)');
+  // The masked glow is a 2 px ring, not a filled gradient.
+  const glow = shapes.find((shape) => shape.label === 'div.glow::before');
+  expect(glow?.gradient).toBeNull();
+  expect(glow?.fill).toBeNull();
+  expect(glow?.stroke?.width).toBe(2);
+});
+
+test('a skeleton shimmer keeps its gradient tile', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'skeleton', nothing, 500));
+  // background-size 200% of a 200 px bar.
+  expect(capture.root.gradient?.tile?.width).toBe(400);
+  expect(capture.tracks.map((item) => item.property).sort()).toContain('background-position-x');
 });
 
 // ---------- The picker ----------

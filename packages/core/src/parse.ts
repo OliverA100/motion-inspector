@@ -357,6 +357,16 @@ function parseStop(value: unknown): Result<Gradient['stops'][number]> {
   });
 }
 
+function parseTile(value: unknown): Result<NonNullable<Gradient['tile']>> {
+  return andThen(parseBox(value), (box) =>
+    andThen(fields(value), (source) => {
+      const raw = get(source, 'repeat');
+      const repeat = at('repeat', raw === undefined ? ok(true) : boolean(raw));
+      return repeat.ok ? ok({ ...box, repeat: repeat.value }) : repeat;
+    }),
+  );
+}
+
 function parseGradient(value: unknown): Result<Gradient> {
   return andThen(fields(value), (source): Result<Gradient> => {
     const kind = at('kind', oneOf(get(source, 'kind'), ['linear', 'radial'] as const));
@@ -368,10 +378,15 @@ function parseGradient(value: unknown): Result<Gradient> {
           : ok(list),
       ),
     );
-    if (!kind.ok || !stops.ok) return failAll([kind, stops].flatMap(errorsOf));
-    if (kind.value === 'radial') return ok({ kind: 'radial', stops: stops.value });
+    // Takes saved before the tile was read have none: the gradient fills the box.
+    const tile = at('tile', optional(get(source, 'tile'), parseTile));
+    if (!kind.ok || !stops.ok || !tile.ok) return failAll([kind, stops, tile].flatMap(errorsOf));
+    if (kind.value === 'radial')
+      return ok({ kind: 'radial', stops: stops.value, tile: tile.value });
     const angle = at('angle', number(get(source, 'angle')));
-    return angle.ok ? ok({ kind: 'linear', angle: angle.value, stops: stops.value }) : angle;
+    return angle.ok
+      ? ok({ kind: 'linear', angle: angle.value, stops: stops.value, tile: tile.value })
+      : angle;
   });
 }
 
@@ -494,8 +509,8 @@ function parsePoint2d(value: unknown): Result<{ x: number; y: number }> {
 }
 
 // An icon outline is kept small: a page could put a huge path in an SVG.
-export const MOST_ICON_PATHS = 16;
-export const LONGEST_PATH_DATA = 8000;
+export const MOST_ICON_PATHS = 64;
+export const LONGEST_PATH_DATA = 50000;
 const PATH_DATA = /^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\-\s]*$/;
 const LINE_CAPS = ['butt', 'round', 'square'] as const;
 const FILL_RULES = ['nonzero', 'evenodd'] as const;
@@ -621,6 +636,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const transform = at('transform', optional(get(source, 'transform'), parseMatrix));
     const shadow = at('shadow', optional(get(source, 'shadow'), parseShadow));
     const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
+    const filter = at('filter', optional(get(source, 'filter'), text));
     const gradient = at('gradient', optional(get(source, 'gradient'), parseGradient));
     const words = at('words', optional(get(source, 'words'), parseWords));
     const children = at(
@@ -642,6 +658,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !transform.ok ||
       !shadow.ok ||
       !clipPath.ok ||
+      !filter.ok ||
       !gradient.ok ||
       !words.ok ||
       !children.ok
@@ -662,6 +679,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           transform,
           shadow,
           clipPath,
+          filter,
           gradient,
           words,
           children,
@@ -682,6 +700,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       transform: transform.value,
       shadow: shadow.value,
       clipPath: clipPath.value,
+      filter: filter.value,
       gradient: gradient.value,
       words: words.value,
       icon: icon.value,

@@ -11,10 +11,53 @@
 import { readValue } from './readValue';
 
 export type RawStop = { color: string; at: number };
+export type RawTile = { x: number; y: number; width: number; height: number; repeat: boolean };
 export type RawGradient =
-  { kind: 'linear'; angle: number; stops: RawStop[] } | { kind: 'radial'; stops: RawStop[] };
+  | { kind: 'linear'; angle: number; stops: RawStop[]; tile: RawTile | null }
+  | { kind: 'radial'; stops: RawStop[]; tile: RawTile | null };
 
 type Size = { width: number; height: number };
+
+// The first layer's background-size and background-position, as computed.
+export type Sizing = { size: string; x: string; y: string; repeat: string };
+
+// A length against a size: "50%", "12px". null for anything else.
+function along(text: string, size: number): number | null {
+  if (text.endsWith('%')) return (parseFloat(text) / 100) * size;
+  if (text.endsWith('px')) return parseFloat(text);
+  return null;
+}
+
+// Where the gradient image sits in the box. A percentage position lines up
+// that fraction of the image with the same fraction of the box, as CSS
+// does. null when the image is the box.
+export function tileOf(sizing: Sizing, box: Size): RawTile | null {
+  const [width = 'auto', height = 'auto'] = (topLevel(sizing.size)[0] ?? 'auto').split(/\s+/);
+  const tileWidth =
+    width === 'auto' || width === 'cover' || width === 'contain'
+      ? box.width
+      : (along(width, box.width) ?? box.width);
+  const tileHeight = height === 'auto' ? box.height : (along(height, box.height) ?? box.height);
+  const offset = (text: string, free: number): number => {
+    const value = (topLevel(text)[0] ?? '0%').trim();
+    if (value.endsWith('%')) return (parseFloat(value) / 100) * free;
+    return along(value, free) ?? 0;
+  };
+  const tile = {
+    x: offset(sizing.x, box.width - tileWidth),
+    y: offset(sizing.y, box.height - tileHeight),
+    width: tileWidth,
+    height: tileHeight,
+    repeat: !(topLevel(sizing.repeat)[0] ?? '').includes('no-repeat'),
+  };
+  const same =
+    Math.abs(tile.x) < 0.01 &&
+    Math.abs(tile.y) < 0.01 &&
+    Math.abs(tile.width - box.width) < 0.01 &&
+    Math.abs(tile.height - box.height) < 0.01;
+  const finite = [tile.x, tile.y, tile.width, tile.height].every(Number.isFinite);
+  return same || !finite ? null : tile;
+}
 
 // Splits at commas that are not inside brackets.
 function topLevel(text: string): string[] {
@@ -119,7 +162,14 @@ function angleOf(text: string, box: Size): number | null {
   return null;
 }
 
-export function readGradient(backgroundImage: string, box: Size): RawGradient | null {
+export function readGradient(
+  backgroundImage: string,
+  box: Size,
+  sizing: Sizing | null = null,
+): RawGradient | null {
+  const tile = sizing === null ? null : tileOf(sizing, box);
+  // Directions and px stops are measured on the image, which is the tile.
+  if (tile !== null) box = { width: tile.width, height: tile.height };
   const layer = topLayer(backgroundImage);
   if (layer === null || (layer.name !== 'linear-gradient' && layer.name !== 'radial-gradient')) {
     return null;
@@ -158,8 +208,8 @@ export function readGradient(backgroundImage: string, box: Size): RawGradient | 
   if (stops.length < 2 || stops.length > 32) return null;
   const placed = placeStops(stops);
   return layer.name === 'linear-gradient'
-    ? { kind: 'linear', angle, stops: placed }
-    : { kind: 'radial', stops: placed };
+    ? { kind: 'linear', angle, stops: placed, tile }
+    : { kind: 'radial', stops: placed, tile };
 }
 
 // The average color of a gradient's stops, weighted by how opaque each is.

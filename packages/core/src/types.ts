@@ -89,6 +89,9 @@ export type Shape = {
   // The resting clip-path as computed CSS, such as "inset(0px 50% 0px 0px)"
   // or "polygon(50% 50%, 0% 0%, 100% 0%)". null when there is none.
   clipPath: string | null;
+  // The resting CSS filter, such as "blur(3px)" or "grayscale(1)". null
+  // when there is none.
+  filter: string | null;
   // A gradient background, drawn with its direction and stops, over fill
   // (the background color, if any). A gradient that cannot be drawn this
   // way (repeating, conic) is null, and fill holds its average color.
@@ -106,9 +109,16 @@ export type Shape = {
 
 // angle: in degrees, as CSS measures it (0 points up, 90 right). A radial
 // gradient is drawn as an ellipse from the middle of the box.
+// tile: where the gradient image sits, in px from the box's top left, when
+// it is not the box itself (background-size and background-position). A
+// shimmer slides a tile twice the box's width across it. null: the box.
 export type Gradient =
-  | { kind: 'linear'; angle: number; stops: GradientStop[] }
-  | { kind: 'radial'; stops: GradientStop[] };
+  | { kind: 'linear'; angle: number; stops: GradientStop[]; tile: GradientTile | null }
+  | { kind: 'radial'; stops: GradientStop[]; tile: GradientTile | null };
+
+// repeat: whether copies of the tile fill the rest of the box, side by side
+// and above and below (background-repeat), as they do unless "no-repeat".
+export type GradientTile = { x: number; y: number; width: number; height: number; repeat: boolean };
 
 // at: from 0 to 1 along the gradient.
 export type GradientStop = { color: string; at: UnitInterval };

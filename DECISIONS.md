@@ -611,3 +611,16 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** a `calc()` of a percentage and px in a size or position (`left: calc(100% - 16.5px)`) is read as px against the containing block. A `translate` in % or `calc()` is measured by the probe on its own hidden element, which has the shape's size. Recording moves to a parent of at most nine times the picked element's **area**, replacing D101's "three times as wide and as tall". The backdrop reader takes a gradient before the color under it.
 **Why:** the click sweep: Mantine's and shadcn's switch thumbs did not move, and MUI's tab indicator, which slides under a tab list 5.6 times as wide as one tab, was never captured from a tab. Your portfolio button's hover area (33 times the button's area) is still left out.
 **Gave up:** a `calc()` with other units (em, vw) is still not read.
+
+### D117. What product sites showed
+**Chose:** from a sweep of 23 product sites (Stripe, Vercel, Mercury, Linear, Framer, Raycast, Arc, Notion, Resend, Clerk, Supabase, Railway, Ramp, Retool, Webflow, Apple, Figma, Airbnb, Loom, Lemon Squeezy, Cal.com, Attio), run with `node tests/sweep.cjs m-`:
+- Shapes added during a take are numbered by a counter that only moves forward, and a last check renames any repeated id. Two shapes had the same id on Webflow, so core rejected the take and nothing reached the editor.
+- An animation that only changes CSS variables (a registered `--angle` turning a conic gradient on Resend) is listed, not passed over in silence.
+- An icon may have up to 64 parts (logos, such as Mercury's).
+- A background clipped to text (`background-clip: text`) colors the text bars instead of filling the box. The "gradient border" mask (a content-box layer excluded from the whole box) is drawn as a ring in the gradient's average color.
+- A gradient keeps its tile (`background-size`, `background-position`, `background-repeat`), so a skeleton shimmer's highlight slides across and comes back in from the other side. `background-position` is now previewed, worded "moves its background".
+- A shape's resting `filter` is drawn (blur, grayscale).
+- A non-uniform scale toward full size reads "scales from 0 wide by 1 tall to full size".
+The sweep also counts motion driven by script frame by frame (inline styles changing every frame, with no browser animation): three elements in 23 sites (on Framer, Figma and Airbnb). These sites animate almost everything with CSS.
+**Why:** asked to "try it on websites like stripe, vercel, mercury".
+**Gave up:** script-driven motion is still not captured. Animations of SVG groups (`<g>`, Railway's trains) are listed as left out. A canvas blur is not scaled with the preview's zoom.

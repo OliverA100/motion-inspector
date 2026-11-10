@@ -100,7 +100,13 @@ function movePhrases(from: Pose, to: Pose): string[] {
   const scale = !scales
     ? []
     : !uniform
-      ? [`scales to ${rounded(to.scaleX)} wide by ${rounded(to.scaleY)} tall`]
+      ? // A sweep that grows from scaleX(0) reads "scales from 0 wide by 1 tall to
+        // full size", not "scales to 1 wide by 1 tall".
+        differs(from.scaleX, 1) || differs(from.scaleY, 1)
+        ? [
+            `scales from ${sizeInWords(from.scaleX, from.scaleY)} to ${sizeInWords(to.scaleX, to.scaleY)}`,
+          ]
+        : [`scales to ${sizeInWords(to.scaleX, to.scaleY)}`]
       : differs(from.scaleX, 1)
         ? [`scales from ${rounded(from.scaleX)} to ${rounded(to.scaleX)}`]
         : [`scales to ${rounded(to.scaleX)}`];
@@ -116,6 +122,12 @@ function movePhrases(from: Pose, to: Pose): string[] {
 // ---------- One property ----------
 
 const TRANSFORM_PROPERTIES = ['transform', 'translate', 'scale', 'rotate'];
+
+function sizeInWords(x: number, y: number): string {
+  if (!differs(x, 1) && !differs(y, 1)) return 'full size';
+  if (!differs(x, y)) return rounded(x);
+  return `${rounded(x)} wide by ${rounded(y)} tall`;
+}
 const SHORT_ENOUGH_TO_QUOTE = 32;
 const EDGES = ['left', 'right', 'top', 'bottom'];
 
@@ -151,6 +163,9 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe): string {
   }
   if (property === 'border-radius') return `rounds its corners from ${fromWords} to ${toWords}`;
   if (property === 'box-shadow') return 'changes its shadow';
+  if (property === 'background-position-x' || property === 'background-position-y') {
+    return `moves its background from ${fromWords} to ${toWords}`;
+  }
   if (EDGES.includes(property)) {
     return `moves its ${property} edge from ${fromWords} to ${toWords}`;
   }

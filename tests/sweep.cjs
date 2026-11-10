@@ -69,6 +69,39 @@ const sites = [
   { name: 'web-dev', url: 'https://web.dev/' },
   { name: 'uiverse', url: 'https://uiverse.io/buttons' },
   { name: 'oliverhassan', url: 'https://oliverhassan.dev/', viewport: { width: 947, height: 960 } },
+  // Product sites, at a laptop's size: run with "node tests/sweep.cjs m-".
+  ...[
+    ['stripe', 'https://stripe.com/'],
+    ['stripe-payments', 'https://stripe.com/payments'],
+    ['vercel', 'https://vercel.com/'],
+    ['mercury', 'https://mercury.com/'],
+    ['linear', 'https://linear.app/'],
+    ['framer', 'https://www.framer.com/'],
+    ['raycast', 'https://www.raycast.com/'],
+    ['arc', 'https://arc.net/'],
+    ['notion', 'https://www.notion.com/'],
+    ['resend', 'https://resend.com/'],
+    ['clerk', 'https://clerk.com/'],
+    ['supabase', 'https://supabase.com/'],
+    ['railway', 'https://railway.com/'],
+    ['ramp', 'https://ramp.com/'],
+    ['retool', 'https://retool.com/'],
+    ['webflow', 'https://webflow.com/'],
+    ['apple-iphone', 'https://www.apple.com/iphone/'],
+    ['figma', 'https://www.figma.com/'],
+    ['airbnb', 'https://www.airbnb.com/'],
+    ['loom', 'https://www.loom.com/'],
+    ['lemonsqueezy', 'https://www.lemonsqueezy.com/'],
+    ['cal', 'https://cal.com/'],
+    ['attio', 'https://attio.com/'],
+  ].map(([name, url]) => ({
+    name: `m-${name}`,
+    url,
+    viewport: { width: 1440, height: 900 },
+    hover: 8,
+    click: 2,
+    loaders: 3,
+  })),
   // Components that animate on click: run with "node tests/sweep.cjs c-".
   ...[
     ['bootstrap-accordion', 'https://getbootstrap.com/docs/5.3/components/accordion/'],
@@ -222,6 +255,19 @@ async function animates(page, selector, kind) {
   await settle(page);
   if (!(await reachable(page, selector))) return false;
   await page.evaluate(rememberAnimations);
+  // Script-driven motion (Framer Motion, GSAP) changes inline styles frame
+  // by frame and starts no browser animation. Counted, to see how much of
+  // a site the tool cannot see.
+  await page.evaluate((sel) => {
+    const element = document.querySelector(sel);
+    const scope = element?.parentElement?.parentElement ?? element;
+    window.__sweepStyleChanges = 0;
+    window.__sweepObserver?.disconnect();
+    window.__sweepObserver = new MutationObserver((list) => {
+      window.__sweepStyleChanges += list.length;
+    });
+    if (scope) window.__sweepObserver.observe(scope, { attributes: true, attributeFilter: ['style'], subtree: true });
+  }, selector);
   await trigger(page, selector, kind);
   // Watched every frame for up to 400 ms: a framework may start the
   // animation a little after the click, and a short one (a switch's 100 ms
@@ -233,9 +279,14 @@ async function animates(page, selector, kind) {
     })
     .then((handle) => handle.jsonValue())
     .catch(() => 0);
+  const script = await page.evaluate(() => {
+    window.__sweepObserver?.disconnect();
+    return window.__sweepStyleChanges ?? 0;
+  });
   // Undo: a second click closes what the first opened.
   if (kind === 'click') await trigger(page, selector, kind).catch(() => {});
   await settle(page);
+  if (count === 0 && script >= 4) return 'script';
   return count > 0;
 }
 
@@ -415,7 +466,16 @@ async function sweepSite(browser, editor, site) {
       if (item.kind === 'click' && clicks >= (site.click ?? MOST_CLICK)) continue;
       const selector = `[data-mi-sweep="${item.id}"]`;
       if (page.url() !== startUrl) break;
-      const ok = await animates(page, selector, item.kind).catch(() => false);
+      const result = await animates(page, selector, item.kind).catch(() => false);
+      if (result === 'script') {
+        const label = await page.evaluate((sel) => {
+          const el = document.querySelector(sel);
+          return el === null ? '?' : `${el.tagName.toLowerCase()}${[...el.classList].slice(0, 2).map((c) => `.${c}`).join('')}`;
+        }, selector);
+        lines.push(`${site.name} - ${item.kind} ${label}: MOVED BY SCRIPT (inline styles changed every frame; no browser animation)`);
+        continue;
+      }
+      const ok = result === true;
       if (process.env.SWEEP_DEBUG) {
         const what = await page.evaluate((sel) => {
           const el = document.querySelector(sel);

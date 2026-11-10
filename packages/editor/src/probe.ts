@@ -59,6 +59,8 @@ export const PREVIEWED_PROPERTIES = [
   'stroke-dashoffset',
   'clip-path',
   'visibility',
+  'background-position-x',
+  'background-position-y',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -226,6 +228,11 @@ function geometryRest(capture: Capture, shapeId: string, property: string): numb
 
 type Reading = { track: Track; value: string };
 
+// The first of several comma-separated layers, or null.
+function firstLayer(value: string | null): string | null {
+  return value === null ? null : (value.split(',')[0]?.trim() ?? null);
+}
+
 function dashOf(array: string | null, offset: string | null): Pose['dash'] {
   if (array === null && offset === null) return null;
   const lengths =
@@ -310,6 +317,8 @@ function poseOf(
     dash: dashOf(valueOf('stroke-dasharray'), valueOf('stroke-dashoffset')),
     clipPath: valueOf('clip-path'),
     visible: valueOf('visibility') !== 'hidden',
+    backgroundX: firstLayer(valueOf('background-position-x')),
+    backgroundY: firstLayer(valueOf('background-position-y')),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,

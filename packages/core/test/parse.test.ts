@@ -64,8 +64,8 @@ describe('parseCapture', () => {
     expect(withIcon('M 4 12 H 16').ok).toBe(true);
     expect(withIcon('M 4 12 url(#x)').ok).toBe(false);
     expect(withIcon('<script>').ok).toBe(false);
-    expect(withIcon('M0 0'.repeat(3000)).ok).toBe(false);
-    expect(withIcon('M0 0', 17).ok).toBe(false);
+    expect(withIcon('M0 0'.repeat(13000)).ok).toBe(false);
+    expect(withIcon('M0 0', 65).ok).toBe(false);
   });
 
   test('a valid capture comes back unchanged from JSON', () => {

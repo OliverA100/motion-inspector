@@ -220,6 +220,7 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
       fc.record({ color: fc.string(), x: anyNumber, y: anyNumber, blur: zeroOrMore }),
     ),
     clipPath: fc.oneof(fc.constant(null), fc.string()),
+    filter: fc.oneof(fc.constant(null), fc.string()),
     words: fc.oneof(
       fc.constant(null),
       fc.array(fc.record({ x: anyNumber, width: zeroOrMore }), { maxLength: 4 }),
@@ -233,6 +234,16 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
           minLength: 2,
           maxLength: 4,
         }),
+        tile: fc.oneof(
+          fc.constant(null),
+          fc.record({
+            x: anyNumber,
+            y: anyNumber,
+            width: zeroOrMore,
+            height: zeroOrMore,
+            repeat: fc.boolean(),
+          }),
+        ),
       }),
       fc.record({
         kind: fc.constant('radial'),
@@ -240,6 +251,16 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
           minLength: 2,
           maxLength: 4,
         }),
+        tile: fc.oneof(
+          fc.constant(null),
+          fc.record({
+            x: anyNumber,
+            y: anyNumber,
+            width: zeroOrMore,
+            height: zeroOrMore,
+            repeat: fc.boolean(),
+          }),
+        ),
       }),
     ),
     children,

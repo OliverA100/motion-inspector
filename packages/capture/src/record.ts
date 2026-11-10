@@ -27,6 +27,7 @@ import {
   labelOf,
   containingBlock,
   type Box,
+  type RawShape,
   type Snapshot,
 } from './snapshot';
 
@@ -240,6 +241,12 @@ function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | nu
     )
   ) {
     return `An animation on ${label} is not shown, because it adds to the element's own value instead of replacing it.`;
+  }
+  // Chrome lists no properties for keyframes that only change CSS custom
+  // properties (a registered --angle that turns a conic gradient, found on
+  // Resend). There is nothing to draw, but it should not pass in silence.
+  if (seen.properties.length === 0) {
+    return `An animation on ${seen.pseudoElement ?? ''}${seen.pseudoElement === null ? '' : ' of '}${label} is not shown, because it only changes CSS variables (custom properties), which the browser does not list.`;
   }
   if (seen.timing.iterationStart !== 0 || seen.timing.endDelay !== 0) {
     return `An animation on ${label} is not shown, because it uses a start position or end delay that CSS cannot express.`;
@@ -471,6 +478,15 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
         : []),
     ],
   };
+  // A last guard: an id used twice would make core reject the whole take.
+  // A repeat is renamed; tracks keep pointing at the first.
+  const seenIds = new Set<string>();
+  const renameRepeats = (shape: RawShape): void => {
+    if (seenIds.has(shape.id)) shape.id = `${shape.id}.${seenIds.size}`;
+    seenIds.add(shape.id);
+    shape.children.forEach(renameRepeats);
+  };
+  renameRepeats(snapshot.root);
   // Core checks everything. Nothing reaches the editor without passing.
   const parsed = parseCapture(raw);
   return parsed.ok

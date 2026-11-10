@@ -37,6 +37,10 @@ export type Pose = {
   clipPath: string | null;
   // False while an animated visibility is "hidden".
   visible: boolean;
+  // An animated background-position, as computed CSS ("-200%", "12px"),
+  // for a gradient's tile. null where it is at rest.
+  backgroundX: string | null;
+  backgroundY: string | null;
 };
 
 export type StageData = {
@@ -133,9 +137,11 @@ function walk(
   context.save();
   const placed = placement(shape, pose);
   context.transform(placed.a, placed.b, placed.c, placed.d, placed.e, placed.f);
-  // A filter acts on the shape and everything inside it, as in CSS.
-  if (pose?.filter != null && pose.filter !== 'none') {
-    context.filter = context.filter === 'none' ? pose.filter : `${context.filter} ${pose.filter}`;
+  // A filter acts on the shape and everything inside it, as in CSS. An
+  // animated one replaces the resting one.
+  const filter = pose?.filter ?? shape.filter;
+  if (filter !== null && filter !== 'none') {
+    context.filter = context.filter === 'none' ? filter : `${context.filter} ${filter}`;
   }
   // A clip-path cuts the shape and everything inside it, as in CSS.
   const clip = pose?.clipPath ?? shape.clipPath;
@@ -241,18 +247,74 @@ function wordsPath(context: CanvasRenderingContext2D, shape: Shape): void {
 }
 
 // A gradient over the shape's current path, as CSS draws it: a linear one
-// along a line through the middle at its angle, long enough to reach the
-// corners; a radial one as an ellipse from the middle to the corners.
+// along a line through the middle of its image at its angle, long enough to
+// reach the corners; a radial one as an ellipse from the middle to the
+// corners. The image is the box, or a tile of it (background-size), moved
+// by background-position; a repeating tile is drawn with its neighbours,
+// so a shimmer's highlight comes back in from the other side.
 function fillGradient(
   context: CanvasRenderingContext2D,
   shape: Shape,
   pose: Pose | null,
   gradient: NonNullable<Shape['gradient']>,
 ): void {
-  const width = Math.max(pose?.width ?? shape.box.width, 0);
-  const height = Math.max(pose?.height ?? shape.box.height, 0);
-  const centerX = shape.box.x + width / 2;
-  const centerY = shape.box.y + height / 2;
+  const tile = tileAt(shape, pose, gradient);
+  const steps = tile.repeat ? [-1, 0, 1] : [0];
+  for (const across of steps) {
+    for (const down of steps) {
+      const left = shape.box.x + tile.x + across * tile.width;
+      const top = shape.box.y + tile.y + down * tile.height;
+      context.save();
+      if (tile.repeat) {
+        // Each copy only within its own tile. The shape's path is kept: a
+        // clip does not replace the current path.
+        const region = new Path2D();
+        region.rect(left, top, tile.width, tile.height);
+        context.clip(region);
+      }
+      fillOneTile(context, gradient, left, top, tile.width, tile.height);
+      context.restore();
+    }
+  }
+}
+
+// Where the gradient's image is, from the box's top left, after an
+// animated background-position. A percentage lines up that fraction of the
+// tile with the same fraction of the box, as in CSS.
+function tileAt(
+  shape: Shape,
+  pose: Pose | null,
+  gradient: NonNullable<Shape['gradient']>,
+): { x: number; y: number; width: number; height: number; repeat: boolean } {
+  const boxWidth = Math.max(pose?.width ?? shape.box.width, 0);
+  const boxHeight = Math.max(pose?.height ?? shape.box.height, 0);
+  const tile = gradient.tile ?? { x: 0, y: 0, width: boxWidth, height: boxHeight, repeat: false };
+  const offset = (value: string | null, rest: number, free: number): number => {
+    if (value === null) return rest;
+    const number = parseFloat(value);
+    if (!Number.isFinite(number)) return rest;
+    return value.trim().endsWith('%') ? (number / 100) * free : number;
+  };
+  return {
+    x: offset(pose?.backgroundX ?? null, tile.x, boxWidth - tile.width),
+    y: offset(pose?.backgroundY ?? null, tile.y, boxHeight - tile.height),
+    width: Math.max(tile.width, 0.01),
+    height: Math.max(tile.height, 0.01),
+    repeat: tile.repeat,
+  };
+}
+
+// One copy of the gradient, over the current path, laid out on a tile.
+function fillOneTile(
+  context: CanvasRenderingContext2D,
+  gradient: NonNullable<Shape['gradient']>,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): void {
+  const centerX = left + width / 2;
+  const centerY = top + height / 2;
   const addStops = (canvasGradient: CanvasGradient): CanvasGradient => {
     for (const stop of gradient.stops) {
       try {

@@ -69,6 +69,7 @@ export type RawShape = {
   transform: [number, number, number, number, number, number] | null;
   shadow: { color: string; x: number; y: number; blur: number } | null;
   clipPath: string | null;
+  filter: string | null;
   // A gradient background, drawn with its direction. fill holds its
   // average color.
   gradient: RawGradient | null;
@@ -102,6 +103,8 @@ export type Snapshot = {
   shapeIdOf: Map<Element, string>;
   // The ::before and ::after of each element that have shapes.
   pseudoParts: Map<Element, Map<string, PseudoPart>>;
+  // The number the next shape added later will use.
+  nextId: { value: number };
   // The resting values of the previewed properties, per element.
   resting: Map<Element, Map<string, string>>;
   // Properties that were already animating when the element was picked.
@@ -292,8 +295,10 @@ function readResting(element: Element): Map<string, string> {
 const GEOMETRY = 'path, circle, ellipse, rect, line, polyline, polygon';
 // Parts of an SVG that define things rather than draw them.
 const NOT_DRAWN = 'defs, clipPath, mask, symbol, marker, pattern';
-const MOST_ICON_PATHS = 16;
-const LONGEST_PATH_DATA = 8000;
+// Logos are often made of dozens of paths (found on Mercury).
+const MOST_ICON_PATHS = 64;
+// A wordmark is often one long path (found on Mercury).
+const LONGEST_PATH_DATA = 50000;
 
 function length(value: SVGAnimatedLength): number {
   return value.baseVal.value;
@@ -565,6 +570,7 @@ function partShape(walk: Walk, part: IconPart, box: Box, id: string): RawShape {
     transform: part.transform,
     shadow: null,
     clipPath: null,
+    filter: null,
     gradient: null,
     words: null,
     icon: [part.path],
@@ -632,6 +638,7 @@ function iconShape(
       transform: restingTransform(style),
       shadow: null,
       clipPath: null,
+      filter: null,
       gradient: null,
       words: null,
       icon: null,
@@ -671,6 +678,7 @@ function iconShape(
     transform: null,
     shadow: null,
     clipPath: null,
+    filter: null,
     gradient: null,
     words: null,
     icon: null,
@@ -694,7 +702,14 @@ function boxShape(
   // copied, so it is drawn as plain gray.
   // A gradient the preview draws keeps its stops; one it cannot draw
   // (repeating, conic) is drawn in its average color.
-  const drawable = hasBackgroundImage ? readGradient(style.backgroundImage, rect) : null;
+  const drawable = hasBackgroundImage
+    ? readGradient(style.backgroundImage, rect, {
+        size: style.backgroundSize,
+        x: style.backgroundPositionX,
+        y: style.backgroundPositionY,
+        repeat: style.backgroundRepeat,
+      })
+    : null;
   const gradient =
     hasBackgroundImage && drawable === null ? gradientColor(style.backgroundImage) : null;
   if (hasBackgroundImage && !hasColor && drawable === null) walk.flattenedBackground = true;
@@ -712,7 +727,7 @@ function boxShape(
   const shownSide = sides.find(isVisibleColor);
   const origin = style.transformOrigin.split(' ').map((part) => parseFloat(part));
   const corner = (value: string): number => radiusOf(value, rect.width, rect.height);
-  return {
+  const shape: RawShape = {
     id,
     label: labelOf(element),
     kind: isImage ? 'image' : 'box',
@@ -748,11 +763,65 @@ function boxShape(
     transform: restingTransform(style),
     shadow: restingShadow(style.boxShadow),
     clipPath: basicClipPath(style.clipPath),
+    filter: style.filter === 'none' ? null : style.filter,
     gradient: drawable,
     words: null,
     icon: null,
     children: [],
   };
+  const backgroundAverage =
+    (hasBackgroundImage ? gradientColor(style.backgroundImage) : null) ??
+    (hasColor ? style.backgroundColor : null);
+  if (clipsToText(style)) {
+    // The background shows only through the letters: it colors the text
+    // bars (see textPaint), not the box (found on Retool).
+    shape.fill = null;
+    shape.gradient = null;
+  } else if (ringMask(style) && backgroundAverage !== null) {
+    // The "gradient border" trick: a mask cuts the background down to the
+    // ring of padding around the content. Drawn as a ring in its average
+    // color, not as the full gradient (found on Retool).
+    shape.fill = null;
+    shape.gradient = null;
+    shape.stroke = {
+      color: backgroundAverage,
+      width: Math.max(parseFloat(style.paddingTop) || 1, 1),
+      sides: null,
+      style: 'solid',
+    };
+  }
+  return shape;
+}
+
+function clipsToText(style: CSSStyleDeclaration): boolean {
+  return (
+    style.backgroundClip.includes('text') ||
+    style.getPropertyValue('-webkit-background-clip').includes('text')
+  );
+}
+
+// A mask made of a content-box layer taken away from the whole box.
+function ringMask(style: CSSStyleDeclaration): boolean {
+  return (
+    style.maskImage !== 'none' &&
+    /exclude|xor/.test(style.maskComposite) &&
+    style.maskClip.includes('content-box')
+  );
+}
+
+// The color text is drawn in: its own, or, for see-through text, the
+// background that a parent clips to its letters.
+function textPaint(element: Element, style: CSSStyleDeclaration): string {
+  if (isVisibleColor(style.color)) return style.color;
+  for (let at: Element | null = element; at !== null; at = at.parentElement) {
+    const outer = getComputedStyle(at);
+    if (!clipsToText(outer)) continue;
+    return (
+      (outer.backgroundImage !== 'none' ? gradientColor(outer.backgroundImage) : null) ??
+      (isVisibleColor(outer.backgroundColor) ? outer.backgroundColor : style.color)
+    );
+  }
+  return style.color;
 }
 
 // A clip-path the preview can draw: a basic shape, not a url() to an SVG.
@@ -995,6 +1064,7 @@ function textBars(
       transform: null,
       shadow: null,
       clipPath: null,
+      filter: null,
       gradient: null,
       words,
       icon: null,
@@ -1075,7 +1145,7 @@ function shapesFor(
     : childNodesOf(element).flatMap((node): RawShape[] => {
         if (node instanceof Element) return shapesFor(walk, node, id, false);
         if (node instanceof Text) {
-          return textBars(walk, node, { id, element, box: rect }, style.color);
+          return textBars(walk, node, { id, element, box: rect }, textPaint(element, style));
         }
         return [];
       });
@@ -1297,6 +1367,7 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     root,
     rootElement,
     backdrop: backdropOf(rootElement),
+    nextId: { value: walk.count },
     frame: frameOf(walk),
     runningAtPick,
     shapeOf: walk.shapeOf,
@@ -1336,8 +1407,12 @@ function parentAcrossShadow(element: Element): Element | null {
   return root instanceof ShadowRoot ? root.host : null;
 }
 
+// Late shapes are numbered on from every shape made so far, by a counter
+// that only moves forward. Counting the elements that have shapes was not
+// enough: text lines and pseudo-elements have none, and two late shapes
+// got the same id (found on Webflow), which made the take unusable.
 function lateWalk(snapshot: Snapshot): Walk {
-  const count = snapshot.shapeIdOf.size;
+  const count = snapshot.nextId.value;
   return {
     rootElement: snapshot.rootElement,
     rootRect: snapshot.rootElement.getBoundingClientRect(),
@@ -1377,6 +1452,8 @@ export function addLateShape(snapshot: Snapshot, element: Element): boolean {
   if (boxAtPick !== undefined) {
     const style = getComputedStyle(element);
     const id = `${parentShape.id}.late${walk.count}`;
+    walk.count += 1;
+    snapshot.nextId.value = walk.count;
     const shape = boxShape(walk, element, style, boxAtPick, id, false);
     const moved = parentShape.children.filter((child) => {
       const owner = snapshot.ownerOf.get(child);
@@ -1398,6 +1475,7 @@ export function addLateShape(snapshot: Snapshot, element: Element): boolean {
   // Hidden at pick time (a panel about to open, the next slide): it has to
   // be measured now, as it is at the end of its animation.
   const added = shapesFor(walk, element, `${parentShape.id}.late`, false, true);
+  snapshot.nextId.value = walk.count;
   parentShape.children.push(...added);
   return snapshot.shapeIdOf.has(element);
 }
@@ -1415,7 +1493,9 @@ export function addLatePseudo(snapshot: Snapshot, element: Element, pseudo: stri
   }
   const ownerShape = owner === null ? undefined : snapshot.shapeOf.get(owner);
   if (ownerShape === undefined) return false;
-  const shape = pseudoShape(lateWalk(snapshot), element, pseudo, `${ownerShape.id}.late`);
+  const walk = lateWalk(snapshot);
+  const shape = pseudoShape(walk, element, pseudo, `${ownerShape.id}.late`);
+  snapshot.nextId.value = walk.count;
   if (shape === null) return false;
   if (pseudo === '::before') ownerShape.children.unshift(shape);
   else ownerShape.children.push(shape);
