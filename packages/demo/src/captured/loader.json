@@ -37,6 +37,9 @@
       "y": 16
     },
     "clip": false,
+    "transform": null,
+    "shadow": null,
+    "clipPath": null,
     "icon": null,
     "children": []
   },

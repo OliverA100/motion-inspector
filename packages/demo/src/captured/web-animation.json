@@ -28,6 +28,9 @@
       "y": 20
     },
     "clip": false,
+    "transform": null,
+    "shadow": null,
+    "clipPath": null,
     "icon": null,
     "children": []
   },
@@ -45,18 +48,7 @@
           "value": "translateX(0px) scale(1)",
           "parsed": {
             "kind": "transform",
-            "functions": [
-              {
-                "fn": "translate",
-                "x": 0,
-                "y": 0
-              },
-              {
-                "fn": "scale",
-                "x": 1,
-                "y": 1
-              }
-            ]
+            "functions": []
           },
           "easing": {
             "kind": "cubic-bezier",

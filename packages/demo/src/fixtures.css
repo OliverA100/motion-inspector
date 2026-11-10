@@ -597,3 +597,238 @@ fx-shadow-card {
   transform: translateX(0);
   opacity: 1;
 }
+
+/* 17 to 24. Shapes found missing in a sweep of real sites. */
+
+.fx-underline,
+.fx-sweep,
+.fx-grow-layer {
+  position: relative;
+  display: inline-block;
+  padding: 12px 18px;
+  color: #666666;
+  background: #e1e1e1;
+  text-decoration: none;
+}
+
+.fx-underline::before {
+  content: '';
+  position: absolute;
+  left: 51%;
+  right: 51%;
+  bottom: 0;
+  height: 4px;
+  background: #2098d1;
+  transition:
+    left 300ms ease-out,
+    right 300ms ease-out;
+}
+
+.fx-underline:hover::before {
+  left: 0;
+  right: 0;
+}
+
+.fx-sweep {
+  z-index: 0;
+  transform: perspective(1px) translateZ(0);
+  transition: color 300ms;
+}
+
+.fx-sweep::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: #2098d1;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 300ms ease-out;
+}
+
+.fx-sweep:hover {
+  color: #ffffff;
+}
+
+.fx-sweep:hover::before {
+  transform: scaleX(1);
+}
+
+.fx-grow-layer {
+  transform: perspective(1px) translateZ(0);
+  transition: transform 300ms;
+}
+
+.fx-grow-layer:hover {
+  transform: scale(1.1);
+}
+
+.fx-ribbon {
+  display: block;
+  width: 150px;
+  padding: 6px 0;
+  color: #ffffff;
+  text-align: center;
+  background: #000000;
+  transform: rotate(45deg);
+  transition: background-color 500ms;
+}
+
+.fx-ribbon:hover {
+  background: #2098d1;
+}
+
+.fx-chevron {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: #111111;
+  border: 0;
+  background: #f2f2f2;
+}
+
+.fx-chevron path {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transition: transform 250ms ease-in-out;
+}
+
+.fx-chevron:hover .fx-chevron__left {
+  transform: rotate(-90deg);
+}
+
+.fx-chevron:hover .fx-chevron__right {
+  transform: rotate(90deg);
+}
+
+.fx-ring {
+  display: inline-block;
+  animation: fx-ring-turn 1400ms linear infinite;
+}
+
+.fx-ring circle {
+  stroke-dasharray: 80px, 200px;
+  stroke-dashoffset: 0;
+  animation: fx-ring-draw 1400ms ease-in-out infinite;
+}
+
+@keyframes fx-ring-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fx-ring-draw {
+  0% {
+    stroke-dasharray: 1px, 200px;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 100px, 200px;
+    stroke-dashoffset: -15px;
+  }
+  100% {
+    stroke-dasharray: 100px, 200px;
+    stroke-dashoffset: -126px;
+  }
+}
+
+.fx-lift-card {
+  display: grid;
+  place-items: center;
+  width: 160px;
+  height: 100px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+  transition: filter 300ms;
+}
+
+.fx-lift-card:hover {
+  filter: brightness(0.8);
+}
+
+.fx-lift-card__button {
+  width: 80px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgb(32, 152, 209), rgb(47, 111, 237));
+}
+
+.fx-pseudo-spinner {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+}
+
+.fx-pseudo-spinner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 4px solid #d4d4d4;
+  border-top-color: #ff3d00;
+  border-radius: 50%;
+  animation: fx-ring-turn 1000ms linear infinite;
+}
+
+/* 25, 26. clip-path, at rest and animated. */
+
+.fx-reveal {
+  position: relative;
+  display: block;
+  width: 140px;
+  height: 44px;
+  border-radius: 6px;
+  background: #e1e1e1;
+}
+
+.fx-reveal__layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: #2f6fed;
+  clip-path: inset(0px 100% 0px 0px);
+  transition: clip-path 400ms ease-out;
+}
+
+.fx-reveal:hover .fx-reveal__layer {
+  clip-path: inset(0px 0% 0px 0px);
+}
+
+.fx-clip-loader {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 48px;
+}
+
+.fx-clip-loader::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 5px solid #ff3d00;
+  border-radius: 50%;
+  animation: fx-clip-grow 2000ms linear infinite;
+}
+
+@keyframes fx-clip-grow {
+  0% {
+    clip-path: polygon(50% 50%, 0 0, 0 0, 0 0, 0 0, 0 0);
+  }
+  25% {
+    clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 0, 100% 0, 100% 0);
+  }
+  50% {
+    clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 100% 100%, 100% 100%);
+  }
+  75% {
+    clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 100%);
+  }
+  100% {
+    clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 0);
+  }
+}

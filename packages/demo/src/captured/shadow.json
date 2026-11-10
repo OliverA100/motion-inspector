@@ -28,6 +28,9 @@
       "y": 28
     },
     "clip": false,
+    "transform": null,
+    "shadow": null,
+    "clipPath": null,
     "icon": null,
     "children": [
       {
@@ -54,6 +57,9 @@
           "y": 28
         },
         "clip": false,
+        "transform": null,
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       }

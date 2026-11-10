@@ -28,6 +28,9 @@
       "y": 44
     },
     "clip": false,
+    "transform": null,
+    "shadow": null,
+    "clipPath": null,
     "icon": null,
     "children": [
       {
@@ -54,6 +57,9 @@
           "y": 12
         },
         "clip": false,
+        "transform": null,
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       }
@@ -95,13 +101,7 @@
           "value": "translateY(0px)",
           "parsed": {
             "kind": "transform",
-            "functions": [
-              {
-                "fn": "translate",
-                "x": 0,
-                "y": 0
-              }
-            ]
+            "functions": []
           },
           "easing": {
             "kind": "cubic-bezier",
@@ -139,13 +139,7 @@
           "value": "translateY(0px)",
           "parsed": {
             "kind": "transform",
-            "functions": [
-              {
-                "fn": "translate",
-                "x": 0,
-                "y": 0
-              }
-            ]
+            "functions": []
           },
           "easing": {
             "kind": "cubic-bezier",
@@ -183,13 +177,7 @@
           "value": "translateY(0px)",
           "parsed": {
             "kind": "transform",
-            "functions": [
-              {
-                "fn": "translate",
-                "x": 0,
-                "y": 0
-              }
-            ]
+            "functions": []
           },
           "easing": {
             "kind": "linear"

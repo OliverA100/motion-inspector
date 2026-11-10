@@ -31,6 +31,17 @@ const cases = [
   { name: 'fixture-bounce', url: `${EDITOR}/fixtures.html`, pick: '.fx-bounce', trigger: 'click', clickTarget: '[data-fixture="bounce"] [data-trigger="play"]' },
   { name: 'fixture-stagger', url: `${EDITOR}/fixtures.html`, pick: '.fx-list', trigger: 'click', clickTarget: '[data-fixture="stagger-list"] [data-trigger="toggle"]' },
   { name: 'fixture-morph', url: `${EDITOR}/fixtures.html`, pick: '.fx-morph', trigger: 'hover' },
+  { name: 'fixture-underline', url: `${EDITOR}/fixtures.html`, pick: '.fx-underline', trigger: 'hover' },
+  { name: 'fixture-sweep', url: `${EDITOR}/fixtures.html`, pick: '.fx-sweep', trigger: 'hover' },
+  { name: 'fixture-grow-layer', url: `${EDITOR}/fixtures.html`, pick: '.fx-grow-layer', trigger: 'hover' },
+  { name: 'fixture-ribbon', url: `${EDITOR}/fixtures.html`, pick: '.fx-ribbon', trigger: 'hover' },
+  { name: 'fixture-chevron', url: `${EDITOR}/fixtures.html`, pick: '.fx-chevron', trigger: 'hover' },
+  { name: 'fixture-ring', url: `${EDITOR}/fixtures.html`, pick: '.fx-ring', trigger: 'none' },
+  { name: 'fixture-lift-card', url: `${EDITOR}/fixtures.html`, pick: '.fx-lift-card', trigger: 'hover' },
+  { name: 'fixture-pseudo-spinner', url: `${EDITOR}/fixtures.html`, pick: '.fx-pseudo-spinner', trigger: 'none' },
+  { name: 'fixture-reveal', url: `${EDITOR}/fixtures.html`, pick: '.fx-reveal', trigger: 'hover' },
+  { name: 'fixture-clip-loader', url: `${EDITOR}/fixtures.html`, pick: '.fx-clip-loader', trigger: 'none' },
+  { name: 'fixture-icon-button', url: `${EDITOR}/fixtures.html`, pick: '.fx-icon-button__arrows', trigger: 'hover' },
   // Real sites.
   { name: 'bootstrap-button', url: 'https://getbootstrap.com/docs/5.3/components/buttons/', pick: '.bd-example .btn-primary', trigger: 'hover' },
   { name: 'bootstrap-spinner', url: 'https://getbootstrap.com/docs/5.3/components/spinners/', pick: '.bd-example .spinner-border', trigger: 'none' },
@@ -108,7 +119,7 @@ async function realFrames(page, c) {
   await page.evaluate(captureScript + '\n;window.MotionCapture = MotionCapture;');
   const target = page.locator(c.pick).first();
   if ((await target.count()) === 0) return { error: `Nothing matches ${c.pick}` };
-  await target.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+  await target.evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => {});
   await page.mouse.move(2, 2);
   await page.waitForTimeout(500);
   // Tag it, so the same element is found again.

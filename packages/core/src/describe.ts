@@ -36,7 +36,7 @@ function valueInWords(keyframe: Keyframe): string {
     case 'number':
       return rounded(parsed.value);
     case 'length':
-      return `${rounded(parsed.px)} px`;
+      return parsed.px === 0 ? '0' : `${rounded(parsed.px)} px`;
     case 'percent':
       return `${rounded(parsed.value)}%`;
     case 'color': {
@@ -117,9 +117,22 @@ function movePhrases(from: Pose, to: Pose): string[] {
 
 const TRANSFORM_PROPERTIES = ['transform', 'translate', 'scale', 'rotate'];
 const SHORT_ENOUGH_TO_QUOTE = 32;
+const EDGES = ['left', 'right', 'top', 'bottom'];
+
+// Two keyframes mean the same thing when they are written the same, or read
+// the same: "perspective(1px) translateZ(0px)" and "scale(1)" both move
+// nothing. (Plain structural equality, as Elm's == is.)
+function sameMeaning(first: Keyframe, second: Keyframe): boolean {
+  if (first.value === second.value) return true;
+  return (
+    first.parsed !== null &&
+    second.parsed !== null &&
+    JSON.stringify(first.parsed) === JSON.stringify(second.parsed)
+  );
+}
 
 function phraseBetween(property: string, from: Keyframe, to: Keyframe): string {
-  if (from.value === to.value) return `holds its ${property}`;
+  if (sameMeaning(from, to)) return `holds its ${property}`;
 
   const fromPose = poseOf(from.parsed);
   const toPose = poseOf(to.parsed);
@@ -138,6 +151,12 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe): string {
   }
   if (property === 'border-radius') return `rounds its corners from ${fromWords} to ${toWords}`;
   if (property === 'box-shadow') return 'changes its shadow';
+  if (EDGES.includes(property)) {
+    return `moves its ${property} edge from ${fromWords} to ${toWords}`;
+  }
+  if (property === 'width' || property === 'height') {
+    return `changes its ${property} from ${fromWords} to ${toWords}`;
+  }
   const quotable =
     fromWords.length <= SHORT_ENOUGH_TO_QUOTE && toWords.length <= SHORT_ENOUGH_TO_QUOTE;
   return quotable ? `changes ${property} from ${fromWords} to ${toWords}` : `changes ${property}`;
@@ -173,7 +192,7 @@ function changePhrase(group: PropertyGroup): string {
   if (first === undefined || last === undefined) return `changes ${group.property}`;
 
   // Ends where it began (a pulse): describe the way out, "and back".
-  if (keyframes.length > 2 && first.value === last.value) {
+  if (keyframes.length > 2 && sameMeaning(first, last)) {
     const farthest = keyframes.reduce((best, keyframe) =>
       distance(first, keyframe) > distance(first, best) ? keyframe : best,
     );

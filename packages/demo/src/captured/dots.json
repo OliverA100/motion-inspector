@@ -28,6 +28,9 @@
       "y": 5
     },
     "clip": false,
+    "transform": null,
+    "shadow": null,
+    "clipPath": null,
     "icon": null,
     "children": [
       {
@@ -54,6 +57,9 @@
           "y": 5
         },
         "clip": false,
+        "transform": null,
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       },
@@ -81,6 +87,9 @@
           "y": 5
         },
         "clip": false,
+        "transform": null,
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       },
@@ -108,6 +117,9 @@
           "y": 5
         },
         "clip": false,
+        "transform": null,
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       }
@@ -149,13 +161,7 @@
           "value": "scale(1)",
           "parsed": {
             "kind": "transform",
-            "functions": [
-              {
-                "fn": "scale",
-                "x": 1,
-                "y": 1
-              }
-            ]
+            "functions": []
           },
           "easing": {
             "kind": "cubic-bezier",
@@ -345,13 +351,7 @@
           "value": "scale(1)",
           "parsed": {
             "kind": "transform",
-            "functions": [
-              {
-                "fn": "scale",
-                "x": 1,
-                "y": 1
-              }
-            ]
+            "functions": []
           },
           "easing": {
             "kind": "cubic-bezier",
@@ -541,13 +541,7 @@
           "value": "scale(1)",
           "parsed": {
             "kind": "transform",
-            "functions": [
-              {
-                "fn": "scale",
-                "x": 1,
-                "y": 1
-              }
-            ]
+            "functions": []
           },
           "easing": {
             "kind": "cubic-bezier",

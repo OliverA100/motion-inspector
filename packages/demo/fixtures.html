@@ -266,6 +266,154 @@
           </div>
           <div class="fixture__controls">Hover the button</div>
         </section>
+
+        <section class="fixture" data-fixture="underline">
+          <header>
+            <h2>Underline from the middle</h2>
+            <p>
+              A <code>::before</code> line grows from the middle by animating <code>left</code> and
+              <code>right</code> (as Hover.css does)
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <a class="fx-underline" href="#" data-root>Underline</a>
+          </div>
+          <div class="fixture__controls">Hover it</div>
+        </section>
+
+        <section class="fixture" data-fixture="sweep">
+          <header>
+            <h2>Sweep</h2>
+            <p>
+              A <code>::before</code> fill sweeps across with <code>scaleX</code>, behind the label
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <a class="fx-sweep" href="#" data-root>Sweep</a>
+          </div>
+          <div class="fixture__controls">Hover it</div>
+        </section>
+
+        <section class="fixture" data-fixture="grow-layer">
+          <header>
+            <h2>Grow, with a GPU layer</h2>
+            <p>
+              Rests at <code>perspective(1px) translateZ(0)</code>, grows to <code>scale(1.1)</code>
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <a class="fx-grow-layer" href="#" data-root>Grow</a>
+          </div>
+          <div class="fixture__controls">Hover it</div>
+        </section>
+
+        <section class="fixture" data-fixture="ribbon">
+          <header>
+            <h2>Ribbon</h2>
+            <p>Rotated 45 degrees at rest; its color changes on hover</p>
+          </header>
+          <div class="fixture__stage">
+            <a class="fx-ribbon" href="#" data-root>Ribbon</a>
+          </div>
+          <div class="fixture__controls">Hover it</div>
+        </section>
+
+        <section class="fixture" data-fixture="chevron">
+          <header>
+            <h2>Chevron</h2>
+            <p>Two SVG strokes turn about their own boxes (<code>transform-box: fill-box</code>)</p>
+          </header>
+          <div class="fixture__stage">
+            <button class="fx-chevron" type="button" data-root>
+              <svg
+                viewBox="0 0 12 12"
+                width="24"
+                height="24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              >
+                <path class="fx-chevron__left" d="M2 4L6 8" />
+                <path class="fx-chevron__right" d="M6 8L10 4" />
+              </svg>
+            </button>
+          </div>
+          <div class="fixture__controls">Hover it</div>
+        </section>
+
+        <section class="fixture" data-fixture="ring">
+          <header>
+            <h2>Drawing ring</h2>
+            <p>
+              An SVG circle draws itself with <code>stroke-dasharray</code> and
+              <code>stroke-dashoffset</code> while the SVG turns
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <span class="fx-ring" data-root
+              ><svg viewBox="22 22 44 44" width="40" height="40">
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="20"
+                  fill="none"
+                  stroke="#2f6fed"
+                  stroke-width="3.6"
+                /></svg
+            ></span>
+          </div>
+          <div class="fixture__controls">Runs forever</div>
+        </section>
+
+        <section class="fixture" data-fixture="lift-card">
+          <header>
+            <h2>Card with a shadow</h2>
+            <p>
+              A white card on white, seen by its shadow; its button has a gradient; hover dims it
+              with <code>filter</code>
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <div class="fx-lift-card" data-root><div class="fx-lift-card__button"></div></div>
+          </div>
+          <div class="fixture__controls">Hover it</div>
+        </section>
+
+        <section class="fixture" data-fixture="pseudo-spinner">
+          <header>
+            <h2>Pseudo-element spinner</h2>
+            <p>The whole loader is a <code>::before</code> ring with one colored side</p>
+          </header>
+          <div class="fixture__stage">
+            <span class="fx-pseudo-spinner" data-root></span>
+          </div>
+          <div class="fixture__controls">Runs forever</div>
+        </section>
+
+        <section class="fixture" data-fixture="reveal">
+          <header>
+            <h2>Reveal</h2>
+            <p>A colored layer is uncovered by <code>clip-path: inset()</code> on hover</p>
+          </header>
+          <div class="fixture__stage">
+            <a class="fx-reveal" href="#" data-root><span class="fx-reveal__layer"></span></a>
+          </div>
+          <div class="fixture__controls">Hover it</div>
+        </section>
+
+        <section class="fixture" data-fixture="clip-loader">
+          <header>
+            <h2>Clip loader</h2>
+            <p>
+              A ring drawn by a <code>::before</code> whose <code>clip-path: polygon()</code> grows
+            </p>
+          </header>
+          <div class="fixture__stage">
+            <span class="fx-clip-loader" data-root></span>
+          </div>
+          <div class="fixture__controls">Runs forever</div>
+        </section>
       </div>
     </main>
 

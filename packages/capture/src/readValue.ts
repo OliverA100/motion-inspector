@@ -101,8 +101,21 @@ function readFunction(component: CSSTransformComponent, box: BoxSize): Transform
     const yDeg = degrees(component.ay);
     return yDeg === null ? null : { fn: 'skew', xDeg: 0, yDeg };
   }
-  // matrix() and perspective() have no reading as separate numbers.
+  // matrix() has no reading as separate numbers.
   return null;
+}
+
+function doesNothing(item: TransformFunction): boolean {
+  switch (item.fn) {
+    case 'translate':
+      return item.x === 0 && item.y === 0;
+    case 'scale':
+      return item.x === 1 && item.y === 1;
+    case 'rotate':
+      return item.deg === 0;
+    case 'skew':
+      return item.xDeg === 0 && item.yDeg === 0;
+  }
 }
 
 // The transform as the list of functions the author wrote, never through a
@@ -116,10 +129,22 @@ function readTransform(property: string, value: string, box: BoxSize): ParsedVal
       // "none" comes back as a keyword: no functions at all.
       return parsed.toString() === 'none' ? { kind: 'transform', functions: [] } : null;
     }
-    const functions = Array.from(parsed, (component) => readFunction(component, box));
+    // perspective() changes nothing on a flat element: it only acts on
+    // depth, and every other function here must already be flat. Pages
+    // write "perspective(1px) translateZ(0)" to get their own GPU layer
+    // (Hover.css does on every effect). It is left out of the reading.
+    const flatParts = Array.from(parsed).filter(
+      (component) => !(component instanceof CSSPerspective),
+    );
+    const functions = flatParts.map((component) => readFunction(component, box));
     const known = functions.flatMap((item) => (item === null ? [] : [item]));
     // One function that cannot be read makes the whole value unreadable.
-    return known.length === functions.length ? { kind: 'transform', functions: known } : null;
+    if (known.length !== functions.length) return null;
+    // Functions that do nothing are left out: Tailwind writes a resting
+    // transform as "translate(0px) rotate(0deg) skew(0deg, 0deg) skewY(0deg)
+    // scaleX(1) scaleY(1)", and translateZ(0) is read as translate(0, 0).
+    // Without them the reading says what moves, and it matches "none".
+    return { kind: 'transform', functions: known.filter((item) => !doesNothing(item)) };
   } catch {
     return null;
   }
@@ -167,6 +192,11 @@ export function readColor(value: string): (ParsedValue & { kind: 'color' }) | nu
   };
 }
 
+// Properties whose percentages are measured against the containing
+// block's width or height. For these, box is that block's size.
+const PERCENT_OF_WIDTH = ['width', 'left', 'right', 'min-width', 'max-width'];
+const PERCENT_OF_HEIGHT = ['height', 'top', 'bottom', 'min-height', 'max-height'];
+
 export function readValue(property: string, value: string, box: BoxSize): ParsedValue | null {
   const text = value.trim();
   if (TRANSFORM_LIKE.includes(property)) return readTransform(property, text, box);
@@ -175,7 +205,14 @@ export function readValue(property: string, value: string, box: BoxSize): Parsed
     return { kind: 'length', px: Number(text.slice(0, -2)) };
   }
   if (text.endsWith('%') && NUMBER.test(text.slice(0, -1))) {
-    return { kind: 'percent', value: Number(text.slice(0, -1)) };
+    // What 100% is, in px, so the preview can draw it. The value itself
+    // stays a percentage, as written.
+    const of = PERCENT_OF_WIDTH.includes(property)
+      ? box.width
+      : PERCENT_OF_HEIGHT.includes(property)
+        ? box.height
+        : null;
+    return { kind: 'percent', value: Number(text.slice(0, -1)), of };
   }
   return readColor(text);
 }

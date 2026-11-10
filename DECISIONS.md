@@ -541,3 +541,38 @@ The format is in `packages/core/src/types.ts`. The evidence is in `docs/chrome-f
 **Chose:** when deciding whether a take undoes the one before it (D96), values are compared after reading them: transforms as the matrix of their functions (within 0.01), other values by their parsed numbers, and as text only when they cannot be read.
 **Why:** Tailwind writes a resting transform as `translate(0px) rotate(0deg) skew(0deg, 0deg) skewY(0deg) scaleX(1) scaleY(1)`, and after a hover Chrome reports the same state as `none`. Compared as text, the leave did not match, and the user saw several identical "moves left 28 px" takes for one hover.
 **Gave up:** nothing that was found. Two values that differ by less than 0.01 in every matrix number count as the same.
+
+### D103. A sweep of real sites finds what to fix, by itself
+**Chose:** `tests/sweep.cjs` opens about thirty sites (component libraries, loader galleries, hover-effect galleries, product sites), finds what animates by itself (loaders already running, elements that animate on hover, tabs and switches that animate on click), and for each one puts the real page's frames beside the preview's in one image per site. It skips elements a banner or overlay covers, since a hover that never reaches them rightly captures nothing.
+**Why:** asked for: "test it on many websites, many buttons, many different components and many different animations". Hand-picked elements only find the problems I already expect.
+**Gave up:** like compare.cjs, it needs eyes, and stays out of the regular test run. Each problem it found has a fixture and a test that does not depend on a live site.
+
+### D104. ::before and ::after are drawn
+**Chose:** an absolutely positioned pseudo-element that paints something or is set up to animate gets a shape: its box from its computed left, top, width and height against its containing block. ::before is drawn first among its element's contents and ::after last, as the browser paints them. One added during the take (an underline that only exists on hover) is measured when the take ends. A pseudo-element in the flow of text is still listed as not shown: its box cannot be measured.
+**Why:** the sweep found them everywhere: Hover.css builds its underlines, sweeps and shadows from them, and most loaders on a loader gallery are nothing but a ::before and ::after.
+**Gave up:** a pseudo-element with a negative z-index is drawn over its element's background, not under it, which matches the common case (a fill sweeping behind a label).
+
+### D105. Each part of an SVG is a shape
+**Chose:** a new shape kind, `path`, for each part of an icon. Its outline is placed by its parent's CTM, and its own transform (`transform` and `transformOrigin`, in the SVG's own units, measured from its bounding box under `transform-box: fill-box`) is applied inside that, as SVG does. Animated `fill`, `stroke`, `stroke-dasharray` and `stroke-dashoffset` are drawn on it. An SVG part picked by itself (a loader made of SVG rects) is drawn the same way. A circle's outline starts at its right-hand point and runs clockwise, as SVG draws it, so dashes start in the same place. This changes D98: the outlines moved from the `<svg>` shape to its parts.
+**Why:** Stripe turns the two strokes of a chevron, MUI's spinner draws its circle with dashes, GitHub's arrow grows its stem. All of these were "left out of the simplified drawing".
+**Gave up:** a shape per part makes larger takes for detailed icons (up to 16 parts, as before).
+
+### D106. Resting transforms, shadows and clip-paths are drawn; gradients in their average color
+**Chose:** three new shape fields, `transform` (the resting 2D matrix), `shadow` (the first outer box-shadow) and `clipPath` (the computed CSS, for polygon, inset, circle, ellipse and path). A gradient is drawn in the average of its color stops, weighted by opacity, and a radial gradient alone (a soft shadow or glow) as an ellipse. The backdrop reads gradients the same way. The stage fits what is drawn at rest, transforms included, not only the root's box. Borders are drawn inside the box, as in CSS.
+**Why:** the sweep showed a "Fork me" ribbon rotated 45 degrees drawn flat, white cards on white pages that are only seen by their shadow, loaders revealed by clip-path drawn as full rings, a violet gradient navbar behind white links read as white, and a ring cut flat at four points because its border was drawn half outside its clip.
+**Gave up:** a gradient's direction and a shadow's spread are not drawn.
+
+### D107. Size and position are drawn from capture's px numbers
+**Chose:** `left`, `right`, `top`, `bottom`, `width` and `height` are previewed from the px values capture reads, interpolated with core's sample, not through the probe. A percentage keeps its value as written, and gains `of`: what 100% is in px, measured against the containing block (a change to the locked format). Moving left or top moves the shape and its content; when both opposite edges move, its size changes.
+**Why:** an underline growing from its middle (`left` and `right` from 51% to 0) did not move at all, and `width: 100%` resolved against the probe's own hidden element, not the link.
+**Gave up:** whether an element's width is "auto" is not known, so when only one edge moves, the shape moves rather than stretches.
+
+### D108. Readings leave out what does nothing; changes that change nothing are dropped
+**Chose:** `perspective()` and functions that do nothing (a zero move, a zero turn, a scale of 1) are left out of transform readings, so `perspective(1px) translateZ(0)` reads as no transform and Tailwind's spelled-out resting transform reads like `none`. A track whose keyframes all mean the same thing (`0px` to `0%`) is dropped. Transforms are compared as their function lists for this, never as matrices, so `rotate(0)` to `rotate(360deg)` stays a full turn. `filter` and `visibility` are now previewed.
+**Why:** Hover.css puts `perspective(1px) translateZ(0)` on every effect, so its descriptions read "changes transform from perspective(1px) translateZ(0px) to scale(1.1)" instead of "scales to 1.1". Linear's buttons listed "changes background-position-x from 0 px to 0%".
+**Gave up:** nothing that was seen.
+
+### D109. The preview is easier to read
+**Chose:** small elements are drawn up to four times their size (it was two). The whole component is no longer outlined when its row is selected; other shapes still are. The backdrop mixes a see-through color, or one under a faded parent, with what is behind it.
+**Why:** in the sweep, a 14 px spinner was 28 px in a 240 px stage, every preview had a blue frame around it that was not part of the page, and Ant Design's loading button (at 65% opacity) was drawn on solid bright blue.
+**Gave up:** at four times, a small element's edges are softer.

@@ -140,10 +140,33 @@ Found from a screen recording the user sent of the extension on their portfolio:
 ### 14. Bootstrap's spinner did not visibly turn (D100)
 **Fix:** each border side keeps its own color.
 
+## Third pass: an automatic sweep (D103)
+
+`node tests/sweep.cjs` found about 150 animated elements on 33 sites by itself: loaders already running, buttons, links, cards and menu items that animate on hover, and tabs, switches and checkboxes that animate on click. Each was photographed beside its preview. What it found, each now fixed with a fixture and a test:
+
+| # | Seen on | What was wrong | Fix |
+|---|---|---|---|
+| 15 | Hover.css, CSS loaders, Ant Design | ::before and ::after were never drawn: underlines, sweeps, shadows, whole loaders | Pseudo-elements are shapes (D104) |
+| 16 | Stripe, MUI, GitHub | Animations on the parts of an SVG (a chevron's strokes, a circle's dashes) had nowhere to go | Each SVG part is a shape (D105) |
+| 17 | Hover.css | The "Fork me" ribbon, rotated 45 degrees, was drawn flat and spilled out of the stage | Resting transforms, and the stage fits what is drawn (D106) |
+| 18 | UIkit, GitHub | White cards on white were invisible: their shadow was not drawn | Resting shadows (D106) |
+| 19 | CSS loaders | Rings revealed by `clip-path: polygon()` were drawn whole | Clip-paths, resting and animated (D106) |
+| 20 | Bootstrap, CSS loaders | Gradient backgrounds and backdrops were gray, so white links on a violet navbar vanished | Gradients in their average color (D106) |
+| 21 | Hover.css | An underline growing by `left` and `right` did not move | Size and position from px readings (D107) |
+| 22 | Hover.css | "changes transform from perspective(1px) translateZ(0px) to scale(1.1)" | Readings leave out what does nothing (D108) |
+| 23 | Linear | "changes background-position-x from 0 px to 0%" | Changes that change nothing are dropped (D108) |
+| 24 | Linear | `filter: brightness()` not previewed | Filters are drawn (D108) |
+| 25 | Fixture | A border drawn half outside its box was cut by its clip | Borders are drawn inside the box (D106) |
+
+Not tool problems, and left alone: Bulma's and w3schools' buttons sit under a promotional banner or consent overlay, so a hover never reached them (the sweep now skips covered elements). On Stripe's menu and Bootstrap's edit button, what animates is a menu elsewhere on the page, not the element. uiverse.io blocks automated browsers.
+
 ## Known limits seen on real sites
 
 - **Siblings do not reflow.** When a panel grows, the items below it stay where they were in the preview. The preview has no layout engine.
-- **Images and gradients are flat gray**, so two slides of a carousel look the same. Image data is never copied.
+- **Images are flat gray**, so two slides of a carousel look the same. Image data is never copied. Gradients are drawn in their average color, without their direction.
 - **Text is drawn as bars.** Page text is never copied.
 - **A toggle's knob drawn as a background image** (Bootstrap's switch) is not shown.
 - **SVG animations (SMIL) and JavaScript-driven animations are not captured.**
+- **Layout animations are not drawn.** daisyUI's toggle moves its knob by animating `grid-template-columns`; the preview has no layout engine.
+- **A pseudo-element in the flow of text** (an inline arrow after a link) is listed, not drawn: its box cannot be measured.
+- **Content clipped by a parent outside the picked element** is drawn uncut. Pick the parent to see the cut.

@@ -96,7 +96,7 @@ test('nothing captured: it says so, lists what could not be shown, and nothing b
   await expect(page.locator('.mi__description')).toContainText(
     '2 things are left out of this preview.',
   );
-  await expect(page.getByText('it runs on a pseudo-element')).toBeVisible();
+  await expect(page.getByText('sits in the flow of text')).toBeVisible();
   // It says why, and does not show an empty timeline or curve.
   await expect(page.getByText('It may be driven by JavaScript frame by frame')).toBeVisible();
   await expect(page.getByRole('slider', { name: 'Time' })).toHaveCount(0);

@@ -45,9 +45,26 @@ export const PREVIEWED_PROPERTIES = [
   'border-bottom-left-radius',
   'width',
   'height',
+  'left',
+  'right',
+  'top',
+  'bottom',
   'box-shadow',
   'color',
+  'filter',
+  // On SVG parts.
+  'fill',
+  'stroke',
+  'stroke-dasharray',
+  'stroke-dashoffset',
+  'clip-path',
+  'visibility',
 ];
+
+// Size and position: measured against the containing block on the page,
+// which the probe's hidden element does not have. These are drawn from the
+// px numbers capture read instead (see geometryValue).
+const GEOMETRY = ['width', 'height', 'left', 'right', 'top', 'bottom'];
 
 export function isPreviewed(property: string): boolean {
   return PREVIEWED_PROPERTIES.includes(property);
@@ -161,11 +178,63 @@ function shadowOf(value: string): Shadow | null {
   return { color, x, y, blur };
 }
 
+// ---------- Size and position ----------
+
+// A keyframe's value in px, from what capture read, or null.
+function keyframePx(keyframe: Track['keyframes'][number]): number | null {
+  const parsed = keyframe.parsed;
+  if (parsed === null) return null;
+  if (parsed.kind === 'length') return parsed.px;
+  if (parsed.kind === 'percent')
+    return parsed.of === null ? null : (parsed.value / 100) * parsed.of;
+  if (parsed.kind === 'number' && parsed.value === 0) return 0;
+  return null;
+}
+
+// A size or position track's value at a time, in px, blended between its
+// keyframes the way core samples them. null when a keyframe has no px
+// reading (auto, calc), and then it is not drawn.
+function geometryValue(track: Track, timeMs: number): number | null {
+  if (!GEOMETRY.includes(track.property)) return null;
+  const values = track.keyframes.map(keyframePx);
+  if (values.some((value) => value === null)) return null;
+  const sample = sampleTrack(track, timeMs);
+  if (sample.kind === 'idle') return values[values.length - 1] ?? null;
+  const from = values[sample.segmentIndex] ?? null;
+  const to = values[sample.segmentIndex + 1] ?? from;
+  if (from === null || to === null) return null;
+  return from + (to - from) * sample.segmentProgress;
+}
+
+// Where a size or position was when the shape was measured: the start of
+// its first track. Movement is drawn relative to it.
+function geometryRest(capture: Capture, shapeId: string, property: string): number | null {
+  const first = capture.tracks
+    .filter((track) => track.shapeId === shapeId && track.property === property)
+    .reduce<Track | null>(
+      (best, track) => (best === null || track.startOffset < best.startOffset ? track : best),
+      null,
+    );
+  const keyframe = first?.keyframes[0];
+  return keyframe === undefined ? null : keyframePx(keyframe);
+}
+
 // ---------- From tracks to poses ----------
 
 type Reading = { track: Track; value: string };
 
-function poseOf(shape: Shape, readings: Reading[]): Pose {
+function dashOf(array: string | null, offset: string | null): Pose['dash'] {
+  if (array === null && offset === null) return null;
+  const lengths =
+    array === null || array === 'none' ? [] : numbersIn(array).map((n) => Math.max(n, 0));
+  return { array: lengths, offset: offset === null ? 0 : (numbersIn(offset)[0] ?? 0) };
+}
+
+function poseOf(
+  shape: Shape,
+  readings: Reading[],
+  rest: (property: string) => number | null,
+): Pose {
   const valueOf = (property: string): string | null =>
     readings.find((reading) => reading.track.property === property)?.value ?? null;
   const has = (properties: string[]): boolean =>
@@ -180,10 +249,36 @@ function poseOf(shape: Shape, readings: Reading[]): Pose {
   const full = transform === null ? matrix : matrix.multiply(matrixOf(transform));
   const asMatrix: Matrix = [full.a, full.b, full.c, full.d, full.e, full.f];
 
+  // Position: a change in left or top moves the shape and what is inside
+  // it. When both opposite sides move (an underline growing from its
+  // middle), its size changes too.
+  const moved = (property: string): number | null => {
+    const value = valueOf(property);
+    const before = rest(property);
+    return value === null || before === null ? null : Number.parseFloat(value) - before;
+  };
+  const [left = null, right = null, top = null, bottom = null] = [
+    'left',
+    'right',
+    'top',
+    'bottom',
+  ].map(moved);
+  const dx = left ?? (right === null ? null : -right);
+  const dy = top ?? (bottom === null ? null : -bottom);
   const width = valueOf('width');
   const height = valueOf('height');
-  const poseWidth = width === null ? null : Number.parseFloat(width);
-  const poseHeight = height === null ? null : Number.parseFloat(height);
+  const poseWidth =
+    width !== null
+      ? Number.parseFloat(width)
+      : left != null && right != null
+        ? shape.box.width - left - right
+        : null;
+  const poseHeight =
+    height !== null
+      ? Number.parseFloat(height)
+      : top != null && bottom != null
+        ? shape.box.height - top - bottom
+        : null;
   // A percentage radius is measured against the shorter side, which is
   // right for the usual case of equal horizontal and vertical radii.
   const side = Math.min(poseWidth ?? shape.box.width, poseHeight ?? shape.box.height);
@@ -204,8 +299,14 @@ function poseOf(shape: Shape, readings: Reading[]): Pose {
     shapeId: shape.id,
     matrix: has(['transform', 'translate', 'rotate', 'scale']) ? asMatrix : null,
     opacity: opacity === null ? null : Number.parseFloat(opacity),
-    fill: valueOf('background-color'),
-    strokeColor: valueOf('border-top-color'),
+    fill: shape.kind === 'path' ? valueOf('fill') : valueOf('background-color'),
+    strokeColor: shape.kind === 'path' ? valueOf('stroke') : valueOf('border-top-color'),
+    dx,
+    dy,
+    filter: valueOf('filter'),
+    dash: dashOf(valueOf('stroke-dasharray'), valueOf('stroke-dashoffset')),
+    clipPath: valueOf('clip-path'),
+    visible: valueOf('visibility') !== 'hidden',
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,
@@ -265,7 +366,10 @@ export function createProbe(): Probe {
     }
   };
 
-  const read = (track: Track): string | null => {
+  const read = (track: Track, timeMs: number): string | null => {
+    const geometry = geometryValue(track, timeMs);
+    if (geometry !== null) return `${geometry}px`;
+    if (GEOMETRY.includes(track.property)) return null;
     const entry = entries.get(track);
     if (entry === undefined || entry.animation === null) return null;
     return getComputedStyle(entry.element).getPropertyValue(track.property);
@@ -297,7 +401,7 @@ export function createProbe(): Probe {
       });
       for (const track of active) seek(track, timeMs);
       const readings = active.flatMap((track): Reading[] => {
-        const value = read(track);
+        const value = read(track, timeMs);
         return value === null ? [] : [{ track, value }];
       });
       const shapeIds = Array.from(new Set(readings.map((reading) => reading.track.shapeId)));
@@ -308,6 +412,7 @@ export function createProbe(): Probe {
           poseOf(
             shape,
             readings.filter((reading) => reading.track.shapeId === id),
+            (property) => geometryRest(capture, id, property),
           ),
         ];
       });
@@ -317,7 +422,7 @@ export function createProbe(): Probe {
       const track = capture.tracks[trackIndex];
       if (track === undefined) return null;
       seek(track, timeMs);
-      return read(track);
+      return read(track, timeMs);
     },
     dispose: () => {
       for (const entry of entries.values()) entry.animation?.cancel();

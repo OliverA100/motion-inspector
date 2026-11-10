@@ -28,6 +28,9 @@
       "y": 12.15
     },
     "clip": false,
+    "transform": null,
+    "shadow": null,
+    "clipPath": null,
     "icon": null,
     "children": [
       {
@@ -54,14 +57,110 @@
           "y": 4.27
         },
         "clip": false,
+        "transform": null,
+        "shadow": null,
+        "clipPath": null,
+        "icon": null,
+        "children": []
+      },
+      {
+        "id": "s0.2",
+        "label": "span.fx-pseudo::after",
+        "kind": "box",
+        "box": {
+          "x": 0,
+          "y": 22.3,
+          "width": 63.77,
+          "height": 2
+        },
+        "radius": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "fill": "rgb(47, 111, 237)",
+        "stroke": null,
+        "opacity": 1,
+        "transformOrigin": {
+          "x": 0,
+          "y": 1
+        },
+        "clip": false,
+        "transform": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       }
     ]
   },
-  "tracks": [],
+  "tracks": [
+    {
+      "shapeId": "s0.2",
+      "property": "transform",
+      "origin": "css-transition",
+      "groupId": null,
+      "startOffset": 0,
+      "interrupted": false,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "scaleX(0)",
+          "parsed": {
+            "kind": "transform",
+            "functions": [
+              {
+                "fn": "scale",
+                "x": 0,
+                "y": 1
+              }
+            ]
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "scaleX(1)",
+          "parsed": {
+            "kind": "transform",
+            "functions": []
+          },
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 300,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    }
+  ],
   "backdrop": "rgb(255, 255, 255)",
-  "notShown": [
-    "An animation on ::after of span.fx-pseudo is not shown, because it runs on a pseudo-element, which has no shape of its own."
-  ]
+  "notShown": []
 }

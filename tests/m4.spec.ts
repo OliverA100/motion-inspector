@@ -2,6 +2,7 @@
 // hover between the preview and the timeline, and unlinking.
 
 import { expect, test, type Page } from '@playwright/test';
+import { captureFixture } from './capture-helpers';
 
 const time = (page: Page) => page.locator('.playback__time');
 const curveText = (page: Page) => page.locator('.readout code');
@@ -247,4 +248,113 @@ test('icons are drawn from their outlines, and a hidden parent hides what is ins
   // At the end it is fully shown, drawn as an arrow in its own color (an
   // icon was once a gray square).
   expect(await nearBlack(900)).toBeGreaterThan(30);
+});
+
+// ---------- Drawing what a sweep of real sites found missing ----------
+
+// Records a fixture with the real capture script, then opens the capture in
+// the editor at a time. Returns a function that counts canvas pixels close
+// to a color.
+async function previewOf(
+  page: Page,
+  fixture: string,
+  trigger: 'hover' | 'none',
+  recordMs: number,
+): Promise<(timeMs: number, color: [number, number, number]) => Promise<number>> {
+  const takes = await captureFixture(
+    page,
+    fixture,
+    trigger === 'hover' ? (p, selector) => p.hover(selector) : async () => {},
+    recordMs,
+  );
+  const capture = takes.find((take) => take.capture !== null)?.capture;
+  expect(capture).toBeDefined();
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
+  return async (timeMs, [r, g, b]) => {
+    await page.goto(`/?capture=session&quiet&time=${timeMs}`);
+    await page.waitForTimeout(150);
+    return page.locator('.stage canvas').evaluate(
+      (canvas: HTMLCanvasElement, target) => {
+        const context = canvas.getContext('2d');
+        if (context === null) return -1;
+        const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+        let count = 0;
+        for (let index = 0; index < data.length; index += 4) {
+          const close =
+            Math.abs((data[index] ?? 0) - (target[0] ?? 0)) < 24 &&
+            Math.abs((data[index + 1] ?? 0) - (target[1] ?? 0)) < 24 &&
+            Math.abs((data[index + 2] ?? 0) - (target[2] ?? 0)) < 24;
+          if (close) count += 1;
+        }
+        return count;
+      },
+      [r, g, b],
+    );
+  };
+}
+
+test('a clip-path reveal is drawn: hidden at the start, shown at the end', async ({ page }) => {
+  const count = await previewOf(page, 'reveal', 'hover', 700);
+  const blue: [number, number, number] = [47, 111, 237];
+  expect(await count(0, blue)).toBe(0);
+  expect(await count(400, blue)).toBeGreaterThan(2000);
+});
+
+test('a ::before underline grows from nothing to the width of the link', async ({ page }) => {
+  const count = await previewOf(page, 'underline', 'hover', 600);
+  const blue: [number, number, number] = [32, 152, 209];
+  expect(await count(0, blue)).toBe(0);
+  expect(await count(300, blue)).toBeGreaterThan(300);
+});
+
+test('a ring revealed by an animated polygon clip-path grows', async ({ page }) => {
+  const count = await previewOf(page, 'clip-loader', 'none', 500);
+  const orange: [number, number, number] = [255, 61, 0];
+  const early = await count(100, orange);
+  const late = await count(1900, orange);
+  expect(late).toBeGreaterThan(early * 3);
+});
+
+test('a ribbon rotated at rest is drawn rotated', async ({ page }) => {
+  const takes = await captureFixture(page, 'ribbon', (p, selector) => p.hover(selector), 800);
+  await page.goto('/?quiet');
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(takes[0]?.capture),
+  );
+  await page.goto('/?capture=session&quiet&time=0');
+  await page.waitForTimeout(150);
+  // The black ribbon's painted pixels: rotated 45 degrees, they span about
+  // as tall as wide. Flat, it would be about five times wider than tall.
+  const ratio = await page.locator('.stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+    const context = canvas.getContext('2d');
+    if (context === null) return 0;
+    const { data, width } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+    for (let index = 0; index < data.length; index += 4) {
+      if (
+        (data[index] ?? 255) < 30 &&
+        (data[index + 1] ?? 255) < 30 &&
+        (data[index + 2] ?? 255) < 30
+      ) {
+        const pixel = index / 4;
+        const x = pixel % width;
+        const y = Math.floor(pixel / width);
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      }
+    }
+    return (right - left) / Math.max(bottom - top, 1);
+  });
+  expect(ratio).toBeGreaterThan(0.7);
+  expect(ratio).toBeLessThan(1.4);
 });

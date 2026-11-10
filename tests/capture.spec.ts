@@ -247,7 +247,7 @@ test('morph: colors and radii are read as numbers, and four corners read as one'
     track(capture, 'border-top-left-radius').keyframes.map((keyframe) => keyframe.parsed),
   ).toEqual([
     { kind: 'length', px: 8 },
-    { kind: 'percent', value: 50 },
+    { kind: 'percent', value: 50, of: null },
   ]);
   expect(describeCapture(capture)).toContain('rounds its corners from 8 px to 50%');
 });
@@ -281,11 +281,37 @@ test('a keyframe Chrome added is marked, and left out of the CSS export', async 
 
 // ---------- What cannot be drawn ----------
 
-test('an animation on a pseudo-element is listed, not drawn', async ({ page }) => {
+test('an animation on an absolutely positioned pseudo-element is drawn on its own shape', async ({
+  page,
+}) => {
   const capture = onlyCapture(await captureFixture(page, 'pseudo', hover, 700));
-  expect(capture.tracks).toEqual([]);
+  const line = flattenShapes(capture.root).find((shape) => shape.label === 'span.fx-pseudo::after');
+  expect(line?.box.height).toBe(2);
+  expect(track(capture, 'transform').shapeId).toBe(line?.id);
+  expect(capture.notShown).toEqual([]);
+});
+
+test('a pseudo-element in the flow of text is listed, not drawn', async ({ page }) => {
+  await openFixtures(page);
+  const takes = await page.evaluate(async () => {
+    const style = document.createElement('style');
+    style.textContent =
+      '.in-flow::before { content: ""; display: inline-block; width: 8px; height: 8px; background: red; transition: transform 200ms; } .in-flow:hover::before { transform: rotate(45deg); }';
+    document.head.append(style);
+    const host = document.createElement('span');
+    host.className = 'in-flow';
+    host.style.cssText = 'position: fixed; left: 20px; top: 20px; padding: 4px; background: #eee';
+    host.textContent = 'Next';
+    document.body.append(host);
+    window.MotionCapture.record(host);
+    return true;
+  });
+  expect(takes).toBe(true);
+  await page.hover('.in-flow');
+  await page.waitForTimeout(500);
+  const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
   expect(capture.notShown).toEqual([
-    'An animation on ::after of span.fx-pseudo is not shown, because it runs on a pseudo-element, which has no shape of its own.',
+    'An animation on ::before of span.in-flow is not shown, because that pseudo-element sits in the flow of text, so its box cannot be measured. Only absolutely positioned ones are drawn.',
   ]);
 });
 
@@ -587,27 +613,32 @@ test('icon button: the circles next to the picked arrows come in, the arrows are
   );
 
   // Each arrow is drawn from its own outline, in layout size and place,
-  // although the card it sits on is tilted and scaled.
-  const icons = shapes.filter((shape) => shape.icon !== null);
+  // although the card it sits on is tilted and scaled. Each stroke of an
+  // arrow is a shape of its own, inside the arrow's SVG shape.
+  const icons = shapes.filter((shape) => shape.children.some((child) => child.kind === 'path'));
   expect(icons).toHaveLength(2);
   for (const icon of icons) {
-    expect(icon.icon?.map((part) => part.d)).toEqual([
+    const parts = icon.children.filter((child) => child.kind === 'path');
+    expect(parts.flatMap((part) => part.icon ?? []).map((part) => part.d)).toEqual([
       // As Chrome reports it: the same path, written out in full.
       'M 4 12 H 16',
       'M 12 6 L 18 12 L 12 18',
     ]);
-    expect(icon.icon?.[0]?.stroke).toEqual({
+    const outline = parts[0]?.icon?.[0];
+    expect(outline?.stroke).toEqual({
       color: expect.any(String),
       width: 1.75,
       cap: 'square',
       join: 'miter',
     });
-    expect(icon.icon?.[0]?.matrix).toEqual([1, 0, 0, 1, 0, 0]);
-    expect(icon.icon?.[0]?.followsText).toBe(true);
+    expect(outline?.matrix).toEqual([1, 0, 0, 1, 0, 0]);
+    expect(outline?.followsText).toBe(true);
     expect(icon.box.width).toBeCloseTo(24, 0);
     expect(icon.box.height).toBeCloseTo(24, 0);
   }
-  const arrowParts = shapes.filter((shape) => shape.children.some((child) => child.icon !== null));
+  const arrowParts = shapes.filter((shape) =>
+    shape.children.some((child) => icons.includes(child)),
+  );
   expect(arrowParts.map((shape) => [Math.round(shape.box.x), Math.round(shape.box.y)])).toEqual([
     [16, 16],
     [16, 16],
@@ -639,6 +670,138 @@ test('icons too complex to copy are drawn as a mark in their own color', async (
   const icon = flattenShapes(capture.root).find((shape) => shape.kind === 'image');
   expect(icon?.icon).toBeNull();
   expect(icon?.fill ?? icon?.stroke?.color).toBe('rgb(200, 0, 0)');
+});
+
+// ---------- Found in a sweep of real sites ----------
+
+const shapeLabelled = (capture: Capture, label: string) => {
+  const shape = flattenShapes(capture.root).find((item) => item.label === label);
+  if (shape === undefined) throw new Error(`No shape labelled ${label}`);
+  return shape;
+};
+const tracksOn = (capture: Capture, shapeId: string) =>
+  capture.tracks.filter((item) => item.shapeId === shapeId);
+
+test('a ::before underline is drawn, and its left and right are measured against the link', async ({
+  page,
+}) => {
+  const capture = onlyCapture(await captureFixture(page, 'underline', hover, 600));
+  const line = shapeLabelled(capture, 'a.fx-underline::before');
+  expect(line.fill).toBe('rgb(32, 152, 209)');
+  expect(line.box.height).toBe(4);
+  expect(line.box.y + line.box.height).toBeCloseTo(capture.root.box.height, 0);
+  const moves = tracksOn(capture, line.id);
+  expect(moves.map((item) => item.property).sort()).toEqual(['left', 'right']);
+  // 51% of the link's width, so the preview can draw it.
+  const start = moves[0]?.keyframes[0]?.parsed;
+  expect(start).toEqual({ kind: 'percent', value: 51, of: capture.root.box.width });
+  expect(capture.notShown).toEqual([]);
+});
+
+test('a ::before fill sweeps behind the label, drawn before it', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'sweep', hover, 600));
+  const fill = shapeLabelled(capture, 'a.fx-sweep::before');
+  expect(capture.root.children[0]).toBe(fill);
+  // offsetWidth, used for elements, is rounded to whole pixels.
+  expect([fill.box.x, fill.box.y]).toEqual([0, 0]);
+  expect(fill.box.width).toBeCloseTo(capture.root.box.width, 0);
+  expect(fill.box.height).toBeCloseTo(capture.root.box.height, 0);
+  expect(tracksOn(capture, fill.id).map((item) => item.keyframes.map((k) => k.value))).toEqual([
+    ['scaleX(0)', 'scaleX(1)'],
+  ]);
+});
+
+test('perspective(1px) translateZ(0) is read as flat, so a grow reads as a scale', async ({
+  page,
+}) => {
+  const capture = onlyCapture(await captureFixture(page, 'grow-layer', hover, 600));
+  expect(describeCapture(capture)).toBe(
+    'The element scales to 1.1 over 300 ms. It starts fast and slows down.',
+  );
+});
+
+test('a resting rotation is kept', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'ribbon', hover, 800));
+  const [a = 0, b = 0, c = 0, d = 0] = capture.root.transform ?? [];
+  expect([a, b, c, d].map((n) => Math.round(n * 1000) / 1000)).toEqual([
+    0.707, 0.707, -0.707, 0.707,
+  ]);
+});
+
+test('each SVG stroke is a shape, turning about its own box', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'chevron', hover, 600));
+  const left = shapeLabelled(capture, 'path.fx-chevron__left');
+  const right = shapeLabelled(capture, 'path.fx-chevron__right');
+  expect([left.kind, right.kind]).toEqual(['path', 'path']);
+  // The middle of each stroke's box, in the SVG's own units.
+  expect(left.transformOrigin).toEqual({ x: 4, y: 6 });
+  expect(right.transformOrigin).toEqual({ x: 8, y: 6 });
+  expect(tracksOn(capture, left.id)[0]?.keyframes.at(-1)?.parsed).toEqual({
+    kind: 'transform',
+    functions: [{ fn: 'rotate', deg: -90 }],
+  });
+  expect(tracksOn(capture, right.id)).toHaveLength(1);
+});
+
+test('an SVG circle drawing itself is captured on its own shape', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'ring', nothing, 500));
+  const circle = flattenShapes(capture.root).find((shape) => shape.kind === 'path');
+  expect(circle).toBeDefined();
+  expect(
+    tracksOn(capture, circle?.id ?? '')
+      .map((item) => item.property)
+      .sort(),
+  ).toEqual(['stroke-dasharray', 'stroke-dashoffset']);
+  expect(track(capture, 'transform').shapeId).toBe(capture.root.id);
+  // Drawn from the right-hand point, as SVG starts a circle.
+  expect(circle?.icon?.[0]?.d.startsWith('M64 44')).toBe(true);
+});
+
+test('a card keeps its shadow, a gradient keeps its colors, and a filter is captured', async ({
+  page,
+}) => {
+  const capture = onlyCapture(await captureFixture(page, 'lift-card', hover, 600));
+  expect(capture.root.shadow).toEqual({ color: 'rgba(0, 0, 0, 0.08)', x: 0, y: 5, blur: 15 });
+  expect(capture.root.children[0]?.fill).toBe('rgba(40, 132, 223, 1)');
+  expect(track(capture, 'filter').keyframes.map((k) => k.value)).toEqual([
+    'none',
+    'brightness(0.8)',
+  ]);
+});
+
+test('a loader made only of a ::before is drawn and turns', async ({ page }) => {
+  const capture = onlyCapture(await captureFixture(page, 'pseudo-spinner', nothing, 500));
+  const ring = shapeLabelled(capture, 'span.fx-pseudo-spinner::before');
+  expect(ring.stroke?.sides).toEqual([
+    'rgb(255, 61, 0)',
+    'rgb(212, 212, 212)',
+    'rgb(212, 212, 212)',
+    'rgb(212, 212, 212)',
+  ]);
+  expect(track(capture, 'transform').shapeId).toBe(ring.id);
+  expect(capture.notShown).toEqual([]);
+});
+
+test('an animation that ends where it starts is left out, and the take says so', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  const takes = await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.className = 'still';
+    host.style.cssText =
+      'position: fixed; left: 20px; top: 20px; width: 40px; height: 40px; background: #ccc';
+    document.body.append(host);
+    window.MotionCapture.record(host);
+    host.animate({ opacity: [1, 1] }, 200);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    return window.MotionCapture.stop();
+  });
+  const capture = captureOf(takes[0]);
+  expect(capture.tracks).toEqual([]);
+  expect(capture.notShown).toEqual([
+    'The opacity animation on div.still ends where it starts, so there is nothing to see.',
+  ]);
 });
 
 // ---------- The picker ----------

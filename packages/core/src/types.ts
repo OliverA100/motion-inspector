@@ -52,7 +52,9 @@ export type Shape = {
   // A short name for people, built from the tag and first class name, for
   // example "button.primary". Never text content from the page.
   label: string;
-  kind: 'box' | 'text' | 'image';
+  // 'path' is one part of an SVG icon: its transform and transformOrigin are
+  // in the icon's own coordinates (icon[0].matrix places them), as in SVG.
+  kind: 'box' | 'text' | 'image' | 'path';
   // Relative to the root shape, at rest.
   box: { x: number; y: number; width: number; height: number };
   // Top left, top right, bottom right, bottom left. In px.
@@ -67,6 +69,15 @@ export type Shape = {
   // True when the shape cuts off what is inside it (CSS overflow other than
   // visible). A carousel hides the slides outside its frame this way.
   clip: boolean;
+  // The resting 2D transform, a b c d e f, about transformOrigin. A ribbon
+  // rotated 45 degrees, a tilted card. null when there is none.
+  transform: [number, number, number, number, number, number] | null;
+  // The resting outer shadow (the first one, without spread). null when
+  // there is none. A white card on a white page is seen by its shadow.
+  shadow: { color: string; x: number; y: number; blur: number } | null;
+  // The resting clip-path as computed CSS, such as "inset(0px 50% 0px 0px)"
+  // or "polygon(50% 50%, 0% 0%, 100% 0%)". null when there is none.
+  clipPath: string | null;
   // The outline of an SVG icon, so an arrow previews as an arrow. Only
   // geometry is copied, never text or image data. null for everything
   // that is not an icon, and for icons too complex to copy.
@@ -161,7 +172,9 @@ export type StepPosition = 'start' | 'end' | 'jump-none' | 'jump-both';
 export type ParsedValue =
   | { kind: 'number'; value: number }
   | { kind: 'length'; px: number }
-  | { kind: 'percent'; value: number }
+  // of: what 100% is, in px, when known: the containing block's width or
+  // height for size and position properties. null otherwise.
+  | { kind: 'percent'; value: number; of: number | null }
   // r, g and b from 0 to 255. a from 0 to 1.
   | { kind: 'color'; r: number; g: number; b: number; a: number }
   // In the order the author wrote them. "none" is an empty list.

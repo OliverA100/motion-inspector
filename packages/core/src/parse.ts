@@ -160,9 +160,17 @@ function parseParsedValue(value: unknown): Result<ParsedValue | null> {
   if (value === null) return ok(null);
   return andThen(fields(value), (source): Result<ParsedValue | null> => {
     const kind = get(source, 'kind');
-    if (kind === 'number' || kind === 'percent') {
+    if (kind === 'number') {
       const amount = at('value', number(get(source, 'value')));
       return amount.ok ? ok({ kind, value: amount.value }) : amount;
+    }
+    if (kind === 'percent') {
+      const amount = at('value', number(get(source, 'value')));
+      // Takes saved before "of" was read have none. They still load.
+      const rawOf = get(source, 'of');
+      const of = at('of', rawOf === undefined || rawOf === null ? ok(null) : notNegative(rawOf));
+      if (!amount.ok || !of.ok) return failAll([amount, of].flatMap(errorsOf));
+      return ok({ kind, value: amount.value, of: of.value });
     }
     if (kind === 'length') {
       const px = at('px', number(get(source, 'px')));
@@ -327,7 +335,27 @@ export function parseTrack(value: unknown): Result<Track> {
 
 // ---------- Shapes ----------
 
-const SHAPE_KINDS = ['box', 'text', 'image'] as const;
+const SHAPE_KINDS = ['box', 'text', 'image', 'path'] as const;
+
+// Takes saved before a field existed have none. They still load, with null.
+function optional<Value>(
+  value: unknown,
+  parseValue: (value: unknown) => Result<Value>,
+): Result<Value | null> {
+  return value === undefined || value === null ? ok(null) : parseValue(value);
+}
+
+function parseShadow(value: unknown): Result<NonNullable<Shape['shadow']>> {
+  return andThen(fields(value), (source) => {
+    const color = at('color', text(get(source, 'color')));
+    const x = at('x', number(get(source, 'x')));
+    const y = at('y', number(get(source, 'y')));
+    const blur = at('blur', notNegative(get(source, 'blur')));
+    if (!color.ok || !x.ok || !y.ok || !blur.ok)
+      return failAll([color, x, y, blur].flatMap(errorsOf));
+    return ok({ color: color.value, x: x.value, y: y.value, blur: blur.value });
+  });
+}
 
 // A page can nest elements deeply, but a snapshot keeps about 40 boxes.
 // The limit keeps a hostile input from overflowing the call stack.
@@ -503,6 +531,9 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const transformOrigin = at('transformOrigin', parsePoint2d(get(source, 'transformOrigin')));
     const clip = at('clip', boolean(get(source, 'clip')));
     const icon = at('icon', parseIcon(get(source, 'icon')));
+    const transform = at('transform', optional(get(source, 'transform'), parseMatrix));
+    const shadow = at('shadow', optional(get(source, 'shadow'), parseShadow));
+    const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
     const children = at(
       'children',
       listOf(get(source, 'children'), (child) => parseShapeAtDepth(child, depth + 1)),
@@ -519,6 +550,9 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !transformOrigin.ok ||
       !clip.ok ||
       !icon.ok ||
+      !transform.ok ||
+      !shadow.ok ||
+      !clipPath.ok ||
       !children.ok
     ) {
       return failAll(
@@ -534,6 +568,9 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           transformOrigin,
           clip,
           icon,
+          transform,
+          shadow,
+          clipPath,
           children,
         ].flatMap(errorsOf),
       );
@@ -549,6 +586,9 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       opacity: opacity.value,
       transformOrigin: transformOrigin.value,
       clip: clip.value,
+      transform: transform.value,
+      shadow: shadow.value,
+      clipPath: clipPath.value,
       icon: icon.value,
       children: children.value,
     });

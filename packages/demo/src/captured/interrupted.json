@@ -28,6 +28,14 @@
       "y": 18.15
     },
     "clip": false,
+    "transform": null,
+    "shadow": {
+      "color": "rgba(0, 0, 0, 0.2)",
+      "x": 0,
+      "y": 1,
+      "blur": 2
+    },
+    "clipPath": null,
     "icon": null,
     "children": [
       {
@@ -54,6 +62,9 @@
           "y": 4.26
         },
         "clip": false,
+        "transform": null,
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       }
@@ -164,67 +175,22 @@
     },
     {
       "shapeId": "s0",
-      "property": "box-shadow",
-      "origin": "css-transition",
-      "groupId": "s0:box-shadow",
-      "startOffset": 66.7,
-      "interrupted": true,
-      "keyframes": [
-        {
-          "offset": 0,
-          "value": "rgba(0, 0, 0, 0.227) 0px 3.67528px 9.49079px 0px",
-          "parsed": null,
-          "easing": {
-            "kind": "linear"
-          },
-          "implicit": false
-        },
-        {
-          "offset": 1,
-          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
-          "parsed": null,
-          "easing": {
-            "kind": "linear"
-          },
-          "implicit": false
-        }
-      ],
-      "timing": {
-        "delay": 0,
-        "duration": 96.31,
-        "iterations": {
-          "kind": "count",
-          "count": 1
-        },
-        "direction": "normal",
-        "fill": "backwards",
-        "easing": {
-          "kind": "cubic-bezier",
-          "x1": 0,
-          "y1": 0,
-          "x2": 0.58,
-          "y2": 1
-        }
-      }
-    },
-    {
-      "shapeId": "s0",
       "property": "transform",
       "origin": "css-transition",
       "groupId": "s0:transform",
-      "startOffset": 66.7,
+      "startOffset": 50.04,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-1.07011px)",
+          "value": "translateY(-0.832016px)",
           "parsed": {
             "kind": "transform",
             "functions": [
               {
                 "fn": "translate",
                 "x": 0,
-                "y": -1.07
+                "y": -0.83
               }
             ]
           },
@@ -248,7 +214,52 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 96.31,
+        "duration": 74.88,
+        "iterations": {
+          "kind": "count",
+          "count": 1
+        },
+        "direction": "normal",
+        "fill": "backwards",
+        "easing": {
+          "kind": "cubic-bezier",
+          "x1": 0,
+          "y1": 0,
+          "x2": 0.58,
+          "y2": 1
+        }
+      }
+    },
+    {
+      "shapeId": "s0",
+      "property": "box-shadow",
+      "origin": "css-transition",
+      "groupId": "s0:box-shadow",
+      "startOffset": 50.04,
+      "interrupted": true,
+      "keyframes": [
+        {
+          "offset": 0,
+          "value": "rgba(0, 0, 0, 0.22) 0px 3.08004px 7.82411px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        },
+        {
+          "offset": 1,
+          "value": "rgba(0, 0, 0, 0.2) 0px 1px 2px 0px",
+          "parsed": null,
+          "easing": {
+            "kind": "linear"
+          },
+          "implicit": false
+        }
+      ],
+      "timing": {
+        "delay": 0,
+        "duration": 74.88,
         "iterations": {
           "kind": "count",
           "count": 1

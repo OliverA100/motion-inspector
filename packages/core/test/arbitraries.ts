@@ -66,7 +66,11 @@ const rawParsedValue = fc.oneof(
   fc.constant(null),
   fc.record({ kind: fc.constant('number'), value: anyNumber }),
   fc.record({ kind: fc.constant('length'), px: anyNumber }),
-  fc.record({ kind: fc.constant('percent'), value: anyNumber }),
+  fc.record({
+    kind: fc.constant('percent'),
+    value: anyNumber,
+    of: fc.oneof(fc.constant(null), zeroOrMore),
+  }),
   fc.record({
     kind: fc.constant('color'),
     r: fc.integer({ min: 0, max: 255 }),
@@ -182,7 +186,7 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
   return fc.record({
     id: fc.constant(''),
     label: fc.string(),
-    kind: fc.constantFrom('box', 'text', 'image'),
+    kind: fc.constantFrom('box', 'text', 'image', 'path'),
     box: fc.record({ x: anyNumber, y: anyNumber, width: zeroOrMore, height: zeroOrMore }),
     radius: fc.tuple(zeroOrMore, zeroOrMore, zeroOrMore, zeroOrMore),
     fill: fc.oneof(fc.constant(null), fc.string()),
@@ -201,6 +205,15 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
     transformOrigin: fc.record({ x: anyNumber, y: anyNumber }),
     clip: fc.boolean(),
     icon: fc.oneof(fc.constant(null), fc.array(iconPath, { minLength: 1, maxLength: 3 })),
+    transform: fc.oneof(
+      fc.constant(null),
+      fc.tuple(anyNumber, anyNumber, anyNumber, anyNumber, anyNumber, anyNumber),
+    ),
+    shadow: fc.oneof(
+      fc.constant(null),
+      fc.record({ color: fc.string(), x: anyNumber, y: anyNumber, blur: zeroOrMore }),
+    ),
+    clipPath: fc.oneof(fc.constant(null), fc.string()),
     children,
   });
 }

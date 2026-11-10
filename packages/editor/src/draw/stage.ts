@@ -5,6 +5,7 @@
 import type { Shape, ShapeId } from '@motion-inspector/core';
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
+import { clipPathOf } from './clipPath';
 
 // A 2D transform as the six numbers of a matrix: a, b, c, d, e, f.
 export type Matrix = [number, number, number, number, number, number];
@@ -25,6 +26,17 @@ export type Pose = {
   shadow: Shadow | null;
   // The animated text color. Applies to the text bars inside this shape.
   textColor: string | null;
+  // How far left, right, top or bottom moved it, in px. Moves its content too.
+  dx: number | null;
+  dy: number | null;
+  // An animated CSS filter, such as "brightness(1.3)". Applies to its content.
+  filter: string | null;
+  // An SVG part's animated dashes (a spinner's circle drawing itself).
+  dash: { array: number[]; offset: number } | null;
+  // An animated clip-path, as computed CSS. It replaces the resting one.
+  clipPath: string | null;
+  // False while an animated visibility is "hidden".
+  visible: boolean;
 };
 
 export type StageData = {
@@ -50,21 +62,49 @@ export type StageData = {
 };
 
 const PADDING = 32;
-const MAX_SCALE = 2;
+// Small things (a 14 px spinner, an icon) are drawn up to four times their
+// size, so their motion can be seen.
+const MAX_SCALE = 4;
 const CAPTION_HEIGHT = 20;
 
-function shapePath(context: CanvasRenderingContext2D, shape: Shape, pose: Pose | null): void {
+// inset: how far inside the box the outline runs. A border is drawn inside
+// the box in CSS, so its line runs half its width inside the edge.
+function shapePath(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  inset = 0,
+): void {
   context.beginPath();
   // The canvas throws on a negative radius or size. An overshooting curve
   // can produce one for a moment, so they are held at zero here.
   const atLeastZero = (value: number): number => (value > 0 ? value : 0);
   context.roundRect(
-    shape.box.x,
-    shape.box.y,
-    atLeastZero(pose?.width ?? shape.box.width),
-    atLeastZero(pose?.height ?? shape.box.height),
-    (pose?.radius ?? shape.radius).map(atLeastZero),
+    shape.box.x + inset,
+    shape.box.y + inset,
+    atLeastZero((pose?.width ?? shape.box.width) - inset * 2),
+    atLeastZero((pose?.height ?? shape.box.height) - inset * 2),
+    (pose?.radius ?? shape.radius).map((radius) => atLeastZero(radius - inset)),
   );
+}
+
+// Where a shape and its content are drawn: moved by left and top, then
+// turned, scaled or moved by its transform about its origin. The transform
+// is the animated one, or the resting one. An SVG part's own transform is
+// applied inside its SVG's coordinates instead (see drawIcon). Drawing and
+// pointer hit-testing both use this.
+function placement(shape: Shape, pose: Pose | null): DOMMatrix {
+  let matrix = new DOMMatrix().translate(pose?.dx ?? 0, pose?.dy ?? 0);
+  const transform = pose?.matrix ?? shape.transform;
+  if (shape.kind !== 'path' && transform !== null) {
+    const originX = shape.box.x + shape.transformOrigin.x;
+    const originY = shape.box.y + shape.transformOrigin.y;
+    matrix = matrix
+      .translate(originX, originY)
+      .multiply(new DOMMatrix(transform))
+      .translate(-originX, -originY);
+  }
+  return matrix;
 }
 
 // Applies a shape's pose around its transform origin, then calls `paint`
@@ -86,14 +126,25 @@ function walk(
   const inherited = pose?.textColor ?? textColor;
   // An animated opacity is the element's opacity at that moment. It
   // replaces the resting one, it does not multiply it.
-  const alpha = parentAlpha * (pose?.opacity ?? shape.opacity);
+  const alpha = pose?.visible === false ? 0 : parentAlpha * (pose?.opacity ?? shape.opacity);
   context.save();
-  if (pose !== null && pose.matrix !== null) {
-    const originX = shape.box.x + shape.transformOrigin.x;
-    const originY = shape.box.y + shape.transformOrigin.y;
-    context.translate(originX, originY);
-    context.transform(...pose.matrix);
-    context.translate(-originX, -originY);
+  const placed = placement(shape, pose);
+  context.transform(placed.a, placed.b, placed.c, placed.d, placed.e, placed.f);
+  // A filter acts on the shape and everything inside it, as in CSS.
+  if (pose?.filter != null && pose.filter !== 'none') {
+    context.filter = context.filter === 'none' ? pose.filter : `${context.filter} ${pose.filter}`;
+  }
+  // A clip-path cuts the shape and everything inside it, as in CSS.
+  const clip = pose?.clipPath ?? shape.clipPath;
+  if (clip !== null && clip !== 'none') {
+    const box = {
+      x: shape.box.x,
+      y: shape.box.y,
+      width: pose?.width ?? shape.box.width,
+      height: pose?.height ?? shape.box.height,
+    };
+    const path = clipPathOf(clip, box);
+    if (path !== null) context.clip(path);
   }
   paint(shape, pose, inherited, alpha);
   // A shape that cuts off its content, or whose size is animating, clips
@@ -116,11 +167,13 @@ function sidePath(
   shape: Shape,
   pose: Pose | null,
   side: number,
+  inset: number,
 ): void {
-  const { x, y } = shape.box;
-  const width = Math.max(pose?.width ?? shape.box.width, 0);
-  const height = Math.max(pose?.height ?? shape.box.height, 0);
-  const radii = (pose?.radius ?? shape.radius).map((value) => Math.max(value, 0));
+  const x = shape.box.x + inset;
+  const y = shape.box.y + inset;
+  const width = Math.max((pose?.width ?? shape.box.width) - inset * 2, 0);
+  const height = Math.max((pose?.height ?? shape.box.height) - inset * 2, 0);
+  const radii = (pose?.radius ?? shape.radius).map((value) => Math.max(value - inset, 0));
   const [topLeft = 0, topRight = 0, bottomRight = 0, bottomLeft = 0] = radii;
   // Radii that do not fit are scaled down together, as the browser does.
   const fit = Math.min(
@@ -163,7 +216,12 @@ function sidePath(
 
 // An icon's outline, in the shape's own coordinates. Parts drawn in the
 // text color follow an animated text color above them, as on the page.
-function drawIcon(context: CanvasRenderingContext2D, shape: Shape, textColor: string | null): void {
+function drawIcon(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  textColor: string | null,
+): void {
   if (shape.icon === null) return;
   for (const part of shape.icon) {
     const color = (own: string): string =>
@@ -171,13 +229,30 @@ function drawIcon(context: CanvasRenderingContext2D, shape: Shape, textColor: st
     context.save();
     context.translate(shape.box.x, shape.box.y);
     context.transform(...part.matrix);
+    // An SVG part turns about its origin in its SVG's own coordinates.
+    const transform = shape.kind === 'path' ? (pose?.matrix ?? shape.transform) : null;
+    if (transform !== null) {
+      context.translate(shape.transformOrigin.x, shape.transformOrigin.y);
+      context.transform(...transform);
+      context.translate(-shape.transformOrigin.x, -shape.transformOrigin.y);
+    }
     const path = new Path2D(part.d);
-    if (part.fill !== null) {
-      context.fillStyle = color(part.fill);
+    const fill = pose?.fill ?? (part.fill === null ? null : color(part.fill));
+    if (fill !== null && fill !== 'none') {
+      context.fillStyle = fill;
       context.fill(path);
     }
     if (part.stroke !== null) {
-      context.strokeStyle = color(part.stroke.color);
+      if (pose?.dash != null) {
+        // An odd-length list is repeated, as in SVG.
+        const array =
+          pose.dash.array.length % 2 === 1
+            ? [...pose.dash.array, ...pose.dash.array]
+            : pose.dash.array;
+        context.setLineDash(array.every((length) => length === 0) ? [] : array);
+        context.lineDashOffset = pose.dash.offset;
+      }
+      context.strokeStyle = pose?.strokeColor ?? color(part.stroke.color);
       context.lineWidth = part.stroke.width;
       context.lineCap = part.stroke.cap;
       context.lineJoin = part.stroke.join;
@@ -201,12 +276,13 @@ function drawFilled(
     const fill =
       shape.kind === 'text' && textColor !== null ? textColor : (pose?.fill ?? shape.fill);
     if (fill !== null) {
-      if (pose !== null && pose.shadow !== null) {
+      const shadow = pose?.shadow ?? shape.shadow;
+      if (shadow !== null) {
         // Canvas shadows ignore the current transform, so scale by hand.
-        context.shadowColor = pose.shadow.color;
-        context.shadowOffsetX = pose.shadow.x * scale;
-        context.shadowOffsetY = pose.shadow.y * scale;
-        context.shadowBlur = pose.shadow.blur * scale;
+        context.shadowColor = shadow.color;
+        context.shadowOffsetX = shadow.x * scale;
+        context.shadowOffsetY = shadow.y * scale;
+        context.shadowBlur = shadow.blur * scale;
       }
       context.fillStyle = fill;
       context.fill();
@@ -215,20 +291,24 @@ function drawFilled(
     if (shape.stroke !== null && shape.stroke.sides !== null && pose?.strokeColor == null) {
       context.lineWidth = shape.stroke.width;
       shape.stroke.sides.forEach((color, side) => {
-        sidePath(context, shape, pose, side);
+        sidePath(context, shape, pose, side, (shape.stroke?.width ?? 0) / 2);
         context.strokeStyle = color;
         context.stroke();
       });
       // The selection outline below follows the whole shape again.
       shapePath(context, shape, pose);
     } else if (shape.stroke !== null) {
+      shapePath(context, shape, pose, shape.stroke.width / 2);
       context.strokeStyle = pose?.strokeColor ?? shape.stroke.color;
       context.lineWidth = shape.stroke.width;
       context.stroke();
+      shapePath(context, shape, pose);
     }
-    drawIcon(context, shape, pose?.textColor ?? textColor);
+    drawIcon(context, shape, pose, pose?.textColor ?? textColor);
     context.globalAlpha = 1;
-    if (shape.id === selectedShapeId) {
+    // The whole component needs no outline to be found: outlining it only
+    // drew a blue frame around every preview.
+    if (shape.id === selectedShapeId && shape !== root) {
       context.strokeStyle = theme.accent;
       context.lineWidth = 1.5 / scale;
       context.stroke();
@@ -257,16 +337,51 @@ type Area = { x: number; y: number; width: number; height: number };
 
 // Where the root shape sits when fitted into an area: its scale, and where
 // its top left corner lands. Drawing and pointer hit-testing both use this.
-function fit(root: Shape, area: Area): { scale: number; left: number; top: number } {
+// Everything as drawn at rest: each shape's box through its resting
+// transform and its parents'. A ribbon rotated 45 degrees, or a shadow
+// below a button, would otherwise be cut off at the edge of the stage.
+function restBounds(root: Shape): Area {
+  const corners: DOMPoint[] = [];
+  const visit = (shape: Shape, parent: DOMMatrix): void => {
+    const matrix = parent.multiply(placement(shape, null));
+    const { x, y, width, height } = shape.box;
+    for (const [px, py] of [
+      [x, y],
+      [x + width, y],
+      [x, y + height],
+      [x + width, y + height],
+    ] as const) {
+      corners.push(matrix.transformPoint(new DOMPoint(px, py)));
+    }
+    for (const child of shape.children) visit(child, matrix);
+  };
+  visit(root, new DOMMatrix());
+  const xs = corners.map((point) => point.x).filter(Number.isFinite);
+  const ys = corners.map((point) => point.y).filter(Number.isFinite);
+  if (xs.length === 0 || ys.length === 0) return root.box;
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  return { x: left, y: top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
+}
+
+// How the drawing is fitted into an area: its scale, where the top left of
+// what is drawn lands, and which point of the root's coordinates that is.
+function fit(
+  root: Shape,
+  area: Area,
+): { scale: number; left: number; top: number; originX: number; originY: number } {
+  const bounds = restBounds(root);
   const scale = Math.min(
-    (area.width - PADDING * 2) / Math.max(root.box.width, 1),
-    (area.height - PADDING * 2) / Math.max(root.box.height, 1),
+    (area.width - PADDING * 2) / Math.max(bounds.width, 1),
+    (area.height - PADDING * 2) / Math.max(bounds.height, 1),
     MAX_SCALE,
   );
   return {
     scale,
-    left: area.x + (area.width - root.box.width * scale) / 2,
-    top: area.y + (area.height - root.box.height * scale) / 2,
+    left: area.x + (area.width - bounds.width * scale) / 2,
+    top: area.y + (area.height - bounds.height * scale) / 2,
+    originX: bounds.x,
+    originY: bounds.y,
   };
 }
 
@@ -277,11 +392,11 @@ function inArea(
   area: Area,
   draw: (scale: number) => void,
 ): void {
-  const { scale, left, top } = fit(root, area);
+  const { scale, left, top, originX, originY } = fit(root, area);
   context.save();
   context.translate(left, top);
   context.scale(scale, scale);
-  context.translate(-root.box.x, -root.box.y);
+  context.translate(-originX, -originY);
   draw(scale);
   context.restore();
 }
@@ -337,21 +452,11 @@ function drawMine(context: CanvasRenderingContext2D, data: StageData, scale: num
 
 // ---------- Which shape is under a point ----------
 
-function poseMatrix(shape: Shape, pose: Pose | null): DOMMatrix {
-  if (pose === null || pose.matrix === null) return new DOMMatrix();
-  const originX = shape.box.x + shape.transformOrigin.x;
-  const originY = shape.box.y + shape.transformOrigin.y;
-  return new DOMMatrix()
-    .translate(originX, originY)
-    .multiply(new DOMMatrix(pose.matrix))
-    .translate(-originX, -originY);
-}
-
 // Children are drawn on top of their parent, and later children on top of
 // earlier ones, so they are tested in the reverse of the drawing order.
 function hitShape(shape: Shape, poses: Pose[], parent: DOMMatrix, point: DOMPoint): ShapeId | null {
   const pose = poses.find((candidate) => candidate.shapeId === shape.id) ?? null;
-  const matrix = parent.multiply(poseMatrix(shape, pose));
+  const matrix = parent.multiply(placement(shape, pose));
   for (const child of [...shape.children].reverse()) {
     const hit = hitShape(child, poses, matrix, point);
     if (hit !== null) return hit;
@@ -374,10 +479,10 @@ export function shapeAt(
   data: Pick<StageData, 'root' | 'mine' | 'compare'>,
   size: Size,
 ): ShapeId | null {
-  const { scale, left, top } = fit(data.root, mineArea(data.compare, size));
+  const { scale, left, top, originX, originY } = fit(data.root, mineArea(data.compare, size));
   const inRoot = new DOMPoint(
-    (point.x - left) / scale + data.root.box.x,
-    (point.y - top) / scale + data.root.box.y,
+    (point.x - left) / scale + originX,
+    (point.y - top) / scale + originY,
   );
   return hitShape(data.root, data.mine, new DOMMatrix(), inRoot);
 }

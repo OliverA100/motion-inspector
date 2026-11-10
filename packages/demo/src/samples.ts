@@ -118,7 +118,7 @@ const nothingCaptured = built({
   root: box('root', LONG_SELECTOR, 0, 0, 160, 90),
   tracks: [],
   notShown: [
-    'A shine sweep on ::after cannot be drawn, because it runs on a pseudo-element.',
+    'An animation on ::before of a.next is not shown, because that pseudo-element sits in the flow of text, so its box cannot be measured.',
     'A scroll-driven animation cannot be drawn, because it follows the scroll position, not time.',
   ],
 });
@@ -142,7 +142,7 @@ export const samples: { id: string; name: string; capture: Capture }[] = [
   { id: 'pop', name: 'Pop in', capture: captured(popJson) },
   { id: 'shadow', name: 'Shadow root', capture: captured(shadowJson) },
   { id: 'interrupted', name: 'Interrupted hover', capture: captured(interruptedJson) },
-  { id: 'pseudo', name: 'Pseudo-element (not shown)', capture: captured(pseudoJson) },
+  { id: 'pseudo', name: 'Pseudo-element', capture: captured(pseudoJson) },
   { id: 'icon-button', name: 'Icon button', capture: captured(iconButtonJson) },
   { id: 'hundred', name: 'Stress: 100 tracks', capture: hundredTracks },
   { id: 'nothing', name: 'Stress: nothing captured', capture: nothingCaptured },

@@ -28,6 +28,9 @@
       "y": 40
     },
     "clip": false,
+    "transform": null,
+    "shadow": null,
+    "clipPath": null,
     "icon": null,
     "children": [
       {
@@ -54,6 +57,16 @@
           "y": 7
         },
         "clip": false,
+        "transform": [
+          1,
+          0,
+          0,
+          1,
+          -12,
+          0
+        ],
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       },
@@ -81,6 +94,16 @@
           "y": 7
         },
         "clip": false,
+        "transform": [
+          1,
+          0,
+          0,
+          1,
+          -12,
+          0
+        ],
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       },
@@ -108,6 +131,16 @@
           "y": 7
         },
         "clip": false,
+        "transform": [
+          1,
+          0,
+          0,
+          1,
+          -12,
+          0
+        ],
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       },
@@ -135,6 +168,16 @@
           "y": 7
         },
         "clip": false,
+        "transform": [
+          1,
+          0,
+          0,
+          1,
+          -12,
+          0
+        ],
+        "shadow": null,
+        "clipPath": null,
         "icon": null,
         "children": []
       }

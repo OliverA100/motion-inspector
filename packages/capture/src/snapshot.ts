@@ -5,7 +5,7 @@
 // images become flat boxes. Only shapes are kept: never text content or
 // image data from the page.
 
-import { readColor } from './readValue';
+import { readColor, readValue } from './readValue';
 
 // The properties the editor can preview. Their resting values are read for
 // every shape at pick time, before anything has been triggered, because a
@@ -27,20 +27,30 @@ export const PREVIEWED_PROPERTIES = [
   'border-bottom-left-radius',
   'width',
   'height',
+  'left',
+  'right',
+  'top',
+  'bottom',
   'box-shadow',
+  'filter',
+  'fill',
+  'stroke',
+  'stroke-dasharray',
+  'stroke-dashoffset',
+  'clip-path',
 ];
 
 const TRANSFORM_LIKE = ['transform', 'translate', 'rotate', 'scale'];
 const IMAGE_TAGS = ['img', 'svg', 'canvas', 'video', 'picture'];
 const MOST_SHAPES = 40;
-const IMAGE_FILL = '#c8c8c8';
+const IMAGE_FILL = 'rgb(200, 200, 200)';
 const UNKNOWN_FILL = '#d9d9d9';
 
 // A shape as plain data, in the form core's parseCapture expects.
 export type RawShape = {
   id: string;
   label: string;
-  kind: 'box' | 'text' | 'image';
+  kind: 'box' | 'text' | 'image' | 'path';
   box: { x: number; y: number; width: number; height: number };
   radius: [number, number, number, number];
   fill: string | null;
@@ -48,9 +58,17 @@ export type RawShape = {
   opacity: number;
   transformOrigin: { x: number; y: number };
   clip: boolean;
+  // The resting 2D transform, a b c d e f, around transformOrigin. null
+  // when there is none.
+  transform: [number, number, number, number, number, number] | null;
+  shadow: { color: string; x: number; y: number; blur: number } | null;
+  clipPath: string | null;
   icon: RawIconPath[] | null;
   children: RawShape[];
 };
+
+// A ::before or ::after that has a shape of its own.
+export type PseudoPart = { id: string; shape: RawShape; resting: Map<string, string> };
 
 export type RawIconPath = {
   d: string;
@@ -68,6 +86,8 @@ export type Snapshot = {
   selector: string;
   // Which shape each element became. Elements that are not here were left out.
   shapeIdOf: Map<Element, string>;
+  // The ::before and ::after of each element that have shapes.
+  pseudoParts: Map<Element, Map<string, PseudoPart>>;
   // The resting values of the previewed properties, per element.
   resting: Map<Element, Map<string, string>>;
   // Properties that were already animating when the element was picked.
@@ -133,7 +153,7 @@ function childNodesOf(element: Element): Node[] {
 
 // ---------- Where a box is, without its transforms ----------
 
-type Box = { x: number; y: number; width: number; height: number };
+export type Box = { x: number; y: number; width: number; height: number };
 
 // An element's position in the page's layout, ignoring every transform.
 // getBoundingClientRect cannot be used for this: it reports the box as it
@@ -234,7 +254,7 @@ type Walk = {
   skip: Set<Element>;
   boxAtPick: Map<Element, Box>;
   ownerOf: Map<RawShape, Element>;
-  snapshot: Pick<Snapshot, 'shapeIdOf' | 'resting' | 'shadowRoots'>;
+  snapshot: Pick<Snapshot, 'shapeIdOf' | 'resting' | 'shadowRoots' | 'pseudoParts'>;
 };
 
 function readResting(element: Element): Map<string, string> {
@@ -278,7 +298,9 @@ function pathDataOf(element: Element, style: CSSStyleDeclaration): string | null
     const rx = element instanceof SVGCircleElement ? length(element.r) : length(element.rx);
     const ry = element instanceof SVGCircleElement ? length(element.r) : length(element.ry);
     if (rx <= 0 || ry <= 0) return null;
-    return `M${cx - rx} ${cy}A${rx} ${ry} 0 1 0 ${cx + rx} ${cy}A${rx} ${ry} 0 1 0 ${cx - rx} ${cy}Z`;
+    // From the right-hand point, clockwise, as SVG draws a circle. A dash
+    // pattern (a spinner drawing itself) starts there.
+    return `M${cx + rx} ${cy}A${rx} ${ry} 0 1 1 ${cx - rx} ${cy}A${rx} ${ry} 0 1 1 ${cx + rx} ${cy}Z`;
   }
   if (element instanceof SVGRectElement) {
     const x = length(element.x);
@@ -316,28 +338,43 @@ function paintOf(value: string): string | null {
 // The outline of every part of an SVG icon, or null when it cannot be
 // copied: parts reused with <use>, nested SVGs, or too much detail. Those
 // are drawn as a simple mark instead.
-function iconPaths(svg: SVGSVGElement): RawIconPath[] | null {
-  if (svg.querySelector('use, foreignObject, image, svg') !== null) return null;
-  const parts = Array.from(svg.querySelectorAll(GEOMETRY)).filter(
-    (part) => part.closest(NOT_DRAWN) === null,
-  );
-  if (parts.length === 0 || parts.length > MOST_ICON_PATHS) return null;
-  const textColor = getComputedStyle(svg).color;
-  const paths: RawIconPath[] = [];
-  for (const part of parts) {
-    if (!(part instanceof SVGGraphicsElement)) return null;
-    const style = getComputedStyle(part);
-    if (style.display === 'none' || style.visibility === 'hidden') continue;
-    const d = pathDataOf(part, style);
-    // The matrix from the part's coordinates to the SVG's own box, in px.
-    // It includes the viewBox and any transform inside the SVG, but not CSS
-    // transforms on the SVG or its parents, which the preview applies itself.
-    const ctm = part.getCTM();
-    if (d === null || d.length > LONGEST_PATH_DATA || ctm === null) return null;
-    const fillValue = style.fill.startsWith('url(') ? textColor : paintOf(style.fill);
-    const strokeValue = style.stroke.startsWith('url(') ? textColor : paintOf(style.stroke);
-    const strokeWidth = parseFloat(style.strokeWidth);
-    paths.push({
+type IconPart = {
+  element: SVGGraphicsElement;
+  path: RawIconPath;
+  // Where its own transform turns about, in its own coordinates.
+  origin: { x: number; y: number };
+  transform: [number, number, number, number, number, number] | null;
+  opacity: number;
+};
+
+// One drawn part of an SVG: its outline, how it is placed, and its own
+// transform. null when it cannot be copied; 'hidden' when it is not drawn.
+function iconPart(part: Element, textColor: string): IconPart | null | 'hidden' {
+  if (!(part instanceof SVGGraphicsElement)) return null;
+  const style = getComputedStyle(part);
+  if (style.display === 'none' || style.visibility === 'hidden') return 'hidden';
+  const d = pathDataOf(part, style);
+  // The matrix from the part's parent's coordinates to the SVG's own box,
+  // in px. It includes the viewBox and any transform on the groups around
+  // the part, but not the part's own transform, which can animate (a
+  // chevron's two strokes turn on Stripe), nor CSS transforms on the SVG
+  // or its parents, which the preview applies itself.
+  const parent = part.parentElement;
+  const ctm = parent instanceof SVGGraphicsElement ? parent.getCTM() : null;
+  if (d === null || d.length > LONGEST_PATH_DATA || ctm === null) return null;
+  // SVG turns a part about its own bounding box with transform-box:
+  // fill-box, and about its coordinates' origin otherwise.
+  const [originX = 0, originY = 0] = style.transformOrigin.split(' ').map(parseFloat);
+  const reference = style.transformBox === 'fill-box' ? part.getBBox() : { x: 0, y: 0 };
+  const fillValue = style.fill.startsWith('url(') ? textColor : paintOf(style.fill);
+  const strokeValue = style.stroke.startsWith('url(') ? textColor : paintOf(style.stroke);
+  const strokeWidth = parseFloat(style.strokeWidth);
+  return {
+    element: part,
+    origin: { x: reference.x + originX, y: reference.y + originY },
+    transform: restingTransform(style),
+    opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
+    path: {
       d,
       matrix: [ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f],
       fill: fillValue,
@@ -354,7 +391,22 @@ function iconPaths(svg: SVGSVGElement): RawIconPath[] | null {
                   : 'miter',
             },
       followsText: fillValue === textColor || strokeValue === textColor,
-    });
+    },
+  };
+}
+
+function iconPaths(svg: SVGSVGElement): IconPart[] | null {
+  if (svg.querySelector('use, foreignObject, image, svg') !== null) return null;
+  const parts = Array.from(svg.querySelectorAll(GEOMETRY)).filter(
+    (part) => part.closest(NOT_DRAWN) === null,
+  );
+  if (parts.length === 0 || parts.length > MOST_ICON_PATHS) return null;
+  const textColor = getComputedStyle(svg).color;
+  const paths: IconPart[] = [];
+  for (const part of parts) {
+    const made = iconPart(part, textColor);
+    if (made === null) return null;
+    if (made !== 'hidden') paths.push(made);
   }
   return paths.length > 0 ? paths : null;
 }
@@ -367,15 +419,73 @@ function originOf(style: CSSStyleDeclaration, box: Box): { x: number; y: number 
   };
 }
 
+// A shape for one part of an SVG. Its box is the box its matrix maps
+// into (the SVG's, or its own when it was picked by itself).
+function partShape(walk: Walk, part: IconPart, box: Box, id: string): RawShape {
+  const shape: RawShape = {
+    id,
+    label: labelOf(part.element),
+    kind: 'path',
+    box,
+    radius: [0, 0, 0, 0],
+    fill: null,
+    stroke: null,
+    opacity: part.opacity,
+    // In the part's own coordinates, like its transform.
+    transformOrigin: part.origin,
+    clip: false,
+    transform: part.transform,
+    shadow: null,
+    clipPath: null,
+    icon: [part.path],
+    children: [],
+  };
+  walk.snapshot.shapeIdOf.set(part.element, shape.id);
+  walk.shapeOf.set(part.element, shape);
+  walk.ownerOf.set(shape, part.element);
+  if (walk.readsResting) walk.snapshot.resting.set(part.element, readResting(part.element));
+  return shape;
+}
+
+// An SVG part picked by itself, or reached outside an icon (a loader made
+// of SVG rects): drawn from its outline like an icon's part. Its matrix
+// also moves it from the SVG's box into its own.
+function lonePartShape(
+  walk: Walk,
+  element: SVGGraphicsElement,
+  box: Box,
+  id: string,
+): RawShape | null {
+  const svg = element.ownerSVGElement;
+  if (svg === null) return null;
+  const made = iconPart(element, getComputedStyle(svg).color);
+  if (made === null || made === 'hidden') return null;
+  const svgBox = layoutBox(svg, walk);
+  const placed = new DOMMatrix()
+    .translate(svgBox.x - box.x, svgBox.y - box.y)
+    .multiply(new DOMMatrix(made.path.matrix));
+  made.path.matrix = [placed.a, placed.b, placed.c, placed.d, placed.e, placed.f];
+  return partShape(walk, made, box, id);
+}
+
 // An SVG icon is drawn from its own outline, in its own colors, so an arrow
 // previews as an arrow (found on a real site, where icons were gray squares
 // that hid both their color and their movement). Only the geometry is
 // copied. When the outline cannot be copied, it is drawn as a simple mark:
 // a dot for a filled icon, a ring for an outlined one.
-function iconShape(element: Element, style: CSSStyleDeclaration, rect: Box, id: string): RawShape {
+function iconShape(
+  walk: Walk,
+  element: Element,
+  style: CSSStyleDeclaration,
+  rect: Box,
+  id: string,
+): RawShape {
   const opacity = Math.min(Math.max(parseFloat(style.opacity), 0), 1);
-  const paths = element instanceof SVGSVGElement ? iconPaths(element) : null;
-  if (paths !== null) {
+  const parts = element instanceof SVGSVGElement ? iconPaths(element) : null;
+  if (parts !== null) {
+    // Each part is a shape of its own, so an animation on one part (a
+    // spinner's circle drawing itself, a chevron's stroke turning) is drawn.
+    const children = parts.map((part, index) => partShape(walk, part, rect, `${id}.p${index}`));
     return {
       id,
       label: labelOf(element),
@@ -387,8 +497,11 @@ function iconShape(element: Element, style: CSSStyleDeclaration, rect: Box, id: 
       opacity,
       transformOrigin: originOf(style, rect),
       clip: false,
-      icon: paths,
-      children: [],
+      transform: restingTransform(style),
+      shadow: null,
+      clipPath: null,
+      icon: null,
+      children,
     };
   }
   // The colors are those of the first part drawn inside, since an <svg>
@@ -418,6 +531,9 @@ function iconShape(element: Element, style: CSSStyleDeclaration, rect: Box, id: 
     opacity,
     transformOrigin: { x: size / 2, y: size / 2 },
     clip: false,
+    transform: null,
+    shadow: null,
+    clipPath: null,
     icon: null,
     children: [],
   };
@@ -435,7 +551,9 @@ function boxShape(
 ): RawShape {
   const hasBackgroundImage = style.backgroundImage !== 'none';
   const hasColor = isVisibleColor(style.backgroundColor);
-  // A gradient or picture cannot be a flat fill. It is drawn as plain gray.
+  // A gradient is drawn in the average of its colors. A picture cannot be
+  // copied, so it is drawn as plain gray.
+  const gradient = hasBackgroundImage ? gradientColor(style.backgroundImage) : null;
   if (hasBackgroundImage && !hasColor) walk.flattenedBackground = true;
   const borderWidth = parseFloat(style.borderTopWidth);
   // A border with a different color on each side keeps each color. A
@@ -450,7 +568,12 @@ function boxShape(
   const uneven = sides.some((color) => color !== style.borderTopColor);
   const shownSide = sides.find(isVisibleColor);
   const origin = style.transformOrigin.split(' ').map((part) => parseFloat(part));
-  const corner = (value: string): number => radiusOf(value, rect.width, rect.height);
+  // A radial gradient with nothing else (a soft shadow, a glow) is round:
+  // it is drawn as an ellipse in its average color.
+  const round =
+    gradient !== null && !hasColor && style.backgroundImage.startsWith('radial-gradient(');
+  const corner = (value: string): number =>
+    round ? Math.min(rect.width, rect.height) / 2 : radiusOf(value, rect.width, rect.height);
   return {
     id,
     label: labelOf(element),
@@ -464,11 +587,7 @@ function boxShape(
     ],
     fill: isImage
       ? IMAGE_FILL
-      : hasColor
-        ? style.backgroundColor
-        : hasBackgroundImage
-          ? UNKNOWN_FILL
-          : null,
+      : (gradient ?? (hasColor ? style.backgroundColor : hasBackgroundImage ? UNKNOWN_FILL : null)),
     stroke:
       borderWidth > 0 && style.borderTopStyle !== 'none' && shownSide !== undefined
         ? { color: shownSide, width: borderWidth, sides: uneven ? sides : null }
@@ -476,9 +595,206 @@ function boxShape(
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
     transformOrigin: { x: origin[0] ?? rect.width / 2, y: origin[1] ?? rect.height / 2 },
     clip: style.overflowX !== 'visible' || style.overflowY !== 'visible',
+    transform: restingTransform(style),
+    shadow: restingShadow(style.boxShadow),
+    clipPath: basicClipPath(style.clipPath),
     icon: null,
     children: [],
   };
+}
+
+// A clip-path the preview can draw: a basic shape, not a url() to an SVG.
+function basicClipPath(value: string): string | null {
+  return /^(polygon|inset|circle|ellipse|path)\(/.test(value) ? value : null;
+}
+
+// The first outer shadow of a computed box-shadow, such as
+// "rgba(0, 0, 0, 0.1) 0px 5px 15px 0px". Inner shadows are not drawn.
+function restingShadow(value: string): RawShape['shadow'] {
+  if (value === 'none' || value === '') return null;
+  for (const one of value.split(/,(?![^(]*\))/)) {
+    if (one.includes('inset')) continue;
+    const color = /^\s*(rgba?\([^)]*\)|\S+)/.exec(one)?.[1];
+    if (color === undefined || !isVisibleColor(color)) continue;
+    const [x = 0, y = 0, blur = 0] = (
+      one.slice(one.indexOf(color) + color.length).match(/-?\d*\.?\d+/g) ?? []
+    ).map(Number);
+    return { color, x, y, blur: Math.max(blur, 0) };
+  }
+  return null;
+}
+
+// The average color of a gradient, from its color stops, weighted by how
+// opaque each is. null for a picture (url) or when no color can be read.
+// Colors are not image data: a gradient is written in CSS.
+export function gradientColor(backgroundImage: string): string | null {
+  if (backgroundImage.includes('url(')) return null;
+  const stops = Array.from(backgroundImage.matchAll(/rgba?\(([^)]*)\)/g), (match) =>
+    (match[1] ?? '')
+      .split(/[\s,/]+/)
+      .filter((part) => part !== '')
+      .map(Number),
+  ).filter((numbers) => numbers.length >= 3 && numbers.every(Number.isFinite));
+  if (stops.length === 0) return null;
+  const alphaOf = (numbers: number[]): number => numbers[3] ?? 1;
+  const totalAlpha = stops.reduce((sum, numbers) => sum + alphaOf(numbers), 0);
+  const channel = (index: number): number =>
+    totalAlpha === 0
+      ? 0
+      : Math.round(
+          stops.reduce((sum, numbers) => sum + (numbers[index] ?? 0) * alphaOf(numbers), 0) /
+            totalAlpha,
+        );
+  const alpha = Math.round((totalAlpha / stops.length) * 1000) / 1000;
+  return `rgba(${channel(0)}, ${channel(1)}, ${channel(2)}, ${alpha})`;
+}
+
+// The resting transform as a 2D matrix: the separate translate, rotate and
+// scale properties, then transform, as CSS applies them. A ribbon rotated
+// 45 degrees was drawn flat without it (found on a real site). For a 3D
+// matrix, the part that moves a flat element is kept.
+function restingTransform(
+  style: CSSStyleDeclaration,
+): [number, number, number, number, number, number] | null {
+  try {
+    const numbers = (value: string): number[] =>
+      (value.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/g) ?? []).map(Number);
+    let matrix = new DOMMatrix();
+    if (style.translate !== 'none' && style.translate !== '') {
+      const [x = 0, y = 0] = numbers(style.translate);
+      matrix = matrix.translate(x, y);
+    }
+    if (style.rotate !== 'none' && style.rotate !== '') {
+      const parts = numbers(style.rotate);
+      // "45deg", or "0 0 1 45deg" with an axis: only a turn about z is flat.
+      const turn = parts.length === 4 ? (parts[2] === 0 ? 0 : (parts[3] ?? 0)) : (parts[0] ?? 0);
+      matrix = matrix.rotate(turn);
+    }
+    if (style.scale !== 'none' && style.scale !== '') {
+      const [x = 1, y = x] = numbers(style.scale);
+      matrix = matrix.scale(x, y);
+    }
+    if (style.transform !== 'none' && style.transform !== '') {
+      matrix = matrix.multiply(new DOMMatrix(style.transform));
+    }
+    const w = matrix.m44 === 0 ? 1 : matrix.m44;
+    const flat: [number, number, number, number, number, number] = [
+      matrix.m11 / w,
+      matrix.m12 / w,
+      matrix.m21 / w,
+      matrix.m22 / w,
+      matrix.m41 / w,
+      matrix.m42 / w,
+    ];
+    const identity = [1, 0, 0, 1, 0, 0];
+    if (!flat.every(Number.isFinite)) return null;
+    return flat.every((value, index) => Math.abs(value - (identity[index] ?? 0)) < 1e-6)
+      ? null
+      : flat;
+  } catch {
+    return null;
+  }
+}
+
+// ---------- Pseudo-elements ----------
+
+const PSEUDOS = ['::before', '::after'] as const;
+
+// The box an absolutely positioned element is placed in: its nearest
+// parent that is positioned or transformed.
+export function containingBlock(element: Element): HTMLElement | null {
+  let current: Element | null = element;
+  while (current !== null) {
+    if (current instanceof HTMLElement) {
+      const style = getComputedStyle(current);
+      if (
+        style.position !== 'static' ||
+        style.transform !== 'none' ||
+        style.filter !== 'none' ||
+        style.perspective !== 'none' ||
+        style.contain.includes('paint') ||
+        style.willChange.includes('transform')
+      ) {
+        return current;
+      }
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+// Where a pseudo-element is, in layout terms, from its computed position.
+// Only an absolutely positioned one has a box that can be worked out this
+// way; one that sits in the flow of text is left out.
+function pseudoBox(walk: Walk, element: Element, style: CSSStyleDeclaration): Box | null {
+  if (style.position !== 'absolute') return null;
+  const n = (value: string): number => {
+    const number = parseFloat(value);
+    return Number.isFinite(number) ? number : 0;
+  };
+  let width = parseFloat(style.width);
+  let height = parseFloat(style.height);
+  const left = parseFloat(style.left);
+  const top = parseFloat(style.top);
+  if (![width, height, left, top].every(Number.isFinite)) return null;
+  if (style.boxSizing !== 'border-box') {
+    width += n(style.paddingLeft) + n(style.paddingRight);
+    width += n(style.borderLeftWidth) + n(style.borderRightWidth);
+    height += n(style.paddingTop) + n(style.paddingBottom);
+    height += n(style.borderTopWidth) + n(style.borderBottomWidth);
+  }
+  const block = containingBlock(element);
+  if (block === null) return null;
+  const blockBox = layoutBox(block, walk);
+  return {
+    x: blockBox.x + block.clientLeft + left + n(style.marginLeft),
+    y: blockBox.y + block.clientTop + top + n(style.marginTop),
+    width,
+    height,
+  };
+}
+
+function readPseudoResting(element: Element, pseudo: string): Map<string, string> {
+  const style = getComputedStyle(element, pseudo);
+  return new Map(
+    PREVIEWED_PROPERTIES.map((property) => [property, style.getPropertyValue(property)]),
+  );
+}
+
+// A shape for a ::before or ::after, or null. Hover effects are often made
+// of them: an underline that grows, a fill that sweeps across, a shadow
+// (found on Hover.css). They are drawn like any box.
+function pseudoShape(
+  walk: Walk,
+  element: Element,
+  pseudo: (typeof PSEUDOS)[number],
+  parentId: string,
+): RawShape | null {
+  if (walk.snapshot.pseudoParts.get(element)?.has(pseudo) === true) return null;
+  const style = getComputedStyle(element, pseudo);
+  if (style.content === 'none' || style.content === 'normal' || style.display === 'none') {
+    return null;
+  }
+  const box = pseudoBox(walk, element, style);
+  if (box === null) return null;
+  const paints =
+    isVisibleColor(style.backgroundColor) ||
+    style.backgroundImage !== 'none' ||
+    (parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== 'none');
+  if (!paints && !mayAnimate(style)) return null;
+  if (walk.count >= walk.limit) {
+    walk.leftOut += 1;
+    return null;
+  }
+  const id = `${parentId}.${walk.count}`;
+  const shape = boxShape(walk, element, style, box, id, false);
+  shape.label = `${labelOf(element)}${pseudo}`;
+  walk.count += 1;
+  const parts = walk.snapshot.pseudoParts.get(element) ?? new Map<string, PseudoPart>();
+  parts.set(pseudo, { id, shape, resting: readPseudoResting(element, pseudo) });
+  walk.snapshot.pseudoParts.set(element, parts);
+  walk.ownerOf.set(shape, element);
+  return shape;
 }
 
 // Text becomes bars: one per line box, with no text content kept.
@@ -522,6 +838,9 @@ function textBars(
       opacity: 1,
       transformOrigin: { x: rect.width / 2, y: height / 2 },
       clip: false,
+      transform: null,
+      shadow: null,
+      clipPath: null,
       icon: null,
       children: [],
     };
@@ -569,11 +888,16 @@ function shapesFor(
   }
   const id = getsShape ? (isRoot ? 's0' : `${parentId}.${walk.count}`) : parentId;
   const isIcon = element.tagName.toLowerCase() === 'svg';
+  const lonePart =
+    getsShape && element instanceof SVGGeometryElement
+      ? lonePartShape(walk, element, rect, id)
+      : null;
   const shape = !getsShape
     ? null
-    : isIcon
-      ? iconShape(element, style, rect, id)
-      : boxShape(walk, element, style, rect, id, isImage);
+    : (lonePart ??
+      (isIcon
+        ? iconShape(walk, element, style, rect, id)
+        : boxShape(walk, element, style, rect, id, isImage)));
   if (shape !== null) {
     walk.count += 1;
     walk.snapshot.shapeIdOf.set(element, id);
@@ -582,7 +906,14 @@ function shapesFor(
     if (walk.readsResting) walk.snapshot.resting.set(element, readResting(element));
   }
 
-  // What is inside an image is not drawn.
+  // What is inside an image is not drawn. ::before is drawn first among
+  // the element's contents and ::after last, as the browser paints them.
+  const pseudo = (which: (typeof PSEUDOS)[number]): RawShape[] => {
+    if (isImage) return [];
+    const made = pseudoShape(walk, element, which, id);
+    return made === null ? [] : [made];
+  };
+  const before = pseudo('::before');
   const inside = isImage
     ? []
     : childNodesOf(element).flatMap((node): RawShape[] => {
@@ -593,8 +924,11 @@ function shapesFor(
         return [];
       });
 
-  if (shape === null) return inside;
-  shape.children = inside;
+  const after = pseudo('::after');
+  const all = [...before, ...inside, ...after];
+  if (shape === null) return all;
+  // An icon already holds its parts.
+  shape.children = [...shape.children, ...all];
   return [shape];
 }
 
@@ -633,7 +967,7 @@ export function cssName(name: string): string {
 // card the element sits on even when the card is not one of its parents.
 // A photo or gradient behind it is given a neutral gray: its pixels are
 // never copied. Pages are white when nothing sets a color.
-function backdropOf(element: Element): string {
+function backdropOf(element: Element, depth = 0): string {
   const rect = element.getBoundingClientRect();
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
@@ -647,14 +981,45 @@ function backdropOf(element: Element): string {
     current = current.parentElement;
   }
   for (const item of below) {
-    if (IMAGE_TAGS.includes(item.tagName.toLowerCase()) && item.tagName.toLowerCase() !== 'svg') {
-      return IMAGE_FILL;
-    }
-    const style = getComputedStyle(item);
-    if (isVisibleColor(style.backgroundColor)) return style.backgroundColor;
-    if (style.backgroundImage !== 'none') return IMAGE_FILL;
+    const paint = backgroundOf(item);
+    if (paint === null) continue;
+    // A see-through color, or one under a faded parent (a loading button
+    // at 65% opacity, found on a real site), is mixed with what is behind.
+    const color = readValue('background-color', paint, { width: 0, height: 0 });
+    if (color === null || color.kind !== 'color') return paint;
+    const alpha = color.a * opacityUp(item);
+    if (alpha >= 0.99 || depth >= 4) return `rgb(${color.r}, ${color.g}, ${color.b})`;
+    const behind = readValue('background-color', backdropOf(item, depth + 1), {
+      width: 0,
+      height: 0,
+    });
+    if (behind === null || behind.kind !== 'color') return paint;
+    const mix = (front: number, back: number): number =>
+      Math.round(front * alpha + back * (1 - alpha));
+    return `rgb(${mix(color.r, behind.r)}, ${mix(color.g, behind.g)}, ${mix(color.b, behind.b)})`;
   }
   return 'rgb(255, 255, 255)';
+}
+
+// What an element paints behind its content, as one color, or null.
+function backgroundOf(item: Element): string | null {
+  if (IMAGE_TAGS.includes(item.tagName.toLowerCase()) && item.tagName.toLowerCase() !== 'svg') {
+    return IMAGE_FILL;
+  }
+  const style = getComputedStyle(item);
+  if (isVisibleColor(style.backgroundColor)) return style.backgroundColor;
+  if (style.backgroundImage !== 'none') return gradientColor(style.backgroundImage) ?? IMAGE_FILL;
+  return null;
+}
+
+// An element's opacity times its parents'.
+function opacityUp(item: Element): number {
+  let opacity = 1;
+  for (let current: Element | null = item; current !== null; current = current.parentElement) {
+    const value = parseFloat(getComputedStyle(current).opacity);
+    if (Number.isFinite(value)) opacity *= value;
+  }
+  return opacity;
 }
 
 export function takeSnapshot(rootElement: Element): Snapshot {
@@ -670,7 +1035,7 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     skip: new Set(),
     boxAtPick: new Map(),
     ownerOf: new Map(),
-    snapshot: { shapeIdOf: new Map(), resting: new Map(), shadowRoots: [] },
+    snapshot: { shapeIdOf: new Map(), resting: new Map(), shadowRoots: [], pseudoParts: new Map() },
   };
   const root = shapesFor(walk, rootElement, '', true)[0];
   if (root === undefined) {
@@ -712,6 +1077,11 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     if (shape !== undefined && properties.has('opacity')) {
       shape.opacity = startedFrom.get(element) ?? 1;
     }
+    // A transform read in the middle of its animation is not a resting one.
+    // Its track draws it instead.
+    if (shape !== undefined && TRANSFORM_LIKE.some((property) => properties.has(property))) {
+      shape.transform = null;
+    }
   }
 
   return {
@@ -732,7 +1102,9 @@ export function takeSnapshot(rootElement: Element): Snapshot {
           ]
         : []),
       ...(walk.flattenedBackground
-        ? ['A gradient or image background is drawn as a flat gray fill.']
+        ? [
+            'A gradient is drawn as the average of its colors, and an image background as flat gray.',
+          ]
         : []),
     ],
   };
@@ -818,4 +1190,24 @@ export function addLateShape(snapshot: Snapshot, element: Element): boolean {
   const added = shapesFor(walk, element, `${parentShape.id}.late`, false, true);
   parentShape.children.push(...added);
   return snapshot.shapeIdOf.has(element);
+}
+
+// A ::before or ::after that has no shape yet, because it did not exist or
+// was hidden when the element was picked (an underline added on hover).
+// Measured now, as it is at the end of its animation.
+export function addLatePseudo(snapshot: Snapshot, element: Element, pseudo: string): boolean {
+  if (snapshot.pseudoParts.get(element)?.has(pseudo) === true) return true;
+  if (pseudo !== '::before' && pseudo !== '::after') return false;
+  let owner: Element | null = element;
+  while (owner !== null && !snapshot.shapeOf.has(owner)) {
+    if (owner === snapshot.rootElement) return false;
+    owner = parentAcrossShadow(owner);
+  }
+  const ownerShape = owner === null ? undefined : snapshot.shapeOf.get(owner);
+  if (ownerShape === undefined) return false;
+  const shape = pseudoShape(lateWalk(snapshot), element, pseudo, `${ownerShape.id}.late`);
+  if (shape === null) return false;
+  if (pseudo === '::before') ownerShape.children.unshift(shape);
+  else ownerShape.children.push(shape);
+  return true;
 }

@@ -15,10 +15,20 @@ import {
   parseEasing,
   type Capture,
   type Easing,
+  type ParsedValue,
   type TransformFunction,
 } from '@motion-inspector/core';
 import { readValue } from './readValue';
-import { addLateShape, animationsUnder, cssName, labelOf, type Snapshot } from './snapshot';
+import {
+  addLatePseudo,
+  addLateShape,
+  animationsUnder,
+  cssName,
+  labelOf,
+  containingBlock,
+  type Box,
+  type Snapshot,
+} from './snapshot';
 
 export type TakeResult = {
   // The capture, or null if what was recorded did not pass core's checks.
@@ -216,13 +226,13 @@ function easingData(text: string): Easing | null {
 
 // Why a whole animation cannot be drawn, or null if it can.
 function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | null {
-  if (seen.pseudoElement !== null) {
-    return `An animation on ${seen.pseudoElement} of ${label} is not shown, because it runs on a pseudo-element, which has no shape of its own.`;
+  if (seen.pseudoElement !== null && partOf(snapshot, seen) === null) {
+    return `An animation on ${seen.pseudoElement} of ${label} is not shown, because that pseudo-element sits in the flow of text, so its box cannot be measured. Only absolutely positioned ones are drawn.`;
   }
   if (!seen.onDocumentTimeline) {
     return `A scroll-driven animation on ${label} is not shown, because it follows the scroll position, not time.`;
   }
-  if (!snapshot.shapeIdOf.has(seen.target)) {
+  if (seen.pseudoElement === null && !snapshot.shapeIdOf.has(seen.target)) {
     return `An animation on ${label} is not shown, because that part was left out of the simplified drawing.`;
   }
   if (
@@ -241,7 +251,52 @@ function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | nu
   return null;
 }
 
-type Built = { tracks: unknown[]; notShown: string[] };
+// unchanged: the labels of animations left out because they end where they
+// start (see changesNothing).
+type Built = { tracks: unknown[]; notShown: string[]; unchanged: string[] };
+
+const TRANSFORM_PROPERTIES = ['transform', 'translate', 'rotate', 'scale'];
+
+// Size and position properties are measured against the containing block,
+// not the element: an underline's "width: 100%" is the link's width.
+const GEOMETRY = ['width', 'height', 'left', 'right', 'top', 'bottom'];
+
+function percentBase(seen: Seen): { width: number; height: number } {
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
+  let block: Element | null;
+  if (seen.pseudoElement !== null) {
+    block =
+      getComputedStyle(seen.target, seen.pseudoElement).position === 'fixed'
+        ? null
+        : containingBlock(seen.target);
+  } else {
+    const position = getComputedStyle(seen.target).position;
+    block =
+      position === 'fixed'
+        ? null
+        : position === 'absolute' && seen.target.parentElement !== null
+          ? containingBlock(seen.target.parentElement)
+          : seen.target.parentElement;
+  }
+  return block === null ? viewport : { width: block.clientWidth, height: block.clientHeight };
+}
+
+// The shape an animation is drawn on: its element's, or its ::before or
+// ::after's. null when it has none.
+function partOf(
+  snapshot: Snapshot,
+  seen: Seen,
+): { id: string; box: Box; resting: Map<string, string> | undefined } | null {
+  if (seen.pseudoElement !== null) {
+    const part = snapshot.pseudoParts.get(seen.target)?.get(seen.pseudoElement);
+    return part === undefined ? null : { id: part.id, box: part.shape.box, resting: part.resting };
+  }
+  const id = snapshot.shapeIdOf.get(seen.target);
+  const shape = snapshot.shapeOf.get(seen.target);
+  return id === undefined || shape === undefined
+    ? null
+    : { id, box: shape.box, resting: snapshot.resting.get(seen.target) };
+}
 
 function tracksFor(
   snapshot: Snapshot,
@@ -251,14 +306,18 @@ function tracksFor(
 ): Built {
   const label = labelOf(seen.target);
   const reason = whyNotShown(snapshot, seen, label);
-  if (reason !== null) return { tracks: [], notShown: [reason] };
+  if (reason !== null) return { tracks: [], notShown: [reason], unchanged: [] };
 
   // Percentages are measured against the shape's own size. The element may
   // be hidden by now (a panel that closed), and then measures 0.
-  const box = snapshot.shapeOf.get(seen.target)?.box ?? seen.target.getBoundingClientRect();
-  const resting = snapshot.resting.get(seen.target);
-  const movingAtPick = snapshot.animatingAtPick.get(seen.target);
+  const part = partOf(snapshot, seen);
+  const base = percentBase(seen);
+  const box = part?.box ?? seen.target.getBoundingClientRect();
+  const resting = part?.resting;
+  const movingAtPick =
+    seen.pseudoElement === null ? snapshot.animatingAtPick.get(seen.target) : undefined;
   const notShown: string[] = [];
+  const unchanged: string[] = [];
 
   const tracks = seen.properties.flatMap((property): unknown[] => {
     const authored = valuesOf(seen, property);
@@ -286,6 +345,23 @@ function tracksFor(
         : []),
     ];
 
+    // A change between values that mean the same thing shows nothing. Chrome
+    // runs one when a style is rewritten in another unit ("0px" to "0%"
+    // on Linear's buttons). Leaving it in only made the description longer.
+    // Transforms are compared as their list of functions here, never as
+    // matrices: rotate(0deg) to rotate(360deg) is a full turn.
+    const firstValue = filled[0]?.value ?? '';
+    const changesNothing = filled.every((item) =>
+      TRANSFORM_PROPERTIES.includes(property)
+        ? JSON.stringify(readValue(property, item.value, box)) ===
+          JSON.stringify(readValue(property, firstValue, box))
+        : sameValue(property, item.value, firstValue, seen.target),
+    );
+    if (changesNothing) {
+      unchanged.push(`${property} animation on ${label}`);
+      return [];
+    }
+
     const easings = filled.map((item) => easingData(item.easing));
     if (easings.some((easing) => easing === null)) {
       notShown.push(
@@ -295,7 +371,7 @@ function tracksFor(
     }
     return [
       {
-        shapeId: snapshot.shapeIdOf.get(seen.target),
+        shapeId: part?.id,
         property,
         origin: seen.origin,
         groupId,
@@ -304,7 +380,7 @@ function tracksFor(
         keyframes: filled.map((item, index) => ({
           offset: item.offset,
           value: item.value,
-          parsed: readValue(property, item.value, box),
+          parsed: readValue(property, item.value, GEOMETRY.includes(property) ? base : box),
           easing: easings[index],
           implicit: item.implicit,
         })),
@@ -324,7 +400,7 @@ function tracksFor(
       },
     ];
   });
-  return { tracks, notShown };
+  return { tracks, notShown, unchanged };
 }
 
 function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
@@ -334,8 +410,9 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
     const inside =
       snapshot.rootElement.contains(seen.target) ||
       snapshot.shadowRoots.some((root) => root.contains(seen.target));
-    if (seen.pseudoElement === null && seen.onDocumentTimeline && inside)
-      addLateShape(snapshot, seen.target);
+    if (!seen.onDocumentTimeline || !inside) continue;
+    if (seen.pseudoElement === null) addLateShape(snapshot, seen.target);
+    else addLatePseudo(snapshot, seen.target, seen.pseudoElement);
   }
   // The take starts with the first animation that is new and can be drawn.
   // One that was already running (a loader beside a hovered button) would
@@ -382,7 +459,17 @@ function buildTake(snapshot: Snapshot, take: Seen[]): TakeResult {
     root: snapshot.root,
     tracks,
     backdrop: snapshot.backdrop,
-    notShown: [...snapshot.notes, ...built.flatMap((item) => item.notShown)],
+    notShown: [
+      ...snapshot.notes,
+      ...built.flatMap((item) => item.notShown),
+      // Something did run. Say so, rather than "nothing was captured".
+      ...(tracks.length === 0
+        ? Array.from(
+            new Set(built.flatMap((item) => item.unchanged)),
+            (what) => `The ${what} ends where it starts, so there is nothing to see.`,
+          )
+        : []),
+    ],
   };
   // Core checks everything. Nothing reaches the editor without passing.
   const parsed = parseCapture(raw);
@@ -420,7 +507,14 @@ function sameValue(property: string, first: string, second: string, element: Ele
   const box = element.getBoundingClientRect();
   const a = readValue(property, first, box);
   const b = readValue(property, second, box);
-  if (a === null || b === null || a.kind !== b.kind) return false;
+  if (a === null || b === null) return false;
+  // Zero is zero in any unit: Chrome runs "0px" to "0%" as a transition.
+  const zero = (value: ParsedValue): boolean =>
+    (value.kind === 'number' && value.value === 0) ||
+    (value.kind === 'length' && value.px === 0) ||
+    (value.kind === 'percent' && value.value === 0);
+  if (zero(a) && zero(b)) return true;
+  if (a.kind !== b.kind) return false;
   if (a.kind === 'transform' && b.kind === 'transform') {
     const m = asMatrix(a.functions);
     const n = asMatrix(b.functions);

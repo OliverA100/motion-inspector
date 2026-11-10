@@ -340,7 +340,7 @@ export const morph = capture(
         'root',
         `border-${corner}-radius`,
         keyframe(0, '8px', { kind: 'length', px: 8 }),
-        keyframe(1, '50%', { kind: 'percent', value: 50 }),
+        keyframe(1, '50%', { kind: 'percent', value: 50, of: null }),
         timing(500, EASE_IN_OUT),
       ),
     ),

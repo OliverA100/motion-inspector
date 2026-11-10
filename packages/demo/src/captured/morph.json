@@ -28,6 +28,9 @@
       "y": 28
     },
     "clip": false,
+    "transform": null,
+    "shadow": null,
+    "clipPath": null,
     "icon": null,
     "children": []
   },
@@ -114,7 +117,8 @@
           "value": "50%",
           "parsed": {
             "kind": "percent",
-            "value": 50
+            "value": 50,
+            "of": null
           },
           "easing": {
             "kind": "linear"
@@ -165,7 +169,8 @@
           "value": "50%",
           "parsed": {
             "kind": "percent",
-            "value": 50
+            "value": 50,
+            "of": null
           },
           "easing": {
             "kind": "linear"
@@ -216,7 +221,8 @@
           "value": "50%",
           "parsed": {
             "kind": "percent",
-            "value": 50
+            "value": 50,
+            "of": null
           },
           "easing": {
             "kind": "linear"
@@ -267,7 +273,8 @@
           "value": "50%",
           "parsed": {
             "kind": "percent",
-            "value": 50
+            "value": 50,
+            "of": null
           },
           "easing": {
             "kind": "linear"
