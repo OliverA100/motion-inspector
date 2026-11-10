@@ -353,3 +353,40 @@ test('the More menu closes on a click outside it, and on Escape', async ({
   // Focus goes back to the button that opened it.
   await expect(panel.getByLabel('More')).toBeFocused();
 });
+
+test('a menu opened at the end of the page is followed, and its take is a click', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.mouse.move(0, 0);
+  // Picking does not press the button: the picker takes that click.
+  await site.click('.fx-menu-button');
+  await expect(listening(panel)).toBeVisible();
+  await site.click('.fx-menu-button');
+  await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 4000 });
+  await expect(status(panel)).toContainText('Watching div.fx-menu');
+  await expect(panel.locator('.xp__take[aria-pressed="true"] .xp__trigger')).toHaveText('Click');
+  await expect(panel.locator('.mi__description')).toContainText('fades from 0% to 100%');
+});
+
+test('animations that follow the scroll are listed as soon as the element is picked', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.locator('.fx-scroll').scrollIntoViewIfNeeded();
+  // The box that scrolls: pointed at through its content, then one step up.
+  await site.hover('.fx-scroll__content');
+  await site.keyboard.press('ArrowUp');
+  await site.keyboard.press('Enter');
+  await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 4000 });
+  await expect(panel.locator('.xp__take[aria-pressed="true"] .xp__trigger')).toHaveText(
+    'On scroll',
+  );
+  await expect(panel.locator('.mi__description')).toContainText('as the page scrolls');
+});
