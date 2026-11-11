@@ -746,10 +746,16 @@ html {
   position: relative;
   z-index: 3;
   display: grid;
-  gap: var(--space-3);
-  padding-bottom: var(--space-3);
-  background: var(--color-surface);
-  border-top: var(--hairline) solid var(--color-border);
+  /* As wide as the timeline, whatever is inside: the presets' strip and a
+     long reading scroll or cut off, they do not widen the row (which then
+     scrolled the whole timeline sideways). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: 0 0 var(--space-3);
+  /* The row, opened: the same accent bar down its left, a light tint, and
+     no line between the row and what it opened. */
+  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-surface));
+  box-shadow: inset 2px 0 0 var(--color-accent);
   border-bottom: var(--hairline) solid var(--color-border);
   pointer-events: auto;
 }
@@ -759,9 +765,100 @@ html {
   width: var(--timeline-width);
 }
 
-.timeline__detail > .panel {
-  border-radius: 0;
-  box-shadow: none;
+/* Its timing on one line, without a title: the row above names it. */
+.timeline__detail .fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-3) 0 calc(var(--space-3) + 2px);
+  border-top: 0;
+}
+
+.timeline__detail .fields__title {
+  display: none;
+}
+
+.timeline__detail .field__label {
+  min-width: 0;
+}
+
+.timeline__detail .field input {
+  width: 64px;
+}
+
+/* Said only when there is something to say: the row is linked. */
+.timeline__detail .fields__link.is-own {
+  display: none;
+}
+
+.timeline__chevron {
+  align-self: center;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-right: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  opacity: 0.6;
+  transition: transform 0.15s ease-out;
+}
+
+.timeline__chevron.is-open {
+  transform: rotate(45deg);
+}
+
+/* The curve, inside an opened row: no card of its own. */
+.curve-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: 0 var(--space-3) 0 calc(var(--space-3) + 2px);
+}
+
+.curve-inline__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.curve-inline__title {
+  margin-right: auto;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+}
+
+.curve-inline .curve {
+  border-radius: var(--radius-2);
+  background: var(--color-surface);
+  border: var(--hairline) solid var(--color-border);
+}
+
+.curve-inline .readout {
+  padding: 0;
+  border-top: 0;
+}
+
+.readout--one .readout__css,
+.readout--one .readout__point {
+  display: none;
+}
+
+.curve-inline .curve__help {
+  padding: 0;
+}
+
+/* The ready-made curves in one row that scrolls sideways. */
+.presets.presets--row {
+  /* Its parent places items at their own width: this one takes the row's. */
+  justify-self: stretch;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.presets--row .btn {
+  flex: none;
 }
 
 .timeline__hint {

@@ -369,6 +369,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
           // A different track or segment starts with a fresh chart.
           key={`${model.selectedTrack}-${model.selectedSegment}`}
           of={selectedName}
+          compact={oneColumn}
           original={easingAt(selected.original, model.selectedSegment)}
           mine={easingAt(selected.mine, model.selectedSegment)}
           showOriginal={showOriginal}
@@ -564,12 +565,8 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                 <Timeline
                   {...(oneColumn
                     ? {
-                        detail: (
-                          <>
-                            {curvePanel}
-                            {speedPanel}
-                          </>
-                        ),
+                        // Only the curve: the row opens a little, not into panels.
+                        detail: curvePanel,
                       }
                     : {})}
                   tracks={shownRows}

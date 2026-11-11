@@ -445,7 +445,7 @@ export function Timeline(props: Props) {
         </Button>
       </div>
       {/* One line, always there, so nothing moves when it changes. */}
-      <p className="fields__link">
+      <p className={linked || selected?.scroll === true ? 'fields__link' : 'fields__link is-own'}>
         <span>
           {/* A space, not nothing: an empty line wraps differently and
               the panel would change height. */}
@@ -535,12 +535,20 @@ export function Timeline(props: Props) {
                   className="timeline__label"
                   style={{ height: layout.labelHeight }}
                   aria-pressed={isSelected}
+                  aria-expanded={inline ? isSelected : undefined}
                   // The full text, for the rare name too long even for two lines.
                   title={`${track.property} on ${track.shapeLabel}`}
                   onClick={() => props.onSelect(isSelected ? null : index)}
                 >
                   {/* The plain word first, the CSS term in mono beside it. */}
                   <span className="timeline__line">
+                    {/* Rows open in place on one column: a chevron says so. */}
+                    {inline ? (
+                      <span
+                        className={isSelected ? 'timeline__chevron is-open' : 'timeline__chevron'}
+                        aria-hidden="true"
+                      />
+                    ) : null}
                     {track.name !== null ? (
                       <span className="timeline__name">{track.name}</span>
                     ) : null}

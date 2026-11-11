@@ -499,22 +499,27 @@ test('on one column, the selected row opens under itself with its curve', async 
   await page.setViewportSize({ width: 360, height: 1800 });
   await page.goto('/?sample=morph');
   const detail = page.locator('.timeline__detail');
+  const background = page.getByRole('button', { name: /^Background/ });
+  const corners = page.getByRole('button', { name: /^Corners/ });
   await expect(detail).toHaveCount(1);
-  await expect(detail.getByRole('heading', { name: /^Curve of/ })).toContainText(
-    'Curve of Background',
-  );
-  // The row after it sits below the opened space.
+  await expect(background).toHaveAttribute('aria-expanded', 'true');
+  await expect(corners).toHaveAttribute('aria-expanded', 'false');
+  // Its curve is inside, and the row after it sits below.
+  await expect(detail.locator('.curve')).toBeVisible();
   const opened = await detail.boundingBox();
-  const corners = await page.getByRole('button', { name: /Corners/ }).boundingBox();
-  if (opened === null || corners === null) throw new Error('Not found');
-  expect(corners.y).toBeGreaterThanOrEqual(opened.y + opened.height - 1);
+  const next = await corners.boundingBox();
+  if (opened === null || next === null) throw new Error('Not found');
+  expect(next.y).toBeGreaterThanOrEqual(opened.y + opened.height - 1);
+  // No wider than the timeline.
+  const timeline = await page.locator('.timeline').boundingBox();
+  if (timeline === null) throw new Error('Not found');
+  expect(opened.width).toBeLessThanOrEqual(timeline.width + 1);
 
-  await page.getByRole('button', { name: /Corners/ }).click();
-  await expect(detail.getByRole('heading', { name: /^Curve of/ })).toContainText(
-    'Curve of Corners',
-  );
-  const background = await page.getByRole('button', { name: /^Background/ }).boundingBox();
+  await corners.click();
+  await expect(corners).toHaveAttribute('aria-expanded', 'true');
+  await expect(background).toHaveAttribute('aria-expanded', 'false');
   const moved = await detail.boundingBox();
-  if (background === null || moved === null) throw new Error('Not found');
-  expect(moved.y).toBeGreaterThan(background.y);
+  const first = await background.boundingBox();
+  if (moved === null || first === null) throw new Error('Not found');
+  expect(moved.y).toBeGreaterThan(first.y);
 });

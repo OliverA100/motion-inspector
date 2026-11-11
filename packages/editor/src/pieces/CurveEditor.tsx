@@ -60,10 +60,14 @@ type Props = {
   onReset: () => void;
   // The row the curve is for, as the timeline names it. null: not said.
   of?: string | null;
+  // Inside an opened timeline row: a smaller chart, one line of reading,
+  // the ready-made curves in one row, and no panel of its own.
+  compact?: boolean;
   onDragChange: (dragging: boolean) => void;
 };
 
 const HEIGHT = 260;
+const COMPACT_HEIGHT = 120;
 const HIT_SIZE = 24;
 // "Close to ease-out" is only said when the curves are hard to tell apart.
 const CLOSE_ENOUGH = 0.03;
@@ -220,12 +224,19 @@ export function CurveEditor(props: Props) {
           { index: 1, x: handles.x2, y: handles.y2, name: 'End handle' },
         ];
 
+  const compact = props.compact === true;
   return (
-    <section className="panel">
-      <header className="panel__head">
-        <h2 className="panel__title" title={props.term}>
-          {props.of === undefined || props.of === null ? 'Curve' : `Curve of ${props.of}`}
-        </h2>
+    <section className={compact ? 'curve-inline' : 'panel'}>
+      <header className={compact ? 'curve-inline__head' : 'panel__head'}>
+        {compact ? (
+          <span className="curve-inline__title" title={props.term}>
+            Curve
+          </span>
+        ) : (
+          <h2 className="panel__title" title={props.term}>
+            {props.of === undefined || props.of === null ? 'Curve' : `Curve of ${props.of}`}
+          </h2>
+        )}
         <HelpTip
           icon={<HelpIcon />}
           text={`How the value gets from start to end (${props.term}). Left to right is time; the steeper, the faster. Start handle: drag right for a slower start, up for a faster one. End handle: drag left for a gentler stop, above the top line to overshoot. Double-click a handle to put it back.`}
@@ -259,7 +270,7 @@ export function CurveEditor(props: Props) {
       >
         <Canvas
           label="Easing curve. Solid is mine, dashed is the original."
-          height={HEIGHT}
+          height={compact ? COMPACT_HEIGHT : HEIGHT}
           draw={draw}
           onSize={setSize}
         />
@@ -290,8 +301,9 @@ export function CurveEditor(props: Props) {
             ))}
       </div>
 
-      {/* Three lines, each always present, so nothing below ever moves. */}
-      <div className="readout">
+      {/* Three lines, each always present, so nothing below ever moves. One,
+          in an opened row. */}
+      <div className={compact ? 'readout readout--one' : 'readout'}>
         <p className="readout__feel">
           {mine.kind === 'steps' ? (
             <>
@@ -377,7 +389,11 @@ export function CurveEditor(props: Props) {
           </>
         ) : (
           <>
-            <div className="presets" role="group" aria-label="Ready-made curves">
+            <div
+              className={compact ? 'presets presets--row' : 'presets'}
+              role="group"
+              aria-label="Ready-made curves"
+            >
               {PRESETS.map((preset) => {
                 const [x1, y1, x2, y2] = preset.values;
                 const easing = bezier({ x1, y1, x2, y2 });
