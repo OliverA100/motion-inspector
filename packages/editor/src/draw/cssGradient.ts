@@ -101,6 +101,21 @@ export function cssConicAngle(text: string): number | null {
   return from[2] === 'turn' ? amount * 360 : from[2] === 'rad' ? (amount * 180) / Math.PI : amount;
 }
 
+// The colors of a radial gradient's stops, in order, from its first layer: a
+// variable or a script changing them (Attio's button, lit on hover). null
+// when the first layer is not a radial-gradient().
+export function cssRadialColors(text: string): string[] | null {
+  const layer = topLevel(text)[0] ?? '';
+  const match = /^radial-gradient\((.*)\)$/s.exec(layer);
+  if (match === null) return null;
+  const parts = topLevel(match[1] ?? '');
+  // A first part with no color in it is the shape, size and place.
+  const isColor = (part: string): boolean =>
+    /^(rgba?|hsla?|oklab|oklch|lab|lch|color|hwb)\(|^#|^[a-z]+(\s|$)/.test(part) &&
+    !/^(circle|ellipse|closest|farthest|at)\b/.test(part);
+  return parts.filter(isColor).map((part) => part.replace(/(\s+-?\d*\.?\d+(px|%))+$/, ''));
+}
+
 // Every stop's place in px along a line `length` long, as CSS places them:
 // missing ones spread evenly between their neighbors, and none before the
 // one ahead of it.

@@ -8,6 +8,7 @@ export * from './sample';
 export * from './shapes';
 export * from './offsetPath';
 export * from './groups';
+export * from './notes';
 export * from './parse';
 export * from './exportCss';
 export * from './describe';

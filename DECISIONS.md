@@ -1025,3 +1025,11 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - A loop's turn is blended across its ends when the step there is like the others (a spin, a pulse out and back), and carried on from each side only at a jump. Each end is carried from a frame at least 8 ms off, never more than a few steps past it.
 - <animateMotion> is filmed: a part's own transform is read from the matrix the browser places it with, relative to its parent's, when it moves along a path.
 **Why:** under load (twelve runs at once) a loop read "moves 211 px right and scales to 0", or "scales to 0.92", where it pulses out and back. Now 96 runs out of 96 read right.
+
+### D176. A run of restarts is shown as measured motion
+**Chose:** when a script restarts a part's transition three times or more in a row, the part has been filmed all along, and the whole run is shown as measured motion instead of only its last restart. The note says so, and neither the badge nor the description counts it as something left out. Which notes leave nothing out is now one rule in core, used by the description, the badge and the take list.
+**Why:** Railway's button highlight is restarted with every pointer move. Only the last restart was shown, beginning 1.2 s in, where the others had left it: 24 px off. Now 0 to 0.5 px.
+
+### D177. A radial gradient whose colors change is drawn
+**Chose:** films keep a background-image that is a radial-gradient(), as they keep linear and conic ones. The stage draws the resting radial layer in the colors the film gives, when it has as many stops.
+**Why:** Attio's buttons are lit on hover by a registered color variable that a radial gradient uses: the variable was listed as not drawn.

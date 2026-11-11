@@ -15,6 +15,7 @@ import {
   waysBack,
   type PropertyGroup,
 } from './groups';
+import { aboutMotion } from './notes';
 import { flattenShapes } from './shapes';
 import type { Capture, Follow, FollowChannel, Keyframe, ParsedValue, Shape, Track } from './types';
 
@@ -976,7 +977,8 @@ export function describeCapture(capture: Capture): string {
   const groups = keys.map((key) => motions.filter((motion) => sameMotionKey(motion) === key));
   const described = groups.slice(0, MAX_GROUPS_DESCRIBED).flatMap(sentencesFor);
   const left = groups.slice(MAX_GROUPS_DESCRIBED).reduce((count, group) => count + group.length, 0);
-  const notShown = capture.notShown.length;
+  // Notes that leave nothing out of the preview are not counted.
+  const notShown = capture.notShown.filter(aboutMotion).length;
   const missed = missedSentence(capture);
 
   return [

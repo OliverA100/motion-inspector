@@ -272,6 +272,8 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 96 | svg-spinners (10 SMIL spinners, local page) | Every part reported missed: SMIL is in no animation API | D172, D173: all match, 0 to 1.2 px |
 | 97 | MUI (show code toggle, on every component page) | Nothing recorded: the click was taken for motion already running | D174: recorded as a click, 0 px |
 | 98 | Library sweep (85 pages, 379 checks) | 374 matched before these fixes; the rest were Radix (D170), MUI (D174) and ones that matched when recorded again | |
+| 99 | Railway (button highlight following the pointer) | Restarted 62 times; only the last restart shown, 24 px off | D176: 0 to 0.5 px |
+| 100 | Product sweep (24 sites, 185 checks) | 165 matched; Railway (D176) fixed; others under study | |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 

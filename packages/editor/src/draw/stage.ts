@@ -15,6 +15,7 @@ import type { Theme } from '../theme';
 import { clipCorners, clipPathOf } from './clipPath';
 import {
   cssConicAngle,
+  cssRadialColors,
   cssLinearGradient,
   stopPlaces,
   type CssLinearGradient,
@@ -1029,10 +1030,15 @@ function drawFilled(
     else if (gradient !== null) {
       // A conic gradient that turns: the resting one, at the angle now.
       const turned = pose?.backgroundImage != null ? cssConicAngle(pose.backgroundImage) : null;
+      // A radial gradient whose colors change: the resting one, in the
+      // colors now.
+      const lit = pose?.backgroundImage != null ? cssRadialColors(pose.backgroundImage) : null;
       const layers = (shape.gradients ?? [gradient]).map((layer, index) =>
         index === 0 && turned !== null && layer.kind === 'conic'
           ? { ...layer, angle: turned }
-          : layer,
+          : index === 0 && lit !== null && layer.kind === 'radial' && lit.length === layer.stops.length
+            ? { ...layer, stops: layer.stops.map((stop, at) => ({ ...stop, color: lit[at] ?? stop.color })) }
+            : layer,
       );
       // Every layer, the bottom one first, as CSS paints them.
       for (const layer of [...layers].reverse()) fillGradient(context, shape, pose, layer);

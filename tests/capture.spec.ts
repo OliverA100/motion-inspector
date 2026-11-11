@@ -1047,6 +1047,31 @@ test('a loop that only turns a registered variable is filmed for one turn and dr
   expect(capture.notShown.join(' ')).not.toContain('only changes CSS variables');
 });
 
+// Found on Attio: a button lit on hover by a registered color variable that
+// a radial gradient uses. Chrome lists the variable, which cannot be drawn;
+// the gradient it changes is filmed and drawn in its colors now.
+test('a radial gradient lit by a variable on hover is filmed, not listed as not drawn', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `@property --sp-glow { syntax: "<color>"; inherits: false; initial-value: rgb(32, 33, 36); }
+     #sp-lit { width: 120px; height: 40px; transition: --sp-glow .3s;
+       background-image: radial-gradient(at 50% -10%, var(--sp-glow) 0%, rgb(10, 10, 10) 100%) }
+     #sp-lit.on { --sp-glow: rgb(80, 89, 103) }`,
+    '<div id="sp-lit"></div>',
+    '#sp-lit',
+  );
+  await page.evaluate(() => document.getElementById('sp-lit')?.classList.add('on'));
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => `${item.origin}:${item.property}`)).toEqual([
+    'script:background-image',
+  ]);
+  const last = capture.tracks[0]?.keyframes.at(-1)?.value ?? '';
+  expect(last).toMatch(/^radial-gradient\(.*rgb\(80, 89, 103\)/);
+});
+
 test('text that shows a background through its letters, and a gradient border', async ({
   page,
 }) => {
@@ -1142,6 +1167,14 @@ test('a transition restarted every frame by a script is one take, with a note', 
   expect(takes.length).toBeLessThanOrEqual(2);
   const notes = takes.flatMap((take) => take.capture?.notShown ?? []);
   expect(notes.join(' ')).toMatch(/restarted \d+ times in a row/);
+  // The whole run of restarts, measured: not only the last one, which began
+  // where the others left it (found on Railway).
+  expect(notes.join(' ')).toContain('Its motion is measured from the page instead.');
+  const kept = takes.flatMap((take) => (take.capture === null ? [] : [take.capture]));
+  const moved = kept.flatMap((capture) => capture.tracks).find((item) => item.origin === 'script');
+  expect(moved?.property).toBe('transform');
+  const last = moved?.keyframes.at(-1)?.value ?? '';
+  expect(Number.parseFloat(/translate\((-?[\d.]+)px/.exec(last)?.[1] ?? '0')).toBeGreaterThan(15);
 });
 
 test('an SVG group that starts moving during the take gets a shape then', async ({ page }) => {

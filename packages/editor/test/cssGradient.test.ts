@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { cssLinearGradient, stopPlaces } from '../src/draw/cssGradient';
+import { cssLinearGradient, cssRadialColors, stopPlaces } from '../src/draw/cssGradient';
 
 describe('cssLinearGradient', () => {
   test('reads the angle and the stops of a computed gradient', () => {
@@ -43,5 +43,21 @@ describe('stopPlaces', () => {
     if (gradient === null) throw new Error('gradient');
     // red at 0, green halfway to blue, black held at blue's place.
     expect(stopPlaces(gradient, 100)).toEqual([0, 25, 50, 50]);
+  });
+});
+
+describe('cssRadialColors', () => {
+  test('the colors of each stop, without the shape or the places', () => {
+    expect(
+      cssRadialColors(
+        'radial-gradient(at 50% -10%, rgb(32, 33, 36) 0%, rgba(10, 10, 10, 0.5) 100%)',
+      ),
+    ).toEqual(['rgb(32, 33, 36)', 'rgba(10, 10, 10, 0.5)']);
+    expect(cssRadialColors('radial-gradient(circle, red, blue 40px)')).toEqual(['red', 'blue']);
+  });
+
+  test('null for anything that is not a radial gradient', () => {
+    expect(cssRadialColors('linear-gradient(red, blue)')).toBeNull();
+    expect(cssRadialColors('none')).toBeNull();
   });
 });

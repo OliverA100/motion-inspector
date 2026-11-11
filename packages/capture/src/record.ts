@@ -1636,7 +1636,9 @@ function scriptTracksFor(
         if (
           property === 'background-image' &&
           !texts.every((text) => text.startsWith('linear-gradient(')) &&
-          !texts.every((text) => text.startsWith('conic-gradient('))
+          !texts.every((text) => text.startsWith('conic-gradient(')) &&
+          // Or radial, its colors changing (Attio's button, lit on hover).
+          !texts.every((text) => text.startsWith('radial-gradient('))
         ) {
           return [];
         }
@@ -1745,6 +1747,8 @@ function measuredFor(
 // Where the root was on the page when it was picked: the pointer path is
 // kept in the root's coordinates, as the shapes are.
 const pickedAt = new WeakMap<Snapshot, { x: number; y: number }>();
+
+export const RESTARTS_MEASURED = 'Its motion is measured from the page instead.';
 
 export const KEPT_MOVING_NOTE = `A script kept moving this part. The first ${LONGEST_SCRIPT_TAKE_MS / 1000} seconds are shown.`;
 
@@ -3107,8 +3111,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     let chainNote: string[] = [];
     if (held.length >= 3) {
       const first = held[0]?.take[0];
+      // The part was filmed all along: the whole run of restarts is shown as
+      // measured, not only the last one, which began where the others had
+      // left it (Railway's highlight, restarted with each pointer move, was
+      // 24 px off before its last start).
+      const restarted = new Set(
+        take.filter((seen) => seen.pseudoElement === null).map((seen) => seen.target),
+      );
+      const measured = Array.from(restarted).filter(
+        (element) => (film.get(element)?.length ?? 0) >= 3,
+      );
+      for (const element of measured) scripted.add(element);
+      take = take.filter((seen) => !(seen.pseudoElement === null && measured.includes(seen.target)));
       chainNote = [
-        `The animation on ${first === undefined ? 'this part' : labelOf(first.target)} was restarted ${held.length + 1} times in a row, most likely by a script. Only the last one is shown.`,
+        measured.length > 0
+          ? `The animation on ${first === undefined ? 'this part' : labelOf(first.target)} was restarted ${held.length + 1} times in a row, most likely by a script. ${RESTARTS_MEASURED}`
+          : `The animation on ${first === undefined ? 'this part' : labelOf(first.target)} was restarted ${held.length + 1} times in a row, most likely by a script. Only the last one is shown.`,
       ];
       held = [];
     } else {
