@@ -1280,6 +1280,40 @@ test('a card that tilts toward the pointer is captured as following it, with its
   expect(describeCapture(capture)).toMatch(/follows the pointer/);
 });
 
+// Found on Aceternity's logo: its text springs aside when the pointer
+// arrives, and settles while the pointer is still. A lag fitted to that
+// fits, but nothing follows the pointer.
+test('a spring the pointer sets off by arriving is motion, not following', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<a id="sp-spring" style="display:inline-block;padding:10px 20px;background:#eee"><span style="display:inline-block">Home</span></a>';
+    document.body.prepend(holder);
+    const label = holder.querySelector('#sp-spring span') as HTMLElement;
+    holder.querySelector('#sp-spring')?.addEventListener('pointerenter', () => {
+      let x = 0;
+      const step = (): void => {
+        x += (8 - x) * 0.08;
+        label.style.transform = `translateX(${x}px)`;
+        if (8 - x > 0.05) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    window.MotionCapture.record(document.getElementById('sp-spring') as Element);
+  });
+  const box = await page.locator('#sp-spring').boundingBox();
+  if (box === null) throw new Error('no link');
+  await page.mouse.move(box.x - 20, box.y + box.height / 2);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
+  await page.waitForTimeout(1500);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.follows).toBeNull();
+  expect(capture.tracks.map((item) => `${item.origin}:${item.property}`)).toEqual([
+    'script:transform',
+  ]);
+});
+
 test('a corner peeled back by a script writing clip-path is fitted as a clip-path track', async ({
   page,
 }) => {

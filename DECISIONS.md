@@ -976,3 +976,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D167. A script's film holds still between writes
 **Chose:** when two writes to a part are more than 50 ms apart, a frame holding the earlier look goes one frame before the later write, so the part stays as it was until the script changes it. Parts the browser also moves (a transition the script set) are not held: they keep moving between writes. An SVG group whose shape could not be made (nothing in it is drawn) keeps no id, so no track can name it.
 **Why:** Duolingo's Lottie characters turn layers on and off by display, seconds apart. The two frames were joined by a straight line, a slow fade the page never showed, and the check said 100% opacity off. Before that, tracks named groups that were never drawn and the take was refused as invalid.
+
+### D168. Following needs the pointer moving
+**Chose:** a part is fitted as following the pointer only when the pointer moves on it for at least 30% of the time the part is changing. Otherwise its motion is measured as it is.
+**Why:** Aceternity's logo text springs aside when the pointer arrives and settles while the pointer is still. A rule with a lag fitted it, and Copy for AI said a script made it follow the pointer.

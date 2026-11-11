@@ -1567,6 +1567,9 @@ export const KEPT_MOVING_NOTE = `A script kept moving this part. The first ${LON
 // shown on the timeline as measured instead.
 const FOLLOW_MISS: Record<string, number> = { e: 2, f: 2, g: 0.0001, h: 0.0001, opacity: 0.05 };
 const FOLLOW_MISS_OTHER = 0.03;
+// The share of a part's motion the pointer must be moving on it for, to
+// be followed rather than to have set it off.
+const FOLLOW_MOVING_SHARE = 0.3;
 
 // Parts moved by a script that follows the pointer, found by fitting the
 // rule that links the pointer to the film (see core's follow.ts).
@@ -1612,6 +1615,17 @@ function followsFor(
       (move, index) => move.time >= first && all[index]?.inside === true,
     ).length;
     if (insideDuring < 3) continue;
+    // And moving on it for a good part of the motion. A spring set off by
+    // the pointer arriving (Aceternity's logo text) settles while the
+    // pointer is still: a lag fitted to it would fit, but nothing follows.
+    const movingInside = moves.filter(
+      (move, index) => move.time >= first && all[index]?.inside === true,
+    );
+    const changing = withoutStillEnd(frames);
+    const changeSpan = (changing[changing.length - 1]?.time ?? first) - first;
+    const moveSpan =
+      (movingInside[movingInside.length - 1]?.time ?? first) - (movingInside[0]?.time ?? first);
+    if (moveSpan < changeSpan * FOLLOW_MOVING_SHARE) continue;
     // At most the samples the format holds, evenly spread.
     const every = Math.ceil(all.length / MOST_POINTER_SAMPLES);
     const pointer = all.filter((_sample, index) => index % every === 0 || index === all.length - 1);
