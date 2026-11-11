@@ -980,3 +980,14 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D168. Following needs the pointer moving
 **Chose:** a part is fitted as following the pointer only when the pointer moves on it for at least 30% of the time the part is changing. Otherwise its motion is measured as it is.
 **Why:** Aceternity's logo text springs aside when the pointer arrives and settles while the pointer is still. A rule with a lag fitted it, and Copy for AI said a script made it follow the pointer.
+
+### D169. Text that changes is named as text
+**Chose:** the watch counts how often the text inside each watched part changes (from the page's own change records: the text is never read or kept). A part whose text changed twice or more and that nothing explains is missed as 'text', a new value of Missed.what. The description says the text changes and is never copied; the badge and the take list say "Text not copied" instead of a part missing.
+**Why:** a number counting up (Magic UI's number ticker, a stats strip) was reported as "1 part changed on the page that this preview misses", which read as a fault to fix. It is the rule that text is never copied.
+**Format:** Missed.what is now 'moved', 'look' or 'text'. Older captures stay valid.
+
+### D170. Flex and grid items stack by z-index; a pseudo-element rests where it ends
+**Chose:**
+- A z-index orders a part among its siblings when it is positioned, and also when it is a flex or grid item, as CSS does, whatever its position.
+- When nothing runs on a ::before or ::after any more, its resting opacity is read again. One measured while its animation ran (a recording that moved to its element as it opened) had taken its first frame as its rest.
+**Why:** Radix's search dialog: the dimming ::after of its overlay was drawn over the dialog (a flex item at z-index 1), and once its fade ended the preview put it back to 0% opacity. 100% opacity off; now 0 px.

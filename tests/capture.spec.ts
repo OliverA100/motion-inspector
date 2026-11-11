@@ -1710,6 +1710,45 @@ test('a native popover opened by its button is followed into the top layer', asy
   expect(capture.tracks.map((track) => track.property).sort()).toEqual(['opacity', 'scale']);
 });
 
+// Found on Radix's search dialog: an overlay dims the page with a ::after,
+// and its content, a flex item at z-index 1 with no position, is drawn over
+// it. The ::after, measured as its fade began, rests at full opacity.
+test('a flex item with a z-index is drawn over the ::after of an overlay, which rests where it ends', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #sp-overlay { position: fixed; inset: 0; display: none; justify-content: center }
+      #sp-overlay.open { display: flex }
+      #sp-overlay::after { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, .4) }
+      #sp-overlay.open::after { animation: sp-dim .4s ease-out }
+      @keyframes sp-dim { from { opacity: 0 } }
+      #sp-overlay .sp-content { z-index: 1; width: 200px; height: 40px; margin: 20px; background: white }
+      #sp-overlay.open .sp-content { animation: sp-dim .2s ease-out }`;
+    document.head.append(style);
+    // The overlay at the end of the page, as a portal puts it.
+    const holder = document.createElement('div');
+    holder.innerHTML = '<button id="sp-search">Search</button>';
+    document.body.prepend(holder);
+    const portal = document.createElement('div');
+    portal.innerHTML = '<div id="sp-overlay"><div class="sp-content" role="dialog"></div></div>';
+    document.body.append(portal);
+    document.getElementById('sp-search')?.addEventListener('click', () => {
+      document.getElementById('sp-overlay')?.classList.add('open');
+    });
+    window.MotionCapture.record(document.getElementById('sp-search') as Element);
+  });
+  await page.click('#sp-search');
+  await page.waitForTimeout(1000);
+  const capture = onlyCapture(await takesNow(page));
+  const labels = capture.root.children.map((child) => child.label);
+  expect(labels).toEqual(['div.open::after', 'div.sp-content']);
+  expect(capture.root.children[0]?.opacity).toBe(1);
+  expect(capture.root.children[0]?.opacity).toBe(1);
+});
+
 test('a modal dialog is followed, and its backdrop is drawn behind it', async ({ page }) => {
   await setUp(
     page,
@@ -2135,6 +2174,31 @@ test('alongside a transition, a look it cannot read is named and the transition 
   const capture = onlyCapture(await takesNow(page));
   expect(capture.tracks.map((track) => track.property)).toContain('opacity');
   expect(capture.missed).toEqual([{ label: 'rect', what: 'look' }]);
+});
+
+// A number counting up, written by a script: the text changes, and text is
+// never copied. Said as that, not as a part gone missing.
+test('text a script changes is named as text, not as a missing part', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-count { padding: 8px; font: 600 28px system-ui }',
+    '<div id="sp-count"><span>0</span></div>',
+    '#sp-count',
+  );
+  await page.evaluate(() => {
+    const number = document.querySelector('#sp-count span') as HTMLElement;
+    const start = performance.now();
+    const step = (now: number): void => {
+      const done = Math.min((now - start) / 600, 1);
+      number.textContent = String(Math.round(done * 1234));
+      if (done < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await page.waitForTimeout(1400);
+  const takes = await takesNow(page);
+  const missed = takes.flatMap((take) => take.capture?.missed ?? []);
+  expect(missed).toEqual([{ label: 'span', what: 'text' }]);
 });
 
 test('a hover that changes a color at once, with no transition, is not called missed', async ({

@@ -1602,7 +1602,7 @@ function shapesFor(
   ];
   // A positioned element with a z-index is one layer among its siblings,
   // everything drawn inside it included.
-  const z = zIndexOf(style);
+  const z = zIndexOf(style, element);
   const result = shape === null ? all : [shape];
   if (z !== null) for (const made of result) stackingOf.set(made, z);
   if (shape === null) return result;
@@ -1616,8 +1616,15 @@ function shapesFor(
 // at z-index 10 over a black panel at -30 that comes after it.
 const stackingOf = new WeakMap<RawShape, number>();
 
-function zIndexOf(style: CSSStyleDeclaration): number | null {
-  if (style.position === 'static' || style.zIndex === 'auto') return null;
+// A z-index counts on a positioned element, and on a flex or grid item even
+// when it is not positioned (Radix's search dialog sits at z-index 1 over
+// its overlay's dimming ::after that way).
+function zIndexOf(style: CSSStyleDeclaration, element: Element): number | null {
+  if (style.zIndex === 'auto') return null;
+  const parent = element.parentElement;
+  const inFlexOrGrid =
+    parent !== null && /(^|-)(flex|grid)$/.test(getComputedStyle(parent).display);
+  if (style.position === 'static' && !inFlexOrGrid) return null;
   const z = Number.parseInt(style.zIndex, 10);
   return Number.isFinite(z) ? z : null;
 }
@@ -2514,6 +2521,27 @@ export function settleLateShape(snapshot: Snapshot, element: Element): void {
     shape.transform = restingTransform(style, shape.box, element);
     shape.individual = individualOf(style, shape.box);
   }
+}
+
+// A ::before or ::after measured while its animation ran (the recording
+// moved to its element as the animation began) took its look then as its
+// rest: a dialog's dimming layer read at 0% opacity, to which the preview
+// went back once the animation ended (found on Radix's search dialog).
+// Once nothing runs on it, its rest is read again.
+export function settlePseudo(snapshot: Snapshot, element: Element, pseudo: string): void {
+  const part = snapshot.pseudoParts.get(element)?.get(pseudo);
+  if (part === undefined || !element.isConnected) return;
+  const running = element
+    .getAnimations({ subtree: true })
+    .some(
+      (animation) =>
+        animation.effect instanceof KeyframeEffect &&
+        animation.effect.pseudoElement === pseudo &&
+        animation.playState !== 'finished',
+    );
+  if (running) return;
+  const opacity = parseFloat(getComputedStyle(element, pseudo).opacity);
+  if (Number.isFinite(opacity)) part.shape.opacity = Math.min(Math.max(opacity, 0), 1);
 }
 
 // An element that was hidden when the element was picked has no shape: an

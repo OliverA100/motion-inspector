@@ -179,12 +179,26 @@ export function previewBadge(
   const texts: string[] = [];
   if (missed.length > 0) {
     const named = missed
-      .map((item) => (item.what === 'moved' ? item.label : `${item.label} (its look)`))
+      .map((item) =>
+        item.what === 'moved'
+          ? item.label
+          : item.what === 'text'
+            ? `${item.label} (its text, never copied)`
+            : `${item.label} (its look)`,
+      )
       .join(', ');
     lines.push(
       `${missed.length === 1 ? '1 part' : `${missed.length} parts`} changed on the page and ${missed.length === 1 ? 'is' : 'are'} not in this preview: ${named}.`,
     );
-    texts.push(missed.length === 1 ? '1 part missing' : `${missed.length} parts missing`);
+    // Changing text alone is not a part gone missing: its words are never
+    // copied, by design.
+    texts.push(
+      missed.every((item) => item.what === 'text')
+        ? 'Text not copied'
+        : missed.length === 1
+          ? '1 part missing'
+          : `${missed.length} parts missing`,
+    );
   }
   if (gaps.notDrawn.length > 0) {
     lines.push(`The preview does not draw ${gaps.notDrawn.join(', ')}.`);

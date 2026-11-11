@@ -204,17 +204,23 @@ function triggerWords(take: StoredTake): string {
 // nothing. The editor's badge says the rest (how close it is).
 function gapWords(take: StoredTake): string | null {
   const capture = take.capture;
-  const missed = (capture.missed ?? []).length;
+  // Text that changes is never copied: said as that, not as a missing part.
+  const missed = (capture.missed ?? []).filter((item) => item.what !== 'text').length;
+  const textChanges = (capture.missed ?? []).some((item) => item.what === 'text');
   const leftOut = capture.notShown.filter(aboutMotion).length;
   const undrawn = notDrawn(capture).length;
   const words = [
     ...(missed === 0 ? [] : [missed === 1 ? '1 part missing' : `${missed} parts missing`]),
+    ...(textChanges ? ['text not copied'] : []),
     ...(undrawn === 0
       ? []
       : [undrawn === 1 ? '1 property not drawn' : `${undrawn} properties not drawn`]),
     ...(leftOut === 0 ? [] : [leftOut === 1 ? '1 thing left out' : `${leftOut} things left out`]),
   ];
-  return words.length === 0 ? null : words.join(', ');
+  if (words.length === 0) return null;
+  // Sentence case: "Text not copied" when it comes first.
+  const text = words.join(', ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function lengthWords(take: StoredTake): string {

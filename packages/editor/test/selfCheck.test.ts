@@ -47,6 +47,12 @@ describe('the preview badge', () => {
     expect(previewBadge([], none)).toBeNull();
   });
 
+  test('text that changes is said as text not copied, not as a part missing', () => {
+    const badge = previewBadge([], { ...none, missed: [{ label: 'span', what: 'text' }] });
+    expect(badge?.text).toBe('Text not copied');
+    expect(badge?.detail).toContain('span (its text, never copied)');
+  });
+
   test('notes about the drawing, not about motion, do not count', () => {
     expect(aboutMotion('7 more parts were left out of the drawing, to keep it simple.')).toBe(
       false,

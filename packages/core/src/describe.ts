@@ -925,10 +925,24 @@ const MAX_GROUPS_DESCRIBED = 5;
 function missedSentence(capture: Capture): string | null {
   const missed = capture.missed ?? [];
   if (missed.length === 0) return null;
-  const names = missed.map((item) => `"${item.label}"`).join(', ');
-  return missed.length === 1
-    ? `1 part changed on the page that this preview misses: ${names}.`
-    : `${missed.length} parts changed on the page that this preview misses: ${names}.`;
+  // Text that changes is said apart: its words are never copied, so no
+  // preview could show it.
+  const texts = missed.filter((item) => item.what === 'text');
+  const others = missed.filter((item) => item.what !== 'text');
+  const named = (items: typeof missed): string =>
+    items.map((item) => `"${item.label}"`).join(', ');
+  return [
+    others.length === 0
+      ? null
+      : others.length === 1
+        ? `1 part changed on the page that this preview misses: ${named(others)}.`
+        : `${others.length} parts changed on the page that this preview misses: ${named(others)}.`,
+    texts.length === 0
+      ? null
+      : `The text in ${named(texts)} changes as it runs (a counter, a word typed out). Text is never copied, so it is not shown.`,
+  ]
+    .filter((sentence) => sentence !== null)
+    .join(' ');
 }
 
 export function describeCapture(capture: Capture): string {

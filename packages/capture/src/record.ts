@@ -34,6 +34,7 @@ import {
   addLatePseudo,
   addLateShape,
   settleLateShape,
+  settlePseudo,
   animationsUnder,
   shadowRootsIn,
   cssName,
@@ -1866,7 +1867,14 @@ const WATCH_EVERY_MS = 120;
 const MOST_WATCHED = 300;
 const MOST_MISSED = 8;
 
-type Watched = { place: string; look: string; places: Set<string>; looks: Set<string> };
+// texts: how many times its text changed (counted, never read).
+type Watched = {
+  place: string;
+  look: string;
+  places: Set<string>;
+  looks: Set<string>;
+  texts: number;
+};
 export type Watch = Map<Element, Watched>;
 
 // Whether a part draws anything of its own.
@@ -1947,7 +1955,7 @@ export function watchOnce(watch: Watch, parts: Element[]): boolean {
     const now = lookAt(element);
     const known = watch.get(element);
     if (known === undefined) {
-      watch.set(element, { ...now, places: new Set(), looks: new Set() });
+      watch.set(element, { ...now, places: new Set(), looks: new Set(), texts: 0 });
       continue;
     }
     if (now.place !== known.place && !known.places.has(now.place) && known.places.size < 3) {
@@ -1976,6 +1984,7 @@ export function joinWatches(first: Watch, second: Watch): Watch {
             ...before,
             places: new Set([...before.places, ...seen.places]),
             looks: new Set([...before.looks, ...seen.looks]),
+            texts: before.texts + seen.texts,
           },
     );
   }
@@ -1996,7 +2005,16 @@ function missedBy(watch: Watch, explained: Set<Element>): Missed[] {
   };
   const missed: { element: Element; what: Missed['what'] }[] = [];
   for (const [element, seen] of watch) {
-    const what = seen.places.size >= 2 ? 'moved' : seen.looks.size >= 2 ? 'look' : null;
+    // Text that changes (a counter, a word typed out) moves its box too:
+    // the text is what changed.
+    const what =
+      seen.texts >= 2
+        ? 'text'
+        : seen.places.size >= 2
+          ? 'moved'
+          : seen.looks.size >= 2
+            ? 'look'
+            : null;
     if (what === null || !element.isConnected || isExplained(element)) continue;
     missed.push({ element, what });
   }
@@ -2043,6 +2061,7 @@ function buildTake(
     } else if (seen.pseudoElement === null) addLateShape(snapshot, seen.target);
     else addLatePseudo(snapshot, seen.target, seen.pseudoElement);
     if (seen.pseudoElement === null) settleLateShape(snapshot, seen.target);
+    else settlePseudo(snapshot, seen.target, seen.pseudoElement);
   }
   // The take starts with the first animation that is new and can be drawn.
   // One that was already running (a loader beside a hovered button) would
@@ -2602,6 +2621,30 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     attributes: true,
     attributeFilter: ['style', 'transform', 'opacity'],
   });
+  // Text that a script changes (a number counting up). Only that it
+  // changed is kept, for the part around it: never the text.
+  const textWatcher = new MutationObserver((records) => {
+    for (const record of records) {
+      const textNodes =
+        record.type === 'characterData' ||
+        [...record.addedNodes, ...record.removedNodes].some(
+          (node) => node.nodeType === Node.TEXT_NODE,
+        );
+      if (!textNodes) continue;
+      const at: Element | null =
+        record.target instanceof Element ? record.target : record.target.parentElement;
+      // The take's watch, or between takes the one kept while nothing runs.
+      for (const watching of [watch, idleWatch]) {
+        let part: Element | null = at;
+        while (part !== null && !watching.has(part) && part !== snapshot.rootElement) {
+          part = part.parentElement;
+        }
+        const seen = part === null ? undefined : watching.get(part);
+        if (seen !== undefined) seen.texts += 1;
+      }
+    }
+  });
+  textWatcher.observe(snapshot.rootElement, { subtree: true, characterData: true, childList: true });
   // A script that changed a style without moving anything (a cursor, a
   // CSS variable) leaves no take.
   const hasFilm = (): boolean =>
@@ -3245,6 +3288,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       if (parent !== null) {
         stopped = true;
         watcher.disconnect();
+        textWatcher.disconnect();
         options.onParentAnimation(parent);
         return;
       }
@@ -3393,6 +3437,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     ) {
       stopped = true;
       watcher.disconnect();
+      textWatcher.disconnect();
       options.onAutoStop?.();
       return;
     }
@@ -3407,6 +3452,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       if (stopped) return;
       stopped = true;
       watcher.disconnect();
+      textWatcher.disconnect();
       cancelAnimationFrame(frame);
       endTake();
       sendIdleMissed();

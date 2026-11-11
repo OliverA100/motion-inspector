@@ -107,7 +107,7 @@ const SET_OFF_BY: Record<string, string> = {
 function gapsSection(capture: Capture): string[] {
   const missed = (capture.missed ?? []).map(
     (item) =>
-      `- \`${item.label}\` changed on the page (${item.what === 'moved' ? 'its place, size or opacity' : 'its look'}) and is not in this capture.`,
+      `- \`${item.label}\` changed on the page (${item.what === 'moved' ? 'its place, size or opacity' : item.what === 'text' ? 'its text, which is never copied' : 'its look'}) and is not in this capture.`,
   );
   const notes = capture.notShown.map((note) => `- ${note}`);
   return missed.length + notes.length === 0

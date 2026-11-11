@@ -1187,7 +1187,7 @@ export function parseCapture(value: unknown): Result<Capture> {
 function parseMissed(value: unknown): Result<Missed> {
   return andThen(fields(value), (source) => {
     const label = at('label', text(get(source, 'label')));
-    const what = at('what', oneOf(get(source, 'what'), ['moved', 'look'] as const));
+    const what = at('what', oneOf(get(source, 'what'), ['moved', 'look', 'text'] as const));
     if (!label.ok || !what.ok) return failAll([label, what].flatMap(errorsOf));
     return ok({ label: label.value, what: what.value });
   });

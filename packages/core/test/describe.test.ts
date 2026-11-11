@@ -288,6 +288,12 @@ describe('special properties in plain words', () => {
   });
 });
 
+test('text the take saw change is said as text, never copied', () => {
+  expect(describeCapture({ ...cardLift, missed: [{ label: 'span', what: 'text' }] })).toContain(
+    'The text in "span" changes as it runs (a counter, a word typed out). Text is never copied, so it is not shown.',
+  );
+});
+
 test('parts the take misses are named at the end', () => {
   expect(
     describeCapture({ ...cardLift, missed: [{ label: 'rect', what: 'moved' }] }).endsWith(

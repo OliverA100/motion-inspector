@@ -70,7 +70,9 @@ export type Capture = {
 
 // A part of the page the take does not explain. moved: its place, size or
 // opacity changed; look: its color, clip or filter did.
-export type Missed = { label: string; what: 'moved' | 'look' };
+// what: its place, size or opacity (moved), its colors and clip (look), or
+// its text, which is never copied (text).
+export type Missed = { label: string; what: 'moved' | 'look' | 'text' };
 
 export type Measured = {
   shapeId: ShapeId;
