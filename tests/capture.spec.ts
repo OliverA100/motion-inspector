@@ -3238,3 +3238,24 @@ test('a picked element the page replaced is found again where it was', async ({ 
   });
   expect(result).toEqual({ started: true, takes: 1 });
 });
+
+// Found on Stripe's heading, played on load: the resting transform is read
+// back from the page as matrix(1, 0, 0, 1, 0, 0). With no turn in it, it is
+// a move and a scale, and the words rise.
+test('a resting transform given as a plain matrix is read as a move', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-word { display: inline-block; height: 24px; font: 20px system-ui }',
+    '<span id="sp-word">Payments</span>',
+    '#sp-word',
+  );
+  await page.evaluate(() => {
+    (document.getElementById('sp-word') as HTMLElement).animate(
+      [{ transform: 'matrix(1, 0, 0, 1, 0, 0)' }, { transform: 'translateY(-100%)' }],
+      { duration: 300, fill: 'forwards' },
+    );
+  });
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  expect(describeCapture(capture)).toContain('moves up 24 px');
+});

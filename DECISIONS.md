@@ -1177,3 +1177,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D206. A picked element the page replaced is found again
 **Chose:** where the picked element was is kept when it is picked. If the page has replaced it by the time recording starts (or Play the load asks for it), the element now in its place is used. If nothing stands there, the panel says "The element you picked is no longer on the page. Pick it again." instead of doing nothing.
 **Why:** on gsap.com the picked label is split into letters on hover, replacing it. Record and the Play buttons then did nothing at all, with no word why.
+
+### D207. A plain matrix is read as a move and a scale
+**Chose:** a transform written as matrix() with no turn and no slant (b and c are 0) is read as a translate and a scale. One that turns or slants stays unread, as D9 says.
+**Why:** a resting transform read back from the page comes as matrix(1, 0, 0, 1, 0, 0). Stripe's heading on load read "changes transform from matrix(1, 0, 0, 1, 0, 0) to translateY(-100%)" instead of "moves up".

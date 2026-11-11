@@ -149,6 +149,19 @@ function readFunction(component: CSSTransformComponent, box: BoxSize): Transform
   return null;
 }
 
+// A matrix with no turn and no slant is a move and a scale, read as such:
+// the page gives a resting transform as matrix(1, 0, 0, 1, 0, 0) (Stripe's
+// heading, on load). One that turns or slants stays unread: a matrix cannot
+// say whether it turned once or not at all (D9).
+function plainMatrix(component: CSSMatrixComponent): TransformFunction[] | null {
+  const m = component.matrix;
+  if (!m.is2D || Math.abs(m.b) > 1e-9 || Math.abs(m.c) > 1e-9) return null;
+  return [
+    { fn: 'translate', x: m.e, y: m.f },
+    { fn: 'scale', x: m.a, y: m.d },
+  ];
+}
+
 function doesNothing(item: TransformFunction): boolean {
   switch (item.fn) {
     case 'translate':
@@ -180,7 +193,11 @@ function readTransform(property: string, value: string, box: BoxSize): ParsedVal
     const flatParts = Array.from(parsed).filter(
       (component) => !(component instanceof CSSPerspective),
     );
-    const functions = flatParts.map((component) => readFunction(component, box));
+    const functions = flatParts.flatMap((component) =>
+      component instanceof CSSMatrixComponent
+        ? (plainMatrix(component) ?? [null])
+        : [readFunction(component, box)],
+    );
     const known = functions.flatMap((item) => (item === null ? [] : [item]));
     // One function that cannot be read makes the whole value unreadable.
     if (known.length !== functions.length) return null;
