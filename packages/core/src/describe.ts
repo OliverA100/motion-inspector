@@ -302,13 +302,108 @@ function sameMeaning(first: Keyframe, second: Keyframe): boolean {
   );
 }
 
-function phraseBetween(property: string, from: Keyframe, to: Keyframe, backdrop: Rgb): string {
+// Where a shape turns about, seen from its middle: the way from its
+// transform origin to its middle, in the units its transform is written in,
+// and how those units become px. An SVG group turns about the top left of
+// its drawing, not its middle.
+export type Pivot = { x: number; y: number; toPx: [number, number, number, number] };
+
+export function pivotOf(shape: Shape): Pivot | null {
+  const half = { x: shape.box.width / 2, y: shape.box.height / 2 };
+  if (shape.kind === 'box' || shape.kind === 'text' || shape.kind === 'image') {
+    return {
+      x: half.x - shape.transformOrigin.x,
+      y: half.y - shape.transformOrigin.y,
+      toPx: [1, 0, 0, 1],
+    };
+  }
+  if (shape.kind !== 'group' || shape.inSvg === null) return null;
+  // The middle in the SVG's units: inSvg places them in the box.
+  const [a, b, c, d, e, f] = shape.inSvg;
+  const det = a * d - b * c;
+  if (Math.abs(det) < 1e-9) return null;
+  const qx = half.x - e;
+  const qy = half.y - f;
+  const middle = { x: (d * qx - c * qy) / det, y: (a * qy - b * qx) / det };
+  return {
+    x: middle.x - shape.transformOrigin.x,
+    y: middle.y - shape.transformOrigin.y,
+    toPx: [a, b, c, d],
+  };
+}
+
+// How far a transform takes the shape's middle, in px, and whether it both
+// moves and turns or scales. A move written with a turn about a point away
+// from the middle may only undo the swing the turn makes (Lottie and GSAP
+// write an SVG part spinning in place as a turn about its corner and a move
+// back): what is seen is the middle.
+function middleOf(
+  parsed: ParsedValue | null,
+  pivot: Pivot,
+): { x: number; y: number; movesAndTurns: boolean } {
+  if (parsed === null || parsed.kind !== 'transform') return { x: 0, y: 0, movesAndTurns: false };
+  let [a, b, c, d] = [1, 0, 0, 1];
+  let tx = 0;
+  let ty = 0;
+  for (const item of parsed.functions) {
+    // Each function acts inside the ones before it: M = M x F.
+    const times = (fa: number, fb: number, fc: number, fd: number): void => {
+      [a, b, c, d] = [a * fa + c * fb, b * fa + d * fb, a * fc + c * fd, b * fc + d * fd];
+    };
+    switch (item.fn) {
+      case 'translate':
+        tx += a * item.x + c * item.y;
+        ty += b * item.x + d * item.y;
+        break;
+      case 'rotate': {
+        const turn = (item.deg * Math.PI) / 180;
+        times(Math.cos(turn), Math.sin(turn), -Math.sin(turn), Math.cos(turn));
+        break;
+      }
+      case 'scale':
+        times(item.x, 0, 0, item.y);
+        break;
+      case 'skew':
+        times(1, Math.tan((item.yDeg * Math.PI) / 180), Math.tan((item.xDeg * Math.PI) / 180), 1);
+        break;
+    }
+  }
+  const moves = parsed.functions.some((item) => item.fn === 'translate');
+  const more = Math.abs(a - 1) + Math.abs(b) + Math.abs(c) + Math.abs(d - 1) > 1e-6;
+  const x = tx + a * pivot.x + c * pivot.y - pivot.x;
+  const y = ty + b * pivot.x + d * pivot.y - pivot.y;
+  const [pa, pb, pc, pd] = pivot.toPx;
+  return { x: pa * x + pc * y, y: pb * x + pd * y, movesAndTurns: moves && more };
+}
+
+function phraseBetween(
+  property: string,
+  from: Keyframe,
+  to: Keyframe,
+  backdrop: Rgb,
+  pivot: Pivot | null = null,
+): string {
   // Hidden throughout: a part taken off the page, from that moment.
   if (property === 'visibility' && to.value === 'hidden') return 'disappears';
   if (sameMeaning(from, to)) return `holds its ${property}`;
 
-  const fromPose = poseOf(from.parsed);
-  const toPose = poseOf(to.parsed);
+  let fromPose = poseOf(from.parsed);
+  let toPose = poseOf(to.parsed);
+  // Far from the middle, the move is said as the middle's.
+  if (
+    property === 'transform' &&
+    pivot !== null &&
+    Math.hypot(pivot.x, pivot.y) > 0.5 &&
+    fromPose !== null &&
+    toPose !== null
+  ) {
+    const fromMiddle = middleOf(from.parsed, pivot);
+    const toMiddle = middleOf(to.parsed, pivot);
+    if (fromMiddle.movesAndTurns || toMiddle.movesAndTurns) {
+      fromPose = { ...fromPose, x: fromMiddle.x, y: fromMiddle.y };
+      toPose = { ...toPose, x: toMiddle.x, y: toMiddle.y };
+    }
+  }
   if (TRANSFORM_PROPERTIES.includes(property) && fromPose !== null && toPose !== null) {
     const phrases = movePhrases(fromPose, toPose);
     // Kept apart, so they join the other changes in one list.
@@ -553,7 +648,7 @@ function playsBackwards(track: Track): boolean {
   return track.timing.direction === 'reverse' || track.timing.direction === 'alternate-reverse';
 }
 
-function changePhrase(group: PropertyGroup, backdrop: Rgb): string {
+function changePhrase(group: PropertyGroup, backdrop: Rgb, pivot: Pivot | null = null): string {
   const track = group.tracks[0];
   const written = track?.keyframes ?? [];
   // Said in the order it is seen.
@@ -567,9 +662,9 @@ function changePhrase(group: PropertyGroup, backdrop: Rgb): string {
     const farthest = keyframes.reduce((best, keyframe) =>
       distance(first, keyframe) > distance(first, best) ? keyframe : best,
     );
-    return `${joinWithAnd(phraseBetween(group.property, first, farthest, backdrop).split(PART))} and back`;
+    return `${joinWithAnd(phraseBetween(group.property, first, farthest, backdrop, pivot).split(PART))} and back`;
   }
-  const phrase = phraseBetween(group.property, first, last, backdrop);
+  const phrase = phraseBetween(group.property, first, last, backdrop, pivot);
   // Keyframes an author wrote say the motion has stages (a bounce). Those
   // fitted to measured motion are only how closely it was followed.
   const measured = group.tracks[0]?.origin === 'script';
@@ -697,7 +792,7 @@ function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
     phrases: movementFirst(groupByShorthand(tracks)).flatMap((group) =>
       shape.label.endsWith('::backdrop') && group.property === 'background-color'
         ? [dimPhrase(group)]
-        : changePhrase(group, backdropOf(capture)).split(PART),
+        : changePhrase(group, backdropOf(capture), pivotOf(shape)).split(PART),
     ),
     durationMs: Math.max(...tracks.map((track) => track.timing.duration)),
     delayMs: Math.min(...tracks.map(effectiveDelay)),
@@ -706,7 +801,7 @@ function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
     goesBack: back.length > 0,
     backCutShort: back.some((track) => track.interrupted),
     thenPhrases: groupByShorthand(then).flatMap((group) =>
-      changePhrase(group, backdropOf(capture)).split(PART),
+      changePhrase(group, backdropOf(capture), pivotOf(shape)).split(PART),
     ),
   };
 }

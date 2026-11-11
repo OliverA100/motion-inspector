@@ -1257,6 +1257,11 @@ function numberSlots(texts: string[]): {
 
 // How often the page is filmed: about 25 times a second.
 const FILM_EVERY_MS = 38;
+// One frame of the screen, at 60 frames a second.
+const ONE_FRAME_MS = 1000 / 60;
+// SVG groups read when recording starts, at most (a Lottie drawing has
+// hundreds).
+const MOST_KNOWN_GROUPS = 200;
 const MOST_FRAMES = 400;
 // A script that keeps changing styles ends its take after this long.
 const LONGEST_SCRIPT_TAKE_MS = 4000;
@@ -2501,19 +2506,40 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // that frame, and see every frame one frame late.
   // Parts with no shape that a script wrote to, tried once each.
   const triedLate = new WeakSet<Element>();
+  // How each part looked before a script first wrote to it: read when
+  // recording starts, and where it came to rest when each take ends. The
+  // observer only hears of a write once it is made, so a film began one
+  // step into the motion (a fade from 99%, a turn of 89 degrees).
+  const lastKnown = new Map<Element, FilmFrame>();
+  const knownAtStart = [
+    ...snapshot.shapeOf.keys(),
+    // SVG groups that GSAP or Lottie may move by their attributes.
+    ...Array.from(snapshot.rootElement.querySelectorAll('g')).slice(0, MOST_KNOWN_GROUPS),
+  ];
+  for (const element of knownAtStart) {
+    if (element.isConnected) lastKnown.set(element, { time: 0, ...frameNow(element) });
+  }
   const watcher = new MutationObserver((records) => {
     const time = asNumber(document.timeline.currentTime) ?? performance.now();
     const changed = new Set<Element>();
     for (const record of records) {
       const target = record.target;
       if (!(target instanceof Element) || endless.has(target)) continue;
+      // transform and opacity attributes move only SVG parts: GSAP and
+      // Lottie write them there, every frame.
+      if (record.attributeName !== 'style' && !(target instanceof SVGElement)) continue;
       // A part left out of the drawing (past the most shapes, or later in
       // the page than the rest) that a script moves gets a shape now:
-      // Vercel's peeled corner, the last part of a busy card.
+      // Vercel's peeled corner, the last part of a busy card. An SVG group
+      // gets one, and the parts inside it move into it.
       if (!snapshot.shapeOf.has(target)) {
         if (triedLate.has(target)) continue;
         triedLate.add(target);
-        if (!addLateShape(snapshot, target)) continue;
+        const added =
+          target instanceof SVGGElement
+            ? addLateGroup(snapshot, target)
+            : addLateShape(snapshot, target);
+        if (!added) continue;
       }
       changed.add(target);
     }
@@ -2523,14 +2549,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       const frames = film.get(element) ?? [];
       // Written twice in one frame: the last one is what is seen.
       if (frames[frames.length - 1]?.time === time) frames.pop();
-      if (frames.length < MOST_FRAMES) frames.push({ time, ...frameNow(element) });
+      const now: FilmFrame = { time, ...frameNow(element) };
+      // The part as it was, a frame before the first write: put in once a
+      // second write shows it is moving. One write is a jump, not motion.
+      const first = frames.length === 1 ? frames[0] : undefined;
+      const before = first === undefined ? undefined : lastKnown.get(element);
+      if (first !== undefined && before !== undefined && !sameFrame(before, first)) {
+        frames.unshift({ ...before, time: first.time - ONE_FRAME_MS });
+      }
+      if (frames.length < MOST_FRAMES) frames.push(now);
       film.set(element, frames);
     }
   });
   watcher.observe(snapshot.rootElement, {
     subtree: true,
     attributes: true,
-    attributeFilter: ['style'],
+    attributeFilter: ['style', 'transform', 'opacity'],
   });
   // A script that changed a style without moving anything (a cursor, a
   // CSS variable) leaves no take.
@@ -2779,7 +2813,10 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     restingFrames = new Map();
     for (const element of finishedScripted) {
       const last = finishedFilm.get(element)?.at(-1);
-      if (last !== undefined) restingFrames.set(element, last);
+      if (last !== undefined) {
+        restingFrames.set(element, last);
+        lastKnown.set(element, last);
+      }
     }
     take = [];
     samples = [];

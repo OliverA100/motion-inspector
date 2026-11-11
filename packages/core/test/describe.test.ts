@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import { describeCapture } from '../src/describe';
-import type { Capture, ParsedValue } from '../src/types';
+import type { Capture, ParsedValue, TransformFunction } from '../src/types';
 import { capture } from './arbitraries';
 import {
   bounce,
@@ -124,6 +124,55 @@ test('describeCapture gives some text for any valid capture', () => {
       expect(describeCapture(value).length).toBeGreaterThan(0);
     }),
   );
+});
+
+describe('a turn about a point away from the middle', () => {
+  // A 100 px square turning about its top left corner, as an SVG group does.
+  const turning = (functions: TransformFunction[]): string => {
+    const base = cardLift.tracks[0];
+    const [first, last] = base?.keyframes ?? [];
+    if (base === undefined || first === undefined || last === undefined) throw new Error('no track');
+    return describeCapture({
+      ...cardLift,
+      root: {
+        ...cardLift.root,
+        box: { x: 0, y: 0, width: 100, height: 100 },
+        transformOrigin: { x: 0, y: 0 },
+      },
+      tracks: [
+        {
+          ...base,
+          property: 'transform',
+          keyframes: [
+            { ...first, value: 'none', parsed: { kind: 'transform', functions: [] } },
+            { ...last, value: 'written', parsed: { kind: 'transform', functions } },
+          ],
+        },
+      ],
+    });
+  };
+
+  test('a turn with the move that keeps it in place is said as a turn in place', () => {
+    expect(
+      turning([
+        { fn: 'translate', x: 100, y: 0 },
+        { fn: 'rotate', deg: 90 },
+      ]),
+    ).toMatch(/^The element rotates 90 degrees over/);
+  });
+
+  test('a turn on a hinge, with no move, stays a turn', () => {
+    expect(turning([{ fn: 'rotate', deg: 90 }])).toMatch(/^The element rotates 90 degrees over/);
+  });
+
+  test('a real move with the turn is said as the middle moving', () => {
+    expect(
+      turning([
+        { fn: 'translate', x: 140, y: 0 },
+        { fn: 'rotate', deg: 90 },
+      ]),
+    ).toMatch(/^The element moves right 40 px and rotates 90 degrees over/);
+  });
 });
 
 describe('special properties in plain words', () => {

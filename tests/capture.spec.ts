@@ -1873,6 +1873,43 @@ test('a part a script turns in 3D keeps its lean when flattened', async ({ page 
   );
 });
 
+// GSAP and Lottie move SVG parts by writing their transform and opacity
+// attributes every frame, not their style.
+test('an SVG group a script turns by its transform attribute is filmed, and said as a turn in place', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    '#sp-svg-turn { width: 100px }',
+    `<div id="sp-svg-turn"><svg width="100" height="100" viewBox="0 0 100 100"><g id="sp-svg-g">
+       <path d="M20 20 L80 20 L80 80 L20 80 Z" fill="#e55"></path></g></svg></div>`,
+    '#sp-svg-turn',
+  );
+  await page.evaluate(() => {
+    const group = document.getElementById('sp-svg-g') as Element;
+    const start = performance.now();
+    const step = (now: number): void => {
+      const done = Math.min((now - start) / 500, 1);
+      const turn = (done * Math.PI) / 2;
+      const [c, s] = [Math.cos(turn), Math.sin(turn)];
+      group.setAttribute(
+        'transform',
+        `matrix(${c},${s},${-s},${c},${50 - 50 * c + 50 * s},${50 - 50 * s - 50 * c})`,
+      );
+      group.setAttribute('opacity', String(1 - done / 2));
+      if (done < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await page.waitForTimeout(1100);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((track) => `${track.origin}:${track.property}`).sort()).toEqual([
+    'script:opacity',
+    'script:transform',
+  ]);
+  expect(describeCapture(capture)).toContain('"g" shape rotates 90 degrees and fades');
+});
+
 test('a script that adds translateZ(0) to get a layer is not said to turn in 3D', async ({
   page,
 }) => {
