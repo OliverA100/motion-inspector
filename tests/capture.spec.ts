@@ -402,6 +402,19 @@ test('text kept only for screen readers is not drawn', async ({ page }) => {
   expect(flattenShapes(capture.root).map((shape) => shape.kind)).toEqual(['box']);
 });
 
+// Found on Aceternity's logo: four 2 px corner dots were left out with the
+// screen-reader text, and the check said they were missing.
+test('a tiny dot that paints is drawn, unlike screen-reader text', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const dot = document.createElement('span');
+    dot.style.cssText = 'position:absolute;left:0;top:0;width:2px;height:2px;background:#36f';
+    document.querySelector('.fx-loader')?.append(dot);
+  });
+  const capture = onlyCapture(await captureFixture(page, 'loader', nothing, 500, false));
+  expect(flattenShapes(capture.root).map((shape) => shape.kind)).toEqual(['box', 'box']);
+});
+
 // ---------- Takes ----------
 
 // A hover and its leave are one motion: one take, with the way there and
@@ -1767,6 +1780,39 @@ test('a dot a script moves round its card with rect() is read as moving along it
   expect(capture.tracks.map((track) => `${track.origin}:${track.property}`)).toEqual([
     'script:offset-distance',
   ]);
+});
+
+// Found on Aceternity's logo: a script turns it about x and z under a
+// parent's perspective. Flattened, that is a lean as well as a turn.
+test('a part a script turns in 3D keeps its lean when flattened', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-tilt { perspective: 1200px; transform-style: preserve-3d; padding: 20px; width: 80px }
+     .sp-tilt-face { width: 40px; height: 40px; background: #36f }`,
+    '<div id="sp-tilt"><div class="sp-tilt-face"></div></div>',
+    '#sp-tilt',
+  );
+  await page.evaluate(() => {
+    const face = document.querySelector('.sp-tilt-face') as HTMLElement;
+    const start = performance.now();
+    const step = (now: number): void => {
+      const done = Math.min((now - start) / 500, 1);
+      face.style.transform = `rotateX(${done * 40}deg) rotateZ(${-done * 40}deg)`;
+      if (done < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await page.waitForTimeout(1200);
+  const capture = onlyCapture(await takesNow(page));
+  const turn = track(capture, 'transform');
+  const last = turn.keyframes[turn.keyframes.length - 1]?.value ?? '';
+  expect(last).toContain('skewX(');
+  const seen = capture.measured[0]?.frames.at(-1)?.matrix ?? [];
+  const drawn = await page.evaluate((value) => {
+    const m = new DOMMatrix(value);
+    return [m.a, m.b, m.c, m.d];
+  }, last);
+  drawn.forEach((value, index) => expect(Math.abs(value - (seen[index] ?? 0))).toBeLessThan(0.01));
 });
 
 test('a view transition that slides the new picture in is read as the part sliding', async ({

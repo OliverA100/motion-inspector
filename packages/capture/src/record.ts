@@ -1327,6 +1327,15 @@ function scriptTracksFor(
       const [a, b, c, d] = frame.matrix;
       return (a * d - b * c) / Math.max(scaleX[index] ?? 1, 1e-9);
     });
+    // What is left once turn and size are taken out: a lean. A part turned
+    // in 3D looks leaned when flattened (Aceternity's logo, turned about x
+    // and z, was 2.8 px off without it). The matrix is rotate(a) skewX(k)
+    // scale(sx, sy), so tan(k) = (ac + bd) / (ad - bc).
+    const skews = frames.map((frame) => {
+      const [a, b, c, d] = frame.matrix;
+      const det = a * d - b * c;
+      return Math.abs(det) < 1e-9 ? 0 : (Math.atan((a * c + b * d) / det) * 180) / Math.PI;
+    });
     // One transform track, not translate, rotate and scale: the film is the
     // whole transform, and an animation of transform replaces the resting
     // one, as on the page. Only the parts that change are written, the same
@@ -1345,6 +1354,7 @@ function scriptTracksFor(
       moves(scaleY, 0.005) ||
       away(scaleX, 1, 0.005) ||
       away(scaleY, 1, 0.005);
+    const leans = moves(skews, 0.2) || away(skews, 0, 0.2);
     const groups: {
       property: string;
       channels: { values: number[]; tolerance: number }[];
@@ -1356,6 +1366,7 @@ function scriptTracksFor(
           { values: frames.map((frame) => frame.matrix[4]), tolerance: 0.5 },
           { values: frames.map((frame) => frame.matrix[5]), tolerance: 0.5 },
           ...(turns ? [{ values: angles, tolerance: 0.1 }] : []),
+          ...(leans ? [{ values: skews, tolerance: 0.2 }] : []),
           ...(sizes
             ? [
                 { values: scaleX, tolerance: 0.005 },
@@ -1366,10 +1377,12 @@ function scriptTracksFor(
         write: (values) => {
           const [x = 0, y = 0, ...rest] = values;
           const angle = turns ? (rest.shift() ?? 0) : null;
+          const lean = leans ? (rest.shift() ?? 0) : null;
           const [sx = 1, sy = 1] = rest;
           return [
             `translate(${round(x, 2)}px, ${round(y, 2)}px)`,
             ...(angle === null ? [] : [`rotate(${round(angle, 2)}deg)`]),
+            ...(lean === null ? [] : [`skewX(${round(lean, 2)}deg)`]),
             ...(sizes ? [`scale(${round(sx, 4)}, ${round(sy, 4)})`] : []),
           ].join(' ');
         },

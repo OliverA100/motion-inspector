@@ -1497,6 +1497,18 @@ function textBars(
   });
 }
 
+// A tiny part that is a mark of its own: it paints, and it does not cut off
+// content the way a screen-reader-only box does.
+function isTinyMark(style: CSSStyleDeclaration): boolean {
+  if (style.overflow !== 'visible' || style.clip !== 'auto') return false;
+  return (
+    isVisibleColor(style.backgroundColor) ||
+    hasBorder(style) ||
+    shadowLayers(style.boxShadow) !== null ||
+    outlineOf(style) !== null
+  );
+}
+
 // Returns the shapes this element adds to its parent shape: itself (with
 // its descendants inside), or just its descendants if it has no shape.
 function shapesFor(
@@ -1512,8 +1524,10 @@ function shapesFor(
   const rect = layoutBox(element, walk);
   if (rect.width === 0 || rect.height === 0) return [];
   // Text kept only for screen readers is squeezed into a 1 px box. Its
-  // lines still measure as wide as the text, so they would be drawn.
-  if (!isRoot && rect.width <= 2 && rect.height <= 2) return [];
+  // lines still measure as wide as the text, so they would be drawn. Such a
+  // box cuts off what overflows it; a tiny dot that paints and cuts nothing
+  // off is drawn (a corner marker, a status dot).
+  if (!isRoot && rect.width <= 2 && rect.height <= 2 && !isTinyMark(style)) return [];
   walk.boxAtPick.set(element, rect);
   if (element.shadowRoot !== null) walk.snapshot.shadowRoots.push(element.shadowRoot);
 
