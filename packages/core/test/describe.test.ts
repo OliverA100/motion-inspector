@@ -157,6 +157,12 @@ describe('special properties in plain words', () => {
     ['backdrop-filter', 'blur(0px)', 'blur(12px)', 'The element blurs what is behind it by 12 px'],
     ['transform', 'none', 'perspective(400px) rotateX(60deg)', 'The element tilts back 60 degrees'],
     ['transform', 'rotateY(0deg)', 'rotateY(180deg)', 'The element flips over'],
+    [
+      'transform',
+      'rotateY(0deg)',
+      'rotateY(3600deg)',
+      'The element turns round 10 times around its vertical axis',
+    ],
     ['height', '0px', 'auto', 'The element grows taller from 0 to fit its content'],
     [
       'width',

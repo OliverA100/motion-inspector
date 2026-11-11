@@ -155,6 +155,10 @@ export type Snapshot = {
   shadowRoots: ShadowRoot[];
   // Things worth telling the user, in plain words.
   notes: string[];
+  // When recording moved here from the element that was picked (a tooltip
+  // that a hover on it opened): that element. Takes are named by what the
+  // pointer did to it.
+  pickedFrom?: Element;
 };
 
 // ---------- Small readers ----------
@@ -2270,6 +2274,25 @@ export function layoutNow(snapshot: Snapshot, element: Element): Box {
 }
 
 // ---------- Shapes for parts that appear later ----------
+
+// A part that appeared during the take was measured as soon as it animated,
+// so a quick removal could not lose it: its opacity and transform then were
+// the animation's, not its own. Once nothing animates it, they are read
+// again. Without this, an animation that does not fill (Radix's navigation
+// panel) ended with the part drawn at its first frame: see-through and
+// tilted, while the page showed it open.
+export function settleLateShape(snapshot: Snapshot, element: Element): void {
+  const shape = snapshot.shapeOf.get(element);
+  if (shape === undefined || !shape.id.includes('.late') || !element.isConnected) return;
+  if (element.getAnimations().length > 0) return;
+  const style = getComputedStyle(element);
+  const opacity = parseFloat(style.opacity);
+  if (Number.isFinite(opacity)) shape.opacity = Math.min(Math.max(opacity, 0), 1);
+  if (shape.kind === 'box') {
+    shape.transform = restingTransform(style, shape.box, element);
+    shape.individual = individualOf(style, shape.box);
+  }
+}
 
 // An element that was hidden when the element was picked has no shape: an
 // accordion's panel, a tab pane, the next slide of a carousel. They appear

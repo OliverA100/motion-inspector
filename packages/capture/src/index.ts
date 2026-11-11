@@ -49,6 +49,7 @@ export function record(
     lastElement = watched;
     const snapshot = takeSnapshot(watched);
     if (atLoad) snapshot.runningAtPick = new WeakSet();
+    if (moved) snapshot.pickedFrom = element;
     recorder = startRecording(snapshot, {
       moved,
       ...(atLoad ? { trigger: 'load' as const } : {}),

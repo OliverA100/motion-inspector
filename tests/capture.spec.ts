@@ -1015,11 +1015,14 @@ test('text that shows a background through its letters, and a gradient border', 
   // The text is drawn in the gradient's colors; the box behind it is not.
   const text = shapes.find((shape) => shape.kind === 'text');
   expect(text?.fill).toBe('rgba(128, 0, 128, 1)');
-  // The masked glow is a 2 px ring, not a filled gradient.
+  // The masked glow keeps its gradient, and its mask cuts it to a 2 px
+  // ring: the padding box's inside excluded from the whole (D155).
   const glow = shapes.find((shape) => shape.label === 'div.glow::before');
-  expect(glow?.gradient).toBeNull();
-  expect(glow?.fill).toBeNull();
-  expect(glow?.stroke?.width).toBe(2);
+  expect(glow?.gradient?.kind).toBe('radial');
+  expect(glow?.mask?.map((layer) => [layer.composite, layer.area])).toEqual([
+    ['exclude', { x: 2, y: 2, width: 96, height: 36 }],
+    ['exclude', { x: 0, y: 0, width: 100, height: 40 }],
+  ]);
 });
 
 test('a skeleton shimmer keeps its gradient tile', async ({ page }) => {
@@ -1927,4 +1930,36 @@ test('a ring mask is read as its two layers, and a repeating gradient as its sto
   // Stripes, not their average: the stops repeat across the box.
   expect(capture.root.gradient?.stops.length).toBeGreaterThan(8);
   expect(capture.notShown.join(' ')).not.toContain('average of its colors');
+});
+
+test('a tooltip a hover opens at the end of the page is followed, and its take is a hover', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-tip-button { display: inline-block; width: 80px; height: 32px; background: #ddd }
+     .sp-tip { position: fixed; left: 40px; top: 160px; width: 120px; height: 40px; background: #222;
+       animation: sp-tip-in .3s ease-out }
+     @keyframes sp-tip-in { from { opacity: 0; translate: 0 6px } }`,
+    '<a id="sp-tip-button">Tip</a>',
+    '#sp-tip-button',
+  );
+  // As Radix does: the tooltip appears a moment after the pointer arrives.
+  await page.evaluate(() => {
+    const button = document.getElementById('sp-tip-button') as HTMLElement;
+    button.addEventListener('pointerenter', () =>
+      window.setTimeout(() => {
+        const tip = document.createElement('div');
+        tip.className = 'sp-tip';
+        document.body.append(tip);
+      }, 300),
+    );
+  });
+  await page.mouse.move(2, 2);
+  await page.hover('#sp-tip-button');
+  await page.waitForTimeout(900);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.root.label).toBe('div.sp-tip');
+  expect(capture.trigger).toBe('hover');
+  expect(capture.tracks.map((track) => track.property).sort()).toEqual(['opacity', 'translate']);
 });

@@ -912,3 +912,13 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D156. Play the hover holds the hover
 **Chose:** the pointer comes in, then waits for the hover's take (its own motion is over), at most 2 seconds, and half a second more; then a small, slow sweep round the middle, well inside the element, for parts that follow the pointer; back to the middle for another half second; then out.
 **Why:** asked for by the user: the way out began as the way in ended, or before (a sweep across most of the element, and a fixed 0.7 s rest, could leave a slow hover unfinished or the element when it moved under the pointer).
+
+### D157. Found by the component sweep
+**Chose:**
+- A part that opens elsewhere while the pointer is on the picked element, having come onto it in the last 2 seconds, is followed, as one a press opens is: a tooltip or a hover card (Radix opens them 700 ms after the pointer arrives). The crossings of the element's edge decide, not :hover, which can lag a page that just changed. Once recording has moved, takes are named by what the pointer did to the element that was picked.
+- Track start offsets are whole milliseconds, rounded down: 0.066 ms past the take's start left the first frame, which already showed the animation, drawn at rest (shadcn's popover, 21 px and 100% opacity off).
+- A part that appeared during the take is read again for its resting opacity and transform once nothing animates it: an animation that does not fill left Radix's navigation panel drawn at its first frame, see-through and tilted.
+- A part a script writes to, whose opacity a browser animation owns, is hidden from when it goes, as any part taken off the page is (the same panel stayed shown after closing).
+- Transforms that differ only by whole turns (rotateY(0deg) to rotateY(3600deg)) are a change: their matrices are the same, their written angles are not (Mantine's loader was dropped). Whole turns past one are said as such: "turns round 10 times".
+- A part taken off the page "disappears".
+**Why:** the first 115 lines of the 85-page sweep: Radix's tooltips gave no take on every page; shadcn's popovers and Radix's navigation menu were 12 to 68 px off; Mantine's loader was listed as changing nothing.

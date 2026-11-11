@@ -110,6 +110,16 @@ function differs(first: number, second: number): boolean {
   return Math.abs(first - second) >= TOO_SMALL_TO_MENTION;
 }
 
+// A turn in words: degrees, or whole turns past one ("turns round 10
+// times" rather than 3600 degrees).
+function turnWords(verb: string, degrees: number): string {
+  const turns = Math.abs(degrees) / 360;
+  if (turns >= 2 && Math.abs(turns - Math.round(turns)) < 0.001) {
+    return `${verb} round ${Math.round(turns) === 2 ? 'twice' : `${Math.round(turns)} times`}`;
+  }
+  return `${verb} ${spoken(Math.abs(degrees))} degrees`;
+}
+
 function movePhrases(from: Pose, to: Pose): string[] {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -162,7 +172,7 @@ function movePhrases(from: Pose, to: Pose): string[] {
 
   const turn = to.degrees - from.degrees;
   const rotate = differs(turn, 0)
-    ? [`rotates ${spoken(Math.abs(turn))} degrees${turn < 0 ? ' counterclockwise' : ''}`]
+    ? [`${turnWords('rotates', turn)}${turn < 0 ? ' counterclockwise' : ''}`]
     : [];
 
   const slants = (change: number, way: string): string[] =>
@@ -197,7 +207,7 @@ function depthTurnPhrase(from: string, to: string): string | null {
     ...(!differs(Math.abs(spin), 180)
       ? ['flips over']
       : differs(spin, 0)
-        ? [`turns ${spoken(Math.abs(spin))} degrees around its vertical axis`]
+        ? [`${turnWords('turns', spin)} around its vertical axis`]
         : []),
   ];
   return phrases.length > 0 ? phrases.join(PART) : null;
@@ -293,6 +303,8 @@ function sameMeaning(first: Keyframe, second: Keyframe): boolean {
 }
 
 function phraseBetween(property: string, from: Keyframe, to: Keyframe, backdrop: Rgb): string {
+  // Hidden throughout: a part taken off the page, from that moment.
+  if (property === 'visibility' && to.value === 'hidden') return 'disappears';
   if (sameMeaning(from, to)) return `holds its ${property}`;
 
   const fromPose = poseOf(from.parsed);

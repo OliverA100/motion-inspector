@@ -33,6 +33,7 @@ import {
   addLateGroup,
   addLatePseudo,
   addLateShape,
+  settleLateShape,
   animationsUnder,
   cssName,
   labelOf,
@@ -115,6 +116,9 @@ const SAME_TRIGGER_MS = 150;
 // A part that appears elsewhere this soon after a press on the picked
 // element was opened by it.
 const OPENED_WITHIN_MS = 600;
+// How long after the pointer came onto the element a part it opens by
+// hovering may appear: a tooltip's delay, and its own way in.
+const OPENED_ON_HOVER_MS = 2000;
 
 // How long parts opened elsewhere are gathered before one is recorded.
 const OPENED_TOGETHER_MS = 60;
@@ -866,7 +870,10 @@ function tracksFor(
         groupId,
         // One that follows the scroll has no time of its own: it is shown
         // from the start of the take, over SCROLL_SHOWN_MS.
-        startOffset: seen.scroll === null ? Math.max(0, seen.startTime - takeStart) : 0,
+        // Down to a whole ms: a fraction past the take's start (0.066 ms on
+        // shadcn's popover) left a frame that already showed the animation
+        // drawn at rest, as if it had not begun.
+        startOffset: seen.scroll === null ? Math.max(0, Math.floor(seen.startTime - takeStart)) : 0,
         interrupted: seen.interrupted,
         scroll: seen.scroll,
         keyframes: filled.map((item, index) => ({
@@ -1637,7 +1644,15 @@ function within(root: Element, target: EventTarget | null): boolean {
 // The last thing done on the page just before the take began, as a
 // trigger. Coming onto the picked element is a hover; moving between its
 // own parts is not.
-function triggerOf(root: Element, take: Seen[], scriptStart: number | null = null): Trigger {
+function triggerOf(
+  root: Element,
+  take: Seen[],
+  scriptStart: number | null = null,
+  pickedFrom: Element | null = null,
+): Trigger {
+  // On the element, or on the one picked when recording moved here from it.
+  const onIt = (target: EventTarget | null): boolean =>
+    within(root, target) || (pickedFrom !== null && within(pickedFrom, target));
   if (take.length === 0 && scriptStart === null) return 'unknown';
   if (take.length > 0 && take.every((seen) => seen.scroll !== null)) return 'scroll';
   if (take.length > 0 && take.every((seen) => seen.runningAtPick)) {
@@ -1652,6 +1667,21 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
       .reverse()
       .find((event) => event.type === 'down' || event.type === 'key');
     if (press !== undefined) return press.type === 'down' ? 'click' : 'key';
+    // Opened by the pointer coming onto the picked element (a tooltip, a
+    // hover card): the last crossing of its edge before this began.
+    if (pickedFrom !== null) {
+      const crossing = pageEvents
+        .filter(
+          (event) =>
+            (event.type === 'over' || event.type === 'out') &&
+            event.time <= began + 50 &&
+            event.time >= began - OPENED_ON_HOVER_MS &&
+            onIt(event.target) &&
+            !onIt(event.related),
+        )
+        .at(-1);
+      if (crossing?.type === 'over') return 'hover';
+    }
     // Running when picked and never ending: a loop (a spinner, a marquee),
     // not something that was set off.
     if (take.every((seen) => !Number.isFinite(seen.timing.endTime))) return 'loop';
@@ -1678,7 +1708,7 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
     ).length >= 2;
   if (scrolled) return 'scroll';
   for (const event of [...near].reverse()) {
-    const crosses = within(root, event.target) && !within(root, event.related);
+    const crosses = onIt(event.target) && !onIt(event.related);
     if (event.type === 'over' && crosses) return 'hover';
     if (event.type === 'out' && crosses) return 'leave';
     if (event.type === 'down') return 'click';
@@ -1692,8 +1722,8 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
           other.type === 'down' && other.time <= event.time && other.time >= event.time - 300,
       );
     if (pressed) return 'click';
-    if (event.type === 'focus' && within(root, event.target)) return 'focus';
-    if (event.type === 'blur' && within(root, event.target)) return 'blur';
+    if (event.type === 'focus' && onIt(event.target)) return 'focus';
+    if (event.type === 'blur' && onIt(event.target)) return 'blur';
   }
   if (take.some((seen) => !Number.isFinite(seen.timing.endTime))) return 'loop';
   return 'unknown';
@@ -1886,6 +1916,7 @@ function buildTake(
       addLateGroup(snapshot, seen.target);
     } else if (seen.pseudoElement === null) addLateShape(snapshot, seen.target);
     else addLatePseudo(snapshot, seen.target, seen.pseudoElement);
+    if (seen.pseudoElement === null) settleLateShape(snapshot, seen.target);
   }
   // The take starts with the first animation that is new and can be drawn.
   // One that was already running (a loader beside a hovered button) would
@@ -1954,7 +1985,19 @@ function buildTake(
     groupId: string | null;
   }[];
   const layout = layoutTracksFor(snapshot, take, samples, takeStart) as typeof tracks;
-  const removals = removalTracksFor(snapshot, film, scripted, takeStart) as typeof tracks;
+  // A part a script writes to, whose opacity a browser animation owns:
+  // its film gives no opacity track, so its going is a removal like any.
+  const fadedByBrowser = new Set(
+    take
+      .filter((seen) => seen.pseudoElement === null && seen.properties.includes('opacity'))
+      .map((seen) => seen.target),
+  );
+  const removals = removalTracksFor(
+    snapshot,
+    film,
+    new Set(Array.from(scripted).filter((element) => !fadedByBrowser.has(element))),
+    takeStart,
+  ) as typeof tracks;
   tracks.forEach((track, index) => {
     const there = tracks
       .slice(0, index)
@@ -2035,7 +2078,14 @@ function buildTake(
       takeStart,
     ),
     follows: follows.length > 0 ? follows : null,
-    trigger: trigger ?? triggerOf(snapshot.rootElement, take, take.length === 0 ? takeStart : null),
+    trigger:
+      trigger ??
+      triggerOf(
+        snapshot.rootElement,
+        take,
+        take.length === 0 ? takeStart : null,
+        snapshot.pickedFrom ?? null,
+      ),
     backdrop: snapshot.backdrop,
     frame: snapshot.frame,
     // The same sentence twice (two such animations on one part) says nothing more.
@@ -2103,6 +2153,27 @@ function asMatrix(functions: TransformFunction[]): DOMMatrix {
   }, new DOMMatrix());
 }
 
+// The turns a transform's text writes, in degrees, turns of 0 left out:
+// rotate(), rotateX/Y/Z() and the angle of rotate3d().
+function turnsIn(text: string): number[] {
+  const turns: number[] = [];
+  for (const found of text.matchAll(/rotate(?:[XYZ]|3d)?\(([^)]*)\)/g)) {
+    const angle = /(-?[\d.]+)(deg|turn|rad|grad)\s*$/.exec(found[1] ?? '');
+    if (angle === null) continue;
+    const amount = Number(angle[1]);
+    const degrees =
+      angle[2] === 'turn'
+        ? amount * 360
+        : angle[2] === 'rad'
+          ? (amount * 180) / Math.PI
+          : angle[2] === 'grad'
+            ? amount * 0.9
+            : amount;
+    if (Math.abs(degrees) > 0.01) turns.push(degrees);
+  }
+  return turns;
+}
+
 function sameValue(property: string, first: string, second: string, element: Element): boolean {
   if (first === second) return true;
   // A filter of functions that change nothing (blur(0px), brightness(1))
@@ -2114,6 +2185,16 @@ function sameValue(property: string, first: string, second: string, element: Ele
   // (a card flip, rotateY(180deg)) is not "none" (found on daisyUI's swap,
   // whose front face lost its turn).
   if (property === 'transform') {
+    // A whole turn ends on the same matrix it began with: rotateY(0deg) to
+    // rotateY(360deg) spins Mantine's loader. The angles written count.
+    const first2 = turnsIn(first);
+    const second2 = turnsIn(second);
+    if (
+      first2.length !== second2.length ||
+      first2.some((turn, index) => Math.abs(turn - (second2[index] ?? 0)) > 0.01)
+    ) {
+      return false;
+    }
     try {
       const m = new DOMMatrix(first === 'none' ? '' : first).toFloat64Array();
       const n = new DOMMatrix(second === 'none' ? '' : second).toFloat64Array();
@@ -2383,7 +2464,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         within(snapshot.rootElement, event.target) &&
         event.time >= docNow - OPENED_WITHIN_MS,
     );
-    if (!pressed) return null;
+    // A tooltip or a hover card opens from a hover, after a delay (Radix
+    // waits 700 ms): the pointer is on the element, and came onto it lately.
+    // Read from the pointer's own crossings of the element's edge: the
+    // last one came in, lately. (:hover can lag a page that just changed.)
+    const crossings = pageEvents.filter(
+      (event) =>
+        (event.type === 'over' || event.type === 'out') &&
+        within(snapshot.rootElement, event.target) &&
+        !within(snapshot.rootElement, event.related),
+    );
+    const lastCrossing = crossings[crossings.length - 1];
+    const hovered =
+      lastCrossing !== undefined &&
+      lastCrossing.type === 'over' &&
+      lastCrossing.time >= docNow - OPENED_ON_HOVER_MS;
+    if (!pressed && !hovered) return null;
     const shown = topLayerPartOf(target);
     if (shown !== null && !openAtPick.has(shown)) return shown;
     if (inDocumentAtPick.has(target)) return null;
@@ -2613,8 +2709,13 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       previousFilm = new Map();
       const mergedWatch = joinWatches(previousWatch, takenWatch);
       previousWatch = new Map();
-      const first = triggerOf(snapshot.rootElement, previousTake);
-      const second = triggerOf(snapshot.rootElement, finished);
+      const first = triggerOf(
+        snapshot.rootElement,
+        previousTake,
+        null,
+        snapshot.pickedFrom ?? null,
+      );
+      const second = triggerOf(snapshot.rootElement, finished, null, snapshot.pickedFrom ?? null);
       const trigger: Trigger =
         (first === 'hover' || first === 'running') && second === 'leave'
           ? 'hover-and-leave'
@@ -2780,7 +2881,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         [],
         [],
         [],
-        triggerOf(snapshot.rootElement, [], began),
+        triggerOf(snapshot.rootElement, [], began, snapshot.pickedFrom ?? null),
         new Map(),
         new Set(),
         seen,
