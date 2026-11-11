@@ -257,8 +257,14 @@ function insetsOf(value: string): number[] | null {
   const found = /^inset\(([^)]*?)(?:\s+round\s[^)]*)?\)$/.exec(value.trim());
   if (found === null) return null;
   const parts = (found[1] ?? '').trim().split(/\s+/);
+  // A negative inset reaches past the box (Stripe's menu: -60px, so its
+  // shadow is not cut): that side shows in full, as 0 does.
   const amounts = parts.map((part) =>
-    part === '0' || part === '0px' ? 0 : part.endsWith('%') ? Number(part.slice(0, -1)) / 100 : NaN,
+    part === '0' || part === '0px' || /^-\d*\.?\d+(px|%)?$/.test(part)
+      ? 0
+      : part.endsWith('%')
+        ? Number(part.slice(0, -1)) / 100
+        : NaN,
   );
   if (amounts.some((amount) => Number.isNaN(amount))) return null;
   const [top = 0, right = top, bottom = top, left = right] = amounts;
