@@ -15,6 +15,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { formatNumber } from '@motion-inspector/core';
@@ -95,6 +96,10 @@ type Props = {
   onDragChange: (dragging: boolean) => void;
   // Shown at the bottom, above the shortcuts. The editor puts a toggle here.
   extra?: ReactNode;
+  // When given (one column: the side panel), the selected row opens under
+  // itself, with its timing and this (its curve) in it, so what is being
+  // shaped is right below the row it belongs to.
+  detail?: ReactNode;
 };
 
 // Two layouts, chosen by the width of the panel.
@@ -181,12 +186,16 @@ export function Timeline(props: Props) {
   // The panel's own width decides the layout, not the window's.
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
+  const [wrapperWidth, setWrapperWidth] = useState(0);
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (wrapper === null) return;
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
-      if (width !== undefined) setStacked(width < STACK_BELOW_PX);
+      if (width !== undefined) {
+        setStacked(width < STACK_BELOW_PX);
+        setWrapperWidth(width);
+      }
     });
     observer.observe(wrapper);
     return () => observer.disconnect();
@@ -194,7 +203,23 @@ export function Timeline(props: Props) {
   const layout = stacked ? STACKED : SIDE;
   const ROW_HEIGHT = layout.rowHeight;
 
-  const height = tracks.length * ROW_HEIGHT;
+  // The selected row's opened space, measured as it renders.
+  const inline = props.detail !== undefined;
+  const gapAfter =
+    inline && selectedIndex !== null && selectedIndex < tracks.length ? selectedIndex : null;
+  const detailRef = useRef<HTMLDivElement>(null);
+  const [gapHeight, setGapHeight] = useState(0);
+  useEffect(() => {
+    const detail = detailRef.current;
+    if (detail === null) return;
+    const measure = (): void => setGapHeight(detail.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(detail);
+    return () => observer.disconnect();
+  }, [gapAfter]);
+  const gap = gapAfter === null ? null : { after: gapAfter, height: gapHeight };
+  const height = tracks.length * ROW_HEIGHT + (gap?.height ?? 0);
   const drawRulerNow = useCallback<Draw>(
     (context, canvasSize) => drawRuler(context, { totalMs: viewMs, playheadMs, theme }, canvasSize),
     [viewMs, playheadMs, theme],
@@ -217,17 +242,36 @@ export function Timeline(props: Props) {
           barOffset: layout.barOffset,
           showOriginal,
           theme,
+          gap,
         },
         canvasSize,
       ),
-    [tracks, selectedIndex, viewMs, playheadMs, showOriginal, theme, layout],
+    [
+      tracks,
+      selectedIndex,
+      viewMs,
+      playheadMs,
+      showOriginal,
+      theme,
+      layout,
+      gap?.after,
+      gap?.height,
+    ],
   );
 
+  // A height on the bars, with the opened space taken out: in it, no row.
+  const rowY = (y: number): number => {
+    if (gap === null) return y;
+    const top = (gap.after + 1) * ROW_HEIGHT;
+    if (y < top) return y;
+    if (y < top + gap.height) return -1;
+    return y - gap.height;
+  };
   const hitAt = (x: number, y: number): TimelineHit =>
     size === null
       ? { kind: 'empty' }
       : hitTest(
-          { x, y },
+          { x, y: rowY(y) },
           tracks.map((track) => track.mine),
           size.width,
           viewMs,
@@ -357,6 +401,72 @@ export function Timeline(props: Props) {
         ? 'grabbing'
         : CURSORS[drag.kind === 'scrub' ? 'empty' : 'bar-end'];
 
+  // Delay, duration, the resets and what the row is linked with.
+  const fields = (
+    <div className="fields">
+      <span className="fields__title">
+        {selected === null
+          ? 'Select a row to set its delay and duration'
+          : `Timing of ${selected.name ?? selected.property} on ${selected.shapeLabel}`}
+      </span>
+      <NumberField
+        label="Delay"
+        term={selected?.delayTerm ?? 'delay'}
+        value={selected?.mine.delayMs ?? null}
+        unit="ms"
+        disabled={selected?.scroll === true}
+        onDone={props.onEditEnd}
+        min={selected?.delayMin ?? 0}
+        onChange={(value) =>
+          selectedIndex !== null &&
+          selected !== null &&
+          props.onDelayChange(selectedIndex, Math.max(value, selected.delayMin))
+        }
+      />
+      <NumberField
+        label="Duration"
+        term={selected?.durationTerm ?? 'duration'}
+        value={selected?.mine.durationMs ?? null}
+        unit="ms"
+        disabled={selected?.scroll === true}
+        onDone={props.onEditEnd}
+        min={0}
+        onChange={(value) => selectedIndex !== null && props.onDurationChange(selectedIndex, value)}
+      />
+      <div className="fields__resets">
+        <Button
+          disabled={selected === null || !selected.edited}
+          onClick={() => selectedIndex !== null && props.onReset(selectedIndex)}
+        >
+          Reset this row
+        </Button>
+        <Button disabled={!props.anyEdited} onClick={props.onResetAll}>
+          Reset all
+        </Button>
+      </div>
+      {/* One line, always there, so nothing moves when it changes. */}
+      <p className="fields__link">
+        <span>
+          {/* A space, not nothing: an empty line wraps differently and
+              the panel would change height. */}
+          {selected === null
+            ? '\u00a0'
+            : selected.scroll
+              ? 'Follows the scroll: 0 to 100% of its range, shown over 1 s. Its curve can be edited.'
+              : linked
+                ? `Comes from the same animation as ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}: editing its timing or curve changes ${selected.linkedCount === 1 ? 'it' : 'them'} too.`
+                : 'Edits change this row only.'}
+        </span>
+        <Button
+          disabled={!linked}
+          onClick={() => selectedIndex !== null && props.onUnlink(selectedIndex)}
+        >
+          Edit on its own
+        </Button>
+      </p>
+    </div>
+  );
+
   return (
     <section className="panel">
       <header className="panel__head">
@@ -370,7 +480,12 @@ export function Timeline(props: Props) {
       {/* The rows scroll inside this box. The ruler is pinned to its top, so
           the timing fields below stay in view
           however many rows there are. */}
-      <div ref={wrapperRef} className={stacked ? 'timeline is-stacked' : 'timeline'}>
+      <div
+        ref={wrapperRef}
+        className={['timeline', stacked ? 'is-stacked' : '', inline ? 'is-inline' : ''].join(' ')}
+        // The opened row spans the labels and the bars.
+        style={{ '--timeline-width': `${wrapperWidth}px` } as CSSProperties}
+      >
         <div className="timeline__corner" style={{ height: RULER_HEIGHT }} />
         <div
           className="timeline__ruler"
@@ -394,7 +509,7 @@ export function Timeline(props: Props) {
           {tracks.map((track, index) => {
             const isSelected = index === selectedIndex;
             const title = track.name ?? track.property;
-            return (
+            return [
               <div
                 key={index}
                 className={[
@@ -445,8 +560,14 @@ export function Timeline(props: Props) {
                     {track.previewed ? '' : ' · not previewed'}
                   </span>
                 </button>
-              </div>
-            );
+              </div>,
+              index === gapAfter ? (
+                <div key="detail" ref={detailRef} className="timeline__detail">
+                  {fields}
+                  {props.detail}
+                </div>
+              ) : null,
+            ];
           })}
         </div>
         <div
@@ -479,71 +600,14 @@ export function Timeline(props: Props) {
       ) : null}
 
       {/* Always here, and only disabled when no row is selected, so the
-          panel keeps its height. */}
-      <div className="fields">
-        <span className="fields__title">
-          {selected === null
-            ? 'Select a row to set its delay and duration'
-            : `Timing of ${selected.name ?? selected.property} on ${selected.shapeLabel}`}
-        </span>
-        <NumberField
-          label="Delay"
-          term={selected?.delayTerm ?? 'delay'}
-          value={selected?.mine.delayMs ?? null}
-          unit="ms"
-          disabled={selected?.scroll === true}
-          onDone={props.onEditEnd}
-          min={selected?.delayMin ?? 0}
-          onChange={(value) =>
-            selectedIndex !== null &&
-            selected !== null &&
-            props.onDelayChange(selectedIndex, Math.max(value, selected.delayMin))
-          }
-        />
-        <NumberField
-          label="Duration"
-          term={selected?.durationTerm ?? 'duration'}
-          value={selected?.mine.durationMs ?? null}
-          unit="ms"
-          disabled={selected?.scroll === true}
-          onDone={props.onEditEnd}
-          min={0}
-          onChange={(value) =>
-            selectedIndex !== null && props.onDurationChange(selectedIndex, value)
-          }
-        />
-        <div className="fields__resets">
-          <Button
-            disabled={selected === null || !selected.edited}
-            onClick={() => selectedIndex !== null && props.onReset(selectedIndex)}
-          >
-            Reset this row
-          </Button>
-          <Button disabled={!props.anyEdited} onClick={props.onResetAll}>
-            Reset all
-          </Button>
-        </div>
-        {/* One line, always there, so nothing moves when it changes. */}
-        <p className="fields__link">
-          <span>
-            {/* A space, not nothing: an empty line wraps differently and
-                the panel would change height. */}
-            {selected === null
-              ? '\u00a0'
-              : selected.scroll
-                ? 'Follows the scroll: 0 to 100% of its range, shown over 1 s. Its curve can be edited.'
-                : linked
-                  ? `Comes from the same animation as ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}: editing its timing or curve changes ${selected.linkedCount === 1 ? 'it' : 'them'} too.`
-                  : 'Edits change this row only.'}
-          </span>
-          <Button
-            disabled={!linked}
-            onClick={() => selectedIndex !== null && props.onUnlink(selectedIndex)}
-          >
-            Edit on its own
-          </Button>
-        </p>
-      </div>
+          panel keeps its height. Opened under its row on one column. */}
+      {inline ? (
+        gapAfter === null ? (
+          <p className="timeline__hint">Select a row to see its timing and curve.</p>
+        ) : null
+      ) : (
+        fields
+      )}
       {props.extra !== undefined ? <div className="timeline__extra">{props.extra}</div> : null}
     </section>
   );

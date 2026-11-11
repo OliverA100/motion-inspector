@@ -492,3 +492,29 @@ test('on one column, the preview stays in view while scrolling down to the curve
   if (stage === null || preset === null) throw new Error('Not found');
   expect(preset.y).toBeGreaterThanOrEqual(stage.y + stage.height);
 });
+
+// Asked for: on one column (the side panel) the curve is inside the
+// timeline, under the row it belongs to, and follows the selected row.
+test('on one column, the selected row opens under itself with its curve', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 1800 });
+  await page.goto('/?sample=morph');
+  const detail = page.locator('.timeline__detail');
+  await expect(detail).toHaveCount(1);
+  await expect(detail.getByRole('heading', { name: /^Curve of/ })).toContainText(
+    'Curve of Background',
+  );
+  // The row after it sits below the opened space.
+  const opened = await detail.boundingBox();
+  const corners = await page.getByRole('button', { name: /Corners/ }).boundingBox();
+  if (opened === null || corners === null) throw new Error('Not found');
+  expect(corners.y).toBeGreaterThanOrEqual(opened.y + opened.height - 1);
+
+  await page.getByRole('button', { name: /Corners/ }).click();
+  await expect(detail.getByRole('heading', { name: /^Curve of/ })).toContainText(
+    'Curve of Corners',
+  );
+  const background = await page.getByRole('button', { name: /^Background/ }).boundingBox();
+  const moved = await detail.boundingBox();
+  if (background === null || moved === null) throw new Error('Not found');
+  expect(moved.y).toBeGreaterThan(background.y);
+});

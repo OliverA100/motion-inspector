@@ -29,7 +29,19 @@ export type TimelineData = {
   barOffset: number;
   showOriginal: boolean;
   theme: Theme;
+  // A space under one row, where the editor opens that row's timing and
+  // curve: the rows after it are drawn this much lower. null: none.
+  gap: { after: number; height: number } | null;
 };
+
+// Where a row starts, with the space opened under the selected one.
+export function rowTop(
+  index: number,
+  rowHeight: number,
+  gap: TimelineData['gap'],
+): number {
+  return index * rowHeight + (gap !== null && index > gap.after ? gap.height : 0);
+}
 
 // Between a time and an x position on the timeline. The pointer handling
 // uses the same function as the drawing, so they always agree.
@@ -314,7 +326,7 @@ export function drawTimeline(
   context.stroke();
 
   data.rows.forEach((row, index) => {
-    drawRow(context, data, row, index * data.rowHeight, size.width);
+    drawRow(context, data, row, rowTop(index, data.rowHeight, data.gap), size.width);
   });
 
   const playheadX = Math.round(x(data.playheadMs)) + 0.5;

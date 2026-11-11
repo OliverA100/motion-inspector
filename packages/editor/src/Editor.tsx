@@ -94,6 +94,19 @@ const TABS: { id: Tab; text: string }[] = [
   { id: 'notes', text: 'Not shown' },
 ];
 
+// One column, as editor.css lays it out below 960 px (the side panel).
+const ONE_COLUMN = '(max-width: 959px)';
+function useOneColumn(): boolean {
+  const [one, setOne] = useState(() => window.matchMedia(ONE_COLUMN).matches);
+  useEffect(() => {
+    const list = window.matchMedia(ONE_COLUMN);
+    const changed = (): void => setOne(list.matches);
+    list.addEventListener('change', changed);
+    return () => list.removeEventListener('change', changed);
+  }, []);
+  return one;
+}
+
 export function Editor(props: Props) {
   return (
     <ErrorBoundary>
@@ -115,6 +128,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
   const [dragging, setDragging] = useState(false);
   // Which section shows below the preview on one column. View only.
   const [tab, setTab] = useState<Tab>('timeline');
+  const oneColumn = useOneColumn();
 
   // A new capture replaces everything.
   useEffect(() => {
@@ -335,6 +349,66 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
   const notPreviewed = notDrawn(edited);
   const hasNotes = edited.notShown.length > 0 || notPreviewed.length > 0;
 
+  // The selected row's curve and speed. On two columns they are beside the
+  // timeline; on one (the side panel) they open under the row itself.
+  const curvePanel = (
+    <>
+      {selected === null ? (
+        <section className="panel panel--empty">
+          <p>Select a row on the timeline to see and change its curve.</p>
+        </section>
+      ) : measuredPath ? (
+        <section className="panel panel--empty">
+          <p>
+            Measured from the page, frame by frame: this motion has no curve of its own, only the
+            path it took. Change its timing on the timeline.
+          </p>
+        </section>
+      ) : (
+        <CurveEditor
+          // A different track or segment starts with a fresh chart.
+          key={`${model.selectedTrack}-${model.selectedSegment}`}
+          of={selectedName}
+          original={easingAt(selected.original, model.selectedSegment)}
+          mine={easingAt(selected.mine, model.selectedSegment)}
+          showOriginal={showOriginal}
+          playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
+          durationMs={curveDurationMs(selected.mine, model.selectedSegment)}
+          term={easingTerm(selected.mine)}
+          segments={
+            segments === null ? null : { labels: segments, selected: model.selectedSegment }
+          }
+          onSegmentChange={(segmentIndex) => dispatch({ kind: 'segmentSelected', segmentIndex })}
+          onChange={(easing) => dispatch({ kind: 'easingChanged', easing })}
+          // Letting go replays the preview by itself.
+          onCommit={commit}
+          onReset={() => dispatch({ kind: 'curveReset' })}
+          onDragChange={setDragging}
+        />
+      )}
+    </>
+  );
+  const speedPanel = (
+    <>
+      {selected === null || measuredPath ? (
+        <section className="panel panel--empty">
+          <p>
+            {selected === null
+              ? 'The speed of the selected row appears here.'
+              : 'Its speed is the speed it was filmed at.'}
+          </p>
+        </section>
+      ) : (
+        <SpeedGraph
+          original={easingAt(selected.original, model.selectedSegment)}
+          mine={easingAt(selected.mine, model.selectedSegment)}
+          playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
+          showOriginal={showOriginal}
+        />
+      )}
+    </>
+  );
+
   return (
     <div className="mi">
       <div className="mi__inner">
@@ -488,6 +562,16 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
             <div className="mi__pane" data-active={tab === 'timeline'}>
               {hasTracks ? (
                 <Timeline
+                  {...(oneColumn
+                    ? {
+                        detail: (
+                          <>
+                            {curvePanel}
+                            {speedPanel}
+                          </>
+                        ),
+                      }
+                    : {})}
                   tracks={shownRows}
                   selectedIndex={rowOfTrack(model.selectedTrack)}
                   // A new capture starts with a fresh timeline scale.
@@ -590,67 +674,12 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
 
           <div className="mi__column">
             <div className="mi__pane" data-active={tab === 'timeline'}>
-              {hasTracks ? (
+              {hasTracks && !oneColumn ? (
                 <>
                   {/* Each slot keeps its height when nothing is selected, so the
                 panels below it stay where they are. */}
-                  <div className="slot slot--curve">
-                    {selected === null ? (
-                      <section className="panel panel--empty">
-                        <p>Select a row on the timeline to see and change its curve.</p>
-                      </section>
-                    ) : measuredPath ? (
-                      <section className="panel panel--empty">
-                        <p>
-                          Measured from the page, frame by frame: this motion has no curve of its
-                          own, only the path it took. Change its timing on the timeline.
-                        </p>
-                      </section>
-                    ) : (
-                      <CurveEditor
-                        // A different track or segment starts with a fresh chart.
-                        key={`${model.selectedTrack}-${model.selectedSegment}`}
-                        of={selectedName}
-                        original={easingAt(selected.original, model.selectedSegment)}
-                        mine={easingAt(selected.mine, model.selectedSegment)}
-                        showOriginal={showOriginal}
-                        playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
-                        durationMs={curveDurationMs(selected.mine, model.selectedSegment)}
-                        term={easingTerm(selected.mine)}
-                        segments={
-                          segments === null
-                            ? null
-                            : { labels: segments, selected: model.selectedSegment }
-                        }
-                        onSegmentChange={(segmentIndex) =>
-                          dispatch({ kind: 'segmentSelected', segmentIndex })
-                        }
-                        onChange={(easing) => dispatch({ kind: 'easingChanged', easing })}
-                        // Letting go replays the preview by itself.
-                        onCommit={commit}
-                        onReset={() => dispatch({ kind: 'curveReset' })}
-                        onDragChange={setDragging}
-                      />
-                    )}
-                  </div>
-                  <div className="slot slot--speed">
-                    {selected === null || measuredPath ? (
-                      <section className="panel panel--empty">
-                        <p>
-                          {selected === null
-                            ? 'The speed of the selected row appears here.'
-                            : 'Its speed is the speed it was filmed at.'}
-                        </p>
-                      </section>
-                    ) : (
-                      <SpeedGraph
-                        original={easingAt(selected.original, model.selectedSegment)}
-                        mine={easingAt(selected.mine, model.selectedSegment)}
-                        playhead={curvePlayhead(selected.mine, model.selectedSegment, timeMs)}
-                        showOriginal={showOriginal}
-                      />
-                    )}
-                  </div>
+                  <div className="slot slot--curve">{curvePanel}</div>
+                  <div className="slot slot--speed">{speedPanel}</div>
                 </>
               ) : null}
             </div>

@@ -729,6 +729,49 @@ html {
   overflow-y: auto;
 }
 
+/* One column (the side panel): the selected row opens under itself, with
+   its timing and curve, so the timeline is as tall as it needs and the
+   panel scrolls. Its ruler scrolls with it, under the stuck preview. */
+.timeline.is-inline {
+  max-height: none;
+  overflow: visible;
+}
+
+.timeline.is-inline .timeline__corner,
+.timeline.is-inline .timeline__ruler {
+  position: static;
+}
+
+.timeline__detail {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  background: var(--color-surface);
+  border-top: var(--hairline) solid var(--color-border);
+  border-bottom: var(--hairline) solid var(--color-border);
+  pointer-events: auto;
+}
+
+/* Beside the bars, the labels column is narrow: the opened row spans both. */
+.timeline.is-inline:not(.is-stacked) .timeline__detail {
+  width: var(--timeline-width);
+}
+
+.timeline__detail > .panel {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.timeline__hint {
+  margin: 0;
+  padding: var(--space-3);
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+  border-top: var(--hairline) solid var(--color-border);
+}
+
 /* The ruler, and the empty corner beside it, stay at the top while the
    rows scroll underneath. */
 .timeline__corner,

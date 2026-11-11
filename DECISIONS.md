@@ -1271,3 +1271,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D226. Up to 80 parts are drawn; big text is drawn as soft blocks
 **Chose:** a take draws up to 80 parts (40 before). A bar of text has corners of at most 3 px plus 12% of its height, so a line of body text is still a pill and a letter in display type is a block.
 **Why:** that heading is 19 letters of three parts each; at 40 a letter was missing from the word. Rounded fully, each letter on its own was a black disc.
+
+### D227. On one column, the selected row opens under itself
+**Chose:** in the side panel (one column), selecting a timeline row opens it in place: its timing (delay, duration, resets, linking), its curve and its speed sit directly under the row, and the rows after it move down. The bars canvas leaves the same space under that row, and presses in it reach no bar. On two columns the curve stays in its own column beside the timeline. This replaces D219's curve under the whole timeline.
+**Why:** asked for. Below the whole timeline, with several rows, the curve was still far from the row it was for.
