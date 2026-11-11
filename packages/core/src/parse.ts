@@ -871,6 +871,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     );
     const words = at('words', optional(get(source, 'words'), parseWords));
     const underline = at('underline', optional(get(source, 'underline'), parseUnderline));
+    const fontSize = at('fontSize', optional(get(source, 'fontSize'), positive));
     const children = at(
       'children',
       listOf(get(source, 'children'), (child) => parseShapeAtDepth(child, depth + 1)),
@@ -903,6 +904,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !gradients.ok ||
       !words.ok ||
       !underline.ok ||
+      !fontSize.ok ||
       !children.ok
     ) {
       return failAll(
@@ -933,6 +935,8 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           gradient,
           gradients,
           words,
+          underline,
+          fontSize,
           children,
         ].flatMap(errorsOf),
       );
@@ -964,6 +968,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       gradients: gradients.value,
       words: words.value,
       underline: underline.value,
+      fontSize: fontSize.value,
       icon: icon.value,
       children: children.value,
     });

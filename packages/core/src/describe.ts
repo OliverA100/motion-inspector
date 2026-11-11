@@ -49,8 +49,38 @@ function time(value: number): string {
 const PART = '\u0001';
 
 function joinWithAnd(parts: string[]): string {
-  if (parts.length <= 1) return parts.join('');
-  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  const merged = sameVerbOnce(parts);
+  if (merged.length <= 1) return merged.join('');
+  return `${merged.slice(0, -1).join(', ')} and ${merged[merged.length - 1]}`;
+}
+
+// "darkens its background" and "darkens its border" read as "darkens its
+// background and border": the verb once, for changes that say nothing more.
+const VERB_ITS = /^(\S+) its ([a-z][a-z -]*)$/;
+function sameVerbOnce(parts: string[]): string[] {
+  const out: string[] = [];
+  const nouns = new Map<number, string[]>();
+  for (const part of parts) {
+    const match = VERB_ITS.exec(part);
+    const plain = match !== null && !/ (from|to|by) /.test(` ${match[2] ?? ''} `);
+    const at = plain
+      ? out.findIndex(
+          (earlier) => earlier.startsWith(`${match?.[1]} its `) && nouns.has(out.indexOf(earlier)),
+        )
+      : -1;
+    if (plain && at >= 0) {
+      nouns.get(at)?.push(match?.[2] ?? '');
+      continue;
+    }
+    if (plain) nouns.set(out.length, [match?.[2] ?? '']);
+    out.push(part);
+  }
+  return out.map((part, index) => {
+    const list = nouns.get(index);
+    if (list === undefined || list.length < 2) return part;
+    const verb = part.split(' ')[0] ?? '';
+    return `${verb} its ${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+  });
 }
 
 function valueInWords(keyframe: Keyframe): string {

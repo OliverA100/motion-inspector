@@ -8,7 +8,9 @@
 
 import type { ParsedValue, TransformFunction } from '@motion-inspector/core';
 
-export type BoxSize = { width: number; height: number };
+// font: the element's font size in px, for lengths in em (Framer Motion
+// writes its keyframes in em when the page does).
+export type BoxSize = { width: number; height: number; font?: number };
 
 const NUMBER = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/;
 const COLOR = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+)(%?))?\s*\)$/;
@@ -29,20 +31,20 @@ function asTransformText(property: string, value: string): string | null {
 
 // A length in px. A percentage is measured against the element's own box,
 // as CSS does for translate.
-function px(value: CSSNumericValue, size: number): number | null {
+function px(value: CSSNumericValue, size: number, font?: number): number | null {
   // calc(): its parts worked out against the box, so a marquee's
   // translateX(calc(-100% - 16px)) is a number of px (found on Magic UI).
   if (value instanceof CSSMathSum) {
     let total = 0;
     for (const part of value.values) {
-      const each = px(part, size);
+      const each = px(part, size, font);
       if (each === null) return null;
       total += each;
     }
     return total;
   }
   if (value instanceof CSSMathNegate) {
-    const inner = px(value.value, size);
+    const inner = px(value.value, size, font);
     return inner === null ? null : -inner;
   }
   if (value instanceof CSSMathProduct) {
@@ -55,7 +57,7 @@ function px(value: CSSNumericValue, size: number): number | null {
         product *= number;
         continue;
       }
-      const length = px(part, size);
+      const length = px(part, size, font);
       if (length === null) return null;
       product *= length;
       lengths += 1;
@@ -63,7 +65,7 @@ function px(value: CSSNumericValue, size: number): number | null {
     return lengths === 1 ? product : null;
   }
   if (value instanceof CSSMathMin || value instanceof CSSMathMax) {
-    const parts = Array.from(value.values, (part) => px(part, size));
+    const parts = Array.from(value.values, (part) => px(part, size, font));
     if (parts.some((part) => part === null)) return null;
     const numbers = parts as number[];
     return value instanceof CSSMathMin ? Math.min(...numbers) : Math.max(...numbers);
@@ -71,6 +73,10 @@ function px(value: CSSNumericValue, size: number): number | null {
   if (!(value instanceof CSSUnitValue)) return null;
   if (value.unit === 'px') return value.value;
   if (value.unit === 'percent') return (value.value / 100) * size;
+  if (value.unit === 'em' && font !== undefined) return value.value * font;
+  if (value.unit === 'rem') {
+    return value.value * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+  }
   try {
     return value.to('px').value;
   } catch {
@@ -96,7 +102,7 @@ function degrees(value: CSSNumericValue): number | null {
 // to get the browser to use the GPU. They are read as the 2D form.
 function isFlat(component: CSSTransformComponent): boolean {
   if (component.is2D) return true;
-  if (component instanceof CSSTranslate) return px(component.z, 0) === 0;
+  if (component instanceof CSSTranslate) return px(component.z, 0, 16) === 0;
   // Scaling depth does nothing to a flat element: scale3d(0.1, 0.1, 0.1)
   // looks the same as scale(0.1).
   if (component instanceof CSSScale) return true;
@@ -113,8 +119,8 @@ function isFlat(component: CSSTransformComponent): boolean {
 function readFunction(component: CSSTransformComponent, box: BoxSize): TransformFunction | null {
   if (!isFlat(component)) return null;
   if (component instanceof CSSTranslate) {
-    const x = px(component.x, box.width);
-    const y = px(component.y, box.height);
+    const x = px(component.x, box.width, box.font);
+    const y = px(component.y, box.height, box.font);
     return x === null || y === null ? null : { fn: 'translate', x, y };
   }
   if (component instanceof CSSScale) {

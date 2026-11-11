@@ -267,6 +267,35 @@ describe('special properties in plain words', () => {
     expect(firstSentence(changing(property, from, to, parsed))).toBe(expected);
   });
 
+  test('one verb for two colors that change the same way', () => {
+    const base = cardLift.tracks[0];
+    if (base === undefined) throw new Error('no track');
+    const [first, last] = base.keyframes;
+    if (first === undefined || last === undefined) throw new Error('no keyframes');
+    const color = (value: number): ParsedValue => ({
+      kind: 'color',
+      r: value,
+      g: value,
+      b: value,
+      a: 1,
+    });
+    const darkening = (property: string) => ({
+      ...base,
+      property,
+      groupId: null,
+      keyframes: [
+        { ...first, value: 'rgb(13, 110, 253)', parsed: color(200) },
+        { ...last, value: 'rgb(11, 94, 215)', parsed: color(120) },
+      ],
+    });
+    expect(
+      describeCapture({
+        ...cardLift,
+        tracks: [darkening('background-color'), darkening('border-top-color')],
+      }),
+    ).toMatch(/^The element darkens its background and border over/);
+  });
+
   test('a border that thickens, an outline that moves out', () => {
     expect(firstSentence(changing('border-top-width', '1px', '6px', [px(1), px(6)]))).toBe(
       'The element changes border-top-width from 1 px to 6 px',

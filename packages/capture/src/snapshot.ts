@@ -97,6 +97,8 @@ export type RawShape = {
   gradients?: RawGradient[] | null;
   words: { x: number; width: number }[] | null;
   underline?: { color: string; thickness: number } | null;
+  // Set only for a part whose keyframes are written in em (record.ts).
+  fontSize?: number;
   icon: RawIconPath[] | null;
   children: RawShape[];
 };
@@ -187,7 +189,9 @@ export function labelOf(element: Element): string {
 // A short selector for the picked element, for the capture's source line.
 export function selectorOf(element: Element): string {
   const tag = element.tagName.toLowerCase();
-  if (element.id !== '') return `${tag}#${element.id}`;
+  // A plain id only: React's generated ones (":r4:") say nothing, change
+  // with every load, and are not valid in a selector as they are.
+  if (/^[A-Za-z][\w-]*$/.test(element.id)) return `${tag}#${element.id}`;
   const classes = namingClasses(element).slice(0, 2);
   return classes.length === 0 ? tag : `${tag}.${classes.join('.')}`;
 }

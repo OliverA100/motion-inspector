@@ -229,6 +229,10 @@ export type Seen = {
   composite: string;
   // True when it already existed when the element was picked (a loader).
   runningAtPick: boolean;
+  // The resting value of each property it leaves a keyframe out for, read
+  // when it was seen before it had any effect: idle, or at its very start
+  // with no start keyframe (Stripe's heading on load). Empty otherwise.
+  restAtSight: Map<string, string>;
   // True while it has been paused since it was seen. Some libraries make
   // an animation paused and let it run a few frames later (Ant Design's
   // menus: animation-play-state: paused, then running), so its start is
@@ -497,6 +501,51 @@ function viewTransitionSeen(
   return seen;
 }
 
+function restAtSightOf(
+  animation: Animation,
+  effect: KeyframeEffect,
+  keyframes: { offset: number | null; values: { property: string }[] }[],
+): Map<string, string> {
+  const rest = new Map<string, string>();
+  const target = effect.target;
+  if (target === null) return rest;
+  const idle = animation.playState === 'idle';
+  const atStart =
+    (asNumber(effect.getComputedTiming().progress) ?? -1) === 0 &&
+    effect.getComputedTiming().currentIteration === 0;
+  if (!idle && !atStart) return rest;
+  const properties = new Set(
+    keyframes.flatMap((keyframe) => keyframe.values.map((item) => item.property)),
+  );
+  const style = getComputedStyle(target, effect.pseudoElement);
+  for (const property of properties) {
+    const at = keyframes.filter((keyframe) =>
+      keyframe.values.some((item) => item.property === property),
+    );
+    const startLeftOut = (at[0]?.offset ?? 0) > 0;
+    const endLeftOut = (at[at.length - 1]?.offset ?? 1) < 1;
+    if (!startLeftOut && !endLeftOut) continue;
+    // At its start, only a missing start keyframe shows the resting value.
+    if (!idle && !startLeftOut) continue;
+    // Nothing else may be moving it.
+    const others = target.getAnimations().some((other) => {
+      if (other === animation || other.playState !== 'running') return false;
+      const otherEffect = other.effect;
+      return (
+        otherEffect instanceof KeyframeEffect &&
+        otherEffect.pseudoElement === effect.pseudoElement &&
+        otherEffect
+          .getKeyframes()
+          .some((keyframe) => Object.keys(keyframe).some((key) => cssName(key) === property))
+      );
+    });
+    if (others) continue;
+    const value = style.getPropertyValue(property);
+    if (value !== '') rest.set(property, value);
+  }
+  return rest;
+}
+
 function read(animation: Animation): Seen | null {
   const effect = animation.effect;
   if (!(effect instanceof KeyframeEffect) || effect.target === null) return null;
@@ -534,6 +583,7 @@ function read(animation: Animation): Seen | null {
     interrupted: false,
     runningAtPick: false,
     held: animation.playState === 'paused',
+    restAtSight: restAtSightOf(animation, effect, keyframes),
     viewTransition: false,
     composite: effect.composite,
     backfaceHidden:
@@ -750,16 +800,18 @@ function percentBase(seen: Seen): { width: number; height: number } {
 function partOf(
   snapshot: Snapshot,
   seen: Seen,
-): { id: string; box: Box; resting: Map<string, string> | undefined } | null {
+): { id: string; box: Box; resting: Map<string, string> | undefined; shape: RawShape } | null {
   if (seen.pseudoElement !== null) {
     const part = snapshot.pseudoParts.get(seen.target)?.get(seen.pseudoElement);
-    return part === undefined ? null : { id: part.id, box: part.shape.box, resting: part.resting };
+    return part === undefined
+      ? null
+      : { id: part.id, box: part.shape.box, resting: part.resting, shape: part.shape };
   }
   const id = snapshot.shapeIdOf.get(seen.target);
   const shape = snapshot.shapeOf.get(seen.target);
   return id === undefined || shape === undefined
     ? null
-    : { id, box: shape.box, resting: snapshot.resting.get(seen.target) };
+    : { id, box: shape.box, resting: snapshot.resting.get(seen.target), shape };
 }
 
 // Parts taken off the page or hidden during the take (a click's ripple, a
@@ -898,6 +950,9 @@ function tracksFor(
   const part = partOf(snapshot, seen);
   const base = percentBase(seen);
   const box = part?.box ?? seen.target.getBoundingClientRect();
+  // Lengths in em are worked out against the part's own font size.
+  const font = parseFloat(getComputedStyle(seen.target, seen.pseudoElement).fontSize) || undefined;
+  const sized = { width: box.width, height: box.height, ...(font === undefined ? {} : { font }) };
   const resting = part?.resting;
   const movingAtPick =
     seen.pseudoElement === null ? snapshot.animatingAtPick.get(seen.target) : undefined;
@@ -913,8 +968,11 @@ function tracksFor(
     // element.animate() may leave out the start or the end. The missing one
     // is the element's resting value, which was read at pick time.
     const needsRest = first.offset > 0 || last.offset < 1;
-    const rest = resting?.get(property);
-    if (needsRest && (rest === undefined || movingAtPick?.has(property) === true)) {
+    const readAtPick = movingAtPick?.has(property) === true ? undefined : resting?.get(property);
+    const rest = needsRest
+      ? (readAtPick ?? seen.restAtSight.get(property) ?? restNow(seen, property, last.offset < 1))
+      : readAtPick;
+    if (needsRest && rest === undefined) {
       notShown.push(
         `The ${property} animation on ${label} is not shown, because it starts or ends at the element's resting value, which could not be read${movingAtPick?.has(property) === true ? ' while it was already animating' : ''}.`,
       );
@@ -941,8 +999,8 @@ function tracksFor(
     // rotateY(180deg) to rotateY(0deg) was dropped as no change).
     const changesNothing = filled.every((item) =>
       TRANSFORM_PROPERTIES.includes(property)
-        ? JSON.stringify(readValue(property, item.value, box)) ===
-            JSON.stringify(readValue(property, firstValue, box)) &&
+        ? JSON.stringify(readValue(property, item.value, sized)) ===
+            JSON.stringify(readValue(property, firstValue, sized)) &&
           (property !== 'transform' || sameValue(property, item.value, firstValue, seen.target))
         : sameValue(property, item.value, firstValue, seen.target),
     );
@@ -960,6 +1018,10 @@ function tracksFor(
       return [];
     }
 
+    // The preview needs the font size to play keyframes written in em.
+    if (part !== null && font !== undefined && filled.some((item) => /\dem\b/.test(item.value))) {
+      part.shape.fontSize = font;
+    }
     const easings = filled.map((item) => easingData(item.easing));
     if (easings.some((easing) => easing === null)) {
       notShown.push(
@@ -984,7 +1046,7 @@ function tracksFor(
         keyframes: filled.map((item, index) => ({
           offset: item.offset,
           value: item.value,
-          parsed: readValue(property, item.value, GEOMETRY.includes(property) ? base : box),
+          parsed: readValue(property, item.value, GEOMETRY.includes(property) ? base : sized),
           easing: easings[index],
           implicit: item.implicit,
         })),
@@ -1554,6 +1616,24 @@ function entersAround(
   return !(related instanceof Node && around.contains(related));
 }
 
+// Two inline styles that differ only in how the part moves, not where it
+// is or how it looks: transition-*, will-change.
+const HOW_IT_MOVES = /^(transition|will-change)/;
+function onlyHowItMoves(before: string | null, after: string | null): boolean {
+  const looks = (text: string | null): string =>
+    (text ?? '')
+      .split(';')
+      .map((declaration) => declaration.trim())
+      .filter((declaration) => declaration !== '' && !HOW_IT_MOVES.test(declaration))
+      .sort()
+      .join(';');
+  return before !== after && looks(before) === looks(after);
+}
+
+// How long the parent beside an element waits for what the element has
+// just expanded to start moving.
+const EXPANDS_WITHIN_MS = 400;
+
 // The nearest of the element and the parts around it that the pointer is
 // on, short of the page itself.
 function hoveredAround(element: Element | null): Element | null {
@@ -1567,6 +1647,31 @@ function hoveredAround(element: Element | null): Element | null {
 // How long recording waits for the way back while the pointer stays on
 // what it hovered, before stopping by itself all the same.
 const HOVER_WAITS_MS = 10000;
+
+// A part's resting value, read once its animation is over: on a load the
+// part is already moving when recording starts, so the value read when it
+// was chosen is not at rest (Stripe's heading, its words rising into place
+// from keyframes without an end). Once finished, what is computed is its
+// own value, when nothing else animates it and the animation does not hold
+// a last keyframe of its own.
+function restNow(seen: Seen, property: string, endLeftOut: boolean): string | undefined {
+  const animation = seen.animation;
+  if (animation.playState !== 'finished') return undefined;
+  const holds = seen.timing.fill === 'forwards' || seen.timing.fill === 'both';
+  if (holds && !endLeftOut) return undefined;
+  const others = seen.target.getAnimations().filter((other) => {
+    if (other === animation || other.playState !== 'running') return false;
+    const effect = other.effect;
+    if (!(effect instanceof KeyframeEffect) || effect.pseudoElement !== seen.pseudoElement)
+      return false;
+    return effect
+      .getKeyframes()
+      .some((keyframe) => Object.keys(keyframe).some((key) => cssName(key) === property));
+  });
+  if (others.length > 0) return undefined;
+  const value = getComputedStyle(seen.target, seen.pseudoElement).getPropertyValue(property);
+  return value === '' ? undefined : value;
+}
 
 // ---------- Building a take ----------
 
@@ -2219,6 +2324,15 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       // transform and opacity attributes move only SVG parts: GSAP and
       // Lottie write them there, every frame.
       if (record.attributeName !== 'style' && !(target instanceof SVGElement)) continue;
+      // A write that only changes how its transitions run (React setting
+      // a transition-delay for a stagger, found on oliverhassan.dev) moves
+      // nothing: what moves it is the browser's transition, read exactly.
+      if (
+        record.attributeName === 'style' &&
+        onlyHowItMoves(record.oldValue, target.getAttribute('style'))
+      ) {
+        continue;
+      }
       // A part left out of the drawing (past the most shapes, or later in
       // the page than the rest) that a script moves gets a shape now:
       // Vercel's peeled corner, the last part of a busy card. An SVG group
@@ -2255,6 +2369,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   watcher.observe(snapshot.rootElement, {
     subtree: true,
     attributes: true,
+    attributeOldValue: true,
     attributeFilter: ['style', 'transform', 'opacity'],
   });
   // Text that a script changes (a number counting up). Only that it
@@ -2361,6 +2476,20 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   const shownAtPick = new WeakSet<Element>(
     Array.from(document.querySelectorAll(OPENS_AS)).filter(isShowing),
   );
+  // What the element says it opens: aria-controls on it or a part inside it,
+  // read with aria-expanded so one already open when picked does not count.
+  const controls = (): Element[] =>
+    [snapshot.rootElement, ...Array.from(snapshot.rootElement.querySelectorAll('[aria-controls]'))]
+      .filter((element) => element.hasAttribute('aria-controls'))
+      .slice(0, 8);
+  const expandedAtPick = new WeakSet<Element>(
+    controls().filter((element) => element.getAttribute('aria-expanded') === 'true'),
+  );
+  const justExpanded = (): boolean =>
+    controls().some(
+      (control) => control.getAttribute('aria-expanded') === 'true' && !expandedAtPick.has(control),
+    );
+  let expandedSince: number | null = null;
   // Parts opened elsewhere, gathered for a moment before one is chosen.
   let openedParts: Element[] = [];
   let openedTargets: Element[] = [];
@@ -2400,6 +2529,25 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     ) {
       return overlayOf(opening);
     }
+    // A part the element names with aria-controls and has just expanded,
+    // on the page all along (Stripe's menu, in the nav away from its
+    // button). One right beside it (an accordion's panel) is left to the
+    // parent that holds both.
+    for (const control of controls()) {
+      if (control.getAttribute('aria-expanded') !== 'true' || expandedAtPick.has(control)) continue;
+      for (const id of (control.getAttribute('aria-controls') ?? '').split(/\s+/)) {
+        const named = id === '' ? null : document.getElementById(id);
+        if (named === null || !named.contains(target) || named.contains(snapshot.rootElement))
+          continue;
+        let steps = 0;
+        let around: Element | null = snapshot.rootElement;
+        while (around !== null && !around.contains(named)) {
+          around = around.parentElement;
+          steps += 1;
+        }
+        if (steps > 2 && isShowing(named)) return named;
+      }
+    }
     if (inDocumentAtPick.has(target)) return null;
     // The new parts above it, up to the portal's own container.
     const chain: Element[] = [target];
@@ -2437,6 +2585,15 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       }
       const together = now - lastPickedStart <= SAME_TRIGGER_MS;
       if (foundAnything && !together) continue;
+      // Just expanded a part it names: what opens there comes first, so
+      // the buttons beside it changing color wait a moment (Stripe's nav).
+      if (justExpanded()) {
+        expandedSince ??= now;
+        if (now - expandedSince < EXPANDS_WITHIN_MS) {
+          parentsChecked.delete(animation);
+          continue;
+        }
+      }
       const parent = nearbyParentHolding(target, snapshot.rootElement);
       if (parent !== null) return parent;
     }

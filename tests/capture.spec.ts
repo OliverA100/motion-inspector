@@ -2927,3 +2927,65 @@ test('a block whose text counts up on hover is named a hover', async ({ page }) 
   const takes = await takesNow(page);
   expect(takes.map((take) => take.capture?.trigger)).toEqual(['hover']);
 });
+
+// Found on oliverhassan.dev: text that rolls up on hover, its spans moved by
+// a class, React writing a new transition-delay inline on each hover for the
+// stagger. That write moves nothing: the hover and its way back are one take.
+test('a stagger written inline as transition-delay leaves a hover and its leave one take', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-roll { display: inline-flex; flex-direction: column; height: 32px; overflow: hidden; font: 16px system-ui }
+     #sp-roll span { display: block; height: 32px; transition: transform .35s ease }
+     #sp-roll span.up { transform: translateY(-32px) }`,
+    '<button id="sp-roll"><span>Available for work</span><span>Copy</span></button>',
+    '#sp-roll',
+  );
+  await page.evaluate(() => {
+    const roll = document.getElementById('sp-roll') as HTMLElement;
+    const spans = Array.from(roll.querySelectorAll('span'));
+    const set = (up: boolean): void =>
+      spans.forEach((span, index) => {
+        span.style.transitionDelay = `${(up ? index : spans.length - 1 - index) * 100}ms`;
+        span.classList.toggle('up', up);
+      });
+    roll.addEventListener('mouseenter', () => set(true));
+    roll.addEventListener('mouseleave', () => set(false));
+  });
+  await page.hover('#sp-roll');
+  await page.waitForTimeout(900);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1200);
+  const takes = await takesNow(page);
+  expect(takes.map((take) => take.capture?.trigger)).toEqual(['hover-and-leave']);
+});
+
+// Found on oliverhassan.dev: Framer Motion writes its keyframes in em when
+// the page does. They are worked out against the part's own font size, in
+// the description and in the preview.
+test('keyframes written in em are read and previewed at the part’s font size', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-em { font: 600 40px system-ui; width: 200px; height: 48px }',
+    '<div id="sp-em">Hello</div>',
+    '#sp-em',
+  );
+  await page.evaluate(() => {
+    (document.getElementById('sp-em') as HTMLElement).animate(
+      [{ transform: 'translate3d(0px, 0em, 0px)' }, { transform: 'translate3d(0px, -2em, 0px)' }],
+      { duration: 300, fill: 'forwards' },
+    );
+  });
+  await page.waitForTimeout(900);
+  const capture = onlyCapture(await takesNow(page));
+  expect(describeCapture(capture)).toContain('moves up 80 px');
+  const end = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (capture: unknown, timeMs: number) => { matrix: number[] | null }[];
+    };
+    return module.posesOf(taken, 300)[0]?.matrix?.[5] ?? null;
+  }, capture);
+  expect(end).toBeCloseTo(-80, 0);
+});

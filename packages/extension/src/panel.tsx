@@ -529,12 +529,16 @@ function PanelApp() {
     dispatch({ kind: 'pickStarted' });
     frameId.current = null;
     const tab = await findTargetTab();
+    // Known before the scripts are in: on a page with many frames (vega.io
+    // has eight) the page itself is ready to be picked from long before the
+    // last frame is, and a pick made meanwhile must be heard.
+    tabId.current = tab?.id ?? null;
     const problem = tab === null ? 'There is no tab to inspect.' : await startPicking(tab);
     if (problem !== null) {
+      tabId.current = null;
       dispatch({ kind: 'cannotInspect', why: problem });
       return;
     }
-    tabId.current = tab?.id ?? null;
   };
 
   // Starts recording the picked element. Resolves once the page says so.

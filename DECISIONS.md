@@ -1123,3 +1123,30 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The panel goes back to "Pick element" only when the tab in front of its own window changes or starts a new page. A tab loading behind it, a tab chosen in another window, or coming back to the tab being inspected change nothing.
 - A click while picking with no move before it picks the element clicked; it used to cancel.
 **Why:** reported: recording a hover by hand kept only the hover in. With the pointer on a card around the picked part, recording stopped 1.5 s after the hover, before the way back. And any tab loading anywhere (a mail tab refreshing) stopped listening and forgot the picked element, so Play the click and Play the load could end with nothing.
+
+### D195. Testing through the real side panel, on real sites
+**Chose:** a harness (kept outside the repository, in the session's scratch folder) opens a visible Chromium with the real extension and its real side panel (opened by a click in an extension page, which counts as a user's), finds what animates on a site as the sweep does, and for each element picks it in the panel, then records it by hand (hover in, wait, out; or a click) or plays the load, saving the panel's text and a screenshot. Run on oliverhassan.dev, stripe.com and vega.io. What it found is D196 to D201.
+
+### D196. A style write that only changes how a part moves is not a script moving it
+**Chose:** a change to a part's style attribute that differs only in transition-* or will-change does not mark the part as moved by a script.
+**Why:** oliverhassan.dev's rolling "Available for work" button: React writes a new transition-delay inline on each hover for the stagger. The part was taken for script-moved, and a hover moved by a script is never joined with its way back: the panel showed "Hover in" alone.
+
+### D197. Keyframes in em
+**Chose:** lengths in em are read against the part's own font size (rem against the page's), and a part whose keyframes use em keeps its font size: `Shape.fontSize`, null otherwise and in older captures. The preview gives its element that font size.
+**Why:** Framer Motion writes keyframes in em when the page does (oliverhassan.dev's rolling letters, translate3d(0, -9em, 0)). The description fell back to "changes transform … through 370 keyframes", and the preview worked the em out at its own font size: 94 px off.
+**Format change:** `Shape.fontSize: number | null`.
+
+### D198. A part the element names with aria-controls is followed once it expands
+**Chose:** when the element, or a part inside it, goes from aria-expanded false to true and names with aria-controls a part that animates, away from the element (more than two parents up to one that holds both), recording follows that part. For 400 ms after such an expansion, the parent beside the element is not taken instead.
+**Why:** Stripe's "Products" menu is in the nav all along, has no role, and is not added to the page: a click recorded only the chevron, or the nav's other buttons changing color. Now it records the menu opening (a clip-path revealing it from the top).
+
+### D199. A resting value read when the animation is first seen
+**Chose:** an animation that leaves out its start or end keyframe gets the resting value it needs from the moment it is first seen, when it has no effect yet (idle, or at its very start with no start keyframe), and failing that from the computed style once it has finished, when it holds no last keyframe of its own.
+**Why:** Play the load on Stripe's heading gave seven empty takes, "On load! 1 ms, No animations were captured": its words rise from keyframes with only an end, and on a load the parts are already moving when recording begins, so the value read at pick was not at rest.
+
+### D200. Plain ids only, and the tab is known before the scripts are in
+**Chose:** a label or a selector uses an element's id only when it is a plain name (React's ":r4:" is left out). The panel knows which tab it is inspecting before the capture script is in every frame of it.
+**Why:** "nav#:r4:" is not a valid selector, so finding the element again after Play the load would throw. And on vega.io, whose page holds eight frames from another site, a pick made before the last frame had the script was not heard: picking did nothing.
+
+### D201. One verb for changes said the same way
+**Chose:** "darkens its background and darkens its border" reads "darkens its background and border".

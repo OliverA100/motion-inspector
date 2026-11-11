@@ -39,6 +39,7 @@
     "gradients": null,
     "words": null,
     "underline": null,
+    "fontSize": null,
     "icon": null,
     "children": []
   },

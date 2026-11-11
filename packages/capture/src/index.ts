@@ -135,9 +135,19 @@ export function pickedWhereabouts(): Whereabouts | null {
   return {
     path: steps.join(' > '),
     short,
-    index: Math.max(0, Array.from(document.querySelectorAll(short)).indexOf(lastElement)),
+    index: Math.max(0, indexAmong(short, lastElement)),
     label: labelOf(lastElement),
   };
+}
+
+// Where the element is among those the short selector finds; -1 when it
+// cannot be read as a selector.
+function indexAmong(selector: string, element: Element): number {
+  try {
+    return Array.from(document.querySelectorAll(selector)).indexOf(element);
+  } catch {
+    return -1;
+  }
 }
 
 // The element again after a reload, or null while it is not there yet.

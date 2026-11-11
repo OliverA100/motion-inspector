@@ -170,6 +170,8 @@ function createEntry(host: HTMLElement, track: Track, shape: Shape | null): Entr
   element.style.top = '0px';
   element.style.width = `${shape?.box.width ?? 0}px`;
   element.style.height = `${shape?.box.height ?? 0}px`;
+  // And the same font size, so lengths in em do too.
+  if (shape?.fontSize != null) element.style.fontSize = `${shape.fontSize}px`;
   host.appendChild(element);
 
   const timing = track.timing;

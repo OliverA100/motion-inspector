@@ -244,6 +244,11 @@ export type Shape = {
   // its thickness in px. The text inside the shape is drawn with it. null
   // when there is none. Missing in captures made before it was kept.
   underline: { color: string; thickness: number } | null;
+  // Its font size in px, kept when its keyframes are written in em
+  // (Framer Motion's rolling letters: translateY(-1em)), so the preview
+  // works them out as the page did. null otherwise, and in captures made
+  // before it was kept.
+  fontSize: number | null;
   // The outline of an SVG icon, so an arrow previews as an arrow. Only
   // geometry is copied, never text or image data. null for everything
   // that is not an icon, and for icons too complex to copy.
