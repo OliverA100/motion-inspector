@@ -1608,7 +1608,7 @@ test('a native popover opened by its button is followed into the top layer', asy
   expect(capture.tracks.map((track) => track.property).sort()).toEqual(['opacity', 'scale']);
 });
 
-test('a modal dialog is followed, and its backdrop is said to be left out', async ({ page }) => {
+test('a modal dialog is followed, and its backdrop is drawn behind it', async ({ page }) => {
   await setUp(
     page,
     `#sp-dialog { width: 200px; height: 100px; border: 0; opacity: 0;
@@ -1626,8 +1626,15 @@ test('a modal dialog is followed, and its backdrop is said to be left out', asyn
   await page.waitForTimeout(700);
   const capture = onlyCapture(await takesNow(page));
   expect(capture.root.label).toBe('dialog');
-  expect(capture.tracks.map((track) => track.property)).toEqual(['opacity']);
-  expect(capture.notShown.join(' ')).toContain('The backdrop behind dialog is not shown');
+  const backdrop = capture.root.children.find((shape) => shape.label === 'dialog::backdrop');
+  expect(capture.tracks.map((track) => track.property).sort()).toEqual([
+    'background-color',
+    'opacity',
+  ]);
+  expect(capture.tracks.find((track) => track.property === 'background-color')?.shapeId).toBe(
+    backdrop?.id,
+  );
+  expect(capture.notShown).toEqual([]);
 });
 
 test('a player sped up, and one played backwards, are timed as they play', async ({ page }) => {

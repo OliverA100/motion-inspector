@@ -1380,6 +1380,38 @@ function pseudoShape(
   return shape;
 }
 
+// The ::backdrop of a dialog open as a modal: a shape over the whole window,
+// in the dialog's coordinates. Its label ends in "::backdrop", which the
+// stage draws first and leaves out of the view's fit.
+function backdropShape(walk: Walk, element: Element, parentId: string): RawShape | null {
+  if (!(element instanceof HTMLDialogElement)) return null;
+  let modal = false;
+  try {
+    modal = element.matches(':modal');
+  } catch {
+    modal = false;
+  }
+  if (!modal) return null;
+  const style = getComputedStyle(element, '::backdrop');
+  const box = {
+    x: -walk.rootRect.left,
+    y: -walk.rootRect.top,
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+  const id = `${parentId}.${walk.count}`;
+  walk.count += 1;
+  const shape = boxShape(walk, element, style, box, id, false);
+  shape.label = `${labelOf(element)}::backdrop`;
+  shape.transform = null;
+  shape.individual = null;
+  const parts = walk.snapshot.pseudoParts.get(element) ?? new Map<string, PseudoPart>();
+  parts.set('::backdrop', { id, shape, resting: readPseudoResting(element, '::backdrop') });
+  walk.snapshot.pseudoParts.set(element, parts);
+  walk.ownerOf.set(shape, element);
+  return shape;
+}
+
 // Text becomes bars: one per line box, with no text content kept.
 function textBars(
   walk: Walk,
@@ -1536,6 +1568,9 @@ function shapesFor(
     return made === null ? [] : [made];
   };
   const before = pseudo('::before');
+  // An open modal dialog's ::backdrop: the layer over the whole window
+  // behind it, drawn under everything (the stage draws it first).
+  const backdrop = isRoot ? backdropShape(walk, element, id) : null;
   const inside = isImage
     ? []
     : childNodesOf(element).flatMap((node): RawShape[] => {
@@ -1547,7 +1582,10 @@ function shapesFor(
       });
 
   const after = pseudo('::after');
-  const all = byStacking([...before, ...inside, ...after]);
+  const all = [
+    ...(backdrop === null ? [] : [backdrop]),
+    ...byStacking([...before, ...inside, ...after]),
+  ];
   // A positioned element with a z-index is one layer among its siblings,
   // everything drawn inside it included.
   const z = zIndexOf(style);

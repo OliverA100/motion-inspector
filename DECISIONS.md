@@ -942,3 +942,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D161. Copy CSS says how the page made the motion
 **Chose:** keyframes measured from a script are followed by a comment that says so, and a take read from a view transition ends with a comment saying how the page plays it (a view-transition-name, and the change inside document.startViewTransition()), since the keyframes draw the same motion on the element itself instead.
 **Why:** both export as plain keyframes, which a reader would take for CSS the page wrote.
+
+### D162. A dialog's backdrop is drawn
+**Chose:** when the recorded element is a dialog open as a modal, its ::backdrop is a shape over the whole window, in the dialog's coordinates, with its own color and animations, filmed like other pseudo-elements. The stage draws it before everything else and not moved by the dialog's own transform (a dialog that scales in does not scale its backdrop), and fits the view to the rest.
+**Why:** the dimming of the page behind a dialog is most of what opening one looks like (daisyUI's and Pico's modals); it was listed, not drawn.

@@ -452,7 +452,11 @@ function walk(
       shapePath(context, shape, pose);
       context.clip();
     }
-    for (const child of shape.children) walk(context, child, poses, paint, inherited, alpha);
+    for (const child of shape.children) {
+      // Drawn first, on its own (see drawFilled).
+      if (isBackdrop(child)) continue;
+      walk(context, child, poses, paint, inherited, alpha);
+    }
   };
   const tapered = taperedPieces(shape, pose);
   const flat = (): void => {
@@ -969,6 +973,13 @@ function drawIcon(
   }
 }
 
+// A dialog's ::backdrop covers the window behind the dialog: drawn before
+// everything, in the root's coordinates but not moved by the root's own
+// transform (a dialog that scales in does not scale its backdrop).
+function isBackdrop(shape: Shape): boolean {
+  return shape.label.endsWith('::backdrop');
+}
+
 function drawFilled(
   context: CanvasRenderingContext2D,
   root: Shape,
@@ -976,6 +987,16 @@ function drawFilled(
   theme: Theme,
   scale: number,
 ): void {
+  for (const backdrop of root.children.filter(isBackdrop)) {
+    const pose = poses.find((candidate) => candidate.shapeId === backdrop.id) ?? null;
+    const fill = pose?.fill ?? backdrop.fill;
+    if (fill === null) continue;
+    context.save();
+    context.globalAlpha = pose?.visible === false ? 0 : (pose?.opacity ?? backdrop.opacity);
+    context.fillStyle = fill;
+    context.fillRect(backdrop.box.x, backdrop.box.y, backdrop.box.width, backdrop.box.height);
+    context.restore();
+  }
   walk(context, root, poses, (shape, pose, textColor, alpha, context) => {
     context.globalAlpha = alpha;
     // Box shadows: the outer ones under the shape, the inner ones over its
@@ -1124,7 +1145,8 @@ function restBounds(root: Shape): Area {
         corners.push(matrix.transformPoint(new DOMPoint(px, py)));
       }
     }
-    for (const child of shape.children) visit(child, matrix);
+    // A backdrop covers the window: the view is fitted to the rest.
+    for (const child of shape.children) if (!isBackdrop(child)) visit(child, matrix);
   };
   visit(root, new DOMMatrix());
   const xs = corners.map((point) => point.x).filter(Number.isFinite);

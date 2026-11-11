@@ -273,5 +273,5 @@ The sweep now also runs Magic UI, Aceternity, a scroll-driven demo, and menus an
 - **A pseudo-element in the flow of text** is placed from its element's text: right for one at the start or end of a line, approximate inside a flex or grid layout.
 - **Motion driven by script frame by frame** is measured, not read (D124): transform and opacity only, fitted to keyframes. A rule that is not linear in the pointer's place (a glare that turns with its angle) is shown as measured over time.
 - **Parts inside an iframe** are not recorded: the recorder works in the page it was opened on.
-- **A dialog's backdrop** and **a view transition's cross-fade** are listed, not drawn.
+- **A view transition's cross-fade** is listed, not drawn.
 - **SVG masks and clips are not drawn.** Railway's moving trains are a mask; they are listed with that reason.

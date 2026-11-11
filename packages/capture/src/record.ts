@@ -577,7 +577,7 @@ function easingData(text: string): Easing | null {
 
 // Why a whole animation cannot be drawn, or null if it can.
 function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | null {
-  if (seen.pseudoElement === '::backdrop') {
+  if (seen.pseudoElement === '::backdrop' && partOf(snapshot, seen) === null) {
     return `The backdrop behind ${label} is not shown: it covers the whole page, not a part of it.`;
   }
   if (seen.pseudoElement !== null && partOf(snapshot, seen) === null) {
