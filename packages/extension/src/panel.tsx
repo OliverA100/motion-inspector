@@ -770,15 +770,36 @@ function PanelApp() {
             <button type="button" className="btn btn--primary" onClick={record}>
               Record
             </button>
-            <button type="button" className="btn" onClick={() => void playTheHover()}>
-              Play the hover
-            </button>
-            <button type="button" className="btn" onClick={() => void playTheClick()}>
-              Play the click
-            </button>
-            <button type="button" className="btn" onClick={() => void playTheLoad()}>
-              Play the load
-            </button>
+            <span className="xp__ready-or">or play it:</span>
+            <div className="xp__plays" role="group" aria-label="Play it">
+              <button
+                type="button"
+                className="btn"
+                aria-label="Play the hover"
+                title="Move the pointer in, hold, and out"
+                onClick={() => void playTheHover()}
+              >
+                Hover
+              </button>
+              <button
+                type="button"
+                className="btn"
+                aria-label="Play the click"
+                title="Click it once"
+                onClick={() => void playTheClick()}
+              >
+                Click
+              </button>
+              <button
+                type="button"
+                className="btn"
+                aria-label="Play the load"
+                title="Reload the page and record it from the start"
+                onClick={() => void playTheLoad()}
+              >
+                Load
+              </button>
+            </div>
           </div>
         </section>
       ) : null}

@@ -412,6 +412,33 @@ body {
 .xp__ready-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-1);
+}
+
+.xp__ready-or {
+  font-size: var(--text-small);
+  color: var(--color-text-muted);
+}
+
+/* The three ways to play it, joined as one control. */
+.xp__plays {
+  display: inline-flex;
+}
+
+.xp__plays .btn {
+  border-radius: 0;
+}
+
+.xp__plays .btn:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.xp__plays .btn:last-child {
+  border-radius: 0 7px 7px 0;
+}
+
+.xp__plays .btn + .btn {
+  margin-left: 1px;
 }
