@@ -415,6 +415,8 @@ function phraseBetween(
     if (depth !== null) return depth;
   }
   if (property === 'clip-path') return clipPhrase(from.value, to.value);
+  // An SVG path's d: its outline turns into another (an icon morphing).
+  if (property === 'd') return 'morphs its outline';
   if (property === 'background-image') {
     const start = conicStart(from.value);
     const end = conicStart(to.value);

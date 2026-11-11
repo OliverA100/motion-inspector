@@ -66,6 +66,9 @@ export type Pose = {
   // An animated background-image, as computed CSS: a gradient a script
   // moves with a fold. Drawn over the box when it is a linear-gradient().
   backgroundImage: string | null;
+  // An SVG path's animated outline (the d property), as path data in its
+  // own coordinates. It replaces the resting outline.
+  d: string | null;
 };
 
 export type StageData = {
@@ -948,7 +951,8 @@ function drawIcon(
       context.transform(...transform);
       context.translate(-shape.transformOrigin.x, -shape.transformOrigin.y);
     }
-    const path = new Path2D(part.d);
+    // A path whose outline morphs (the d property) is drawn as it is now.
+    const path = new Path2D(shape.kind === 'path' && pose?.d != null ? pose.d : part.d);
     const fill = pose?.fill ?? (part.fill === null ? null : color(part.fill));
     if (fill !== null && fill !== 'none') {
       context.fillStyle = fill;

@@ -1978,6 +1978,31 @@ test('a part a script dims and restores later holds still in between', async ({ 
   expect(late.map((keyframe) => keyframe.value)).toContain('0.3');
 });
 
+// An icon whose outline morphs through the d property: the preview draws
+// the outline as it is at each moment.
+test('a path whose outline morphs is drawn as it is now', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-morph { width: 100px }
+     #sp-morph path { d: path("M10 10 L90 10 L90 90 L10 90 Z"); transition: d .4s linear }
+     #sp-morph.on path { d: path("M50 5 L95 50 L50 95 L5 50 Z") }`,
+    '<div id="sp-morph"><svg width="100" height="100" viewBox="0 0 100 100"><path fill="#e55"></path></svg></div>',
+    '#sp-morph',
+  );
+  await page.evaluate(() => document.getElementById('sp-morph')?.classList.add('on'));
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => item.property)).toEqual(['d']);
+  const halfway = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (capture: unknown, timeMs: number) => { d: string | null }[];
+    };
+    return module.posesOf(taken, 200).map((pose) => pose.d);
+  }, capture);
+  expect(halfway).toEqual(['M 30 7.5 L 92.5 30 L 70 92.5 L 7.5 70 Z']);
+});
+
 // GSAP and Lottie move SVG parts by writing their transform and opacity
 // attributes every frame, not their style.
 test('an SVG group a script turns by its transform attribute is filmed, and said as a turn in place', async ({

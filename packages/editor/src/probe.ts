@@ -71,6 +71,8 @@ export const PREVIEWED_PROPERTIES = [
   'background-position-y',
   // A linear gradient a script moves (drawn when it is one).
   'background-image',
+  // An SVG path's outline morphing.
+  'd',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -504,6 +506,7 @@ function poseOf(
     backgroundX: firstLayer(valueOf('background-position-x')),
     backgroundY: firstLayer(valueOf('background-position-y')),
     backgroundImage: valueOf('background-image'),
+    d: shape.kind === 'path' ? pathData(valueOf('d')) : null,
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,
@@ -520,6 +523,12 @@ function hasEffect(track: Track, timeMs: number): boolean {
   // When a transition ends, the element stays in its new state (the hover
   // is still held). So after the end, keep showing the last value.
   return track.origin === 'css-transition' && sample.phase === 'after';
+}
+
+// The path data inside a computed d: path("M 0 0 L 10 10") gives M 0 0 L 10 10.
+function pathData(value: string | null): string | null {
+  if (value === null) return null;
+  return /^path\("(.*)"\)$/.exec(value)?.[1] ?? null;
 }
 
 export function createProbe(): Probe {

@@ -212,6 +212,7 @@ describe('special properties in plain words', () => {
       'The element is revealed from left to right',
     ],
     ['clip-path', 'inset(0px)', 'inset(100% 0px 0px)', 'The element is hidden from bottom to top'],
+    ['d', 'path("M0 0 L10 0")', 'path("M0 0 L10 10")', 'The element morphs its outline'],
     [
       'clip-path',
       'circle(0% at 50% 50%)',

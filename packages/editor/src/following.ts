@@ -43,6 +43,7 @@ function stillPose(shapeId: Pose['shapeId']): Pose {
     backgroundX: null,
     backgroundY: null,
     backgroundImage: null,
+    d: null,
   };
 }
 

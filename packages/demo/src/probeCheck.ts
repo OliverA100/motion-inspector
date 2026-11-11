@@ -91,3 +91,9 @@ export function runProbeCheck(): ProbeCheckResult {
   for (const capture of allSamples) checkCapture(capture, result);
   return result;
 }
+
+// The preview's poses for a capture at a moment, for browser tests that
+// check what the stage is told to draw.
+export function posesOf(capture: Capture, timeMs: number): ReturnType<ReturnType<typeof createProbe>['poses']> {
+  return createProbe().poses(capture, timeMs);
+}

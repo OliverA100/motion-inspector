@@ -991,3 +991,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - A z-index orders a part among its siblings when it is positioned, and also when it is a flex or grid item, as CSS does, whatever its position.
 - When nothing runs on a ::before or ::after any more, its resting opacity is read again. One measured while its animation ran (a recording that moved to its element as it opened) had taken its first frame as its rest.
 **Why:** Radix's search dialog: the dimming ::after of its overlay was drawn over the dialog (a flex item at z-index 1), and once its fade ended the preview put it back to 0% opacity. 100% opacity off; now 0 px.
+
+### D171. An SVG path's morphing outline is drawn
+**Chose:** the d property is previewed. The probe reads the outline the browser blends at each moment, and the stage draws a path part from it instead of its resting outline. The description says the shape "morphs its outline".
+**Why:** an icon that morphs (a square into a diamond, a play button into a pause) was listed as "Not drawn: d", though the browser blends it like any other property.
