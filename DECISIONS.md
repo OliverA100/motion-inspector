@@ -1160,3 +1160,12 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D203. Moved by a script means written frame after frame, with no animation of its own
 **Chose:** a part counts as moved by a script, for keeping a hover and its way back apart and for cutting a take where the pointer crosses the edge, only when it was written at least three times and has no browser animation of its own in the take.
 **Why:** on Framer's and Linear's sites a hover writes the part's inline style (opacity: 0.6, its own variables) and a CSS transition carries it out. Any write made it "scripted", so every hover was cut in two at the pointer's crossing: "Hover in" and "Hover out", never "Hover in and out".
+
+### D204. Menus opened by a hover: followed only when it is theirs, and closed in the same take
+**Chose:**
+- A part added to the page while the pointer rests on the element is taken as opened by that hover only when it is named as a tooltip, menu or dialog, named by the element (aria-controls, aria-describedby, aria-owns), or within 240 px of it. A press is followed as before.
+- A part counts as moved by a script only when its film changes: a script that writes a menu's position every frame without moving it (Floating UI) moves nothing.
+- A way back that undoes all of the way there is joined to it even when it moves a few parts besides (links in a closing menu fading).
+- A joined take that began with a hover is "Hover in and out", whatever the pointer crossed on the way out.
+- Recording asks to move to a parent before it stops: a move that fails leaves it recording where it was, with the take it holds.
+**Why:** on Linear, hovering a nav item followed the chat in the hero, which adds messages on its own. On Linear and Stripe, a nav menu opened by a hover came out as two takes, "Hover in" twice: the menu's position written by a script counted as script motion, the close faded links the open had not, and a failed move to a hidden wrapper restarted recording, losing the first take.

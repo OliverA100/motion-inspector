@@ -102,7 +102,9 @@ export type RecorderOptions = {
   // Called when nothing has been found on the picked element, but an
   // animation runs on a nearby parent of it. People often click a part
   // inside the thing that moves: the image in a card, the text in a button.
-  onParentAnimation?: (parent: Element) => void;
+  // Moves recording to the parent. false when it could not (the parent
+  // cannot be drawn): recording then goes on here, as it was.
+  onParentAnimation?: (parent: Element) => boolean;
   // True when recording moved here from what was picked, because this is
   // what moves: what is already happening is what was asked for, not the
   // pick's own hover.
@@ -174,6 +176,9 @@ const OPENED_WITHIN_MS = 600;
 // How long after the pointer came onto the element a part it opens by
 // hovering may appear: a tooltip's delay, and its own way in.
 const OPENED_ON_HOVER_MS = 2000;
+// How far from the element a part a hover opens may be, when nothing names
+// it: a tooltip or a hover card sits next to what opened it.
+const OPENED_NEAR_PX = 240;
 
 // How long parts opened elsewhere are gathered before one is recorded.
 const OPENED_TOGETHER_MS = 60;
@@ -1637,6 +1642,15 @@ function onlyHowItMoves(before: string | null, after: string | null): boolean {
 // Writes it takes for a part to count as moved by a script.
 const SCRIPT_FRAMES = 3;
 
+// Written that often, and changing: a script that only places a part where
+// it already is (Floating UI keeping Linear's menu under its button) moves
+// nothing.
+function movesInFilm(frames: FilmFrame[] | undefined): boolean {
+  if (frames === undefined || frames.length < SCRIPT_FRAMES) return false;
+  const first = frames[0];
+  return first !== undefined && frames.some((frame) => !sameFrame(frame, first));
+}
+
 // How long the parent beside an element waits for what the element has
 // just expanded to start moving.
 const EXPANDS_WITHIN_MS = 400;
@@ -2134,23 +2148,22 @@ function sameProperties(first: Seen, second: Seen): boolean {
 function isWayBackOf(previous: Seen[], next: Seen[]): boolean {
   if (next.length === 0) return false;
   if (previous.some((seen) => !Number.isFinite(seen.timing.endTime))) return false;
-  return next.every((back) =>
-    previous.some(
-      (there) =>
-        there.target === back.target &&
-        there.pseudoElement === back.pseudoElement &&
-        sameProperties(there, back) &&
-        back.properties.every((property) => {
-          const began = valuesOf(there, property)[0]?.value;
-          const ends = valuesOf(back, property).at(-1)?.value;
-          return (
-            began !== undefined &&
-            ends !== undefined &&
-            sameValue(property, began, ends, back.target)
-          );
-        }),
-    ),
-  );
+  const undoes = (there: Seen, back: Seen): boolean =>
+    there.target === back.target &&
+    there.pseudoElement === back.pseudoElement &&
+    sameProperties(there, back) &&
+    back.properties.every((property) => {
+      const began = valuesOf(there, property)[0]?.value;
+      const ends = valuesOf(back, property).at(-1)?.value;
+      return (
+        began !== undefined && ends !== undefined && sameValue(property, began, ends, back.target)
+      );
+    });
+  // Every part of it undoes the way there.
+  if (next.every((back) => previous.some((there) => undoes(there, back)))) return true;
+  // Or it undoes all of the way there, and moves a few parts besides (Stripe's
+  // menu closing as two of its links fade).
+  return previous.every((there) => next.some((back) => undoes(there, back)));
 }
 
 // The way back, moved earlier so it starts at most HOLD_MS after the way
@@ -2501,6 +2514,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   let openedParts: Element[] = [];
   let openedTargets: Element[] = [];
   let openedSince: number | null = null;
+  const namedByRoot = (part: Element): boolean => {
+    const ids = ['aria-controls', 'aria-describedby', 'aria-owns']
+      .flatMap((name) => (snapshot.rootElement.getAttribute(name) ?? '').split(/\s+/))
+      .filter((id) => id !== '');
+    return ids.some((id) => {
+      const named = document.getElementById(id);
+      return named !== null && (named === part || part.contains(named) || named.contains(part));
+    });
+  };
+  const near = (part: Element): boolean => {
+    const a = part.getBoundingClientRect();
+    const b = snapshot.rootElement.getBoundingClientRect();
+    const gapX = Math.max(0, a.left - b.right, b.left - a.right);
+    const gapY = Math.max(0, a.top - b.bottom, b.top - a.bottom);
+    return Math.hypot(gapX, gapY) <= OPENED_NEAR_PX;
+  };
   const openedElsewhere = (target: Element): Element | null => {
     const docNow = asNumber(document.timeline.currentTime) ?? 0;
     const pressed = pageEvents.some(
@@ -2567,12 +2596,17 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     }
     // The outermost that has a size: a portal's host is often an empty box
     // with the menu fixed inside it (found on shadcn).
-    return (
+    const found =
       chain.find((part) => {
         const box = part.getBoundingClientRect();
         return part.isConnected && box.width > 0 && box.height > 0;
-      }) ?? null
-    );
+      }) ?? null;
+    // A hover opens a tooltip or a card next to the element. Something added
+    // far away while the pointer rests there is the page's own doing (the
+    // chat in Linear's hero, adding its messages), unless the element names
+    // it.
+    if (found !== null && !pressed && !namedByRoot(found) && !near(found)) return null;
+    return found;
   };
 
   const animatedParent = (now: number): Element | null => {
@@ -2742,7 +2776,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // the script writes around it.
     const scriptedNow = Array.from(finishedScripted).some(
       (element) =>
-        (finishedFilm.get(element)?.length ?? 0) >= SCRIPT_FRAMES &&
+        movesInFilm(finishedFilm.get(element)) &&
         !finished.some((seen) => seen.target === element && seen.pseudoElement === null),
     );
     const scriptedBefore = previousScripted;
@@ -2839,7 +2873,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       );
       const second = triggerOf(snapshot.rootElement, finished, null, snapshot.pickedFrom ?? null);
       const trigger: Trigger =
-        (first === 'hover' || first === 'running') && second === 'leave'
+        // The way back of a hover is its leave, whatever the pointer crossed
+        // on its way out (a menu opened elsewhere closes a moment later).
+        first === 'hover' || (first === 'running' && second === 'leave')
           ? 'hover-and-leave'
           : first;
       lastTakeEnd = performance.now();
@@ -2936,7 +2972,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // its way back joins it.
     const movedByScript = Array.from(scripted).some(
       (element) =>
-        (film.get(element)?.length ?? 0) >= SCRIPT_FRAMES &&
+        movesInFilm(film.get(element)) &&
         !take.some((seen) => seen.target === element && seen.pseudoElement === null),
     );
     if (!movedByScript) {
@@ -3151,11 +3187,12 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         parent !== null &&
         parent.getClientRects().length > 0 &&
         parent.getBoundingClientRect().width > 0;
-      if (parent !== null && drawable) {
+      // Asked first, stopped after: a move that fails leaves this recorder
+      // as it was, with the take it holds.
+      if (parent !== null && drawable && options.onParentAnimation(parent)) {
         stopped = true;
         watcher.disconnect();
         textWatcher.disconnect();
-        options.onParentAnimation(parent);
         return;
       }
     }

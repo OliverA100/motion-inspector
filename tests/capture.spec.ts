@@ -3067,3 +3067,84 @@ test('a hover a script writes inline and a transition carries out is one take wi
   const takes = await takesNow(page);
   expect(takes.map((take) => take.capture?.trigger)).toEqual(['hover-and-leave']);
 });
+
+// Found on Linear: a chat in the hero adds its messages on its own. One that
+// appears far away while the pointer rests on a nav item was not opened by
+// it, and recording stays on the item.
+test('a part added far away during a hover is not followed', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-item { display: inline-block; width: 80px; height: 32px; background: #ddd; transition: background-color .2s }
+     #sp-item:hover { background: #bbb }
+     .sp-far { position: fixed; left: 700px; top: 600px; width: 120px; height: 40px; background: #222;
+       animation: sp-far-in .3s ease-out }
+     @keyframes sp-far-in { from { opacity: 0 } }`,
+    '<a id="sp-item">Item</a>',
+    '#sp-item',
+  );
+  await page.evaluate(() => {
+    document.getElementById('sp-item')?.addEventListener('pointerenter', () =>
+      window.setTimeout(() => {
+        const far = document.createElement('div');
+        far.className = 'sp-far';
+        document.body.append(far);
+      }, 100),
+    );
+  });
+  await page.mouse.move(2, 2);
+  await page.hover('#sp-item');
+  await page.waitForTimeout(900);
+  const takes = await takesNow(page);
+  expect(takes.map((take) => take.capture?.root.label)).toEqual(['a']);
+});
+
+// Found on Linear and Stripe: a menu a hover opens, kept in place by a
+// script that writes its position every frame, closing with a link inside
+// it fading as well. The way in and the way back are one take.
+test('a menu a hover opens, placed by a script, closes in the same take', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-trigger { display: inline-block; width: 80px; height: 32px; background: #ddd }
+     .sp-menu { position: fixed; left: 0; top: 0; width: 200px; height: 120px; background: #222;
+       transition: opacity .2s, transform .2s; opacity: 0; transform: scale(0.98) }
+     .sp-menu.open { opacity: 1; transform: none }
+     .sp-menu a { display: block; width: 60px; height: 20px; background: #555; transition: opacity .2s }
+     .sp-menu.closing a { opacity: 0.5 }`,
+    '<a id="sp-trigger">Menu</a>',
+    '#sp-trigger',
+  );
+  await page.evaluate(() => {
+    const trigger = document.getElementById('sp-trigger') as HTMLElement;
+    let menu: HTMLElement | null = null;
+    let placing = 0;
+    const place = (): void => {
+      if (menu === null) return;
+      const box = trigger.getBoundingClientRect();
+      menu.style.left = `${box.left}px`;
+      menu.style.top = `${box.bottom + 8}px`;
+      placing = requestAnimationFrame(place);
+    };
+    trigger.addEventListener('pointerenter', () => {
+      menu = document.createElement('div');
+      menu.className = 'sp-menu';
+      menu.innerHTML = '<a></a>';
+      document.body.append(menu);
+      place();
+      requestAnimationFrame(() => requestAnimationFrame(() => menu?.classList.add('open')));
+    });
+    trigger.addEventListener('pointerleave', () => {
+      menu?.classList.remove('open');
+      menu?.classList.add('closing');
+    });
+    void placing;
+  });
+  await page.mouse.move(2, 400);
+  await page.hover('#sp-trigger');
+  await page.waitForTimeout(900);
+  await page.mouse.move(2, 400);
+  await page.waitForTimeout(1200);
+  const takes = await takesNow(page);
+  expect(takes.map((take) => `${take.capture?.root.label} ${take.capture?.trigger}`)).toEqual([
+    'div.sp-menu hover-and-leave',
+  ]);
+});

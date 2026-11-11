@@ -46,8 +46,8 @@ export function record(
   takes = [];
   lastElement = element;
   const watch = (watched: Element, moved = false): void => {
-    lastElement = watched;
     const snapshot = takeSnapshot(watched);
+    lastElement = watched;
     if (atLoad) snapshot.runningAtPick = new WeakSet();
     if (moved) snapshot.pickedFrom = element;
     recorder = startRecording(snapshot, {
@@ -70,15 +70,15 @@ export function record(
       onParentAnimation: (parent) => {
         // The parent's animation is still running, so the new recorder sees
         // it in its first frame. Nothing has to be triggered again. If it
-        // cannot be drawn after all, recording goes on where it was.
+        // cannot be drawn after all, recording goes on where it was: the
+        // recorder there carries on with the take it holds.
         try {
           watch(parent, true);
-          onMoved?.(labelOf(parent));
         } catch {
-          // Still the part recording moved to, if it had: what it came from
-          // names what set it off.
-          watch(watched, watched !== element);
+          return false;
         }
+        onMoved?.(labelOf(parent));
+        return true;
       },
     });
   };
