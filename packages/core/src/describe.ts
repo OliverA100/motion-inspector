@@ -49,7 +49,10 @@ function time(value: number): string {
 const PART = '\u0001';
 
 function joinWithAnd(parts: string[]): string {
-  const merged = sameVerbOnce(parts);
+  // A change too small to say is left out; all of them, said as one.
+  const kept = parts.filter((part) => part.trim() !== '');
+  if (kept.length === 0 && parts.length > 0) return 'changes its size slightly';
+  const merged = sameVerbOnce(kept);
   if (merged.length <= 1) return merged.join('');
   return `${merged.slice(0, -1).join(', ')} and ${merged[merged.length - 1]}`;
 }
@@ -572,6 +575,8 @@ function phraseBetween(
     from.parsed?.kind === 'length' &&
     to.parsed?.kind === 'length'
   ) {
+    // Less than a pixel either way reads as no change: it is left out.
+    if (fromWords === toWords) return '';
     const grows = to.parsed.px > from.parsed.px;
     const verb =
       property === 'width'

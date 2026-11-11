@@ -267,6 +267,42 @@ describe('special properties in plain words', () => {
     expect(firstSentence(changing(property, from, to, parsed))).toBe(expected);
   });
 
+  test('a size change under a pixel is left out', () => {
+    const base = cardLift.tracks[0];
+    if (base === undefined) throw new Error('no track');
+    const [first, last] = base.keyframes;
+    if (first === undefined || last === undefined) throw new Error('no keyframes');
+    const track = (
+      property: string,
+      from: string,
+      to: string,
+      parsed: [ParsedValue, ParsedValue],
+    ) => ({
+      ...base,
+      property,
+      groupId: 'together',
+      keyframes: [
+        { ...first, value: from, parsed: parsed[0] },
+        { ...last, value: to, parsed: parsed[1] },
+      ],
+    });
+    const text = describeCapture({
+      ...cardLift,
+      tracks: [
+        track('height', '216px', '216.3px', [
+          { kind: 'length', px: 216 },
+          { kind: 'length', px: 216.3 },
+        ]),
+        track('opacity', '0', '1', [
+          { kind: 'number', value: 0 },
+          { kind: 'number', value: 1 },
+        ]),
+      ],
+    });
+    expect(text).not.toContain('216 px to 216 px');
+    expect(text).toContain('fades from 0% to 100%');
+  });
+
   test('one verb for two colors that change the same way', () => {
     const base = cardLift.tracks[0];
     if (base === undefined) throw new Error('no track');
