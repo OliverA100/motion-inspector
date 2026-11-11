@@ -17,6 +17,7 @@ declare const MotionCapture: {
   choose: (where: Whereabouts) => string | null;
   pickedWhereabouts: () => Whereabouts | null;
   pickParent: () => string | null;
+  placementMiss: () => { px: number; label: string } | null;
   drawsItself: () => 'canvas' | 'video' | null;
   recordAgain: (
     onTake: (take: TakeResult) => void,
@@ -81,7 +82,7 @@ function frameOffset(): { x: number; y: number } | null {
 const onMessage = (
   message: ToPage,
   _sender: chrome.runtime.MessageSender,
-  answer: (response: PageRect | Whereabouts | null) => void,
+  answer: (response: PageRect | Whereabouts | { px: number; label: string } | null) => void,
 ): void => {
   if (message.type === 'where') {
     const frame = frameOffset();
@@ -89,6 +90,7 @@ const onMessage = (
     answer(rect === null ? null : { ...rect, frame });
   }
   if (message.type === 'whereabouts') answer(capture.pickedWhereabouts());
+  if (message.type === 'placement') answer(capture.placementMiss());
   if (message.type === 'parent') {
     const label = capture.pickParent();
     if (label !== null) send(picked(label));

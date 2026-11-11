@@ -39,7 +39,10 @@ export type ToPage =
   | { type: 'where' }
   | { type: 'whereabouts' }
   // parent: move the pick to the part around the picked element.
-  | { type: 'parent' };
+  | { type: 'parent' }
+  // placement: the page answers with how far the last drawing is from the
+  // page (capture's placementMiss). For testing the panel; it shows nothing.
+  | { type: 'placement' };
 
 // How the capture script finds an element again after the page reloads.
 export type Whereabouts = { path: string; short: string; index: number; label: string };

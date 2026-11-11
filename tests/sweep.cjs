@@ -547,6 +547,9 @@ async function recordClean(page, selector, kind) {
   await page.evaluate((sel) => window.MotionCapture.record(document.querySelector(sel)), selector);
   if (kind !== 'loader') await trigger(page, selector, kind);
   await page.waitForTimeout(kind === 'loader' ? 1500 : 1200);
+  // Measured while what opened is still open too: a dialog or a tooltip
+  // recording moved to is gone once it closes.
+  const placedOpen = await page.evaluate(() => (window.MotionCapture.placementMiss ? window.MotionCapture.placementMiss() : null)).catch(() => null);
   if (kind === 'hover') {
     await page.mouse.move(1, 1);
     await page.waitForTimeout(900);
@@ -559,9 +562,8 @@ async function recordClean(page, selector, kind) {
   }
   // Where the parts are drawn, compared with the page at rest again: the
   // check above compares how they move, not where they are.
-  takes.placed = await page
-    .evaluate(() => (window.MotionCapture.placementMiss ? window.MotionCapture.placementMiss() : null))
-    .catch(() => null);
+  takes.placed =
+    (await page.evaluate(() => (window.MotionCapture.placementMiss ? window.MotionCapture.placementMiss() : null)).catch(() => null)) ?? placedOpen;
   return takes;
 }
 
