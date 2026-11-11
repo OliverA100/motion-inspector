@@ -1012,3 +1012,9 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The check against the page counts as right any opacity the page passed through between two frames: at a jump, which side a frame falls on is when it was taken.
 - Descriptions of measured motion leave out moves under half a pixel, the measuring's own tolerance.
 **Why:** ten spinners from svg-spinners (MIT), recorded on a local page: all match the page, 0 to 1.2 px. A loop made of a chain of animations (begin="a.end") is measured as a stretch and not said to repeat; hearing the browser's begin events to find its turn was tried and split the recording into takes, so it was taken out.
+
+### D174. A loop running since before a take is not part of it
+**Chose:**
+- When a take holds animations that end and loops that were running long before them (a second or more), the loops are left out of it: they belong to something else on the page.
+- What set a take off is looked for around when its animations that end began, not its loops.
+**Why:** MUI's "show code" toggle: the click fades in the demo toolbar beside it, so recording moved to their parent, where two buttons have shimmered since the page loaded. The take was named as already running (its earliest start was the shimmer's, seconds before the click) and dropped, so nothing was recorded; with the naming fixed, the shimmer led the description.

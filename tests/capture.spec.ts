@@ -575,6 +575,47 @@ test('picking a part inside the thing that moves still captures it, from its par
   expect(track(capture, 'transform').keyframes[1]?.value).toBe('translateY(-6px) scale(1.03)');
 });
 
+// Found on MUI's demo toolbar: a click on "show code" fades in the toolbar
+// beside it, so recording moves to their parent, where two buttons have
+// shimmered since the page loaded. The click was named as already running
+// and dropped; and the shimmer is not part of it.
+test('a click that moves recording to a parent with an old loop in it is kept, without the loop', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #sp-tools { display: flex; gap: 8px; padding: 8px; width: 320px }
+      #sp-tools .sp-shimmer { width: 40px; height: 20px; background: linear-gradient(90deg, #eee, #ccc, #eee);
+        background-size: 200% 100%; animation: sp-shimmer 2s linear infinite }
+      @keyframes sp-shimmer { from { background-position: -100% 0 } to { background-position: 100% 0 } }
+      #sp-tools .sp-bar { width: 60px; height: 20px; background: #36f; opacity: 0; transition: opacity .25s ease-out }
+      #sp-tools.on .sp-bar { opacity: 1 }
+      #sp-tools button { transition: background-color .15s } #sp-tools.on button { background-color: #ddd }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="sp-tools"><span class="sp-shimmer"></span><div class="sp-bar"></div><button id="sp-code">Code</button></div>';
+    document.body.prepend(holder);
+    document.getElementById('sp-code')?.addEventListener('click', () =>
+      document.getElementById('sp-tools')?.classList.add('on'),
+    );
+  });
+  // The shimmer has run a while by the time anything is picked.
+  await page.waitForTimeout(1300);
+  await page.evaluate(() =>
+    window.MotionCapture.record(document.getElementById('sp-code') as Element),
+  );
+  await page.click('#sp-code');
+  await page.waitForTimeout(900);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.trigger).toBe('click');
+  const properties = capture.tracks.map((track) => track.property);
+  expect(properties).toContain('opacity');
+  expect(properties.filter((property) => property.startsWith('background-position'))).toEqual([]);
+});
+
 test('recording moves to the parent only when the picked element has nothing of its own', async ({
   page,
 }) => {

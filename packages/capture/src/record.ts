@@ -139,6 +139,10 @@ function shadowRootsAround(picked: Element): ShadowRoot[] {
 // is part of what was picked (found on a real site).
 const SAME_TRIGGER_MS = 150;
 
+// A loop that began this long before a take's own animations is not part
+// of the take.
+const UNRELATED_LOOP_MS = 1000;
+
 // A part that appears elsewhere this soon after a press on the picked
 // element was opened by it.
 const OPENED_WITHIN_MS = 600;
@@ -1943,7 +1947,10 @@ function triggerOf(
     // Opened by a press just before recording moved to it (a menu at the
     // end of the page, which may open under the pointer). The press that
     // picked never reaches this list.
-    const began = Math.min(...take.map((seen) => seen.startTime));
+    // A loop running since the page loaded (a shimmer on a nearby button,
+    // found on MUI) says nothing of when this began: the ones that end do.
+    const ending = take.filter((seen) => Number.isFinite(seen.timing.endTime));
+    const began = Math.min(...(ending.length > 0 ? ending : take).map((seen) => seen.startTime));
     const press = pageEvents
       .filter((event) => event.time <= began + 50 && event.time >= began - 700)
       .reverse()
@@ -2196,7 +2203,7 @@ function animatedNow(snapshot: Snapshot): Element[] {
 
 function buildTake(
   snapshot: Snapshot,
-  take: Seen[],
+  everything: Seen[],
   samples: LayoutSample[] = [],
   notes: string[] = [],
   trigger: Trigger | null = null,
@@ -2205,6 +2212,19 @@ function buildTake(
   watch: Watch = new Map(),
   pseudoFilm: PseudoFilm = new Map(),
 ): TakeResult {
+  // A loop that was running long before this take's own animations (a
+  // shimmer on a nearby button since the page loaded, found on MUI) belongs
+  // to something else: it is not part of what this take shows.
+  const ends = everything
+    .filter((seen) => Number.isFinite(seen.timing.endTime))
+    .map((seen) => seen.startTime);
+  const ownStart = ends.length === 0 ? -Infinity : Math.min(...ends);
+  const take = everything.filter(
+    (seen) =>
+      Number.isFinite(seen.timing.endTime) ||
+      !seen.runningAtPick ||
+      seen.startTime >= ownStart - UNRELATED_LOOP_MS,
+  );
   // Parts that were hidden at pick time and appeared for this animation get
   // their shapes now.
   for (const seen of take) {
