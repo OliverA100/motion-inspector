@@ -1078,3 +1078,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The watch measures the parts inside the picked element from its corner, and the picked element from its parent's. Being carried along by a parent outside it (a marquee) is not motion the preview misses.
 - The sweep takes CAPTURE=path, to run another build of the capture script, so two can be compared on the same pages.
 **Why:** the original sweep, run again (318 of 331 matched): MUI's tabs were 81 px off (the ripple went back to nothing once its spread ended, while the page held it until it was removed), and GitHub's marquee item was called missed. Both match now. Bisected by sweeping three builds of the day.
+
+### D186. A z-index that animates reorders the siblings
+**Chose:** z-index is previewed. A shape whose z-index animates above 0 is drawn after its siblings, and below 0 before them; the others keep the order capture gave them. The description says it "comes in front of the parts beside it" or "goes behind" them.
+**Why:** CSS-Tricks brings an avatar in front of the ones it overlaps on hover: "Not drawn: z-index".

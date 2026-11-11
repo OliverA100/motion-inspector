@@ -79,6 +79,8 @@ export const PREVIEWED_PROPERTIES = [
   'text-decoration-color',
   // Frosted glass: what is behind, blurred.
   'backdrop-filter',
+  // Which sibling is in front.
+  'z-index',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -516,6 +518,7 @@ function poseOf(
     backgroundSize: firstLayer(valueOf('background-size')),
     underlineColor: valueOf('text-decoration-color'),
     backdropFilter: valueOf('backdrop-filter'),
+    zIndex: zIndexOf(valueOf('z-index')),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,
@@ -538,6 +541,13 @@ function hasEffect(track: Track, timeMs: number): boolean {
 function pathData(value: string | null): string | null {
   if (value === null) return null;
   return /^path\("(.*)"\)$/.exec(value)?.[1] ?? null;
+}
+
+// An animated z-index as a number; null for auto, or when it does not animate.
+function zIndexOf(value: string | null): number | null {
+  if (value === null) return null;
+  const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) ? number : null;
 }
 
 export function createProbe(): Probe {

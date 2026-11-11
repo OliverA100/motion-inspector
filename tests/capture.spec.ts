@@ -2118,6 +2118,30 @@ test('a path whose outline morphs is drawn as it is now', async ({ page }) => {
   expect(halfway).toEqual(['M 30 7.5 L 92.5 30 L 70 92.5 L 7.5 70 Z']);
 });
 
+// Found on CSS-Tricks: an avatar brought in front of the ones it overlaps.
+test('a part whose z-index rises is drawn in front of its siblings', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-stack { display: flex; width: 160px }
+     #sp-stack div { position: relative; z-index: 0; width: 60px; height: 60px; margin-right: -20px; transition: z-index .3s }
+     #sp-stack .front { z-index: 5 }`,
+    '<div id="sp-stack"><div style="background:#e55" id="sp-first"></div><div style="background:#36f"></div></div>',
+    '#sp-stack',
+  );
+  await page.evaluate(() => document.getElementById('sp-first')?.classList.add('front'));
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(describeCapture(capture)).toContain('comes in front of the parts beside it');
+  const late = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (capture: unknown, timeMs: number) => { zIndex: number | null }[];
+    };
+    return module.posesOf(taken, 280).map((pose) => pose.zIndex);
+  }, capture);
+  expect(late.some((value) => value !== null && value > 0)).toBe(true);
+});
+
 // Frosted glass: a card that blurs what is behind it on hover.
 test('a backdrop blur is previewed, not listed as not drawn', async ({ page }) => {
   await setUp(

@@ -79,6 +79,9 @@ export type Pose = {
   // An animated backdrop-filter ("blur(12px)"): what is behind the shape,
   // seen through it (frosted glass).
   backdropFilter: string | null;
+  // An animated z-index: above its siblings when over 0, under them when
+  // below (an avatar brought to the front on hover).
+  zIndex: number | null;
 };
 
 export type StageData = {
@@ -408,6 +411,23 @@ function taperedPieces(
 // an arrow inside a hidden span was drawn).
 type Underline = { color: string; thickness: number };
 
+// Siblings in the order they are painted now: one whose z-index animates
+// above 0 comes after the rest, below 0 before them. The others keep the
+// order capture gave them.
+function inStackingOrder(children: Shape[], poses: Pose[]): Shape[] {
+  const zOf = (child: Shape): number =>
+    poses.find((pose) => pose.shapeId === child.id)?.zIndex ?? 0;
+  if (children.every((child) => zOf(child) === 0)) return children;
+  return children
+    .map((child, index) => ({
+      child,
+      index,
+      z: Math.sign(zOf(child)) * (1 + Math.abs(zOf(child))),
+    }))
+    .sort((one, other) => one.z - other.z || one.index - other.index)
+    .map((item) => item.child);
+}
+
 // Frosted glass: what is already drawn behind the shape, redrawn within it
 // through its backdrop-filter. Lengths in it are in the page's px, so they
 // are scaled as the stage is.
@@ -516,7 +536,7 @@ function walk(
       shapePath(context, shape, pose);
       context.clip();
     }
-    for (const child of shape.children) {
+    for (const child of inStackingOrder(shape.children, poses)) {
       // Drawn first, on its own (see drawFilled).
       if (isBackdrop(child)) continue;
       walk(context, child, poses, paint, inherited, alpha, underline);
