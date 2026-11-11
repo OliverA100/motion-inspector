@@ -544,3 +544,25 @@ test('scroll-driven: the timeline is a ScrollTimeline, and its times are not num
   expect(typeof progress.currentTime).toBe('object');
   expect(typeof computedTiming(progress).duration).toBe('object');
 });
+
+// Found while recording a link whose text grows on hover: Chrome reports a
+// font-size transition's keyframes as 0px to 0px, whatever its values. The
+// capture says it cannot read them (record.ts) rather than calling it a
+// change that ends where it starts.
+test('font-size transition: Chrome reports both keyframes as 0px', async ({ page }) => {
+  await page.setContent(
+    '<style>#g{display:inline-block;font:16px system-ui;transition:font-size .3s}#g.on{font-size:22px}</style><a id="g">Get started</a>',
+  );
+  const keyframes = await page.evaluate(async () => {
+    const link = document.getElementById('g') as HTMLElement;
+    link.classList.add('on');
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    return link.getAnimations()[0]?.effect instanceof KeyframeEffect
+      ? link
+          .getAnimations()[0]
+          ?.effect?.getKeyframes()
+          .map((keyframe) => keyframe.fontSize)
+      : null;
+  });
+  expect(keyframes).toEqual(['0px', '0px']);
+});

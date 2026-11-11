@@ -1019,7 +1019,9 @@ export function describeCapture(capture: Capture): string {
   const missed = missedSentence(capture);
 
   return [
-    ...(motions.length === 0 && (capture.follows ?? []).length === 0
+    // Only parts moved by the layout: those are said below, and something was
+    // captured.
+    ...(motions.length === 0 && (capture.follows ?? []).length === 0 && moved === 0
       ? ['No animations were captured.']
       : described),
     ...(capture.follows ?? []).map((follow) => followSentence(capture, follow)),

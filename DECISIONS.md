@@ -1092,3 +1092,8 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - A prefixed property keeps its leading dash: Chrome reports -webkit-mask-position-x as webkitMaskPositionX, which was named "webkit-mask-position-x".
 - The mask's position is previewed. Chrome animates it through element.animate() only as the mask-position shorthand, so the probe plays one side that way, the other held at 0%, and reads the side back. The stage moves a mask's tile by the mask's position, no longer by the background's.
 **Why:** a shimmer over text, a gradient mask swept across by its position, was listed as not drawn.
+
+### D189. A font-size transition Chrome cannot report is said to be unreadable
+**Found in Chrome:** a font-size transition's getKeyframes() gives 0px for both ends, whatever the real sizes. It was taken for an animation that ends where it starts, and a link whose text grows on hover read "No animations were captured".
+**Chose (for now):** it is listed as not shown, saying Chrome does not report its values; the box it grows is measured by layout tracks, so the preview's box matches the page. A take with only layout tracks no longer begins "No animations were captured". Asserted in tests/spike.spec.ts, and in docs/chrome-findings.md.
+**Options, for the owner to choose:** (a) leave it listed, as now; (b) read the two ends from the page itself, its font size before the take and where it rests after, which is right for a transition between two states; (c) film the font size every frame, as a script's motion is, and fit a measured track. (b) and (c) would also need the text bars to grow with it, which the preview does not do yet.

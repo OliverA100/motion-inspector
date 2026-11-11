@@ -923,6 +923,15 @@ function tracksFor(
           (property !== 'transform' || sameValue(property, item.value, firstValue, seen.target))
         : sameValue(property, item.value, firstValue, seen.target),
     );
+    // Chrome reports a font-size transition as 0px to 0px, whatever its
+    // values (docs/chrome-findings.md): it changes something all the same,
+    // and is said to be unreadable, not to end where it starts.
+    if (property === 'font-size' && filled.every((item) => item.value === '0px')) {
+      notShown.push(
+        `The font-size animation on ${label} is not shown, because Chrome does not report its values (it gives 0px for both ends). The size of its box is measured.`,
+      );
+      return [];
+    }
     if (changesNothing) {
       unchanged.push(`${property} animation on ${label}`);
       return [];
