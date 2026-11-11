@@ -248,6 +248,8 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 73 | Magic UI | The rotating word's outgoing heading was "left out of the drawing": text only, and gone by the end of the take | Shaped as soon as it animates (D144) |
 | 74 | Ant Design, shadcn | The modal was followed by its backdrop; the dialog, centered by translate -50%, drawn 245 px off | The opened part with content is chosen; translate kept in px, and kept at rest (D149): 0 px |
 
+Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
+
 The sweep now also runs Magic UI, Aceternity, a scroll-driven demo, and menus and dialogs that open at the end of the page (shadcn, MUI, Ant Design), and Catalyst's switch: 43 more elements, all within 1.4 px. Before them, it checked 279 elements on 32 sites: all within 1.4 px of the page but GitHub's dialog, which the page plays late. Stripe's caret, the other, is fixed (72).
 
 ## Known limits seen on real sites
