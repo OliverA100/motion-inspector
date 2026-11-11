@@ -491,3 +491,33 @@ describe('a new capture', () => {
     expect(init({ ...cardLift, trigger: 'loop' }).loop).toBe(true);
   });
 });
+
+describe('a take that goes there and back', () => {
+  test('its first play stops where the hover is held, and play goes on from there', () => {
+    // The way there, and the same row back 600 ms later.
+    const there = buttonHover.tracks[0];
+    if (there === undefined) throw new Error('no track');
+    const back = {
+      ...there,
+      startOffset: (there.startOffset + 600) as typeof there.startOffset,
+      keyframes: [...there.keyframes].reverse().map((keyframe, index, all) => ({
+        ...keyframe,
+        offset: (all[all.length - 1 - index]?.offset ?? keyframe.offset) as typeof keyframe.offset,
+      })),
+    };
+    const start = init({ ...buttonHover, tracks: [there, back] });
+    expect(start.pauseAtMs).toBe(600);
+    const held = start.pauseAtMs ?? 0;
+    let stopped = start;
+    for (let frame = 0; frame < 200 && stopped.playing; frame += 1) {
+      stopped = update(stopped, { kind: 'ticked', elapsedMs: 16 });
+    }
+    expect(stopped).toMatchObject({ playing: false, timeMs: held, pauseAtMs: null });
+    const resumed = update(stopped, { kind: 'playToggled' });
+    expect(resumed).toMatchObject({ playing: true, timeMs: held });
+  });
+
+  test('a take with no way back plays to its end', () => {
+    expect(init(cardLift).pauseAtMs).toBeNull();
+  });
+});

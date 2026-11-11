@@ -24,6 +24,10 @@ export type Model = {
   // The one clock. Every view reads this, so they cannot drift apart.
   // In ms from the start of the take.
   timeMs: number;
+  // Where the first play stops, when the take goes there and back (a hover
+  // and its leave): at the held moment, the way back not yet begun, so the
+  // preview shows what the hover opened. null once played or touched.
+  pauseAtMs: number | null;
   compare: Compare;
   // Whether the original's dashed gray lines are drawn: the outline on the
   // preview, and the dashed curve, speed line and timeline bars.

@@ -12,7 +12,7 @@ import {
   type Track,
 } from '@motion-inspector/core';
 import type { Model, Msg } from './model';
-import { defaultSelection, easingAt, easingTarget, takeLengthMs } from './selectors';
+import { defaultSelection, easingAt, easingTarget, heldAtMs, takeLengthMs } from './selectors';
 
 const FRAME_MS = 1000 / 60;
 // The longest delay or duration that can be set by hand: ten minutes.
@@ -37,6 +37,7 @@ export function init(capture: Capture): Model {
     loop: capture.trigger === 'loop',
     speed: 1,
     timeMs: 0,
+    pauseAtMs: capture.trigger === 'loop' ? null : heldAtMs(capture),
     compare: 'overlay',
     showOriginal: true,
     hiddenTracks: [],
@@ -96,9 +97,10 @@ function changeTiming(model: Model, trackIndex: number, change: (timing: Timing)
   return keepTimeInside({ ...model, edited: { ...model.edited, tracks } });
 }
 
-// A shorter take can leave the playhead past its end. Bring it back.
+// A shorter take can leave the playhead past its end. Bring it back. An
+// edit is a touch: the first play no longer stops where the hover is held.
 function keepTimeInside(model: Model): Model {
-  return { ...model, timeMs: clampTime(model, model.timeMs) };
+  return { ...model, pauseAtMs: null, timeMs: clampTime(model, model.timeMs) };
 }
 
 // Puts a track, and the tracks grouped with it, back to the original.
@@ -132,6 +134,10 @@ function tick(model: Model, elapsedMs: number): Model {
   const elapsed = Math.min(Math.max(saturate(elapsedMs), 0), LONGEST_TICK_MS);
   const length = takeLengthMs(model.edited);
   const next = model.timeMs + elapsed * model.speed;
+  // The first play stops where a hover is held, before its way back.
+  if (model.pauseAtMs !== null && model.timeMs < model.pauseAtMs && next >= model.pauseAtMs) {
+    return { ...model, timeMs: model.pauseAtMs, playing: false, pauseAtMs: null };
+  }
   if (next < length) return { ...model, timeMs: next };
   // Reached the end: start over, or stop on the last frame.
   return model.loop
@@ -140,10 +146,10 @@ function tick(model: Model, elapsedMs: number): Model {
 }
 
 function togglePlay(model: Model): Model {
-  if (model.playing) return { ...model, playing: false };
+  if (model.playing) return { ...model, playing: false, pauseAtMs: null };
   // Play from the end means play again.
   const atEnd = model.timeMs >= takeLengthMs(model.edited);
-  return { ...model, playing: true, timeMs: atEnd ? 0 : model.timeMs };
+  return { ...model, playing: true, pauseAtMs: null, timeMs: atEnd ? 0 : model.timeMs };
 }
 
 // ---------- update ----------
@@ -184,7 +190,7 @@ export function update(model: Model, msg: Msg): Model {
       return togglePlay(model);
 
     case 'replayed':
-      return { ...model, playing: true, timeMs: 0 };
+      return { ...model, playing: true, pauseAtMs: null, timeMs: 0 };
 
     case 'loopSet':
       return { ...model, loop: msg.loop };
@@ -197,7 +203,7 @@ export function update(model: Model, msg: Msg): Model {
 
     // Scrubbing and stepping take over from playback.
     case 'scrubbed':
-      return { ...model, playing: false, timeMs: clampTime(model, msg.timeMs) };
+      return { ...model, playing: false, pauseAtMs: null, timeMs: clampTime(model, msg.timeMs) };
 
     case 'stepped':
       return {

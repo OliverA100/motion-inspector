@@ -1181,3 +1181,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D207. A plain matrix is read as a move and a scale
 **Chose:** a transform written as matrix() with no turn and no slant (b and c are 0) is read as a translate and a scale. One that turns or slants stays unread, as D9 says.
 **Why:** a resting transform read back from the page comes as matrix(1, 0, 0, 1, 0, 0). Stripe's heading on load read "changes transform from matrix(1, 0, 0, 1, 0, 0) to translateY(-100%)" instead of "moves up".
+
+### D208. A take that goes there and back first stops where it is held
+**Chose:** a take with a way back (a hover and its leave, a menu opened and closed) stops its first play at the held moment, where the way back begins. Play goes on from there; replay, a scrub or an edit drops the stop.
+**Why:** played to its end, a hover and its leave ends where it began, so the preview of Linear's menu sat on an empty frame after its first play: what the hover opened was never on screen unless one scrubbed back.

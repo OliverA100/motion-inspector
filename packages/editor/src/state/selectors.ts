@@ -369,3 +369,14 @@ export function timingTerms(track: Track): { delay: string; duration: string } {
   }
   return { delay: 'delay', duration: 'duration' };
 }
+
+// The moment a take that goes there and back holds before its way back
+// begins (a hover held before the leave). null when it has no way back.
+export function heldAtMs(capture: Capture): number | null {
+  const starts = capture.tracks
+    .filter((_track, index) => isWayBack(capture.tracks, index))
+    .map((track) => track.startOffset + Math.max(0, track.timing.delay));
+  if (starts.length === 0) return null;
+  const held = Math.min(...starts);
+  return held > 0 && held < takeLengthMs(capture) ? held : null;
+}

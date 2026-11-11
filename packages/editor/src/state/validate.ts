@@ -48,6 +48,12 @@ export function validateModel(model: Model): Result<Model> {
     model.timeMs <= takeLengthMs(model.edited)
       ? []
       : [`timeMs must be within the take. Got ${model.timeMs}.`]),
+    ...(model.pauseAtMs === null ||
+    (Number.isFinite(model.pauseAtMs) &&
+      model.pauseAtMs >= 0 &&
+      model.pauseAtMs <= takeLengthMs(model.edited))
+      ? []
+      : [`pauseAtMs must be within the take, or null. Got ${model.pauseAtMs}.`]),
   ];
   return errors.length > 0 ? failAll(errors) : ok(model);
 }
