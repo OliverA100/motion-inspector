@@ -229,6 +229,11 @@ export type Seen = {
   composite: string;
   // True when it already existed when the element was picked (a loader).
   runningAtPick: boolean;
+  // True while it has been paused since it was seen. Some libraries make
+  // an animation paused and let it run a few frames later (Ant Design's
+  // menus: animation-play-state: paused, then running), so its start is
+  // only known once it runs.
+  held: boolean;
   // The part's backface-visibility as the animation began: what set it off
   // can change it too (daisyUI's flip hides one face's back and shows the
   // other's in the same click), so it is not the one read when picked.
@@ -528,6 +533,7 @@ function read(animation: Animation): Seen | null {
     ended: null,
     interrupted: false,
     runningAtPick: false,
+    held: animation.playState === 'paused',
     viewTransition: false,
     composite: effect.composite,
     backfaceHidden:
@@ -564,6 +570,22 @@ function read(animation: Animation): Seen | null {
     },
   );
   return seen;
+}
+
+// An animation seen paused that now runs: its start is when it began to
+// run, not when it was seen (see Seen.held).
+function startedRunning(seen: Seen): void {
+  const animation = seen.animation;
+  if (!seen.held || animation.playState !== 'running') return;
+  seen.held = false;
+  const endTime = Math.abs(seen.timing.endTime * animation.playbackRate);
+  seen.startTime = playStart(animation, endTime, asNumber(document.timeline.currentTime) ?? 0);
+  animation.ready.then(
+    () => {
+      if (animation.startTime !== null) seen.startTime = playStart(animation, endTime, seen.startTime);
+    },
+    () => {},
+  );
 }
 
 // ---------- From what was seen to a capture ----------
@@ -2799,6 +2821,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         cutAt(event.time, event.type);
       }
     }
+    for (const seen of take) startedRunning(seen);
     // Read everything new first. Several animations often start in the same
     // frame (one per property), and they must all be compared with the take
     // as it was before any of them.

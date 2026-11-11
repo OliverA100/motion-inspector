@@ -94,6 +94,48 @@ describe('the check against the page', () => {
   });
 
   test('outside what the page passed through, it is', () => {
-    expect(selfCheck(capture, posesWith(0.1))[0]?.opacity).toBeCloseTo(0.1);
+    const always = () => [{ ...stillPose(cardLift.root.id), opacity: 0.1 }];
+    expect(selfCheck(capture, always)[0]?.opacity).toBeCloseTo(0.1);
+  });
+
+  test('a miss the preview a frame later does not make is not one', () => {
+    // The page drew the first keyframe the frame the animation was made;
+    // the preview starts it a frame later, as the browser's clock does.
+    const appearing = {
+      ...cardLift,
+      measured: [
+        {
+          shapeId: cardLift.root.id,
+          frames: [0, 50].map((t) => ({
+            t,
+            matrix: [1, 0, 0, 1, 0, t === 0 ? -8 : 0] as [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+            ],
+            taper: null,
+            opacity: t === 0 ? 0 : 1,
+          })),
+        },
+      ],
+    };
+    const startsLate = (time: number) => [
+      {
+        ...stillPose(cardLift.root.id),
+        opacity: time > 10 && time < 20 ? 0 : 1,
+        matrix: [1, 0, 0, 1, 0, time > 10 && time < 20 ? -8 : 0] as [
+          number,
+          number,
+          number,
+          number,
+          number,
+          number,
+        ],
+      },
+    ];
+    expect(selfCheck(appearing, startsLate)[0]).toMatchObject({ px: 0, opacity: 0 });
   });
 });

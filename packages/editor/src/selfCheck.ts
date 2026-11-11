@@ -37,6 +37,10 @@ export type ShapeCheck = {
 
 // Enough moments to find a miss, few enough to work out in a few ms.
 const MOST_MOMENTS = 80;
+// One frame at 60 a second, and a miss too small to see.
+const FRAME_MS = 1000 / 60;
+const CLOSE_PX = 0.5;
+const CLOSE_OPACITY = 0.01;
 
 // Where a corner lands, a taper (a turn in 3D) included.
 function apply(
@@ -75,6 +79,16 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
   const moments = times.filter((_time, index) => index % every === 0);
   const posesByTime = new Map(moments.map((time) => [time, posesAt(time)]));
   const follows = capture.follows ?? [];
+  // Poses a frame either side of a moment, made only where needed.
+  const nearby = new Map<number, Pose[]>();
+  const posesNear = (time: number): Pose[] => {
+    let poses = nearby.get(time);
+    if (poses === undefined) {
+      poses = posesAt(time);
+      nearby.set(time, poses);
+    }
+    return poses;
+  };
 
   return measured.flatMap((entry): ShapeCheck[] => {
     const shape = shapes.get(entry.shapeId);
@@ -102,15 +116,12 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
     let opacity = 0;
     let worstAtMs = 0;
     let frames = 0;
-    entry.frames.forEach((frame, index) => {
-      // Before the take starts the preview shows nothing to compare: a part
-      // filmed the frame it was made (MUI's ripple, its animation still
-      // pending) is not part of the motion yet.
-      if (frame.t < 0) return;
-      const poses = posesByTime.get(frame.t);
-      if (poses === undefined && replayed === null) return;
-      frames += 1;
-      const pose = followAt(index) ?? poses?.find((item) => item.shapeId === entry.shapeId);
+    // How far the preview at one moment is from this frame of the page.
+    const missOf = (
+      frame: (typeof entry.frames)[number],
+      index: number,
+      pose: Pose | undefined,
+    ): { px: number; opacity: number } => {
       const preview = pose?.matrix ?? shape.transform ?? identity;
       // What is seen of it: nothing while it is hidden.
       const seen = pose?.visible === false ? 0 : (pose?.opacity ?? shape.opacity);
@@ -120,18 +131,53 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
       const before = entry.frames[index - 1]?.opacity ?? frame.opacity;
       const low = Math.min(before, frame.opacity);
       const high = Math.max(before, frame.opacity);
-      opacity = Math.max(opacity, seen < low ? low - seen : seen > high ? seen - high : 0);
+      const opacityMiss = seen < low ? low - seen : seen > high ? seen - high : 0;
       // Unseen on the page and in the preview (removed, hidden): where it
       // would be does not matter.
-      if (seen === 0 && frame.opacity === 0) return;
+      if (seen === 0 && frame.opacity === 0) return { px: 0, opacity: opacityMiss };
+      let pxMiss = 0;
       for (const [x, y] of corners) {
         const [px1, py1] = apply(preview, pose?.taper ?? null, x, y);
         const [px2, py2] = apply(frame.matrix, frame.taper, x, y);
-        const distance = Math.hypot(px1 - px2, py1 - py2);
-        if (distance > px) {
-          px = distance;
-          worstAtMs = frame.t;
+        pxMiss = Math.max(pxMiss, Math.hypot(px1 - px2, py1 - py2));
+      }
+      return { px: pxMiss, opacity: opacityMiss };
+    };
+    entry.frames.forEach((frame, index) => {
+      // Before the take starts the preview shows nothing to compare: a part
+      // filmed the frame it was made (MUI's ripple, its animation still
+      // pending) is not part of the motion yet.
+      if (frame.t < 0) return;
+      const poses = posesByTime.get(frame.t);
+      if (poses === undefined && replayed === null) return;
+      frames += 1;
+      const follow = followAt(index);
+      let miss = missOf(
+        frame,
+        index,
+        follow ?? poses?.find((item) => item.shapeId === entry.shapeId),
+      );
+      // A frame's time on the page is known to within a frame: Chrome
+      // draws a new animation's first keyframe the frame it is made, and
+      // starts its clock the frame after (shadcn's popover). A miss that
+      // the preview a frame either side does not make is not one.
+      if (follow === undefined && (miss.px > CLOSE_PX || miss.opacity > CLOSE_OPACITY)) {
+        for (const time of [frame.t - FRAME_MS, frame.t + FRAME_MS]) {
+          if (time < 0) continue;
+          const near = posesNear(time).find((item) => item.shapeId === entry.shapeId);
+          const other = missOf(frame, index, near);
+          // Each is timed on its own: a fade the browser runs can be a
+          // frame ahead of a move a script makes (Magic UI's list).
+          miss = {
+            px: Math.min(miss.px, other.px),
+            opacity: Math.min(miss.opacity, other.opacity),
+          };
         }
+      }
+      opacity = Math.max(opacity, miss.opacity);
+      if (miss.px > px) {
+        px = miss.px;
+        worstAtMs = frame.t;
       }
     });
     return frames === 0

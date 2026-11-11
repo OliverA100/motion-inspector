@@ -2789,3 +2789,31 @@ test('a dialog on the page all along, shown by a class, is followed from its but
   expect(capture.tracks.map((track) => track.property).sort()).toEqual(['opacity', 'translate']);
   expect(capture.trigger).toBe('click');
 });
+
+// Ant Design's menus: the animation is put on paused, then let run a few
+// frames later. It starts when it runs, not when it was first seen.
+test('an animation made paused and run later starts when it runs', async ({ page }) => {
+  await setUp(
+    page,
+    `@keyframes sp-held-in { from { transform: scaleY(0.8); opacity: 0 } to { transform: none; opacity: 1 } }
+     #sp-held { width: 120px; height: 200px; background: #36f; transform-origin: 0 0 }
+     #sp-held.appear { animation: sp-held-in .2s ease-out both paused }
+     #sp-held.appear.go { animation-play-state: running }`,
+    '<div id="sp-held"></div>',
+    '#sp-held',
+  );
+  await page.evaluate(() => document.getElementById('sp-held')?.classList.add('appear'));
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.getElementById('sp-held')?.classList.add('go'));
+  await page.waitForTimeout(600);
+  const capture = onlyCapture(await takesNow(page));
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number; opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.px).toBeLessThan(3);
+  expect(miss.opacity).toBeLessThan(0.05);
+});

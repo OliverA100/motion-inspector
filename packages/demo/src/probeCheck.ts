@@ -10,6 +10,7 @@
 import { sampleTrack, type Capture, type Keyframe } from '@motion-inspector/core';
 import { allSamples } from '@motion-inspector/core/src/samples';
 import { createProbe, takeLengthMs } from '@motion-inspector/editor';
+import { selfCheck } from '@motion-inspector/editor/src/selfCheck';
 
 type Numbers = { x: number; y: number; scale: number; opacity: number };
 
@@ -99,4 +100,16 @@ export function posesOf(
   timeMs: number,
 ): ReturnType<ReturnType<typeof createProbe>['poses']> {
   return createProbe().poses(capture, timeMs);
+}
+
+// How far the preview is from the page, as the badge works it out: the
+// largest miss over every measured part.
+export function worstMiss(capture: Capture): { px: number; opacity: number } {
+  const probe = createProbe();
+  const checks = selfCheck(capture, (timeMs) => probe.poses(capture, timeMs));
+  probe.dispose();
+  return {
+    px: Math.max(0, ...checks.map((check) => check.px)),
+    opacity: Math.max(0, ...checks.map((check) => check.opacity)),
+  };
 }

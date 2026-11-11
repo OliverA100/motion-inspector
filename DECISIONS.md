@@ -1103,3 +1103,11 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - letter-spacing is previewed. Letters are never copied, so they are not counted: the text inside a part whose letter-spacing animates is drawn wider by the same share as the box the layout measured, from the box's left edge. A box that simply widens does not stretch its text.
 - The stage is framed to where layout tracks take their parts at any keyframe, not only at their last one: a box that widens on hover and back on leave is widest in the middle.
 **Why:** a link whose letters spread on hover was "Not drawn: letter-spacing", and once drawn, its text ran off the edge of the view.
+
+### D191. The check allows a frame either way
+**Chose:** where a frame of the page and the preview differ, the preview a frame (16.7 ms) earlier and later is tried too, and the smallest miss is kept, for position and for opacity each on its own. A frame the preview matches either side of is not a miss.
+**Why:** a frame's time on the page is known to within a frame. Chrome draws a new animation's first keyframe the frame it is made and starts its clock the frame after, so shadcn's popover was "Off by 21 px" at 0 ms on one sweep run in two, and Magic UI's list, whose fade (run by the browser) is a frame ahead of its scale (moved by a script), was "Off by 4% opacity". A miss of a frame cannot be seen; a real one is still a miss a frame either side.
+
+### D192. An animation made paused starts when it runs
+**Chose:** an animation that is paused when first seen is dated from when it starts to run, not from when it was seen.
+**Why:** some libraries put an animation on paused and let it run a few frames later (Ant Design's motion classes: animation-play-state: paused, then running). Its keyframes were placed at the frame it was seen, ahead of the page.

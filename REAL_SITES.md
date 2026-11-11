@@ -282,6 +282,8 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 106 | MUI (tabs, ripple) | 81 px off: the ripple went back to nothing in the preview after its spread | D185: 0.2 px |
 | 107 | GitHub (marquee item) | Called missed: the marquee carrying it along | D185: 0 px |
 | 108 | Original sweep (33 pages, 331 checks) | 318 matched before D185 | |
+| 109 | Library sweep again (85 pages, 390 checks) | 387 matched. shadcn's popover: 21 px and 100% at 0 ms on one run in two; Magic UI's list: 4% at 0 ms | D191: a miss the preview a frame either side does not make is not one; both 0 px |
+| 110 | Ant Design (tab overflow menu) | 39 px: the sweep reopened a menu that opens on hover while the one from its first run was still open, and two menus were on the page. Recorded once on a fresh page it matches (0 px) | Not a tool problem. Found while looking: an animation made paused and run later (D192), now dated from when it runs |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 
