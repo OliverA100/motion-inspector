@@ -1113,6 +1113,32 @@ test('a radial gradient lit by a variable on hover is filmed, not listed as not 
   expect(last).toMatch(/^radial-gradient\(.*rgb\(80, 89, 103\)/);
 });
 
+// The same button, its colors written in lab() as Attio's are: Chrome
+// writes them so at rest and in oklab() in between. Both ways are filmed.
+test('a radial gradient lit by a variable in lab() colors is filmed both ways', async ({ page }) => {
+  await setUp(
+    page,
+    `@property --sp-glow { syntax: "<color>"; inherits: false; initial-value: lab(12.7 0.1 -2.2); }
+     #sp-lit { width: 120px; height: 40px; transition: --sp-glow .3s, color .3s;
+       background-image: radial-gradient(at 50% -10%, var(--sp-glow) 0%, lab(12.7 0.1 -2.2) 100%) }
+     #sp-lit.on { --sp-glow: lab(37.4 -1.1 -9.3); color: white; transition-duration: 50ms }`,
+    '<div id="sp-lit">Get started</div>',
+    '#sp-lit',
+  );
+  await page.evaluate(() => document.getElementById('sp-lit')?.classList.add('on'));
+  await page.waitForTimeout(600);
+  await page.evaluate(() => document.getElementById('sp-lit')?.classList.remove('on'));
+  await page.waitForTimeout(800);
+  const takes = await takesNow(page);
+  const properties = takes.map((take) =>
+    captureOf(take).tracks.map((item) => `${item.origin}:${item.property}`).sort(),
+  );
+  for (const each of properties) {
+    expect(each).toContain('script:background-image');
+    expect(each).not.toContain('css-transition:--sp-glow');
+  }
+});
+
 test('text that shows a background through its letters, and a gradient border', async ({
   page,
 }) => {

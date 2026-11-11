@@ -1111,3 +1111,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D192. An animation made paused starts when it runs
 **Chose:** an animation that is paused when first seen is dated from when it starts to run, not from when it was seen.
 **Why:** some libraries put an animation on paused and let it run a few frames later (Ant Design's motion classes: animation-play-state: paused, then running). Its keyframes were placed at the frame it was seen, ahead of the page.
+
+### D193. A filmed value is read in one color space
+**Chose:** where a filmed property's text changes shape between frames, every color in it is written as rgba() and it is read again.
+**Why:** Chrome writes a color at rest as it was given (lab() on Attio's button) and a color between two others in oklab(). The film of its gradient had two shapes of text, could not be blended, and the way back was listed as "Not drawn: --button-primary-bg-from".

@@ -3,7 +3,7 @@
 // check its preview against the page.
 
 import { fitMotion, offsetMatrix } from '@motion-inspector/core';
-import { readValue } from './readValue';
+import { readColor, readValue } from './readValue';
 import type { Seen } from './record';
 import { FILMED_STYLES, type RawShape, type Snapshot } from './snapshot';
 
@@ -68,6 +68,17 @@ export function withoutStillEnd(frames: FilmFrame[]): FilmFrame[] {
 }
 
 export const NUMBER = /-?\d*\.?\d+(?:e[+-]?\d+)?/g;
+
+// Every color in a value written as rgba(). Chrome writes a color at rest
+// as it was given (lab() on Attio's button) and one between two others in
+// oklab(), so the same gradient reads differently from frame to frame.
+const ANY_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^()]*\)/g;
+export function colorsInRgb(text: string): string {
+  return text.replace(ANY_COLOR, (color) => {
+    const read = readColor(color);
+    return read === null ? color : `rgba(${read.r}, ${read.g}, ${read.b}, ${read.a})`;
+  });
+}
 
 // The numbers in a property's text over the film, with the text around them
 // kept: "polygon(0px 0px, 100% calc(100% - 112px), …)" has slots for each
@@ -511,7 +522,7 @@ export function scriptTracksFor(
         ) {
           return [];
         }
-        const slots = numberSlots(texts);
+        const slots = numberSlots(texts) ?? numberSlots(texts.map(colorsInRgb));
         if (slots === null) return [];
         return [
           {
