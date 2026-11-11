@@ -273,7 +273,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 97 | MUI (show code toggle, on every component page) | Nothing recorded: the click was taken for motion already running | D174: recorded as a click, 0 px |
 | 98 | Library sweep (85 pages, 379 checks) | 374 matched before these fixes; the rest were Radix (D170), MUI (D174) and ones that matched when recorded again | |
 | 99 | Railway (button highlight following the pointer) | Restarted 62 times; only the last restart shown, 24 px off | D176: 0 to 0.5 px |
-| 100 | Product sweep (24 sites, 185 checks) | 165 matched; Railway (D176), Attio (D177) and Cal (D178) fixed since | |
+| 100 | Product sweep (24 sites, 185 checks) | 165 matched; Railway (D176), Attio (D177) and Cal (D178) fixed since; run again: 171, and D184 fixed the 6 it got wrong | |
 | 101 | Cal (menu on hover) | Shrunk by a class with no transition as it faded: 20 px off | D178: 0 px |
 | 102 | Attio (buttons) | Lit by a variable in a radial gradient: listed as not drawn | D177: filmed and drawn |
 | 103 | Figma (button icon) | 2.2 px off: an svg's translate: 0 -50% read from its drawing | D179: 0 px |

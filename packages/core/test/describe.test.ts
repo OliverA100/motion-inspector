@@ -131,7 +131,8 @@ describe('a turn about a point away from the middle', () => {
   const turning = (functions: TransformFunction[]): string => {
     const base = cardLift.tracks[0];
     const [first, last] = base?.keyframes ?? [];
-    if (base === undefined || first === undefined || last === undefined) throw new Error('no track');
+    if (base === undefined || first === undefined || last === undefined)
+      throw new Error('no track');
     return describeCapture({
       ...cardLift,
       root: {
@@ -269,7 +270,13 @@ describe('special properties in plain words', () => {
   });
 
   test('an underline that changes color', () => {
-    const color = (r: number, g: number, b: number, a: number): ParsedValue => ({ kind: 'color', r, g, b, a });
+    const color = (r: number, g: number, b: number, a: number): ParsedValue => ({
+      kind: 'color',
+      r,
+      g,
+      b,
+      a,
+    });
     expect(
       firstSentence(
         changing('text-decoration-color', 'rgb(120, 120, 120)', 'rgb(0, 0, 255)', [

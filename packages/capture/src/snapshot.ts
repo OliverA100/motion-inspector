@@ -2579,7 +2579,8 @@ export function frameNow(element: Element): {
   // An <svg> in the page (not inside another) is a CSS box, like an HTML
   // element: its own box, not its drawing's (Figma's button icon, moved by
   // translate: 0 -50%, was read 2 px short).
-  const outerSvg = element instanceof SVGSVGElement && !(element.parentElement instanceof SVGElement);
+  const outerSvg =
+    element instanceof SVGSVGElement && !(element.parentElement instanceof SVGElement);
   const size =
     element instanceof HTMLElement
       ? { width: element.offsetWidth, height: element.offsetHeight }

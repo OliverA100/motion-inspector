@@ -419,7 +419,10 @@ function drawBackdrop(
 ): void {
   const matrix = context.getTransform();
   const scale = Math.hypot(matrix.a, matrix.b) || 1;
-  const scaled = filter.replace(/(-?\d*\.?\d+)px/g, (_whole, amount: string) => `${Number(amount) * scale}px`);
+  const scaled = filter.replace(
+    /(-?\d*\.?\d+)px/g,
+    (_whole, amount: string) => `${Number(amount) * scale}px`,
+  );
   context.save();
   shapePath(context, shape, pose);
   context.clip();
@@ -471,9 +474,7 @@ function walk(
   // the one from a parent: CSS draws it under all the text inside.
   const own = shape.underline;
   const underline =
-    own === null
-      ? parentUnderline
-      : { ...own, color: pose?.underlineColor ?? own.color };
+    own === null ? parentUnderline : { ...own, color: pose?.underlineColor ?? own.color };
   // An animated opacity is the element's opacity at that moment. It
   // replaces the resting one, it does not multiply it.
   const alpha = pose?.visible === false ? 0 : parentAlpha * (pose?.opacity ?? shape.opacity);
@@ -831,7 +832,13 @@ function tileAt(
 ): { x: number; y: number; width: number; height: number; repeat: boolean } {
   const boxWidth = Math.max(pose?.width ?? shape.box.width, 0);
   const boxHeight = Math.max(pose?.height ?? shape.box.height, 0);
-  const resting = gradient.tile ?? { x: 0, y: 0, width: boxWidth, height: boxHeight, repeat: false };
+  const resting = gradient.tile ?? {
+    x: 0,
+    y: 0,
+    width: boxWidth,
+    height: boxHeight,
+    repeat: false,
+  };
   // An animated size: px, or a share of the box; auto keeps the resting one.
   const [sizeX, sizeY] = (pose?.backgroundSize ?? '').trim().split(/\s+/);
   const length = (value: string | undefined, rest: number, whole: number): number => {
@@ -1113,8 +1120,14 @@ function drawFilled(
       const layers = (shape.gradients ?? [gradient]).map((layer, index) =>
         index === 0 && turned !== null && layer.kind === 'conic'
           ? { ...layer, angle: turned }
-          : index === 0 && lit !== null && layer.kind === 'radial' && lit.length === layer.stops.length
-            ? { ...layer, stops: layer.stops.map((stop, at) => ({ ...stop, color: lit[at] ?? stop.color })) }
+          : index === 0 &&
+              lit !== null &&
+              layer.kind === 'radial' &&
+              lit.length === layer.stops.length
+            ? {
+                ...layer,
+                stops: layer.stops.map((stop, at) => ({ ...stop, color: lit[at] ?? stop.color })),
+              }
             : layer,
       );
       // Every layer, the bottom one first, as CSS paints them.

@@ -1067,3 +1067,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - When a take has nothing to play, the timeline says what the take saw: only text changing (never copied), or parts changing in a way the preview cannot draw, named above. The canvas and scroll hint stays for a take that saw nothing.
 **Why:** checking the panel with a counter picked whole: it said "No animation was found" while the number counted to 1234, and once found, "it may be drawn on a canvas" under a take about text.
 **Not done:** in the panel, a played hover over a counter named its take "On its own"; recorded directly, the same take is named a hover.
+
+### D184. The look before a take helps the fit, and is not checked
+**Chose:** the look a part had before a take, put at the start of its film, is used to fit what no animation explains, and left out of the film the preview is checked against. Read where an earlier take ended, it may be out of date by the next one.
+**Why:** the product sweep, run again: 171 of 185 matched (165 before today), but Railway, Cal and Figma showed 100% opacity off at 0 ms, all from that look being out of date. Without it in the check, all three match.

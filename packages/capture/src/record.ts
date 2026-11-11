@@ -1382,7 +1382,10 @@ function matrixOfPose(pose: MatrixPose): FilmFrame['matrix'] {
 // How different two frames look: their matrices and opacity.
 function frameStep(one: FilmFrame, other: FilmFrame): number {
   return (
-    one.matrix.reduce((sum, value, index) => sum + Math.abs(value - (other.matrix[index] ?? 0)), 0) +
+    one.matrix.reduce(
+      (sum, value, index) => sum + Math.abs(value - (other.matrix[index] ?? 0)),
+      0,
+    ) +
     Math.abs(one.opacity - other.opacity) * 10
   );
 }
@@ -1403,7 +1406,9 @@ function acrossTheJump(frames: FilmFrame[], first: number, loopMs: number): Film
   for (let index = 0; index < steps.length; index += 1) {
     if ((frames[index + 1]?.time ?? Infinity) - first > near) break;
     if (isJump(index)) {
-      const moved = frames.slice(0, index + 1).map((frame) => ({ ...frame, time: frame.time + loopMs }));
+      const moved = frames
+        .slice(0, index + 1)
+        .map((frame) => ({ ...frame, time: frame.time + loopMs }));
       return [...frames.slice(index + 1), ...moved];
     }
   }
@@ -1411,7 +1416,9 @@ function acrossTheJump(frames: FilmFrame[], first: number, loopMs: number): Film
   for (let index = steps.length - 1; index >= 0; index -= 1) {
     if (first + loopMs - (frames[index]?.time ?? -Infinity) > near) break;
     if (isJump(index)) {
-      const moved = frames.slice(index + 1).map((frame) => ({ ...frame, time: frame.time - loopMs }));
+      const moved = frames
+        .slice(index + 1)
+        .map((frame) => ({ ...frame, time: frame.time - loopMs }));
       return [...moved, ...frames.slice(0, index + 1)];
     }
   }
@@ -1425,7 +1432,11 @@ function turnPhase(time: number, loopMs: number, turn: { at: number; into: numbe
   return (((turn.into + time - turn.at) % loopMs) + loopMs) % loopMs;
 }
 
-function inTurnOrder(frames: FilmFrame[], loopMs: number, turn: { at: number; into: number }): FilmFrame[] {
+function inTurnOrder(
+  frames: FilmFrame[],
+  loopMs: number,
+  turn: { at: number; into: number },
+): FilmFrame[] {
   const first = frames[0]?.time ?? 0;
   const phase = (time: number): number => turnPhase(time, loopMs, turn);
   const placed = frames
@@ -1445,7 +1456,12 @@ function inTurnOrder(frames: FilmFrame[], loopMs: number, turn: { at: number; in
     late === undefined
       ? undefined
       : ordered.findLast((frame) => frame.time <= late.time - STEADY_MS);
-  if (early === undefined || second === undefined || late === undefined || beforeLate === undefined) {
+  if (
+    early === undefined ||
+    second === undefined ||
+    late === undefined ||
+    beforeLate === undefined
+  ) {
     return ordered;
   }
   // Carried on as a move, a turn, a lean and a scale, not number by number:
@@ -1487,8 +1503,14 @@ function inTurnOrder(frames: FilmFrame[], loopMs: number, turn: { at: number; in
   const start = smooth
     ? carried({ ...late, time: late.time - loopMs }, early, first)
     : carried(early, second, first);
-  const end = smooth ? { ...start, time: first + loopMs } : carried(beforeLate, late, first + loopMs);
-  return [start, ...ordered.filter((frame) => frame.time > first && frame.time < first + loopMs), end];
+  const end = smooth
+    ? { ...start, time: first + loopMs }
+    : carried(beforeLate, late, first + loopMs);
+  return [
+    start,
+    ...ordered.filter((frame) => frame.time > first && frame.time < first + loopMs),
+    end,
+  ];
 }
 
 function scriptTracksFor(
@@ -1713,6 +1735,11 @@ function scriptTracksFor(
 // Film of the ::before and ::after a take animates, by their shape's id.
 type PseudoFilm = Map<string, FilmFrame[]>;
 
+// The look a part had before a take, put at the start of its film to fit
+// what no animation of it explains. Read at the end of an earlier take, it
+// may be out of date by now: it is not shown as what the page did.
+const lookBefore = new WeakSet<FilmFrame>();
+
 function measuredFor(
   snapshot: Snapshot,
   film: Film,
@@ -1731,12 +1758,15 @@ function measuredFor(
       if (shapeId === undefined || frames.length < 2) return null;
       return {
         shapeId,
-        frames: frames.slice(0, MOST_FRAMES).map((frame) => ({
-          t: round(frame.time - takeStart, 1),
-          matrix: frame.matrix.map((value) => round(value, 4)),
-          taper: frame.taper === null ? null : frame.taper.map((value) => round(value, 8)),
-          opacity: round(frame.opacity, 4),
-        })),
+        frames: frames
+          .filter((frame) => !lookBefore.has(frame))
+          .slice(0, MOST_FRAMES)
+          .map((frame) => ({
+            t: round(frame.time - takeStart, 1),
+            matrix: frame.matrix.map((value) => round(value, 4)),
+            taper: frame.taper === null ? null : frame.taper.map((value) => round(value, 8)),
+            opacity: round(frame.opacity, 4),
+          })),
       };
     })
     .filter((entry) => entry !== null);
@@ -2330,7 +2360,10 @@ function buildTake(
         scripts.some((track) => track.shapeId === snapshot.shapeIdOf.get(element)) &&
         frames.some((frame) => frame.deep || frame.taper !== null),
     )
-    .map(([element]) => `A script turns ${labelOf(element)} in 3D. It is shown flat, as it looks on the page.`);
+    .map(
+      ([element]) =>
+        `A script turns ${labelOf(element)} in 3D. It is shown flat, as it looks on the page.`,
+    );
   // A variable whose effect was measured is shown by that: its own values
   // cannot be drawn, and listing them would only repeat it.
   const measuredIds = new Set(scripts.map((track) => track.shapeId));
@@ -2803,7 +2836,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     if (!(animation instanceof SVGAnimationElement)) continue;
     const target = animation.targetElement;
     if (target === null) continue;
-    if (!snapshot.shapeOf.has(target) && target instanceof SVGGElement) addLateGroup(snapshot, target);
+    if (!snapshot.shapeOf.has(target) && target instanceof SVGGElement)
+      addLateGroup(snapshot, target);
     if (!snapshot.shapeOf.has(target)) continue;
     const drawnWith = svgGeometryOf(target, false);
     smilParts.set(target, drawnWith);
@@ -2832,7 +2866,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         const intoTurn =
           clock === null
             ? 0
-            : (((clock.getCurrentTime() - animation.getStartTime()) * 1000) % turnMs + turnMs) %
+            : ((((clock.getCurrentTime() - animation.getStartTime()) * 1000) % turnMs) + turnMs) %
               turnMs;
         smilTurnAt.set(target, { at: startedAt, into: intoTurn });
       } catch {
@@ -2916,7 +2950,11 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       }
     }
   });
-  textWatcher.observe(snapshot.rootElement, { subtree: true, characterData: true, childList: true });
+  textWatcher.observe(snapshot.rootElement, {
+    subtree: true,
+    characterData: true,
+    childList: true,
+  });
   // A script that changed a style without moving anything (a cursor, a
   // CSS variable) leaves no take.
   const hasFilm = (): boolean =>
@@ -2961,7 +2999,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     ...aroundRoots.flatMap((root) =>
       root.getAnimations().filter((animation) => {
         const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
-        return target !== null && !snapshot.shadowRoots.includes(target.getRootNode() as ShadowRoot);
+        return (
+          target !== null && !snapshot.shadowRoots.includes(target.getRootNode() as ShadowRoot)
+        );
       }),
     ),
   ];
@@ -3140,7 +3180,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         (element) => (film.get(element)?.length ?? 0) >= 3,
       );
       for (const element of measured) scripted.add(element);
-      take = take.filter((seen) => !(seen.pseudoElement === null && measured.includes(seen.target)));
+      take = take.filter(
+        (seen) => !(seen.pseudoElement === null && measured.includes(seen.target)),
+      );
       chainNote = [
         measured.length > 0
           ? `The animation on ${first === undefined ? 'this part' : labelOf(first.target)} was restarted ${held.length + 1} times in a row, most likely by a script. ${RESTARTS_MEASURED}`
@@ -3585,7 +3627,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         stopped = true;
         watcher.disconnect();
         textWatcher.disconnect();
-          options.onParentAnimation(parent);
+        options.onParentAnimation(parent);
         return;
       }
     }
@@ -3718,7 +3760,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
             .map((seen) => seen.startTime - 1),
         );
         if (before !== undefined && !sameFrame(before, now)) {
-          frames.push({ ...before, time: began });
+          const seed = { ...before, time: began };
+          lookBefore.add(seed);
+          frames.push(seed);
         }
         frames.push(now);
         film.set(element, frames);

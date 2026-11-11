@@ -322,7 +322,11 @@ export function pivotOf(shape: Shape): Pivot | null {
   }
   // An SVG part: its first outline's matrix places its units in the box.
   const placing =
-    shape.kind === 'group' ? shape.inSvg : shape.kind === 'path' ? (shape.icon?.[0]?.matrix ?? null) : null;
+    shape.kind === 'group'
+      ? shape.inSvg
+      : shape.kind === 'path'
+        ? (shape.icon?.[0]?.matrix ?? null)
+        : null;
   if (placing === null) return null;
   // The middle in the SVG's units.
   const [a, b, c, d, e, f] = placing;
@@ -695,7 +699,14 @@ function changePhrase(group: PropertyGroup, backdrop: Rgb, pivot: Pivot | null =
     );
     return `${joinWithAnd(phraseBetween(group.property, first, farthest, backdrop, pivot, track?.origin === 'script').split(PART))} and back`;
   }
-  const phrase = phraseBetween(group.property, first, last, backdrop, pivot, track?.origin === 'script');
+  const phrase = phraseBetween(
+    group.property,
+    first,
+    last,
+    backdrop,
+    pivot,
+    track?.origin === 'script',
+  );
   // Keyframes an author wrote say the motion has stages (a bounce). Those
   // fitted to measured motion are only how closely it was followed.
   const measured = group.tracks[0]?.origin === 'script';
@@ -960,8 +971,7 @@ function missedSentence(capture: Capture): string | null {
   // preview could show it.
   const texts = missed.filter((item) => item.what === 'text');
   const others = missed.filter((item) => item.what !== 'text');
-  const named = (items: typeof missed): string =>
-    items.map((item) => `"${item.label}"`).join(', ');
+  const named = (items: typeof missed): string => items.map((item) => `"${item.label}"`).join(', ');
   return [
     others.length === 0
       ? null

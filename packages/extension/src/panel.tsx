@@ -781,7 +781,9 @@ function PanelApp() {
             <code>{panel.picked}</code>
           </p>
           <p className="xp__ready-text">
-            {status.nothingFound ? nothingFoundText(panel.pickedDraws) : 'Recording starts when you choose how to set it off.'}
+            {status.nothingFound
+              ? nothingFoundText(panel.pickedDraws)
+              : 'Recording starts when you choose how to set it off.'}
           </p>
           <div className="xp__ready-actions">
             <button type="button" className="btn btn--primary" onClick={record}>

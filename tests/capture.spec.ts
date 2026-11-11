@@ -598,9 +598,9 @@ test('a click that moves recording to a parent with an old loop in it is kept, w
     holder.innerHTML =
       '<div id="sp-tools"><span class="sp-shimmer"></span><div class="sp-bar"></div><button id="sp-code">Code</button></div>';
     document.body.prepend(holder);
-    document.getElementById('sp-code')?.addEventListener('click', () =>
-      document.getElementById('sp-tools')?.classList.add('on'),
-    );
+    document
+      .getElementById('sp-code')
+      ?.addEventListener('click', () => document.getElementById('sp-tools')?.classList.add('on'));
   });
   // The shimmer has run a while by the time anything is picked.
   await page.waitForTimeout(1300);
@@ -2405,7 +2405,12 @@ const smil = `<svg width="200" height="60"><rect id="sp-smil-rect" x="0" y="10" 
 </rect></svg>`;
 
 test('a part an SVG animation (SMIL) moves is filmed, not missed', async ({ page }) => {
-  await setUp(page, '#sp-smil-box { width: 220px }', `<div id="sp-smil-box">${smil}</div>`, '#sp-smil-box');
+  await setUp(
+    page,
+    '#sp-smil-box { width: 220px }',
+    `<div id="sp-smil-box">${smil}</div>`,
+    '#sp-smil-box',
+  );
   await page.evaluate(() =>
     (document.getElementById('sp-smil') as unknown as { beginElement: () => void }).beginElement(),
   );
@@ -2447,7 +2452,9 @@ test('a part an SVG animation moves along a path is filmed', async ({ page }) =>
     '#sp-along',
   );
   await page.evaluate(() =>
-    (document.getElementById('sp-along-move') as unknown as { beginElement: () => void }).beginElement(),
+    (
+      document.getElementById('sp-along-move') as unknown as { beginElement: () => void }
+    ).beginElement(),
   );
   await page.waitForTimeout(1400);
   const capture = onlyCapture(await takesNow(page));
@@ -2472,7 +2479,9 @@ test('an SVG pulse growing from nothing is drawn at its largest and scales from 
   await page.waitForTimeout(1600);
   const capture = onlyCapture(await takesNow(page));
   expect(capture.missed).toBeNull();
-  expect(describeCapture(capture)).toContain('scales from 0 to 1 and fades from 100% to 0% over 800 ms');
+  expect(describeCapture(capture)).toContain(
+    'scales from 0 to 1 and fades from 100% to 0% over 800 ms',
+  );
 });
 
 // A number counting up, written by a script: the text changes, and text is
@@ -2502,7 +2511,12 @@ test('text a script changes is named as text, not as a missing part', async ({ p
 
 // The picked element's own text counting up, in a block that keeps its size.
 test('a block whose own text counts up is named as text', async ({ page }) => {
-  await setUp(page, '#sp-total { font: 600 28px system-ui }', '<div id="sp-total">0</div>', '#sp-total');
+  await setUp(
+    page,
+    '#sp-total { font: 600 28px system-ui }',
+    '<div id="sp-total">0</div>',
+    '#sp-total',
+  );
   await page.evaluate(() => {
     const total = document.getElementById('sp-total') as HTMLElement;
     const start = performance.now();
