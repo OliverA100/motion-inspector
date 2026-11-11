@@ -306,6 +306,17 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
         y: anyNumber,
       }),
     ),
+    offset: fc.oneof(
+      fc.constant(null),
+      fc.record({
+        points: fc.array(fc.record({ x: anyNumber, y: anyNumber }), { minLength: 2, maxLength: 8 }),
+        length: fc.double({ min: 0.01, noNaN: true, noDefaultInfinity: true }),
+        closed: fc.boolean(),
+        rotate: fc.record({ auto: fc.boolean(), degrees: anyNumber }),
+        anchor: fc.oneof(fc.constant(null), fc.record({ x: anyNumber, y: anyNumber })),
+        distance: fc.constantFrom('0%', '50%', '100%', '40px'),
+      }),
+    ),
     backfaceHidden: fc.boolean(),
     individual: fc.oneof(
       fc.constant(null),

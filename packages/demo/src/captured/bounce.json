@@ -14,12 +14,7 @@
       "width": 24,
       "height": 88
     },
-    "radius": [
-      0,
-      0,
-      0,
-      0
-    ],
+    "radius": [0, 0, 0, 0],
     "fill": null,
     "stroke": null,
     "opacity": 1,
@@ -33,6 +28,7 @@
     "shadows": null,
     "outline": null,
     "perspective": null,
+    "offset": null,
     "individual": null,
     "backfaceHidden": false,
     "clipPath": null,
@@ -53,12 +49,7 @@
           "width": 24,
           "height": 24
         },
-        "radius": [
-          12,
-          12,
-          12,
-          12
-        ],
+        "radius": [12, 12, 12, 12],
         "fill": "rgb(47, 111, 237)",
         "stroke": null,
         "opacity": 1,
@@ -72,6 +63,7 @@
         "shadows": null,
         "outline": null,
         "perspective": null,
+        "offset": null,
         "individual": null,
         "backfaceHidden": false,
         "clipPath": null,
@@ -230,287 +222,133 @@
       "frames": [
         {
           "t": 33.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -55.18
-          ],
+          "matrix": [1, 0, 0, 1, 0, -55.18],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 83.4,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -51.44
-          ],
+          "matrix": [1, 0, 0, 1, 0, -51.44],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 133.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -45.49
-          ],
+          "matrix": [1, 0, 0, 1, 0, -45.49],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 183.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -37.79
-          ],
+          "matrix": [1, 0, 0, 1, 0, -37.79],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 233.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -28.67
-          ],
+          "matrix": [1, 0, 0, 1, 0, -28.67],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 283.4,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -18.29
-          ],
+          "matrix": [1, 0, 0, 1, 0, -18.29],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 333.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -6.76
-          ],
+          "matrix": [1, 0, 0, 1, 0, -6.76],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 383.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -4.1
-          ],
+          "matrix": [1, 0, 0, 1, 0, -4.1],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 433.4,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -11.6
-          ],
+          "matrix": [1, 0, 0, 1, 0, -11.6],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 483.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -17.17
-          ],
+          "matrix": [1, 0, 0, 1, 0, -17.17],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 533.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -19.95
-          ],
+          "matrix": [1, 0, 0, 1, 0, -19.95],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 583.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -18.26
-          ],
+          "matrix": [1, 0, 0, 1, 0, -18.26],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 633.4,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -13.29
-          ],
+          "matrix": [1, 0, 0, 1, 0, -13.29],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 683.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -6.28
-          ],
+          "matrix": [1, 0, 0, 1, 0, -6.28],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 733.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -1.39
-          ],
+          "matrix": [1, 0, 0, 1, 0, -1.39],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 783.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -5.24
-          ],
+          "matrix": [1, 0, 0, 1, 0, -5.24],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 833.4,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -5.4
-          ],
+          "matrix": [1, 0, 0, 1, 0, -5.4],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 883.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            -1.73
-          ],
+          "matrix": [1, 0, 0, 1, 0, -1.73],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 933.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            0
-          ],
+          "matrix": [1, 0, 0, 1, 0, 0],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 983.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            0
-          ],
+          "matrix": [1, 0, 0, 1, 0, 0],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 1033.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            0
-          ],
+          "matrix": [1, 0, 0, 1, 0, 0],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 1083.3,
-          "matrix": [
-            1,
-            0,
-            0,
-            1,
-            0,
-            0
-          ],
+          "matrix": [1, 0, 0, 1, 0, 0],
           "taper": null,
           "opacity": 1
         }

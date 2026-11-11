@@ -76,9 +76,17 @@ function valueInWords(keyframe: Keyframe): string {
 // Where a list of transform functions leaves the shape. Translations are
 // added up without regard to scale or rotation before them, which is right
 // for the usual "translate, then scale" and close enough for a sentence.
-type Pose = { x: number; y: number; scaleX: number; scaleY: number; degrees: number };
+type Pose = {
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+  degrees: number;
+  skewX: number;
+  skewY: number;
+};
 
-const AT_REST: Pose = { x: 0, y: 0, scaleX: 1, scaleY: 1, degrees: 0 };
+const AT_REST: Pose = { x: 0, y: 0, scaleX: 1, scaleY: 1, degrees: 0, skewX: 0, skewY: 0 };
 
 function poseOf(parsed: ParsedValue | null): Pose | null {
   if (parsed === null || parsed.kind !== 'transform') return null;
@@ -91,7 +99,7 @@ function poseOf(parsed: ParsedValue | null): Pose | null {
       case 'rotate':
         return { ...pose, degrees: pose.degrees + item.deg };
       case 'skew':
-        return pose;
+        return { ...pose, skewX: pose.skewX + item.xDeg, skewY: pose.skewY + item.yDeg };
     }
   }, AT_REST);
 }
@@ -157,7 +165,107 @@ function movePhrases(from: Pose, to: Pose): string[] {
     ? [`rotates ${spoken(Math.abs(turn))} degrees${turn < 0 ? ' counterclockwise' : ''}`]
     : [];
 
-  return [...move, ...scale, ...rotate];
+  const slants = (change: number, way: string): string[] =>
+    differs(change, 0) ? [`slants ${spoken(Math.abs(change))} degrees${way}`] : [];
+  const slant = [
+    ...slants(to.skewX - from.skewX, ''),
+    ...slants(to.skewY - from.skewY, ' vertically'),
+  ];
+
+  return [...move, ...scale, ...rotate, ...slant];
+}
+
+// A turn in depth, which is not read into numbers (the stage draws it from
+// the whole matrix): found in the text. rotateX tips the top edge away.
+function depthTurnPhrase(from: string, to: string): string | null {
+  const turn = (text: string, axis: 'X' | 'Y'): number => {
+    const found = new RegExp(`rotate${axis}\\((-?[\\d.]+)(deg|turn|rad)\\)`).exec(text);
+    if (found === null) return 0;
+    const amount = Number(found[1]);
+    return found[2] === 'turn'
+      ? amount * 360
+      : found[2] === 'rad'
+        ? (amount * 180) / Math.PI
+        : amount;
+  };
+  const tilt = turn(to, 'X') - turn(from, 'X');
+  const spin = turn(to, 'Y') - turn(from, 'Y');
+  const phrases = [
+    ...(differs(tilt, 0)
+      ? [`tilts ${tilt > 0 ? 'back' : 'forward'} ${spoken(Math.abs(tilt))} degrees`]
+      : []),
+    ...(!differs(Math.abs(spin), 180)
+      ? ['flips over']
+      : differs(spin, 0)
+        ? [`turns ${spoken(Math.abs(spin))} degrees around its vertical axis`]
+        : []),
+  ];
+  return phrases.length > 0 ? phrases.join(PART) : null;
+}
+
+// ---------- Special properties ----------
+
+// The four insets of inset(), as fractions of the box when written in %.
+// null for anything else.
+function insetsOf(value: string): number[] | null {
+  const found = /^inset\(([^)]*?)(?:\s+round\s[^)]*)?\)$/.exec(value.trim());
+  if (found === null) return null;
+  const parts = (found[1] ?? '').trim().split(/\s+/);
+  const amounts = parts.map((part) =>
+    part === '0' || part === '0px' ? 0 : part.endsWith('%') ? Number(part.slice(0, -1)) / 100 : NaN,
+  );
+  if (amounts.some((amount) => Number.isNaN(amount))) return null;
+  const [top = 0, right = top, bottom = top, left = right] = amounts;
+  return [top, right, bottom, left];
+}
+
+function clipPhrase(from: string, to: string): string {
+  const first = insetsOf(from);
+  const last = insetsOf(to);
+  if (first !== null && last !== null) {
+    const shut = (insets: number[]): boolean =>
+      (insets[0] ?? 0) + (insets[2] ?? 0) >= 1 || (insets[1] ?? 0) + (insets[3] ?? 0) >= 1;
+    const open = (insets: number[]): boolean => insets.every((inset) => inset === 0);
+    // The side it opens from is the side that was not covered.
+    const sides = ['top', 'right', 'bottom', 'left'];
+    const across = (insets: number[]): string => {
+      const covered = insets.findIndex((inset) => inset >= 1);
+      const from = sides[(covered + 2) % 4];
+      const to = sides[covered];
+      return covered === -1 ? '' : ` from ${from} to ${to}`;
+    };
+    if (shut(first) && open(last)) return `is revealed${across(first)}`;
+    if (open(first) && shut(last)) return `is hidden${across(last)}`;
+  }
+  const radius = (text: string): number | null => {
+    const found = /^circle\((\d+(?:\.\d+)?)%/.exec(text.trim());
+    return found === null ? null : Number(found[1]);
+  };
+  const small = radius(from);
+  const large = radius(to);
+  if (small !== null && large !== null) {
+    if (small === 0 && large >= 70) return 'is revealed in a growing circle';
+    if (large === 0 && small >= 70) return 'is hidden in a shrinking circle';
+  }
+  return 'changes its visible area (clip-path)';
+}
+
+// Where a conic gradient starts, in degrees. null when it is not one.
+function conicStart(value: string): number | null {
+  if (!value.startsWith('conic-gradient(')) return null;
+  const found = /^conic-gradient\(from (-?[\d.]+)deg/.exec(value);
+  return found === null ? 0 : Number(found[1]);
+}
+
+function blurOf(value: string): number | null {
+  const found = /^blur\((-?[\d.]+)px\)$/.exec(value.trim());
+  return found === null ? null : Number(found[1]);
+}
+
+// A size the page works out from what is inside: auto, max-content,
+// calc-size().
+function fitsContent(value: string): boolean {
+  return /^(auto|max-content|min-content|fit-content|calc-size\()/.test(value.trim());
 }
 
 // ---------- One property ----------
@@ -195,6 +303,69 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe, backdrop:
     if (phrases.length > 0) return phrases.join(PART);
   }
 
+  if (property === 'transform') {
+    const depth = depthTurnPhrase(from.value, to.value);
+    if (depth !== null) return depth;
+  }
+  if (property === 'clip-path') return clipPhrase(from.value, to.value);
+  if (property === 'background-image') {
+    const start = conicStart(from.value);
+    const end = conicStart(to.value);
+    if (start !== null && end !== null && differs(start, end)) {
+      return `turns its gradient ${spoken(Math.abs(end - start))} degrees${end < start ? ' counterclockwise' : ''}`;
+    }
+    return 'changes its gradient';
+  }
+  if (property === 'offset-distance') {
+    const whole = from.value === '0%' && to.value === '100%';
+    return whole
+      ? 'moves along its path'
+      : `moves along its path from ${from.value} to ${to.value}`;
+  }
+  if (
+    property === 'stroke-dashoffset' &&
+    from.parsed?.kind === 'length' &&
+    to.parsed?.kind === 'length'
+  ) {
+    if (to.parsed.px === 0 && from.parsed.px !== 0) return 'draws its line';
+    if (from.parsed.px === 0 && to.parsed.px !== 0) return 'erases its line';
+    return 'moves the dashes along its line';
+  }
+  if (property === 'filter' || property === 'backdrop-filter') {
+    const before = blurOf(from.value);
+    const after = blurOf(to.value);
+    if (before !== null && after !== null && property === 'filter') {
+      if (after === 0) return 'comes into focus';
+      return after > before
+        ? `blurs to ${spoken(after)} px`
+        : `sharpens to a ${spoken(after)} px blur`;
+    }
+    if (before !== null && after !== null) {
+      if (after === 0) return 'stops blurring what is behind it';
+      return after > before
+        ? `blurs what is behind it by ${spoken(after)} px`
+        : `blurs what is behind it less, to ${spoken(after)} px`;
+    }
+  }
+  if (
+    (property === 'width' || property === 'height') &&
+    (fitsContent(from.value) || fitsContent(to.value))
+  ) {
+    const growing = fitsContent(to.value);
+    const verb =
+      property === 'width'
+        ? growing
+          ? 'widens'
+          : 'narrows'
+        : growing
+          ? 'grows taller'
+          : 'gets shorter';
+    const fixed = valueInWords(growing ? from : to);
+    return growing
+      ? `${verb} from ${fixed} to fit its content`
+      : `${verb} from fitting its content to ${fixed}`;
+  }
+
   const fromWords = valueInWords(from);
   const toWords = valueInWords(to);
   if (property === 'opacity' && from.parsed?.kind === 'number' && to.parsed?.kind === 'number') {
@@ -203,6 +374,16 @@ function phraseBetween(property: string, from: Keyframe, to: Keyframe, backdrop:
   const colorPhrase = colorChange(property, from, to, backdrop);
   if (colorPhrase !== null) return colorPhrase;
   if (property === 'border-radius') return `rounds its corners from ${fromWords} to ${toWords}`;
+  const grows =
+    from.parsed?.kind === 'length' && to.parsed?.kind === 'length'
+      ? to.parsed.px > from.parsed.px
+      : null;
+  if (property === 'border-width' && grows !== null) {
+    return `${grows ? 'thickens' : 'thins'} its border from ${fromWords} to ${toWords}`;
+  }
+  if (property === 'outline-offset' && grows !== null) {
+    return `moves its outline ${grows ? 'out' : 'in'}, from ${fromWords} to ${toWords}`;
+  }
   if (property === 'box-shadow') return 'changes its shadow';
   if (property === 'background-position-x' || property === 'background-position-y') {
     return `moves its background from ${fromWords} to ${toWords}`;
@@ -355,8 +536,16 @@ function distance(first: Keyframe, second: Keyframe): number {
   );
 }
 
+// True when the first run plays its keyframes from last to first.
+function playsBackwards(track: Track): boolean {
+  return track.timing.direction === 'reverse' || track.timing.direction === 'alternate-reverse';
+}
+
 function changePhrase(group: PropertyGroup, backdrop: Rgb): string {
-  const keyframes = group.tracks[0]?.keyframes ?? [];
+  const track = group.tracks[0];
+  const written = track?.keyframes ?? [];
+  // Said in the order it is seen.
+  const keyframes = track !== undefined && playsBackwards(track) ? [...written].reverse() : written;
   const first = keyframes[0];
   const last = keyframes[keyframes.length - 1];
   if (first === undefined || last === undefined) return `changes ${group.property}`;
@@ -398,10 +587,14 @@ function easingSentence(track: Track, subject: string): string | null {
     return `${subject} jumps in ${stepped.count} steps.`;
   }
 
-  const curve = (input: number): number => {
+  const forwards = (input: number): number => {
     const afterEffect = evaluateEasing(track.timing.easing, input);
     return manyKeyframes ? afterEffect : evaluateEasing(first.easing, afterEffect);
   };
+  // Played backwards, the curve is seen mirrored: an ease-in arrives fast.
+  const curve = playsBackwards(track)
+    ? (input: number): number => 1 - forwards(1 - input)
+    : forwards;
   const outputs = CURVE_SAMPLES.map(curve);
   const overshoot = Math.round((Math.max(...outputs) - 1) * 100);
   const pullBack = Math.round(-Math.min(...outputs) * 100);

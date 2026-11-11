@@ -12,7 +12,12 @@ import {
 import type { Size } from '../pieces/Canvas';
 import type { Theme } from '../theme';
 import { clipCorners, clipPathOf } from './clipPath';
-import { cssLinearGradient, stopPlaces, type CssLinearGradient } from './cssGradient';
+import {
+  cssConicAngle,
+  cssLinearGradient,
+  stopPlaces,
+  type CssLinearGradient,
+} from './cssGradient';
 
 // A 2D transform as the six numbers of a matrix: a, b, c, d, e, f.
 export type Matrix = [number, number, number, number, number, number];
@@ -31,6 +36,8 @@ export type Pose = {
   opacity: number | null;
   fill: string | null;
   strokeColor: string | null;
+  // An animated border width, in px (the top side's: sides are drawn alike).
+  strokeWidth: number | null;
   radius: [number, number, number, number] | null;
   width: number | null;
   height: number | null;
@@ -171,14 +178,18 @@ function drawInsetShadows(
   pose: Pose | null,
   layers: ShadowLayer[],
 ): void {
-  const own = boxOf(shape, pose, 0);
+  // Inside the border, as CSS draws them.
+  const border = shape.stroke === null ? 0 : (pose?.strokeWidth ?? shape.stroke.width);
+  // Half a pixel under the border, which is drawn over it: two soft edges
+  // side by side leave a hairline.
+  const own = boxOf(shape, pose, Math.max(0, border - 0.5));
   for (const layer of [...layers].reverse()) {
     context.save();
     context.beginPath();
     context.roundRect(own.x, own.y, own.width, own.height, own.radii);
     context.clip();
     castShadow(context, layer);
-    const hole = boxOf(shape, pose, layer.spread);
+    const hole = boxOf(shape, pose, border + layer.spread);
     const frame = new Path2D();
     frame.rect(
       own.x - own.width - 200,
@@ -912,10 +923,15 @@ function drawFilled(
     const moving = pose?.backgroundImage != null ? cssLinearGradient(pose.backgroundImage) : null;
     if (moving !== null) fillMovingGradient(context, shape, pose, moving);
     else if (gradient !== null) {
+      // A conic gradient that turns: the resting one, at the angle now.
+      const turned = pose?.backgroundImage != null ? cssConicAngle(pose.backgroundImage) : null;
+      const layers = (shape.gradients ?? [gradient]).map((layer, index) =>
+        index === 0 && turned !== null && layer.kind === 'conic'
+          ? { ...layer, angle: turned }
+          : layer,
+      );
       // Every layer, the bottom one first, as CSS paints them.
-      for (const layer of [...(shape.gradients ?? [gradient])].reverse()) {
-        fillGradient(context, shape, pose, layer);
-      }
+      for (const layer of [...layers].reverse()) fillGradient(context, shape, pose, layer);
     }
     const inner = shadows.filter((layer) => layer.inset);
     if (inner.length > 0) {
@@ -923,8 +939,8 @@ function drawFilled(
       shapePath(context, shape, pose);
     }
     if (shape.stroke !== null && shape.stroke.sides !== null && pose?.strokeColor == null) {
-      context.lineWidth = shape.stroke.width;
-      const stroke = shape.stroke;
+      const stroke = { ...shape.stroke, width: pose?.strokeWidth ?? shape.stroke.width };
+      context.lineWidth = stroke.width;
       context.setLineDash(borderDash(stroke));
       if (stroke.style === 'dotted') context.lineCap = 'round';
       stroke.sides?.forEach((color, side) => {
@@ -937,10 +953,11 @@ function drawFilled(
       // The selection outline below follows the whole shape again.
       shapePath(context, shape, pose);
     } else if (shape.stroke !== null) {
-      shapePath(context, shape, pose, shape.stroke.width / 2);
-      context.strokeStyle = pose?.strokeColor ?? shape.stroke.color;
-      context.lineWidth = shape.stroke.width;
-      context.setLineDash(borderDash(shape.stroke));
+      const stroke = { ...shape.stroke, width: pose?.strokeWidth ?? shape.stroke.width };
+      shapePath(context, shape, pose, stroke.width / 2);
+      context.strokeStyle = pose?.strokeColor ?? stroke.color;
+      context.lineWidth = stroke.width;
+      context.setLineDash(borderDash(stroke));
       if (shape.stroke.style === 'dotted') context.lineCap = 'round';
       context.stroke();
       context.setLineDash([]);

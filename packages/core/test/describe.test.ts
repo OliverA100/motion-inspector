@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import { describeCapture } from '../src/describe';
+import type { ParsedValue } from '../src/types';
 import { capture } from './arbitraries';
 import {
   bounce,
@@ -69,6 +70,19 @@ describe('describeCapture on the sample captures', () => {
     );
   });
 
+  test('played backwards (reverse()): said in the order it is seen, the curve mirrored', () => {
+    const backwards = {
+      ...buttonHover,
+      tracks: buttonHover.tracks.map((track) => ({
+        ...track,
+        timing: { ...track.timing, direction: 'reverse' as const },
+      })),
+    };
+    expect(describeCapture(backwards)).toBe(
+      'The element moves down 2 px and changes its shadow over 180 ms. It starts slow and speeds up.',
+    );
+  });
+
   test('a capture with no tracks', () => {
     expect(describeCapture({ ...cardLift, tracks: [] })).toBe('No animations were captured.');
   });
@@ -80,4 +94,111 @@ test('describeCapture gives some text for any valid capture', () => {
       expect(describeCapture(value).length).toBeGreaterThan(0);
     }),
   );
+});
+
+describe('special properties in plain words', () => {
+  // One track on the card's shape, changing one property between two values.
+  const changing = (
+    property: string,
+    from: string,
+    to: string,
+    parsed: [ParsedValue | null, ParsedValue | null] = [null, null],
+  ): string => {
+    const base = cardLift.tracks[0];
+    if (base === undefined) throw new Error('no track');
+    const [first, last] = base.keyframes;
+    if (first === undefined || last === undefined) throw new Error('no keyframes');
+    return describeCapture({
+      ...cardLift,
+      tracks: [
+        {
+          ...base,
+          property,
+          keyframes: [
+            { ...first, value: from, parsed: parsed[0] },
+            { ...last, value: to, parsed: parsed[1] },
+          ],
+        },
+      ],
+    });
+  };
+  const px = (value: number): ParsedValue => ({ kind: 'length', px: value });
+  const firstSentence = (text: string): string => text.split(/ over \d/)[0] ?? text;
+
+  test.each([
+    [
+      'clip-path',
+      'inset(0px 100% 0px 0px)',
+      'inset(0px)',
+      'The element is revealed from left to right',
+    ],
+    ['clip-path', 'inset(0px)', 'inset(100% 0px 0px)', 'The element is hidden from bottom to top'],
+    [
+      'clip-path',
+      'circle(0% at 50% 50%)',
+      'circle(75% at 50% 50%)',
+      'The element is revealed in a growing circle',
+    ],
+    [
+      'clip-path',
+      'polygon(0 0, 1px 1px)',
+      'polygon(0 0, 2px 2px)',
+      'The element changes its visible area (clip-path)',
+    ],
+    ['offset-distance', '0%', '100%', 'The element moves along its path'],
+    [
+      'background-image',
+      'conic-gradient(from 0deg, red, blue)',
+      'conic-gradient(from 360deg, red, blue)',
+      'The element turns its gradient 360 degrees',
+    ],
+    ['filter', 'blur(8px)', 'blur(0px)', 'The element comes into focus'],
+    ['filter', 'blur(0px)', 'blur(4px)', 'The element blurs to 4 px'],
+    ['backdrop-filter', 'blur(0px)', 'blur(12px)', 'The element blurs what is behind it by 12 px'],
+    ['transform', 'none', 'perspective(400px) rotateX(60deg)', 'The element tilts back 60 degrees'],
+    ['transform', 'rotateY(0deg)', 'rotateY(180deg)', 'The element flips over'],
+    ['height', '0px', 'auto', 'The element grows taller from 0 to fit its content'],
+    [
+      'width',
+      'calc-size(max-content, size)',
+      '40px',
+      'The element narrows from fitting its content to 40 px',
+    ],
+  ])('%s from %s to %s', (property, from, to, expected) => {
+    const parsed: [ParsedValue | null, ParsedValue | null] = [
+      /^\d+px$/.test(from) ? px(Number.parseFloat(from)) : null,
+      /^\d+px$/.test(to) ? px(Number.parseFloat(to)) : null,
+    ];
+    expect(firstSentence(changing(property, from, to, parsed))).toBe(expected);
+  });
+
+  test('a border that thickens, an outline that moves out', () => {
+    expect(firstSentence(changing('border-top-width', '1px', '6px', [px(1), px(6)]))).toBe(
+      'The element changes border-top-width from 1 px to 6 px',
+    );
+    expect(firstSentence(changing('outline-offset', '0px', '8px', [px(0), px(8)]))).toBe(
+      'The element moves its outline out, from 0 to 8 px',
+    );
+  });
+
+  test('a stroke drawn by its dash offset', () => {
+    expect(firstSentence(changing('stroke-dashoffset', '300px', '0px', [px(300), px(0)]))).toBe(
+      'The element draws its line',
+    );
+  });
+
+  test('skew slants', () => {
+    const skewed: ParsedValue = {
+      kind: 'transform',
+      functions: [{ fn: 'skew', xDeg: -20, yDeg: 0 }],
+    };
+    expect(
+      firstSentence(
+        changing('transform', 'none', 'skewX(-20deg)', [
+          { kind: 'transform', functions: [] },
+          skewed,
+        ]),
+      ),
+    ).toBe('The element slants 20 degrees');
+  });
 });

@@ -27,6 +27,7 @@ import type {
   GroupId,
   IconPath,
   Measured,
+  OffsetPath,
   Follow,
   FollowChannel,
   PointerSample,
@@ -515,6 +516,54 @@ function parsePerspective(value: unknown): Result<NonNullable<Shape['perspective
   });
 }
 
+const MOST_PATH_POINTS = 1024;
+
+function parseXY(value: unknown): Result<{ x: number; y: number }> {
+  return andThen(fields(value), (source) => {
+    const x = at('x', number(get(source, 'x')));
+    const y = at('y', number(get(source, 'y')));
+    if (!x.ok || !y.ok) return failAll([x, y].flatMap(errorsOf));
+    return ok({ x: x.value, y: y.value });
+  });
+}
+
+function parseOffsetPath(value: unknown): Result<OffsetPath> {
+  return andThen(fields(value), (source) => {
+    const points = at(
+      'points',
+      andThen(listOf(get(source, 'points'), parseXY), (items) =>
+        items.length < 2 || items.length > MOST_PATH_POINTS
+          ? fail(`From 2 to ${MOST_PATH_POINTS} points.`)
+          : ok(items),
+      ),
+    );
+    const length = at('length', positive(get(source, 'length')));
+    const closed = at('closed', boolean(get(source, 'closed')));
+    const rotate = at(
+      'rotate',
+      andThen(fields(get(source, 'rotate')), (rotateSource) => {
+        const auto = at('auto', boolean(get(rotateSource, 'auto')));
+        const degrees = at('degrees', number(get(rotateSource, 'degrees')));
+        if (!auto.ok || !degrees.ok) return failAll([auto, degrees].flatMap(errorsOf));
+        return ok({ auto: auto.value, degrees: degrees.value });
+      }),
+    );
+    const anchor = at('anchor', optional(get(source, 'anchor'), parseXY));
+    const distance = at('distance', text(get(source, 'distance')));
+    if (!points.ok || !length.ok || !closed.ok || !rotate.ok || !anchor.ok || !distance.ok) {
+      return failAll([points, length, closed, rotate, anchor, distance].flatMap(errorsOf));
+    }
+    return ok({
+      points: points.value,
+      length: length.value,
+      closed: closed.value,
+      rotate: rotate.value,
+      anchor: anchor.value,
+      distance: distance.value,
+    });
+  });
+}
+
 function parseOutline(value: unknown): Result<NonNullable<Shape['outline']>> {
   return andThen(fields(value), (source) => {
     const color = at('color', text(get(source, 'color')));
@@ -764,6 +813,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const shadows = at('shadows', optional(get(source, 'shadows'), parseShadowLayers));
     const outline = at('outline', optional(get(source, 'outline'), parseOutline));
     const perspective = at('perspective', optional(get(source, 'perspective'), parsePerspective));
+    const offset = at('offset', optional(get(source, 'offset'), parseOffsetPath));
     const individual = at('individual', optional(get(source, 'individual'), parseIndividual));
     const backfaceHidden = at('backfaceHidden', optional(get(source, 'backfaceHidden'), boolean));
     const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
@@ -802,6 +852,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !shadows.ok ||
       !outline.ok ||
       !perspective.ok ||
+      !offset.ok ||
       !individual.ok ||
       !backfaceHidden.ok ||
       !clipPath.ok ||
@@ -830,6 +881,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           shadows,
           outline,
           perspective,
+          offset,
           individual,
           backfaceHidden,
           clipPath,
@@ -858,6 +910,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       shadows: shadows.value,
       outline: outline.value,
       perspective: perspective.value,
+      offset: offset.value,
       individual: individual.value,
       backfaceHidden: backfaceHidden.value ?? false,
       clipPath: clipPath.value,

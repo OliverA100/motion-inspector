@@ -5,7 +5,7 @@
 // images become flat boxes. Only shapes are kept: never text content or
 // image data from the page.
 
-import type { ShadowLayer } from '@motion-inspector/core';
+import { offsetMatrix, type OffsetPath, type ShadowLayer } from '@motion-inspector/core';
 import { gradientColor, readGradient, readGradients, type RawGradient } from './gradient';
 import { readColor, readValue } from './readValue';
 
@@ -23,6 +23,10 @@ export const PREVIEWED_PROPERTIES = [
   'border-right-color',
   'border-bottom-color',
   'border-left-color',
+  'border-top-width',
+  'border-right-width',
+  'border-bottom-width',
+  'border-left-width',
   'border-top-left-radius',
   'border-top-right-radius',
   'border-bottom-right-radius',
@@ -40,6 +44,7 @@ export const PREVIEWED_PROPERTIES = [
   'stroke-dasharray',
   'stroke-dashoffset',
   'clip-path',
+  'offset-distance',
 ];
 
 const TRANSFORM_LIKE = ['transform', 'translate', 'rotate', 'scale'];
@@ -78,6 +83,7 @@ export type RawShape = {
   } | null;
   // Only boxes are seen through a parent's perspective. Left out elsewhere.
   perspective?: Perspective | null;
+  offset?: OffsetPath | null;
   individual?: Individual | null;
   backfaceHidden?: boolean;
   clipPath: string | null;
@@ -760,7 +766,7 @@ function iconShape(
       opacity,
       transformOrigin: originOf(style, rect),
       clip: false,
-      transform: restingTransform(style, rect),
+      transform: restingTransform(style, rect, element),
       shadow: null,
       shadows: null,
       outline: null,
@@ -912,11 +918,12 @@ function boxShape(
     opacity: Math.min(Math.max(parseFloat(style.opacity), 0), 1),
     transformOrigin: { x: origin[0] ?? rect.width / 2, y: origin[1] ?? rect.height / 2 },
     clip: style.overflowX !== 'visible' || style.overflowY !== 'visible',
-    transform: restingTransform(style, rect),
+    transform: restingTransform(style, rect, element),
     shadow: restingShadow(style.boxShadow),
     shadows: shadowLayers(style.boxShadow),
     outline: outlineOf(style),
     perspective: perspectiveOf(element, style),
+    offset: offsetOf(style, rect, element),
     individual: individualOf(style, rect),
     backfaceHidden: style.backfaceVisibility === 'hidden',
     clipPath: basicClipPath(style.clipPath),
@@ -1095,6 +1102,7 @@ function translateOf(
 function restingTransform(
   style: CSSStyleDeclaration,
   size: { width: number; height: number } = { width: 0, height: 0 },
+  element: Element | null = null,
 ): [number, number, number, number, number, number] | null {
   try {
     const numbers = (value: string): number[] =>
@@ -1114,6 +1122,7 @@ function restingTransform(
       const [x = 1, y = x] = numbers(style.scale);
       matrix = matrix.scale(x, y);
     }
+    matrix = matrix.multiply(offsetNow(style, size, element));
     if (style.transform !== 'none' && style.transform !== '') {
       matrix = matrix.multiply(new DOMMatrix(style.transform));
     }
@@ -1713,6 +1722,7 @@ export function takeSnapshot(rootElement: Element): Snapshot {
 function transformNow(
   style: CSSStyleDeclaration,
   size: { width: number; height: number },
+  element: Element | null,
 ): DOMMatrix {
   const numbers = (value: string): number[] =>
     (value.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/g) ?? []).map(Number);
@@ -1733,6 +1743,7 @@ function transformNow(
       const [x = 1, y = x, z = 1] = numbers(style.scale);
       matrix = matrix.scale(x, y, z);
     }
+    matrix = matrix.multiply(offsetNow(style, size, element));
     if (style.transform !== 'none' && style.transform !== '') {
       matrix = matrix.multiply(new DOMMatrix(style.transform));
     }
@@ -1804,6 +1815,170 @@ export function perspectiveOf(element: Element, style: CSSStyleDeclaration): Per
   return { distance, x: viewX - (left + originX), y: viewY - (top + originY) };
 }
 
+// ---------- Motion along a path ----------
+
+// Points per path: enough that a curve between two is within a fraction of
+// a pixel for paths a few hundred px long.
+const PATH_POINTS = 129;
+const sampledPaths = new Map<string, Pick<OffsetPath, 'points' | 'length' | 'closed'> | null>();
+
+// A path's points, evenly spaced by length, measured with an SVG path the
+// page never sees (it is not added to the document).
+function samplePath(d: string): Pick<OffsetPath, 'points' | 'length' | 'closed'> | null {
+  const known = sampledPaths.get(d);
+  if (known !== undefined) return known;
+  let sampled: Pick<OffsetPath, 'points' | 'length' | 'closed'> | null = null;
+  try {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    const length = path.getTotalLength();
+    if (Number.isFinite(length) && length > 0) {
+      const points = Array.from({ length: PATH_POINTS }, (_item, index) => {
+        const point = path.getPointAtLength((length * index) / (PATH_POINTS - 1));
+        return { x: round2(point.x), y: round2(point.y) };
+      });
+      sampled = { points, length: round2(length), closed: /z\s*$/i.test(d) };
+    }
+  } catch {
+    sampled = null;
+  }
+  sampledPaths.set(d, sampled);
+  return sampled;
+}
+
+// A length in a basic shape: px, or % of the side it is measured on.
+function shapeLength(text: string, side: number): number | null {
+  const value = parseFloat(text);
+  if (!Number.isFinite(value)) return null;
+  return text.endsWith('%') ? (value / 100) * side : value;
+}
+
+// A basic shape as SVG path data, the way Chrome walks it: inset() (which
+// rect() and xywh() compute to) from the end of its top-left corner,
+// clockwise; circle() from its rightmost point, clockwise. In px from the
+// reference box's top-left. null for other shapes.
+function shapePathData(text: string, width: number, height: number): string | null {
+  const inset = /^inset\(([^)]*?)(?:\s+round\s+([^)]*))?\)$/.exec(text);
+  if (inset !== null) {
+    const sides = (inset[1] ?? '').trim().split(/\s+/);
+    const [top = '0', right = top, bottom = top, left = right] = sides;
+    const t = shapeLength(top, height);
+    const r = shapeLength(right, width);
+    const b = shapeLength(bottom, height);
+    const l = shapeLength(left, width);
+    if (t === null || r === null || b === null || l === null) return null;
+    const w = width - l - r;
+    const h = height - t - b;
+    if (w <= 0 || h <= 0) return null;
+    // One radius for every corner: the first one written.
+    const radius = Math.min(
+      shapeLength((inset[2] ?? '0').trim().split(/\s+/)[0] ?? '0', Math.min(w, h)) ?? 0,
+      w / 2,
+      h / 2,
+    );
+    const q = Math.max(radius, 0);
+    const arc = (x: number, y: number): string => `A ${q} ${q} 0 0 1 ${x} ${y}`;
+    return [
+      `M ${l + q} ${t}`,
+      `H ${l + w - q}`,
+      arc(l + w, t + q),
+      `V ${t + h - q}`,
+      arc(l + w - q, t + h),
+      `H ${l + q}`,
+      arc(l, t + h - q),
+      `V ${t + q}`,
+      arc(l + q, t),
+      'Z',
+    ].join(' ');
+  }
+  const circle = /^circle\((\S+) at (\S+) (\S+)\)$/.exec(text);
+  if (circle !== null) {
+    const radius = shapeLength(circle[1] ?? '', Math.hypot(width, height) / Math.SQRT2);
+    const x = shapeLength(circle[2] ?? '', width);
+    const y = shapeLength(circle[3] ?? '', height);
+    if (radius === null || x === null || y === null || radius <= 0) return null;
+    return `M ${x + radius} ${y} A ${radius} ${radius} 0 1 1 ${x - radius} ${y} A ${radius} ${radius} 0 1 1 ${x + radius} ${y} Z`;
+  }
+  return null;
+}
+
+// The path data of an element's offset-path, in px from its own static
+// top-left corner, as path() writes it. A basic shape is drawn on its
+// containing block's border box (Magic UI's border beam goes round its
+// card with rect()), so it is moved by where the element sits in it.
+function offsetPathData(element: Element | null, text: string): string | null {
+  const written = /^path\((?:(?:nonzero|evenodd),\s*)?"([^"]*)"\)$/.exec(text);
+  if (written !== null) return written[1] ?? null;
+  if (!(element instanceof HTMLElement)) return null;
+  const block = element.offsetParent;
+  if (!(block instanceof HTMLElement)) return null;
+  const data = shapePathData(text, block.offsetWidth, block.offsetHeight);
+  if (data === null) return null;
+  const x = element.offsetLeft + block.clientLeft;
+  const y = element.offsetTop + block.clientTop;
+  if (x === 0 && y === 0) return data;
+  // Moved by translating every point: the path is drawn on its own.
+  try {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', data);
+    const length = path.getTotalLength();
+    const points = Array.from({ length: PATH_POINTS }, (_item, index) => {
+      const point = path.getPointAtLength((length * index) / (PATH_POINTS - 1));
+      return `${round2(point.x - x)} ${round2(point.y - y)}`;
+    });
+    return `M ${points.join(' L ')} Z`;
+  } catch {
+    return null;
+  }
+}
+
+// offset-path written as path(), inset() (rect(), xywh()) or circle().
+// ray() and url() are not read (the part is drawn where its box is).
+export function offsetOf(
+  style: CSSStyleDeclaration,
+  size: { width: number; height: number },
+  element: Element | null = null,
+): OffsetPath | null {
+  const text = style.offsetPath ?? '';
+  if (text === '' || text === 'none') return null;
+  const data = offsetPathData(element, text);
+  if (data === null) return null;
+  const sampled = samplePath(data);
+  if (sampled === null) return null;
+  // Chrome writes reverse as "auto 180deg".
+  const rotate = style.offsetRotate ?? 'auto';
+  const turn = /(-?[\d.]+)deg/.exec(rotate);
+  const anchorText = style.offsetAnchor ?? 'auto';
+  const [anchorX = '0', anchorY = '0'] = anchorText.split(' ');
+  const along = (value: string, side: number): number =>
+    value.endsWith('%') ? (parseFloat(value) / 100) * side : parseFloat(value);
+  return {
+    ...sampled,
+    rotate: {
+      auto: /auto|reverse/.test(rotate),
+      degrees: (turn === null ? 0 : Number(turn[1])) + (rotate.includes('reverse') ? 180 : 0),
+    },
+    anchor:
+      anchorText === 'auto'
+        ? null
+        : { x: round2(along(anchorX, size.width)), y: round2(along(anchorY, size.height)) },
+    distance: style.offsetDistance || '0%',
+  };
+}
+
+// Where offset-path puts the element now, about its transform origin. CSS
+// applies it after translate, rotate and scale, before transform.
+function offsetNow(
+  style: CSSStyleDeclaration,
+  size: { width: number; height: number },
+  element: Element | null,
+): DOMMatrix {
+  const path = offsetOf(style, size, element);
+  if (path === null) return new DOMMatrix();
+  const [x = 0, y = 0] = (style.transformOrigin ?? '').split(' ').map(parseFloat);
+  return new DOMMatrix(offsetMatrix(path, style.offsetDistance || '0%', { x, y }));
+}
+
 // The perspective as a matrix about the element's transform origin, to go
 // in front of its own transform.
 export function perspectiveMatrix(perspective: Perspective): DOMMatrix {
@@ -1836,13 +2011,21 @@ export const FILMED_STYLES = [
   'box-shadow',
   'color',
   'background-image',
+  // A part a script moves along its offset-path (Motion's border beam).
+  'offset-distance',
 ] as const;
 
 // A filmed style as computed text. A background image from a URL is page
 // image data and is never copied: only gradients are kept.
+// Chrome leaves "from 0deg" out of a conic gradient at 0 degrees: it is
+// written back in, so a turning one reads the same way in every frame.
 function filmedText(style: CSSStyleDeclaration, property: string): string {
   const text = style.getPropertyValue(property);
-  return property === 'background-image' && text.includes('url(') ? 'none' : text;
+  if (property !== 'background-image') return text;
+  if (text.includes('url(')) return 'none';
+  return text.replace(/conic-gradient\((?!from )(at )?/g, (_found, at: string | undefined) =>
+    at === undefined ? 'conic-gradient(from 0deg, ' : 'conic-gradient(from 0deg at ',
+  );
 }
 
 // One frame of film: an element's transform now, as it looks on the page
@@ -1863,7 +2046,7 @@ export function frameNow(element: Element): {
       : element instanceof SVGGraphicsElement
         ? element.getBBox()
         : { width: 0, height: 0 };
-  const own = transformNow(style, size);
+  const own = transformNow(style, size, element);
   const perspective = perspectiveOf(element, style);
   const seen = perspective === null ? own : perspectiveMatrix(perspective).multiply(own);
   const w = seen.m44 === 0 ? 1 : seen.m44;

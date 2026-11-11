@@ -11,6 +11,7 @@
 import {
   easingToCss,
   findShape,
+  offsetMatrix,
   sampleTrack,
   type Capture,
   type ShadowLayer,
@@ -40,6 +41,10 @@ export const PREVIEWED_PROPERTIES = [
   'border-right-color',
   'border-bottom-color',
   'border-left-color',
+  'border-top-width',
+  'border-right-width',
+  'border-bottom-width',
+  'border-left-width',
   'border-top-left-radius',
   'border-top-right-radius',
   'border-bottom-right-radius',
@@ -59,6 +64,8 @@ export const PREVIEWED_PROPERTIES = [
   'stroke-dasharray',
   'stroke-dashoffset',
   'clip-path',
+  // Along an offset-path (drawn when the path is path()).
+  'offset-distance',
   'visibility',
   'background-position-x',
   'background-position-y',
@@ -69,7 +76,20 @@ export const PREVIEWED_PROPERTIES = [
 // Size and position: measured against the containing block on the page,
 // which the probe's hidden element does not have. These are drawn from the
 // px numbers capture read instead (see geometryValue).
-const GEOMETRY = ['width', 'height', 'left', 'right', 'top', 'bottom'];
+const GEOMETRY = [
+  'width',
+  'height',
+  'left',
+  'right',
+  'top',
+  'bottom',
+  // A border's width computes to 0 on the probe's element, which has no
+  // border style: blended from the px numbers too.
+  'border-top-width',
+  'border-right-width',
+  'border-bottom-width',
+  'border-left-width',
+];
 
 export function isPreviewed(property: string): boolean {
   return PREVIEWED_PROPERTIES.includes(property);
@@ -165,6 +185,29 @@ function individualTransform(property: string, value: string): DOMMatrix {
   return identity.scale(first, numbers[1] ?? first);
 }
 
+// Only the place along a path animates: the resting matrix (which holds
+// the resting place) with that place swapped for the new one, inside the
+// resting translate, rotate and scale.
+function movedAlong(shape: Shape, now: DOMMatrix, atRest: DOMMatrix): DOMMatrix {
+  const individual = (['translate', 'rotate', 'scale'] as const).reduce((result, property) => {
+    const value = shape.individual?.[property] ?? null;
+    return value === null ? result : result.multiply(individualTransform(property, value));
+  }, new DOMMatrix());
+  const resting = shape.transform === null ? new DOMMatrix() : new DOMMatrix(shape.transform);
+  return individual
+    .multiply(now)
+    .multiply(atRest.inverse())
+    .multiply(individual.inverse())
+    .multiply(resting);
+}
+
+// A computed length in px, or null.
+function pixels(value: string | null): number | null {
+  if (value === null) return null;
+  const number = Number.parseFloat(value);
+  return Number.isFinite(number) ? Math.max(0, number) : null;
+}
+
 // A computed corner radius. Chrome reports it in several forms:
 //   "8px"   "50%"   "calc(25% + 4px)"   "calc(-3.92px + 50%)"   "50% - 3.92px"
 // and, when the horizontal and vertical radius differ, two of them in a row.
@@ -247,6 +290,35 @@ function geometryValue(track: Track, timeMs: number): number | null {
   return from + (to - from) * sample.segmentProgress;
 }
 
+// A gradient, blended number by number. CSS does not blend background
+// images (it jumps halfway), but texts with the same shape that differ only
+// in their numbers (a conic gradient turned by a registered variable) blend
+// as they did on the page. null when the texts differ in shape.
+const NUMBER = /-?\d*\.?\d+(?:e[+-]?\d+)?/g;
+export function blendedImage(track: Track, timeMs: number): string | null {
+  if (track.property !== 'background-image') return null;
+  const sample = sampleTrack(track, timeMs);
+  // No effect now: the shape's own gradient shows.
+  if (sample.kind === 'idle') return null;
+  const from = track.keyframes[sample.segmentIndex]?.value;
+  const to = track.keyframes[sample.segmentIndex + 1]?.value ?? from;
+  if (from === undefined || to === undefined) return null;
+  const between = from.split(NUMBER);
+  if (to.split(NUMBER).join('|') !== between.join('|')) return null;
+  const a = (from.match(NUMBER) ?? []).map(Number);
+  const b = (to.match(NUMBER) ?? []).map(Number);
+  const t = sample.segmentProgress;
+  return between
+    .map((text, index) => {
+      const start = a[index];
+      const end = b[index];
+      return start === undefined || end === undefined
+        ? text
+        : `${text}${Math.round((start + (end - start) * t) * 1000) / 1000}`;
+    })
+    .join('');
+}
+
 // Where a size or position was when the shape was measured: the start of
 // its first track. Movement is drawn relative to it.
 function geometryRest(capture: Capture, shapeId: string, property: string): number | null {
@@ -269,11 +341,24 @@ function firstLayer(value: string | null): string | null {
   return value === null ? null : (value.split(',')[0]?.trim() ?? null);
 }
 
-function dashOf(array: string | null, offset: string | null): Pose['dash'] {
+// The one that does not animate keeps its resting value: a line drawn by
+// its offset alone keeps its dash length.
+function dashOf(
+  array: string | null,
+  offset: string | null,
+  rest: { array: number[]; offset: number } | null,
+): Pose['dash'] {
   if (array === null && offset === null) return null;
   const lengths =
-    array === null || array === 'none' ? [] : numbersIn(array).map((n) => Math.max(n, 0));
-  return { array: lengths, offset: offset === null ? 0 : (numbersIn(offset)[0] ?? 0) };
+    array === null
+      ? (rest?.array ?? [])
+      : array === 'none'
+        ? []
+        : numbersIn(array).map((n) => Math.max(n, 0));
+  return {
+    array: lengths,
+    offset: offset === null ? (rest?.offset ?? 0) : (numbersIn(offset)[0] ?? 0),
+  };
 }
 
 function poseOf(
@@ -304,7 +389,22 @@ function poseOf(
     return value === null ? result : result.multiply(individualTransform(property, value));
   }, new DOMMatrix());
   const transform = valueOf('transform');
-  const own = transform === null ? matrix : matrix.multiply(matrixOf(transform));
+  // Along a path: CSS places it after translate, rotate and scale, before
+  // transform.
+  const offset = shape.offset;
+  const along = (distance: string): DOMMatrix =>
+    offset === null
+      ? new DOMMatrix()
+      : new DOMMatrix(offsetMatrix(offset, distance, shape.transformOrigin));
+  const distance = valueOf('offset-distance');
+  const withOffset = offset === null ? matrix : matrix.multiply(along(distance ?? offset.distance));
+  const own = animatesTransform
+    ? transform === null
+      ? withOffset
+      : withOffset.multiply(matrixOf(transform))
+    : distance !== null && offset !== null
+      ? movedAlong(shape, along(distance), along(offset.distance))
+      : matrix;
   // Seen through the parent's perspective, as on the page.
   const full =
     shape.perspective === null ? own : perspectiveMatrix(shape.perspective).multiply(own);
@@ -314,7 +414,7 @@ function poseOf(
   const asMatrix: Matrix = [full.a / w, full.b / w, full.c / w, full.d / w, full.e / w, full.f / w];
   const tapered = Math.abs(full.m14) > 1e-9 || Math.abs(full.m24) > 1e-9;
   const taper: [number, number] | null = tapered ? [full.m14 / w, full.m24 / w] : null;
-  const moves = has(['transform', 'translate', 'rotate', 'scale']);
+  const moves = has(['transform', 'translate', 'rotate', 'scale', 'offset-distance']);
   // A face turned away with backface-visibility: hidden is not seen: the
   // back of a flipping card shows only once it has turned.
   const turnedAway = moves && shape.backfaceHidden && facesAway(full);
@@ -372,10 +472,15 @@ function poseOf(
     opacity: turnedAway ? 0 : opacity === null ? null : Number.parseFloat(opacity),
     fill: shape.kind === 'path' ? valueOf('fill') : valueOf('background-color'),
     strokeColor: shape.kind === 'path' ? valueOf('stroke') : valueOf('border-top-color'),
+    strokeWidth: pixels(valueOf('border-top-width')),
     dx,
     dy,
     filter: valueOf('filter'),
-    dash: dashOf(valueOf('stroke-dasharray'), valueOf('stroke-dashoffset')),
+    dash: dashOf(
+      valueOf('stroke-dasharray'),
+      valueOf('stroke-dashoffset'),
+      shape.icon?.find((part) => part.dash !== null)?.dash ?? null,
+    ),
     clipPath: valueOf('clip-path'),
     visible: valueOf('visibility') !== 'hidden',
     backgroundX: firstLayer(valueOf('background-position-x')),
@@ -445,6 +550,8 @@ export function createProbe(): Probe {
     const geometry = geometryValue(track, timeMs);
     if (geometry !== null) return `${geometry}px`;
     if (GEOMETRY.includes(track.property)) return null;
+    const image = blendedImage(track, timeMs);
+    if (image !== null) return image;
     const entry = entries.get(track);
     if (entry === undefined || entry.animation === null) return null;
     const value = getComputedStyle(entry.element).getPropertyValue(track.property);

@@ -6,6 +6,7 @@ export * from './easing';
 export * from './easingCss';
 export * from './sample';
 export * from './shapes';
+export * from './offsetPath';
 export * from './groups';
 export * from './parse';
 export * from './exportCss';

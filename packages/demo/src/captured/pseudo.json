@@ -14,12 +14,7 @@
       "width": 64,
       "height": 24
     },
-    "radius": [
-      0,
-      0,
-      0,
-      0
-    ],
+    "radius": [0, 0, 0, 0],
     "fill": null,
     "stroke": null,
     "opacity": 1,
@@ -33,6 +28,7 @@
     "shadows": null,
     "outline": null,
     "perspective": null,
+    "offset": null,
     "individual": null,
     "backfaceHidden": false,
     "clipPath": null,
@@ -53,12 +49,7 @@
           "width": 64,
           "height": 7.7
         },
-        "radius": [
-          3.85,
-          3.85,
-          3.85,
-          3.85
-        ],
+        "radius": [3.85, 3.85, 3.85, 3.85],
         "fill": "rgb(28, 28, 28)",
         "stroke": null,
         "opacity": 1,
@@ -72,6 +63,7 @@
         "shadows": null,
         "outline": null,
         "perspective": null,
+        "offset": null,
         "individual": null,
         "backfaceHidden": false,
         "clipPath": null,
@@ -102,12 +94,7 @@
           "width": 63.77,
           "height": 2
         },
-        "radius": [
-          0,
-          0,
-          0,
-          0
-        ],
+        "radius": [0, 0, 0, 0],
         "fill": "rgb(47, 111, 237)",
         "stroke": null,
         "opacity": 1,
@@ -116,18 +103,12 @@
           "y": 1
         },
         "clip": false,
-        "transform": [
-          0,
-          0,
-          0,
-          1,
-          0,
-          0
-        ],
+        "transform": [0, 0, 0, 1, 0, 0],
         "shadow": null,
         "shadows": null,
         "outline": null,
         "perspective": null,
+        "offset": null,
         "individual": null,
         "backfaceHidden": false,
         "clipPath": null,

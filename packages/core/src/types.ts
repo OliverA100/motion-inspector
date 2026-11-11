@@ -189,6 +189,9 @@ export type Shape = {
   // turning in 3D inside it narrows toward its far side. null when the
   // parent has none. Older takes have none.
   perspective: { distance: number; x: number; y: number } | null;
+  // Motion along a path (CSS offset-path: path()), null for none. Older
+  // takes have none.
+  offset: OffsetPath | null;
   // CSS translate, rotate and scale, the properties apart from transform,
   // as computed when the take began, null where none. CSS applies them
   // with transform, so an animation of transform alone keeps them (a caret
@@ -313,6 +316,24 @@ export type Track = {
 // named one such as "--hero"). range: animation-range as computed
 // ("normal", "entry 0% cover 50%").
 export type ScrollDriven = { timeline: string; range: string };
+
+// A path the shape is placed along, with what CSS needs to place it.
+export type OffsetPath = {
+  // Points along the path, evenly spaced by length, in px from the shape's
+  // static top-left corner, where Chrome puts path() coordinates.
+  points: { x: number; y: number }[];
+  // Its length in px: offset-distance may be written in px.
+  length: number;
+  // A closed path goes round again past 100%.
+  closed: boolean;
+  // offset-rotate: along the direction of travel ("auto", "reverse" is
+  // auto and 180 degrees), turned by degrees; or a fixed angle.
+  rotate: { auto: boolean; degrees: number };
+  // offset-anchor in px from the top-left, null for the transform origin.
+  anchor: { x: number; y: number } | null;
+  // offset-distance at rest, as computed: "0%", "40px".
+  distance: string;
+};
 
 export type Keyframe = {
   offset: Offset;

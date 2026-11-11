@@ -15,6 +15,7 @@ import {
   fitFollow,
   fitMotion,
   MOST_POINTER_SAMPLES,
+  offsetMatrix,
   parseCapture,
   parseEasing,
   shorthandOf,
@@ -157,6 +158,12 @@ type Seen = {
   ended: 'finished' | 'cancelled' | null;
   // True when the browser shortened it because it reversed a running one.
   interrupted: boolean;
+  // True for a view transition's move of a named part, read from its
+  // ::view-transition-group on the page's root (see viewTransitionSeen).
+  viewTransition: boolean;
+  // The effect's composite: animation-composition, or composite in
+  // element.animate(). Keyframes may set their own.
+  composite: string;
   // True when it already existed when the element was picked (a loader).
   runningAtPick: boolean;
   // The part's backface-visibility as the animation began: what set it off
@@ -176,6 +183,199 @@ function originOf(animation: Animation): Seen['origin'] {
   if (animation instanceof CSSTransition) return 'css-transition';
   if (animation instanceof CSSAnimation) return 'css-animation';
   return 'web-animation';
+}
+
+// The timing as it plays on the timeline. A player at rate r plays local
+// time t at start + t / r, so every length divides by |r|. A negative rate
+// (reverse()) plays local time backwards: the direction flips, delays and
+// fills swap ends. Whole iterations only: alternate's parity decides which
+// way the first one runs once reversed.
+function asPlayed(timing: Seen['timing'], rate: number): Seen['timing'] {
+  if (rate === 1 || rate === 0) return timing;
+  const speed = Math.abs(rate);
+  const scaled = {
+    ...timing,
+    delay: timing.delay / speed,
+    duration: timing.duration === null ? null : timing.duration / speed,
+    endDelay: timing.endDelay / speed,
+    endTime: timing.endTime / speed,
+  };
+  if (rate > 0) return scaled;
+  const even = timing.iterations % 2 === 0;
+  const flipped: Record<string, string> = {
+    normal: 'reverse',
+    reverse: 'normal',
+    alternate: even ? 'alternate' : 'alternate-reverse',
+    'alternate-reverse': even ? 'alternate-reverse' : 'alternate',
+  };
+  const fills: Record<string, string> = { forwards: 'backwards', backwards: 'forwards' };
+  return {
+    ...scaled,
+    delay: scaled.endDelay,
+    endDelay: scaled.delay,
+    direction: flipped[timing.direction] ?? timing.direction,
+    fill: fills[timing.fill] ?? timing.fill,
+  };
+}
+
+// When it starts playing, on the document timeline. For a forward player
+// that is its start time; one played backwards starts at its end, which it
+// reaches at its start time. Before the browser sets a start time (a
+// player still pending), it is worked out from where it is now.
+function playStart(animation: Animation, endTime: number, now: number): number {
+  const rate = animation.playbackRate || 1;
+  const start = asNumber(animation.startTime);
+  // One that repeats forever has no end to start from when played
+  // backwards: it is placed from where it is now, as a forward one.
+  if (!Number.isFinite(endTime)) return start ?? now;
+  const begin = rate < 0 ? endTime : 0;
+  if (start === null) return now - ((asNumber(animation.currentTime) ?? begin) - begin) / rate;
+  return rate < 0 ? start - endTime / Math.abs(rate) : start;
+}
+
+// Open popovers and dialogs. ":popover-open" is not known to every
+// browser; one that does not know it has no popovers to find.
+const TOP_LAYER = 'dialog[open], :popover-open';
+
+function topLayerParts(): Element[] {
+  try {
+    return Array.from(document.querySelectorAll(TOP_LAYER));
+  } catch {
+    return Array.from(document.querySelectorAll('dialog[open]'));
+  }
+}
+
+function topLayerPartOf(target: Element): Element | null {
+  try {
+    return target.closest(TOP_LAYER);
+  } catch {
+    return target.closest('dialog[open]');
+  }
+}
+
+function timingOf(computed: ComputedEffectTiming): Seen['timing'] {
+  return {
+    delay: asNumber(computed.delay) ?? 0,
+    duration: asNumber(computed.duration),
+    iterations: computed.iterations ?? 1,
+    direction: computed.direction ?? 'normal',
+    fill: computed.fill ?? 'none',
+    easing: computed.easing ?? 'linear',
+    iterationStart: computed.iterationStart ?? 0,
+    endDelay: asNumber(computed.endDelay) ?? 0,
+    endTime: typeof computed.endTime === 'number' ? computed.endTime : 0,
+  };
+}
+
+// ---------- View transitions ----------
+
+export const VIEW_TRANSITION_NOTE =
+  'This is a view transition: the browser moves a picture of the part from where it was to where it is now. It is shown as the part moving; the cross-fade between its old and new look is not shown.';
+
+// True while document.startViewTransition() runs, and for a moment after:
+// when its pictures go, the browser finds the pointer over the page again
+// and says it came back (found on our own fixture). Browsers without view
+// transitions have none to find.
+const AFTER_VIEW_TRANSITION_MS = 200;
+let viewTransitionEnded = -Infinity;
+const transitionsWatched = new WeakSet<object>();
+function viewTransitionActive(): boolean {
+  const active = (document as { activeViewTransition?: { finished?: Promise<unknown> } | null })
+    .activeViewTransition;
+  if (active != null) {
+    if (!transitionsWatched.has(active)) {
+      transitionsWatched.add(active);
+      active.finished?.then(
+        () => (viewTransitionEnded = performance.now()),
+        () => (viewTransitionEnded = performance.now()),
+      );
+    }
+    return true;
+  }
+  return performance.now() - viewTransitionEnded < AFTER_VIEW_TRANSITION_MS;
+}
+
+// The parts inside the picked element that have a view-transition-name,
+// by name. Read once for each frame a view transition runs in.
+function partsNamed(root: Element): Map<string, Element> {
+  const named = new Map<string, Element>();
+  for (const element of [root, ...Array.from(root.querySelectorAll('*'))]) {
+    const name = getComputedStyle(element).viewTransitionName;
+    if (name !== 'none' && name !== '' && !named.has(name)) named.set(name, element);
+  }
+  return named;
+}
+
+// A view transition moves a picture of each named part, in
+// ::view-transition-group(name) on the page's root: from the old box to the
+// new one, as transform matrices in the viewport, with width and height.
+// The part itself is at its new place at once. This reads that group as an
+// animation of the part: translate from where it was at pick, and its size.
+function viewTransitionSeen(
+  animation: Animation,
+  snapshot: Snapshot,
+  named: () => Map<string, Element>,
+): Seen | null {
+  const effect = animation.effect;
+  if (!(effect instanceof KeyframeEffect) || effect.target !== document.documentElement) {
+    return null;
+  }
+  const found = /^::view-transition-group\((.+)\)$/.exec(effect.pseudoElement ?? '');
+  if (found === null || found[1] === undefined || found[1] === 'root') return null;
+  const part = named().get(found[1]) ?? null;
+  const atPick = part === null ? undefined : snapshot.boxAtPick.get(part);
+  if (part === null || atPick === undefined) return null;
+  const seen = read(animation);
+  if (seen === null) return null;
+  const root = snapshot.rootElement.getBoundingClientRect();
+  const placeOf = (values: { property: string; value: string }[]): { x: number; y: number } => {
+    const text = values.find((item) => item.property === 'transform')?.value ?? 'none';
+    try {
+      const matrix = new DOMMatrix(text === 'none' ? '' : text);
+      return { x: matrix.e - root.x - atPick.x, y: matrix.f - root.y - atPick.y };
+    } catch {
+      return { x: 0, y: 0 };
+    }
+  };
+  const keyframes = seen.keyframes.map((keyframe) => {
+    const place = placeOf(keyframe.values);
+    return {
+      ...keyframe,
+      values: [
+        {
+          property: 'translate',
+          value: `${Math.round(place.x * 100) / 100}px ${Math.round(place.y * 100) / 100}px`,
+        },
+        ...keyframe.values.filter(
+          (item) => item.property === 'width' || item.property === 'height',
+        ),
+      ],
+    };
+  });
+  const changes = (property: string): boolean =>
+    new Set(
+      keyframes.map(
+        (keyframe) => keyframe.values.find((item) => item.property === property)?.value,
+      ),
+    ).size > 1;
+  const properties = ['translate', 'width', 'height'].filter(changes);
+  if (properties.length === 0) return null;
+  // Changed in place: the browser's ready and finished handlers set this
+  // same object's start and end.
+  Object.assign(seen, {
+    target: part,
+    pseudoElement: null,
+    origin: 'css-animation',
+    viewTransition: true,
+    properties,
+    keyframes: keyframes.map((keyframe) => ({
+      ...keyframe,
+      values: keyframe.values.filter((item) => properties.includes(item.property)),
+    })),
+    backfaceHidden: false,
+    individual: null,
+  });
+  return seen;
 }
 
 function read(animation: Animation): Seen | null {
@@ -202,24 +402,20 @@ function read(animation: Animation): Seen | null {
       new Set(keyframes.flatMap((keyframe) => keyframe.values.map((item) => item.property))),
     ),
     keyframes,
-    timing: {
-      delay: asNumber(computed.delay) ?? 0,
-      duration: asNumber(computed.duration),
-      iterations: computed.iterations ?? 1,
-      direction: computed.direction ?? 'normal',
-      fill: computed.fill ?? 'none',
-      easing: computed.easing ?? 'linear',
-      iterationStart: computed.iterationStart ?? 0,
-      endDelay: asNumber(computed.endDelay) ?? 0,
-      endTime: typeof computed.endTime === 'number' ? computed.endTime : 0,
-    },
+    timing: asPlayed(timingOf(computed), animation.playbackRate),
     // For an animation that is already running, this is exactly its start
     // time. For a new one it is the frame it was seen in, which is replaced
     // below as soon as the browser reports the real start time.
-    startTime: asNumber(animation.startTime) ?? now - (asNumber(animation.currentTime) ?? 0),
+    startTime: playStart(
+      animation,
+      typeof computed.endTime === 'number' ? computed.endTime : 0,
+      now,
+    ),
     ended: null,
     interrupted: false,
     runningAtPick: false,
+    viewTransition: false,
+    composite: effect.composite,
     backfaceHidden:
       effect.pseudoElement === null &&
       getComputedStyle(effect.target).backfaceVisibility === 'hidden',
@@ -232,7 +428,16 @@ function read(animation: Animation): Seen | null {
   };
   animation.ready.then(
     () => {
-      seen.startTime = asNumber(animation.startTime) ?? seen.startTime;
+      // reverse() on a pending player only takes effect now: until it is
+      // ready, playbackRate is still the old rate.
+      seen.timing = asPlayed(timingOf(effect.getComputedTiming()), animation.playbackRate);
+      if (animation.startTime !== null) {
+        seen.startTime = playStart(
+          animation,
+          Math.abs(seen.timing.endTime * animation.playbackRate),
+          seen.startTime,
+        );
+      }
     },
     () => {},
   );
@@ -332,6 +537,9 @@ function easingData(text: string): Easing | null {
 
 // Why a whole animation cannot be drawn, or null if it can.
 function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | null {
+  if (seen.pseudoElement === '::backdrop') {
+    return `The backdrop behind ${label} is not shown: it covers the whole page, not a part of it.`;
+  }
   if (seen.pseudoElement !== null && partOf(snapshot, seen) === null) {
     return `An animation on ${seen.pseudoElement} of ${label} is not shown, because that pseudo-element sits in the flow of text, so its box cannot be measured. Only absolutely positioned ones are drawn.`;
   }
@@ -347,6 +555,7 @@ function whyNotShown(snapshot: Snapshot, seen: Seen, label: string): string | nu
     return `An animation on ${label} is not shown, because that part was left out of the simplified drawing.`;
   }
   if (
+    seen.composite !== 'replace' ||
     seen.keyframes.some(
       (keyframe) => keyframe.composite === 'add' || keyframe.composite === 'accumulate',
     )
@@ -771,7 +980,10 @@ function layoutTracksFor(
     const own = new Set(
       take
         .filter((seen) => seen.target === element && seen.pseudoElement === null)
-        .flatMap((seen) => seen.properties),
+        .flatMap((seen) =>
+          // A view transition's move says where it is from pick to end.
+          seen.viewTransition ? [...seen.properties, 'left', 'top'] : seen.properties,
+        ),
     );
     const parentShape = parentOf.get(shape);
     const parentElement = parentShape === undefined ? undefined : snapshot.ownerOf.get(parentShape);
@@ -911,9 +1123,22 @@ function numberSlots(texts: string[]): {
       text.split(NUMBER).join('|') === between.join('|') && perFrame[index]?.length === count,
   );
   if (!same || count === 0) return null;
-  const numbers = Array.from({ length: count }, (_slot, slot) =>
-    perFrame.map((values) => values[slot] ?? 0),
-  );
+  // An angle that wraps (a turning variable goes 350, then 10 degrees)
+  // keeps going the same way: 370 draws as 10 does, and blends forward.
+  const unwrapped = (values: number[]): number[] => {
+    let turns = 0;
+    return values.map((value, index) => {
+      const before = values[index - 1];
+      if (before !== undefined && Math.abs(value - before) > 180) {
+        turns += value < before ? 360 : -360;
+      }
+      return value + turns;
+    });
+  };
+  const numbers = Array.from({ length: count }, (_slot, slot) => {
+    const values = perFrame.map((frame) => frame[slot] ?? 0);
+    return (between[slot + 1] ?? '').startsWith('deg') ? unwrapped(values) : values;
+  });
   // Half a pixel or percent; a tenth of a degree; for small plain numbers
   // (a brightness, an alpha) half a percent.
   const tolerances = numbers.map((values, slot) => {
@@ -947,6 +1172,35 @@ const round = (value: number, places: number): number =>
 // how opaque,
 // each fitted to keyframes and a curve that match the film within half a
 // pixel, a tenth of a degree, half a percent of size, a percent of opacity.
+// Whether a film's transform is the part's path at the filmed distances:
+// each frame is the first one with the place along the path swapped. null
+// when the part has no path or its distance does not change.
+function alongItsPath(shape: RawShape, frames: FilmFrame[]): boolean | null {
+  const path = shape.offset ?? null;
+  const which = FILMED_STYLES.indexOf('offset-distance');
+  const first = frames[0];
+  if (path === null || first === undefined) return null;
+  const distances = frames.map((frame) => frame.styles[which] ?? '');
+  if (new Set(distances).size < 2) return null;
+  const place = (distance: string): DOMMatrix =>
+    new DOMMatrix(offsetMatrix(path, distance, shape.transformOrigin));
+  // CSS puts the path outside the part's own transform: M = place(d) T.
+  const own = place(distances[0] ?? '0%')
+    .inverse()
+    .multiply(new DOMMatrix(first.matrix));
+  return frames.every((frame, index) => {
+    const expected = place(distances[index] ?? '0%').multiply(own);
+    const [a, b, c, d, e, f] = frame.matrix;
+    return (
+      Math.abs(expected.e - e) <= 1 &&
+      Math.abs(expected.f - f) <= 1 &&
+      [a - expected.a, b - expected.b, c - expected.c, d - expected.d].every(
+        (difference) => Math.abs(difference) <= 0.01,
+      )
+    );
+  });
+}
+
 function scriptTracksFor(
   snapshot: Snapshot,
   take: Seen[],
@@ -1054,11 +1308,12 @@ function scriptTracksFor(
       ...FILMED_STYLES.flatMap((property, which) => {
         const texts = frames.map((frame) => frame.styles[which] ?? '');
         if (new Set(texts).size < 2) return [];
-        // A moving gradient is drawn when it is linear. A conic one turned
-        // by a variable (Resend's ring) would be listed and not drawn.
+        // A moving gradient is drawn when it is linear, or conic and turning
+        // (a ring of light turned by a registered variable, found on Resend).
         if (
           property === 'background-image' &&
-          !texts.every((text) => text.startsWith('linear-gradient('))
+          !texts.every((text) => text.startsWith('linear-gradient(')) &&
+          !texts.every((text) => text.startsWith('conic-gradient('))
         ) {
           return [];
         }
@@ -1076,11 +1331,18 @@ function scriptTracksFor(
         ];
       }),
     ];
+    // A part a script moves along its path: its film is the whole transform,
+    // the path's place included. When the place along the path explains it
+    // all, the distance is written and the path places it; otherwise the
+    // transform is, and the distance would count the motion twice.
+    const along = alongItsPath(shape, frames);
     for (const group of groups) {
       const own =
         group.property === 'transform'
-          ? TRANSFORM_PROPERTIES.some((property) => animated.has(property))
-          : animated.has(group.property);
+          ? TRANSFORM_PROPERTIES.some((property) => animated.has(property)) || along === true
+          : group.property === 'offset-distance'
+            ? animated.has(group.property) || along !== true
+            : animated.has(group.property);
       if (own) continue;
       const still = group.channels.every((channel) => {
         const values = channel.values;
@@ -1280,6 +1542,7 @@ function listenToPage(): void {
   const note =
     (type: PageEvent['type']) =>
     (event: Event): void => {
+      if ((type === 'over' || type === 'out') && viewTransitionActive()) return;
       pageEvents.push({
         type,
         time: asNumber(document.timeline.currentTime) ?? 0,
@@ -1297,6 +1560,9 @@ function listenToPage(): void {
   const path =
     (kind: PointerMove['kind']) =>
     (event: PointerEvent): void => {
+      // A view transition's pictures cover the page while it runs: the
+      // pointer seems to leave whatever it is on, but has not moved.
+      if (kind !== 'move' && viewTransitionActive()) return;
       pointerPath.push({
         kind,
         // When it happened. The timeline's time stands still between
@@ -1534,31 +1800,44 @@ function buildTake(
     },
     root: snapshot.root,
     tracks: [...tracks, ...layout, ...scripts, ...removals],
-    measured: measuredFor(snapshot, film, takeStart),
+    // A part a view transition moves is not seen where it is: the browser
+    // shows a picture of it instead, so its own film says nothing.
+    measured: measuredFor(
+      snapshot,
+      new Map(
+        Array.from(film).filter(
+          ([element]) => !take.some((seen) => seen.viewTransition && seen.target === element),
+        ),
+      ),
+      takeStart,
+    ),
     follows: follows.length > 0 ? follows : null,
     trigger: trigger ?? triggerOf(snapshot.rootElement, take, take.length === 0 ? takeStart : null),
     backdrop: snapshot.backdrop,
     frame: snapshot.frame,
-    notShown: [
-      // A part that follows the pointer is not cut short: its rule is whole.
-      ...notes.filter(
-        (note) =>
-          (follows.length === 0 || note !== KEPT_MOVING_NOTE) &&
-          // "Restarted N times": the rule replaces those restarts.
-          !Array.from(followed).some((element) =>
-            note.startsWith(`The animation on ${labelOf(element)} was restarted`),
-          ),
-      ),
-      ...snapshot.notes,
-      ...built.flatMap((item) => item.notShown),
-      // Something did run. Say so, rather than "nothing was captured".
-      ...(tracks.length + scripts.length + follows.length === 0
-        ? Array.from(
-            new Set(built.flatMap((item) => item.unchanged)),
-            (what) => `The ${what} ends where it starts, so there is nothing to see.`,
-          )
-        : []),
-    ],
+    // The same sentence twice (two such animations on one part) says nothing more.
+    notShown: Array.from(
+      new Set([
+        // A part that follows the pointer is not cut short: its rule is whole.
+        ...notes.filter(
+          (note) =>
+            (follows.length === 0 || note !== KEPT_MOVING_NOTE) &&
+            // "Restarted N times": the rule replaces those restarts.
+            !Array.from(followed).some((element) =>
+              note.startsWith(`The animation on ${labelOf(element)} was restarted`),
+            ),
+        ),
+        ...snapshot.notes,
+        ...built.flatMap((item) => item.notShown),
+        // Something did run. Say so, rather than "nothing was captured".
+        ...(tracks.length + scripts.length + follows.length === 0
+          ? Array.from(
+              new Set(built.flatMap((item) => item.unchanged)),
+              (what) => `The ${what} ends where it starts, so there is nothing to see.`,
+            )
+          : []),
+      ]),
+    ),
   };
   // A last guard: an id used twice would make core reject the whole take.
   // A repeat is renamed; tracks keep pointing at the first.
@@ -1840,6 +2119,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // button, what moves is over there. The new part's top under the body
   // (with its overlay, for a dialog) is recorded instead.
   const inDocumentAtPick = new WeakSet<Element>(Array.from(document.querySelectorAll('*')));
+  // A native popover or dialog is on the page all along and is shown in the
+  // top layer when opened: one that was closed at pick counts as opened.
+  const openAtPick = new WeakSet<Element>(topLayerParts());
   // Parts opened elsewhere, gathered for a moment before one is chosen.
   let openedParts: Element[] = [];
   let openedTargets: Element[] = [];
@@ -1852,7 +2134,10 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         within(snapshot.rootElement, event.target) &&
         event.time >= docNow - OPENED_WITHIN_MS,
     );
-    if (!pressed || inDocumentAtPick.has(target)) return null;
+    if (!pressed) return null;
+    const shown = topLayerPartOf(target);
+    if (shown !== null && !openAtPick.has(shown)) return shown;
+    if (inDocumentAtPick.has(target)) return null;
     // The new parts above it, up to the portal's own container.
     const chain: Element[] = [target];
     for (
@@ -2100,6 +2385,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     previousFilm = finishedFilm;
     lastTakeEnd = performance.now();
     const notes = [...chainNote];
+    if (finished.some((seen) => seen.viewTransition)) notes.push(VIEW_TRANSITION_NOTE);
     const firstTimes = Array.from(finishedFilm.values()).map((frames) => frames[0]?.time ?? 0);
     const lastTimes = Array.from(finishedFilm.values()).map(
       (frames) => frames[frames.length - 1]?.time ?? 0,
@@ -2192,6 +2478,20 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     scripted = new Set(stillScripted);
   };
 
+  // A loop that only changes a CSS variable (a ring turned by a registered
+  // angle) is seen only through its film. The take stays open until one
+  // whole turn of it is filmed, so the preview's loop is the page's.
+  const filmingALoop = (): boolean =>
+    take.some((seen) => {
+      if (!changesVariables(seen) || Number.isFinite(seen.timing.endTime)) return false;
+      const turn = (seen.timing.duration ?? 0) + seen.timing.delay;
+      if (turn <= 0 || turn > LONGEST_SCRIPT_TAKE_MS) return false;
+      const times = (partsOfVariables.get(seen) ?? []).flatMap((part) =>
+        (film.get(part) ?? []).map((frame) => frame.time),
+      );
+      return times.length === 0 || Math.max(...times) - Math.min(...times) < turn;
+    });
+
   const onFrame = (): void => {
     const now = performance.now();
     // The pointer crossed the element's edge since the last frame.
@@ -2218,6 +2518,27 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         return seen === null ? [] : [seen];
       },
     );
+    // A view transition moves named parts on the page's root, outside the
+    // picked element.
+    if (viewTransitionActive()) {
+      let named: Map<string, Element> | null = null;
+      const lookUp = (): Map<string, Element> => (named ??= partsNamed(snapshot.rootElement));
+      for (const animation of document.getAnimations()) {
+        if (alreadySeen.has(animation)) continue;
+        const effect = animation.effect;
+        if (
+          !(effect instanceof KeyframeEffect) ||
+          effect.target !== document.documentElement ||
+          effect.pseudoElement?.startsWith('::view-transition') !== true
+        ) {
+          continue;
+        }
+        alreadySeen.add(animation);
+        parentsChecked.add(animation);
+        const seen = viewTransitionSeen(animation, snapshot, lookUp);
+        if (seen !== null) fresh.push(seen);
+      }
+    }
     // A part made after the pick (a click's ripple, a toast) is measured as
     // soon as it animates: it may be taken off the page before the take
     // ends, and then it could not be. Parts that were there but hidden (a
@@ -2390,7 +2711,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       options.onAutoStop?.();
       return;
     }
-    if (take.some(stillRunning) || scriptActive) lastActivity = now;
+    if (take.some(stillRunning) || scriptActive || filmingALoop()) lastActivity = now;
     else if (now - lastActivity > idleMs) endTake();
     frame = requestAnimationFrame(onFrame);
   };

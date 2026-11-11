@@ -952,7 +952,9 @@ test('parts that appear during a take never share an id', async ({ page }) => {
   expect(capture.tracks.filter((item) => item.property === 'opacity')).toHaveLength(2);
 });
 
-test('an animation of a CSS variable alone is listed, not passed over', async ({ page }) => {
+test('a loop that only turns a registered variable is filmed for one turn and drawn', async ({
+  page,
+}) => {
   await openFixtures(page);
   await page.evaluate(() => {
     const style = document.createElement('style');
@@ -969,10 +971,20 @@ test('an animation of a CSS variable alone is listed, not passed over', async ({
   await page.evaluate(() =>
     window.MotionCapture.record(document.querySelector('.var-ring') as Element),
   );
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(1600);
   const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
-  expect(capture.tracks).toEqual([]);
-  expect(capture.notShown.join(' ')).toContain('only changes CSS variables');
+  // Chrome lists no values for --turn: the ring is filmed, one whole turn,
+  // and drawn as its conic gradient turning.
+  const [track] = capture.tracks;
+  expect(capture.tracks).toHaveLength(1);
+  expect(track?.property).toBe('background-image');
+  const angles = (track?.keyframes ?? []).map((keyframe) =>
+    Number(/from (-?[\d.]+)deg/.exec(keyframe.value)?.[1]),
+  );
+  const turned = (angles[angles.length - 1] ?? 0) - (angles[0] ?? 0);
+  expect(turned).toBeGreaterThan(330);
+  expect(turned).toBeLessThan(480);
+  expect(capture.notShown.join(' ')).not.toContain('only changes CSS variables');
 });
 
 test('text that shows a background through its letters, and a gradient border', async ({
@@ -1546,4 +1558,196 @@ test('a text-only part that fades out and leaves keeps its fade', async ({ page 
   const capture = captureOf(takes.find((take) => take.capture !== null) ?? takes[0]);
   expect(capture.notShown.join(' ')).not.toContain('left out of the simplified drawing');
   expect(capture.tracks.map((track) => track.property)).toContain('opacity');
+});
+
+// ---------- Special kinds ----------
+
+// Adds a style and some markup to the fixtures page, then records `pick`.
+async function setUp(page: Page, css: string, html: string, pick: string): Promise<void> {
+  await openFixtures(page);
+  await page.evaluate(
+    ([styleText, markup, selector]) => {
+      const style = document.createElement('style');
+      style.textContent = styleText;
+      document.head.append(style);
+      const holder = document.createElement('div');
+      holder.innerHTML = markup;
+      document.body.prepend(holder);
+      window.MotionCapture.record(document.querySelector(selector) as Element);
+    },
+    [css, html, pick] as const,
+  );
+}
+
+const takesNow = async (page: Page): Promise<Take[]> =>
+  page.evaluate(() => window.MotionCapture.stop());
+
+test('a native popover opened by its button is followed into the top layer', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-pop { margin: 0; inset: auto; top: 60px; left: 300px; width: 160px; height: 80px; border: 0;
+       opacity: 0; scale: 0.9; transition: opacity .3s, scale .3s, display .3s allow-discrete, overlay .3s allow-discrete }
+     #sp-pop:popover-open { opacity: 1; scale: 1 }
+     @starting-style { #sp-pop:popover-open { opacity: 0; scale: 0.9 } }`,
+    '<button id="sp-open" popovertarget="sp-pop">Open</button><div popover id="sp-pop">Hi</div>',
+    '#sp-open',
+  );
+  await page.click('#sp-open');
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.trigger).toBe('click');
+  expect(capture.tracks.map((track) => track.property).sort()).toEqual(['opacity', 'scale']);
+});
+
+test('a modal dialog is followed, and its backdrop is said to be left out', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-dialog { width: 200px; height: 100px; border: 0; opacity: 0;
+       transition: opacity .3s, display .3s allow-discrete, overlay .3s allow-discrete }
+     #sp-dialog[open] { opacity: 1 }
+     @starting-style { #sp-dialog[open] { opacity: 0 } }
+     #sp-dialog::backdrop { background: rgb(0 0 0 / 0); transition: background .3s, display .3s allow-discrete, overlay .3s allow-discrete }
+     #sp-dialog[open]::backdrop { background: rgb(0 0 0 / .4) }
+     @starting-style { #sp-dialog[open]::backdrop { background: rgb(0 0 0 / 0) } }`,
+    `<button id="sp-show" onclick="document.getElementById('sp-dialog').showModal()">Show</button>
+     <dialog id="sp-dialog">Hi</dialog>`,
+    '#sp-show',
+  );
+  await page.click('#sp-show');
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.root.label).toBe('dialog');
+  expect(capture.tracks.map((track) => track.property)).toEqual(['opacity']);
+  expect(capture.notShown.join(' ')).toContain('The backdrop behind dialog is not shown');
+});
+
+test('a player sped up, and one played backwards, are timed as they play', async ({ page }) => {
+  await setUp(
+    page,
+    '.sp-box { width: 40px; height: 40px; background: blue }',
+    '<div id="sp-rate"><div class="sp-box"></div></div>',
+    '#sp-rate',
+  );
+  await page.evaluate(() => {
+    const box = document.querySelector('#sp-rate .sp-box') as Element;
+    const fast = box.animate({ translate: ['0px', '100px'] }, { duration: 600, fill: 'forwards' });
+    fast.playbackRate = 2;
+  });
+  await page.waitForTimeout(700);
+  const sped = onlyCapture(await takesNow(page));
+  expect(sped.tracks[0]?.timing.duration).toBe(300);
+  expect(sped.tracks[0]?.timing.direction).toBe('normal');
+
+  await page.evaluate(() => {
+    window.MotionCapture.record(document.querySelector('#sp-rate') as Element);
+    const box = document.querySelector('#sp-rate .sp-box') as Element;
+    box.getAnimations().forEach((animation) => animation.cancel());
+    const back = box.animate({ translate: ['0px', '100px'] }, { duration: 400, fill: 'both' });
+    back.reverse();
+  });
+  await page.waitForTimeout(700);
+  const backwards = onlyCapture(await takesNow(page));
+  expect(backwards.tracks[0]?.timing.duration).toBe(400);
+  expect(backwards.tracks[0]?.timing.direction).toBe('reverse');
+  expect(describeCapture(backwards)).toContain('moves left 100 px');
+});
+
+test('an animation that adds to the value under it is listed, not drawn wrong', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `.sp-add { width: 40px; height: 40px; background: blue; translate: 40px 0 }
+     .sp-add.on { animation: sp-nudge .3s forwards; animation-composition: add }
+     @keyframes sp-nudge { to { translate: 80px 0 } }`,
+    '<div id="sp-compose"><div class="sp-add"></div></div>',
+    '#sp-compose',
+  );
+  await page.evaluate(() => document.querySelector('.sp-add')?.classList.add('on'));
+  await page.waitForTimeout(600);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.filter((track) => track.origin !== 'layout')).toEqual([]);
+  expect(capture.notShown.join(' ')).toContain('adds to the element');
+});
+
+test('a part moved along an offset-path carries its path, and the film sees it move', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-path { position: relative; width: 240px; height: 140px }
+     .sp-dot { width: 20px; height: 20px; background: blue;
+       offset-path: path('M 10 100 C 60 0, 160 0, 210 100'); offset-distance: 0% }
+     .sp-dot.on { animation: sp-along .5s linear forwards }
+     @keyframes sp-along { to { offset-distance: 100% } }`,
+    '<div id="sp-path"><div class="sp-dot"></div></div>',
+    '#sp-path',
+  );
+  await page.evaluate(() => document.querySelector('.sp-dot')?.classList.add('on'));
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  const dot = flattenShapes(capture.root).find((shape) => shape.offset !== null);
+  expect(dot?.offset?.points).toHaveLength(129);
+  expect(dot?.offset?.points[0]).toEqual({ x: 10, y: 100 });
+  expect(dot?.offset?.distance).toBe('0%');
+  // At rest the dot sits on the path's start: its center at (10, 100).
+  expect(dot?.transform?.[4]).toBeCloseTo(0, 0);
+  expect(dot?.transform?.[5]).toBeCloseTo(90, 0);
+  expect(capture.tracks.map((track) => track.property)).toContain('offset-distance');
+  expect(describeCapture(capture)).toContain('moves along its path');
+});
+
+test('a view transition is read as its named part moving', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-vt { width: 300px; height: 60px } .sp-moved { width: 40px; height: 40px; background: blue; view-transition-name: sp-moved }',
+    '<div id="sp-vt"><button id="sp-go">Go</button><div class="sp-moved"></div></div>',
+    '#sp-vt',
+  );
+  await page.evaluate(() =>
+    document.getElementById('sp-go')?.addEventListener('click', () => {
+      document.startViewTransition(() => {
+        (document.querySelector('.sp-moved') as HTMLElement).style.marginLeft = '120px';
+      });
+    }),
+  );
+  await page.click('#sp-go');
+  await page.waitForTimeout(1200);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.trigger).toBe('click');
+  const move = capture.tracks.find((track) => track.property === 'translate');
+  expect(move?.keyframes[0]?.value).toBe('0px 0px');
+  expect(move?.keyframes[move.keyframes.length - 1]?.value).toBe('120px 0px');
+  expect(capture.notShown.join(' ')).toContain('view transition');
+});
+
+test('a dot a script moves round its card with rect() is read as moving along its path', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-beam { position: relative; width: 200px; height: 100px; border: 2px solid #ddd }
+     .sp-beam-dot { position: absolute; left: 0; top: 0; width: 12px; height: 12px; background: orange;
+       offset-path: rect(0 auto auto 0 round 10px); offset-distance: 0% }`,
+    '<div id="sp-beam"><div class="sp-beam-dot"></div></div>',
+    '#sp-beam',
+  );
+  // As Motion does: the distance written every frame.
+  await page.evaluate(() => {
+    const dot = document.querySelector('.sp-beam-dot') as HTMLElement;
+    const start = performance.now();
+    const step = (now: number): void => {
+      const done = Math.min((now - start) / 600, 1);
+      dot.style.offsetDistance = `${done * 100}%`;
+      if (done < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await page.waitForTimeout(1200);
+  const capture = onlyCapture(await takesNow(page));
+  const dot = flattenShapes(capture.root).find((shape) => shape.offset !== null);
+  expect(dot?.offset?.closed).toBe(true);
+  expect(capture.tracks.map((track) => `${track.origin}:${track.property}`)).toEqual([
+    'script:offset-distance',
+  ]);
 });

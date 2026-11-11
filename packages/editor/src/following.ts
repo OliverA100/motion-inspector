@@ -27,6 +27,7 @@ function stillPose(shapeId: Pose['shapeId']): Pose {
     opacity: null,
     fill: null,
     strokeColor: null,
+    strokeWidth: null,
     radius: null,
     width: null,
     height: null,

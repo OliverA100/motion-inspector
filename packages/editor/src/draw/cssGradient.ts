@@ -90,6 +90,17 @@ export function cssLinearGradient(text: string): CssLinearGradient | null {
   return stops.length >= 2 && Number.isFinite(angle) ? { angle, stops } : null;
 }
 
+// Where the first layer of a conic-gradient() starts, in degrees: what a
+// registered variable turns frame by frame. null when it is not conic.
+export function cssConicAngle(text: string): number | null {
+  const layer = topLevel(text)[0] ?? '';
+  if (!layer.startsWith('conic-gradient(')) return null;
+  const from = /^conic-gradient\(from (-?\d*\.?\d+)(deg|turn|rad)/.exec(layer);
+  if (from === null) return 0;
+  const amount = Number(from[1]);
+  return from[2] === 'turn' ? amount * 360 : from[2] === 'rad' ? (amount * 180) / Math.PI : amount;
+}
+
 // Every stop's place in px along a line `length` long, as CSS places them:
 // missing ones spread evenly between their neighbors, and none before the
 // one ahead of it.
