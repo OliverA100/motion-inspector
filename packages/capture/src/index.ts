@@ -4,7 +4,7 @@
 
 import { startPicking, type Picker } from './picker';
 import { startRecording, type Recorder, type TakeResult } from './record';
-import { labelOf, selectorOf, takeSnapshot } from './snapshot';
+import { labelOf, selectorOf, takeSnapshot, type RawShape, type Snapshot } from './snapshot';
 
 export { startPicking } from './picker';
 export { startRecording } from './record';
@@ -30,6 +30,8 @@ const AUTO_STOP_MS = 1500;
 
 // The element recorded last, so it can be recorded again without picking.
 let lastElement: Element | null = null;
+// The drawing of the last recording, for placementMiss.
+let lastSnapshot: Snapshot | null = null;
 // Where the picked element was, to find it again if the page replaces it.
 let pickedWhere: Whereabouts | null = null;
 
@@ -52,6 +54,7 @@ export function record(
     // budget of its own in the drawing (found on oliverhassan.dev: the
     // heading's letters were left out of the whole article).
     const snapshot = takeSnapshot(watched, moved ? element : null);
+    lastSnapshot = snapshot;
     lastElement = watched;
     if (atLoad) snapshot.runningAtPick = new WeakSet();
     if (moved) snapshot.pickedFrom = element;
@@ -346,4 +349,38 @@ export function recordedRect(): {
 export function cancelPicking(): void {
   picker?.cancel();
   picker = null;
+}
+
+// A check for development, not used by the panel: how far the drawing of
+// the last recording is from the page, measured again now that it is at
+// rest. The self-check compares how parts move; this compares where they
+// are drawn (found by hand: letters whose text was drawn 540 px below them
+// matched the page at 0 px). Boxes and text bars of each part, in px.
+export function placementMiss(): { px: number; label: string } | null {
+  const drawn = lastSnapshot;
+  if (drawn === null || !drawn.rootElement.isConnected) return null;
+  const now = takeSnapshot(drawn.rootElement);
+  const apart = (one: RawShape['box'], other: RawShape['box']): number =>
+    Math.max(
+      Math.abs(one.x - other.x),
+      Math.abs(one.y - other.y),
+      Math.abs(one.width - other.width),
+      Math.abs(one.height - other.height),
+    );
+  let worst = { px: 0, label: '' };
+  for (const [element, shape] of drawn.shapeOf) {
+    const again = now.shapeOf.get(element);
+    if (again === undefined) continue;
+    const texts = (of: RawShape): RawShape[] => of.children.filter((child) => child.kind === 'text');
+    const pairs: [RawShape, RawShape][] = [[shape, again]];
+    texts(shape).forEach((text, index) => {
+      const other = texts(again)[index];
+      if (other !== undefined) pairs.push([text, other]);
+    });
+    for (const [one, other] of pairs) {
+      const px = apart(one.box, other.box);
+      if (px > worst.px) worst = { px, label: `${shape.label}${one === shape ? '' : ' text'}` };
+    }
+  }
+  return worst;
 }

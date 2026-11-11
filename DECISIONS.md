@@ -1275,3 +1275,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D227. On one column, the selected row opens under itself
 **Chose:** in the side panel (one column), selecting a timeline row opens it in place: its timing (delay, duration, resets, linking), its curve and its speed sit directly under the row, and the rows after it move down. The bars canvas leaves the same space under that row, and presses in it reach no bar. On two columns the curve stays in its own column beside the timeline. This replaces D219's curve under the whole timeline.
 **Why:** asked for. Below the whole timeline, with several rows, the curve was still far from the row it was for.
+
+### D228. A check of where parts are drawn
+**Chose:** the capture script has `placementMiss()`, a development check the panel does not use. Once a take is over and the page is at rest, it measures the recorded element again and returns the largest distance between where a part (or its text) is drawn and where it is now. The sweep reports it on every line ("drawn in place", or "drawn N px off on …") and counts "drawn off" in its verdicts.
+**Why:** the self-check compares how parts move, not where they are drawn. The letters whose text was drawn 540 px below them (D225) were "Matches the page · 0 px"; this check gives 494 px on the build before that fix and 0.3 px after. A whole class of what was seen by hand went unseen by the sweeps.

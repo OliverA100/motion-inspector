@@ -553,8 +553,23 @@ async function recordClean(page, selector, kind) {
   }
   const takes = await page.evaluate(() => window.MotionCapture.stop());
   // A click is undone, so the page is as it was for the next element.
-  if (kind === 'click') await trigger(page, selector, kind).catch(() => {});
+  if (kind === 'click') {
+    await trigger(page, selector, kind).catch(() => {});
+    await page.waitForTimeout(800);
+  }
+  // Where the parts are drawn, compared with the page at rest again: the
+  // check above compares how they move, not where they are.
+  takes.placed = await page
+    .evaluate(() => (window.MotionCapture.placementMiss ? window.MotionCapture.placementMiss() : null))
+    .catch(() => null);
   return takes;
+}
+
+// Where the parts are drawn, from placementMiss: within 3 px, or how far
+// off and on what.
+function placeWords(placed) {
+  if (placed === null || placed === undefined) return 'not measured';
+  return placed.px <= 3 ? 'drawn in place' : `drawn ${placed.px.toFixed(0)} px off on ${placed.label}`;
 }
 
 async function previewFrames(editor, capture, length) {
@@ -709,7 +724,8 @@ async function sweepSite(browser, editor, site) {
         // Pausing the page to photograph it can leave the recording with
         // nothing whole; the recording made without pausing is what the
         // tool shows, so it is the one that decides.
-        const clean = (await recordClean(page, selector, item.kind).catch(() => [])).filter(
+        const cleanRun = await recordClean(page, selector, item.kind).catch(() => []);
+        const clean = cleanRun.filter(
           (t) => t.capture !== null,
         );
         const take =
@@ -753,7 +769,7 @@ async function sweepSite(browser, editor, site) {
           preview: preview.frames,
         });
         lines.push(
-          `${site.name} ${n} ${item.kind} ${label}: BADGE ${preview.badge ?? 'none'} — ${stats} — CHECK ${check} — ${preview.description}${notes ? ` [${notes}]` : ''}`,
+          `${site.name} ${n} ${item.kind} ${label}: BADGE ${preview.badge ?? 'none'} — ${stats} — CHECK ${check} — PLACE ${placeWords(cleanRun.placed)} — ${preview.description}${notes ? ` [${notes}]` : ''}`,
         );
       } catch (error) {
         lines.push(
@@ -795,6 +811,10 @@ async function sweepSite(browser, editor, site) {
           .replace(/[\d.]+ px/, 'X px')
           .replace(/: .*/, '');
     tally.set(kind, (tally.get(kind) ?? 0) + 1);
+  }
+  // And where parts are drawn: a take can move right and be drawn wrong.
+  for (const line of summary) {
+    if (/PLACE drawn \d+ px off/.test(line)) tally.set('drawn off', (tally.get('drawn off') ?? 0) + 1);
   }
   const tallyLines = Array.from(tally, ([kind, count]) => `  ${count}  ${kind}`).sort();
   console.log(['', 'Verdicts:', ...tallyLines].join('\n'));
