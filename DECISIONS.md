@@ -995,3 +995,11 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D171. An SVG path's morphing outline is drawn
 **Chose:** the d property is previewed. The probe reads the outline the browser blends at each moment, and the stage draws a path part from it instead of its resting outline. The description says the shape "morphs its outline".
 **Why:** an icon that morphs (a square into a diamond, a play button into a pause) was listed as "Not drawn: d", though the browser blends it like any other property.
+
+### D172. SVG animations (SMIL) are filmed
+**Chose:**
+- Parts an <animate>, <animateTransform> or <set> inside the picked element moves are found when recording starts, and their look is read then. Each frame they are filmed as a script's parts are: their transform and opacity as computed (Chrome computes SMIL's values into the style), their colors and dashes, and a change of their geometry (a circle's r, a rect's x or width) as the scale and move that take the outline they were drawn with to the one they have now.
+- A loop (repeatCount="indefinite") is filmed for one turn, put in the order of the turn from its start (SMIL says how far into its turn it is), closed so it repeats without a seam, and shown repeating forever. A negative delay keeps the preview in step with the page.
+- The CSS export says a script or an SVG animation moves such a part, not a CSS rule. The descriptions say a measured loop goes "and back" when it ends within 5% of where it began.
+**Why:** SVG spinners are often SMIL. Their parts were reported as changed and missed. A pulsing circle now reads "scales to 2 and back over 1.5 s. It repeats forever." and matches the page.
+**Not done:** <animateMotion>, and SMIL that changes a path's d or a line's ends, are still reported as missed.

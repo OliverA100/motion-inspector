@@ -106,7 +106,7 @@ describe('what Copy CSS says about how the page made the motion', () => {
       ...cardLift,
       tracks: cardLift.tracks.map((track) => ({ ...track, origin: 'script' as const })),
     };
-    expect(captureToCss(measured)).toContain('a script on the page moves this, frame by frame');
+    expect(captureToCss(measured)).toContain('a script or an SVG animation (SMIL) moves this on the page, not a CSS rule');
   });
 
   test('a view transition is said to be one', () => {

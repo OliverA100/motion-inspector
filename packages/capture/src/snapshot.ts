@@ -2376,6 +2376,11 @@ export const FILMED_STYLES = [
   'background-image',
   // A part a script moves along its offset-path (Motion's border beam).
   'offset-distance',
+  // SVG parts: their colors, and dashes drawing a line (an SVG spinner).
+  'fill',
+  'stroke',
+  'stroke-dasharray',
+  'stroke-dashoffset',
 ] as const;
 
 // A filmed style as computed text. A background image from a URL is page
@@ -2438,6 +2443,61 @@ export function framePseudo(
 // and translate3d(x, y, 0), written to get a layer of its own, do not.
 function turnsInDepth(matrix: DOMMatrix): boolean {
   return [matrix.m13, matrix.m23, matrix.m31, matrix.m32].some((value) => Math.abs(value) > 1e-6);
+}
+
+// The outline an SVG shape part was drawn from: its geometry when picked
+// (the values pathDataOf reads), so a change can be measured from it.
+export type SvgGeometry = { x: number; y: number; width: number; height: number };
+
+export function svgGeometryOf(element: Element, now: boolean): SvgGeometry | null {
+  const read = (value: SVGAnimatedLength): number =>
+    now ? value.animVal.value : value.baseVal.value;
+  if (element instanceof SVGCircleElement) {
+    const r = read(element.r);
+    return { x: read(element.cx) - r, y: read(element.cy) - r, width: 2 * r, height: 2 * r };
+  }
+  if (element instanceof SVGEllipseElement) {
+    const rx = read(element.rx);
+    const ry = read(element.ry);
+    return { x: read(element.cx) - rx, y: read(element.cy) - ry, width: 2 * rx, height: 2 * ry };
+  }
+  if (element instanceof SVGRectElement) {
+    return {
+      x: read(element.x),
+      y: read(element.y),
+      width: read(element.width),
+      height: read(element.height),
+    };
+  }
+  return null;
+}
+
+// One frame of film for an SVG part an SVG animation (SMIL) moves. Its
+// transform and opacity are computed as for any part; a change of its
+// geometry (a circle's r growing, a rect's x moving) is the scale and move
+// that take the outline it was drawn with to the one it has now.
+export function frameSvgPart(
+  element: Element,
+  drawnWith: SvgGeometry | null,
+  origin: { x: number; y: number },
+): ReturnType<typeof frameNow> {
+  const frame = frameNow(element);
+  const now = svgGeometryOf(element, true);
+  if (drawnWith === null || now === null || drawnWith.width <= 0 || drawnWith.height <= 0) {
+    return frame;
+  }
+  const sx = now.width / drawnWith.width;
+  const sy = now.height / drawnWith.height;
+  const geometry = new DOMMatrix([sx, 0, 0, sy, now.x - sx * drawnWith.x, now.y - sy * drawnWith.y]);
+  // The stage turns the part about its origin (its shape's, as picked): the
+  // geometry change comes first, then its transform, both about that point.
+  const { x: ox, y: oy } = origin;
+  const [a, b, c, d, e, f] = frame.matrix;
+  const matrix = new DOMMatrix([a, b, c, d, e, f])
+    .multiply(new DOMMatrix().translate(-ox, -oy))
+    .multiply(geometry)
+    .multiply(new DOMMatrix().translate(ox, oy));
+  return { ...frame, matrix: [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f] };
 }
 
 export function frameNow(element: Element): {

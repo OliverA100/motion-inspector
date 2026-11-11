@@ -281,7 +281,7 @@ export function captureToCss(capture: Capture): string {
       // the page wrote.
       ...(entry.units.some((unit) => unit.tracks.some((track) => track.origin === 'script'))
         ? [
-            `/* ${safeInComment(entry.selector)}: a script on the page moves this, frame by frame. These keyframes are measured from it. */`,
+            `/* ${safeInComment(entry.selector)}: a script or an SVG animation (SMIL) moves this on the page, not a CSS rule. These keyframes are measured from it, frame by frame. */`,
           ]
         : []),
     ].join('\n');

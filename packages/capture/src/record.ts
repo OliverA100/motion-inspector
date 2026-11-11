@@ -43,6 +43,9 @@ import {
   type Box,
   FILMED_STYLES,
   frameNow,
+  frameSvgPart,
+  svgGeometryOf,
+  type SvgGeometry,
   framePseudo,
   layoutNow,
   type RawShape,
@@ -1320,6 +1323,45 @@ function alongItsPath(shape: RawShape, frames: FilmFrame[]): boolean | null {
   });
 }
 
+// Parts an SVG animation (SMIL) moves over and over, and how long one turn
+// of it lasts: their film is one turn, shown repeating.
+const smilLoopOf = new WeakMap<Element, number>();
+
+// How far into its turn a loop was when recording began (document time,
+// and ms into the turn), so its filmed turn can start where the author's does.
+const smilTurnAt = new WeakMap<Element, { at: number; into: number }>();
+
+// One filmed turn of a loop, put in the order of the turn: a loop filmed
+// from halfway through starts from its beginning all the same.
+function turnPhase(time: number, loopMs: number, turn: { at: number; into: number }): number {
+  return (((turn.into + time - turn.at) % loopMs) + loopMs) % loopMs;
+}
+
+function inTurnOrder(frames: FilmFrame[], loopMs: number, turn: { at: number; into: number }): FilmFrame[] {
+  const first = frames[0]?.time ?? 0;
+  const phase = (time: number): number => turnPhase(time, loopMs, turn);
+  const ordered = frames
+    .map((frame) => ({ ...frame, time: first + phase(frame.time) }))
+    .sort((one, other) => one.time - other.time);
+  const early = ordered[0];
+  const late = ordered[ordered.length - 1];
+  if (early === undefined || late === undefined) return ordered;
+  // The turn's very start, between the last frame of one turn and the
+  // first of the next. Then closed: it ends as it began, one whole turn
+  // later, so it repeats without a seam and lasts as long as the author's.
+  const before = loopMs - (late.time - first);
+  const after = early.time - first;
+  const share = before + after > 0 ? before / (before + after) : 0;
+  const blend = (one: number, other: number): number => one + (other - one) * share;
+  const start: FilmFrame = {
+    ...early,
+    time: first,
+    matrix: late.matrix.map((value, index) => blend(value, early.matrix[index] ?? value)) as FilmFrame['matrix'],
+    opacity: blend(late.opacity, early.opacity),
+  };
+  return [start, ...ordered.filter((frame) => frame.time > first), { ...start, time: first + loopMs }];
+}
+
 function scriptTracksFor(
   snapshot: Snapshot,
   take: Seen[],
@@ -1336,7 +1378,21 @@ function scriptTracksFor(
     const movedByBrowser = take.some(
       (seen) => seen.target === element && seen.pseudoElement === null,
     );
-    const filmed = movedByBrowser ? written : withHolds(written);
+    const held = movedByBrowser ? written : withHolds(written);
+    // One turn of a loop, shown repeating.
+    const loopMs = smilLoopOf.get(element);
+    const loopStart = held[0]?.time ?? 0;
+    const oneTurn =
+      loopMs === undefined ? held : held.filter((frame) => frame.time < loopStart + loopMs);
+    const turnAt = smilTurnAt.get(element);
+    const filmed =
+      loopMs === undefined || turnAt === undefined ? oneTurn : inTurnOrder(oneTurn, loopMs, turnAt);
+    // Starting where the page was in its turn when filming began: a delay
+    // back into the turn.
+    const intoTurn =
+      loopMs === undefined || turnAt === undefined
+        ? 0
+        : turnPhase(oneTurn[0]?.time ?? 0, loopMs, turnAt);
     if (
       !scripted.has(element) ||
       filmed.length < 3 ||
@@ -1507,10 +1563,10 @@ function scriptTracksFor(
           };
         }),
         timing: {
-          delay: 0,
+          delay: -Math.round(intoTurn),
           // In whole ms: half a millisecond is not worth saying.
           duration: Math.max(1, Math.round(span)),
-          iterations: { kind: 'count', count: 1 },
+          iterations: loopMs === undefined ? { kind: 'count', count: 1 } : { kind: 'infinite' },
           direction: 'normal',
           fill: 'both',
           easing: { kind: 'linear' },
@@ -2574,6 +2630,54 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   for (const element of knownAtStart) {
     if (element.isConnected) lastKnown.set(element, { time: 0, ...frameNow(element) });
   }
+  // Parts an SVG animation (SMIL: <animate>, <animateTransform>, <set>)
+  // moves. No animation API lists these, and nothing is written to the
+  // page: they are filmed each frame, with the outline each was drawn with.
+  const smilParts = new Map<Element, SvgGeometry | null>();
+  const startedAt = asNumber(document.timeline.currentTime) ?? 0;
+  const smilLastSeen = new Map<Element, FilmFrame>();
+  for (const animation of Array.from(
+    snapshot.rootElement.querySelectorAll('animate, animateTransform, set'),
+  )) {
+    if (!(animation instanceof SVGAnimationElement)) continue;
+    const target = animation.targetElement;
+    if (target === null) continue;
+    if (!snapshot.shapeOf.has(target) && target instanceof SVGGElement) addLateGroup(snapshot, target);
+    if (!snapshot.shapeOf.has(target)) continue;
+    const drawnWith = svgGeometryOf(target, false);
+    smilParts.set(target, drawnWith);
+    // Its look as recording starts, before anything set off now has run.
+    const shape = snapshot.shapeOf.get(target);
+    if (shape !== undefined && !smilLastSeen.has(target)) {
+      smilLastSeen.set(target, {
+        time: startedAt,
+        ...frameSvgPart(target, drawnWith, shape.transformOrigin),
+      });
+    }
+    const repeats =
+      animation.getAttribute('repeatCount') === 'indefinite' ||
+      animation.getAttribute('repeatDur') === 'indefinite';
+    let turnMs = 0;
+    try {
+      turnMs = animation.getSimpleDuration() * 1000;
+    } catch {
+      // An indefinite simple duration: not a loop with a length.
+    }
+    if (repeats && turnMs > 0) {
+      smilLoopOf.set(target, Math.max(smilLoopOf.get(target) ?? 0, turnMs));
+      try {
+        const clock = target instanceof SVGElement ? target.ownerSVGElement : null;
+        const intoTurn =
+          clock === null
+            ? 0
+            : (((clock.getCurrentTime() - animation.getStartTime()) * 1000) % turnMs + turnMs) %
+              turnMs;
+        smilTurnAt.set(target, { at: startedAt, into: intoTurn });
+      } catch {
+        // Not begun yet: it is filmed when it runs.
+      }
+    }
+  }
   const watcher = new MutationObserver((records) => {
     const time = asNumber(document.timeline.currentTime) ?? performance.now();
     const changed = new Set<Element>();
@@ -3149,6 +3253,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // A take with no tracks for what the idle watch saw change step by step
   // and nothing explains. False when there is nothing to send.
   const sendIdleMissed = (): boolean => {
+    // Parts an SVG animation moves are filmed whenever they change: one
+    // still looping after its turn was shown is not missed.
+    for (const part of smilParts.keys()) idleWatch.delete(part);
     if (
       idleChangeBegan === null ||
       missedBy(idleWatch, new Set(animatedNow(snapshot))).length === 0
@@ -3310,6 +3417,29 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // Unless the part has been still for a while although the pointer
     // kept moving over it: it does not follow the pointer, it has arrived
     // (Vercel's peeled corner), and the way in is a take of its own.
+    // SVG animations, filmed when they change.
+    if (smilParts.size > 0) {
+      const time = asNumber(document.timeline.currentTime) ?? now;
+      for (const [element, drawnWith] of smilParts) {
+        const shape = snapshot.shapeOf.get(element);
+        if (endless.has(element) || !element.isConnected || shape === undefined) continue;
+        const next: FilmFrame = {
+          time,
+          ...frameSvgPart(element, drawnWith, shape.transformOrigin),
+        };
+        const frames = film.get(element) ?? [];
+        // The last look polled, kept across takes: the film of a change
+        // starts from where the part was, a frame before it changed.
+        const previous = frames[frames.length - 1] ?? smilLastSeen.get(element);
+        smilLastSeen.set(element, next);
+        if (previous === undefined || previous.time === time || sameFrame(previous, next)) continue;
+        if (frames.length === 0) frames.push({ ...previous, time: time - ONE_FRAME_MS });
+        if (frames.length < MOST_FRAMES) frames.push(next);
+        film.set(element, frames);
+        scripted.add(element);
+        lastStyleChange = now;
+      }
+    }
     const settled =
       now - lastStyleChange > SETTLED_MS &&
       pointerPath.some((move) => move.kind === 'move' && move.time > lastStyleChange + 100);
@@ -3416,6 +3546,19 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     if (scriptActive) {
       lastActivity = now;
       foundAnything = true;
+      // A loop of an SVG animation ends its take once one turn is filmed.
+      const loops = Array.from(smilParts.keys()).filter(
+        (element) => smilLoopOf.has(element) && scripted.has(element) && !endless.has(element),
+      );
+      const turned = (element: Element): boolean => {
+        const frames = film.get(element) ?? [];
+        const span = (frames[frames.length - 1]?.time ?? 0) - (frames[0]?.time ?? 0);
+        return span >= (smilLoopOf.get(element) ?? Infinity);
+      };
+      if (loops.length > 0 && loops.every(turned)) {
+        for (const element of loops) endless.add(element);
+        endTake();
+      }
       const times = Array.from(film.values()).flatMap((frames) => frames.map((item) => item.time));
       if (times.length > 0 && Math.max(...times) - Math.min(...times) >= LONGEST_SCRIPT_TAKE_MS) {
         for (const element of scripted) endless.add(element);

@@ -2157,48 +2157,99 @@ test('the clipping frame counts the translations between it and the element: not
 
 // ---------- What the take misses ----------
 
-const smil = `<svg width="200" height="60"><rect id="sp-smil-rect" x="0" y="10" width="40" height="40" fill="green">
-  <animate id="sp-smil" attributeName="x" from="0" to="140" dur="0.6s" begin="indefinite" fill="freeze"/>
-</rect></svg>`;
+// A script that steps a part through classes with no transition: no
+// animation the browser lists, and nothing written to its style.
+async function stepClasses(page: Page, selector: string, classes: string[]): Promise<void> {
+  await page.evaluate(
+    async ([target, names]) => {
+      const part = document.querySelector(target) as HTMLElement;
+      for (const name of names) {
+        part.classList.remove(...names);
+        part.classList.add(name);
+        await new Promise((resolve) => setTimeout(resolve, 160));
+      }
+    },
+    [selector, classes] as const,
+  );
+}
 
 test('a part that moves with no animation the browser lists is named as missed', async ({
   page,
 }) => {
-  await setUp(page, '#sp-miss { width: 220px }', `<div id="sp-miss">${smil}</div>`, '#sp-miss');
-  await page.evaluate(() =>
-    (document.getElementById('sp-smil') as unknown as { beginElement: () => void }).beginElement(),
+  await setUp(
+    page,
+    `#sp-miss { width: 220px; height: 60px }
+     .sp-step { width: 40px; height: 40px; background: green }
+     .sp-step.a { transform: translateX(40px) } .sp-step.b { transform: translateX(80px) }
+     .sp-step.c { transform: translateX(120px) }`,
+    '<div id="sp-miss"><div class="sp-step"></div></div>',
+    '#sp-miss',
   );
-  await page.waitForTimeout(1500);
+  await stepClasses(page, '.sp-step', ['a', 'b', 'c']);
+  await page.waitForTimeout(800);
   const capture = onlyCapture(await takesNow(page));
   expect(capture.tracks).toEqual([]);
-  expect(capture.missed).toEqual([{ label: 'rect', what: 'moved' }]);
+  expect(capture.missed).toEqual([{ label: 'div.sp-step', what: 'moved' }]);
   expect(describeCapture(capture)).toContain('1 part changed on the page that this preview misses');
 });
-
-// Its color, which no track and no layout measure can carry.
-const smilFill = `<svg width="200" height="60"><rect x="0" y="10" width="40" height="40" fill="rgb(0, 128, 0)">
-  <animate id="sp-smil-fill" attributeName="fill" from="rgb(0, 128, 0)" to="rgb(200, 0, 0)" dur="0.6s" begin="indefinite" fill="freeze"/>
-</rect></svg>`;
 
 test('alongside a transition, a look it cannot read is named and the transition is a track', async ({
   page,
 }) => {
   await setUp(
     page,
-    '#sp-both { width: 220px } .sp-fade { width: 40px; height: 20px; background: blue; transition: opacity .6s } .sp-fade.on { opacity: .2 }',
-    `<div id="sp-both"><div class="sp-fade"></div>${smilFill}</div>`,
+    `#sp-both { width: 220px } .sp-fade { width: 40px; height: 20px; background: blue; transition: opacity .6s }
+     .sp-fade.on { opacity: .2 }
+     .sp-swatch { width: 40px; height: 40px; background: rgb(0, 128, 0) }
+     .sp-swatch.a { background: rgb(100, 60, 0) } .sp-swatch.b { background: rgb(200, 0, 0) }
+     .sp-swatch.c { background: rgb(200, 0, 120) }`,
+    '<div id="sp-both"><div class="sp-fade"></div><div class="sp-swatch"></div></div>',
     '#sp-both',
   );
-  await page.evaluate(() => {
-    document.querySelector('.sp-fade')?.classList.add('on');
-    (
-      document.getElementById('sp-smil-fill') as unknown as { beginElement: () => void }
-    ).beginElement();
-  });
-  await page.waitForTimeout(1500);
+  await page.evaluate(() => document.querySelector('.sp-fade')?.classList.add('on'));
+  await stepClasses(page, '.sp-swatch', ['a', 'b', 'c']);
+  await page.waitForTimeout(600);
   const capture = onlyCapture(await takesNow(page));
   expect(capture.tracks.map((track) => track.property)).toContain('opacity');
-  expect(capture.missed).toEqual([{ label: 'rect', what: 'look' }]);
+  expect(capture.missed).toEqual([{ label: 'div.sp-swatch', what: 'look' }]);
+});
+
+// An SVG animation (SMIL) moves a part: no animation API lists it, so it is
+// filmed each frame and fitted, as a script's motion is.
+const smil = `<svg width="200" height="60"><rect id="sp-smil-rect" x="0" y="10" width="40" height="40" fill="green">
+  <animate id="sp-smil" attributeName="x" from="0" to="140" dur="0.6s" begin="indefinite" fill="freeze"/>
+</rect></svg>`;
+
+test('a part an SVG animation (SMIL) moves is filmed, not missed', async ({ page }) => {
+  await setUp(page, '#sp-smil-box { width: 220px }', `<div id="sp-smil-box">${smil}</div>`, '#sp-smil-box');
+  await page.evaluate(() =>
+    (document.getElementById('sp-smil') as unknown as { beginElement: () => void }).beginElement(),
+  );
+  await page.waitForTimeout(1500);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.missed).toBeNull();
+  expect(capture.tracks.map((track) => `${track.origin}:${track.property}`)).toEqual([
+    'script:transform',
+  ]);
+  expect(describeCapture(capture)).toContain('moves right 140 px');
+});
+
+// A spinner's pulse that SMIL repeats forever: one turn is filmed, from the
+// start of the turn, and shown repeating.
+test('an SVG animation that repeats forever is one turn, repeating', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-pulse { width: 120px }',
+    `<div id="sp-pulse"><svg width="100" height="100"><circle cx="50" cy="50" r="20" fill="#36f">
+       <animate attributeName="r" values="20;40;20" dur="0.8s" repeatCount="indefinite"/></circle></svg></div>`,
+    '#sp-pulse',
+  );
+  await page.waitForTimeout(1600);
+  const capture = onlyCapture(await takesNow(page));
+  const pulse = track(capture, 'transform');
+  expect(pulse.timing.iterations).toEqual({ kind: 'infinite' });
+  expect(pulse.timing.duration).toBe(800);
+  expect(describeCapture(capture)).toContain('scales to 2 and back over 800 ms');
 });
 
 // A number counting up, written by a script: the text changes, and text is

@@ -125,8 +125,9 @@ function movePhrases(from: Pose, to: Pose): string[] {
   const dy = to.y - from.y;
   const sideways = `${spoken(Math.abs(dx))} px`;
   const vertical = `${spoken(Math.abs(dy))} px`;
-  const movesX = differs(dx, 0);
-  const movesY = differs(dy, 0);
+  // Less than a twentieth of a pixel is said as 0 px: not a move.
+  const movesX = Math.abs(dx) >= 0.05;
+  const movesY = Math.abs(dy) >= 0.05;
   const move =
     movesX && movesY
       ? [`moves ${sideways} ${dx < 0 ? 'left' : 'right'} and ${vertical} ${dy < 0 ? 'up' : 'down'}`]
@@ -317,9 +318,12 @@ export function pivotOf(shape: Shape): Pivot | null {
       toPx: [1, 0, 0, 1],
     };
   }
-  if (shape.kind !== 'group' || shape.inSvg === null) return null;
-  // The middle in the SVG's units: inSvg places them in the box.
-  const [a, b, c, d, e, f] = shape.inSvg;
+  // An SVG part: its first outline's matrix places its units in the box.
+  const placing =
+    shape.kind === 'group' ? shape.inSvg : shape.kind === 'path' ? (shape.icon?.[0]?.matrix ?? null) : null;
+  if (placing === null) return null;
+  // The middle in the SVG's units.
+  const [a, b, c, d, e, f] = placing;
   const det = a * d - b * c;
   if (Math.abs(det) < 1e-9) return null;
   const qx = half.x - e;
@@ -659,8 +663,11 @@ function changePhrase(group: PropertyGroup, backdrop: Rgb, pivot: Pivot | null =
   const last = keyframes[keyframes.length - 1];
   if (first === undefined || last === undefined) return `changes ${group.property}`;
 
-  // Ends where it began (a pulse): describe the way out, "and back".
-  if (keyframes.length > 2 && sameMeaning(first, last)) {
+  // Ends where it began (a pulse): describe the way out, "and back". A
+  // measured loop ends a hair from where it began.
+  const farthestOut = Math.max(...keyframes.map((keyframe) => distance(first, keyframe)));
+  const nearlyBack = track?.origin === 'script' && distance(first, last) < farthestOut * 0.05;
+  if (keyframes.length > 2 && (sameMeaning(first, last) || nearlyBack)) {
     const farthest = keyframes.reduce((best, keyframe) =>
       distance(first, keyframe) > distance(first, best) ? keyframe : best,
     );
