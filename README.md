@@ -23,6 +23,16 @@ In Chrome, open `chrome://extensions`, switch on "Developer mode", press "Load u
 
 The extension asks for five permissions and no access to any site up front: `activeTab`, `scripting`, `sidePanel`, `storage` and `debugger`. `debugger` is used only by "Play the hover" and "Play the click", which move a real pointer over the element, and by "Play the load", which puts the capture script in before the page's own scripts and reloads it; Chrome shows a bar saying the tab is being debugged while it does. Chrome does not allow `debugger` to be asked for later, so it is asked for at install. The capture script is only put into a page when you press "Pick element", and only into that tab.
 
+## What it records
+
+- **Read exactly:** CSS transitions, CSS keyframe animations and Web Animations, with their keyframes, easing (including `steps()` and `linear()`), delays, repeats and direction. Hover and leave are one take; a leave cut short is marked.
+- **Measured from the page:** motion a script makes (springs, GSAP, Framer Motion, Lottie), filmed each frame and fitted to keyframes and a curve. SVG animations (SMIL) are filmed the same way; a loop is shown as one turn repeating. Parts that follow the pointer (tilt cards) get a rule with its lag.
+- **Followed:** menus, dialogs, popovers and tooltips that a press or a hover opens elsewhere on the page (portals, the top layer, shadow roots around the element), toasts added at the end of the page, view transitions, parts inside frames.
+- **Drawn:** boxes, text as bars (never the text itself), underlines, SVG icons from their outlines (including a `d` morph), gradients (linear, radial, conic, moving or turning), shadows, filters and backdrop blur, clip-paths and gradient masks, motion along a path, 3D turns through perspective.
+- **Checked:** every take is compared with the page frame by frame. The badge says how close the preview is, and names what it misses: parts that changed with no animation to read, text that changes (never copied), a canvas or a video (made frame by frame, never read).
+
+On real sites (sweeps of 140 pages, run with `node tests/sweep.cjs`): component libraries 374 of 379 checks match the page, product sites 171 of 185, and other real sites 318 of 331, before the last fixes made from those sweeps. What is left is listed in `REAL_SITES.md`.
+
 ## Known limits
 
 - **Missing keyframes can be stale.** When `element.animate()` leaves out its start or end keyframe, the missing value is the element's resting style, read when you pick the element. If the page changes that resting style between your pick and the animation (for example by toggling a class first), the capture shows the old value. Pick again after the change to fix it.
