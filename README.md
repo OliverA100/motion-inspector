@@ -31,7 +31,7 @@ The extension asks for five permissions and no access to any site up front: `act
 - **Drawn:** boxes, text as bars (never the text itself), underlines, SVG icons from their outlines (including a `d` morph), gradients (linear, radial, conic, moving or turning), shadows, filters and backdrop blur, clip-paths and gradient masks, motion along a path, 3D turns through perspective.
 - **Checked:** every take is compared with the page frame by frame. The badge says how close the preview is, and names what it misses: parts that changed with no animation to read, text that changes (never copied), a canvas or a video (made frame by frame, never read).
 
-On real sites (sweeps of 140 pages, run with `node tests/sweep.cjs`): component libraries 387 of 390 checks match the page (and 389 after the fixes made from that sweep; the last is the sweep reopening a menu it left open), product sites 175 of 183 (the rest are listed, not missed: logos used as masks, SVG masks, variables Chrome does not list), and other real sites 318 of 331, before the last fixes made from those sweeps. What is left is listed in `REAL_SITES.md`.
+On real sites (sweeps of 140 pages, run with `node tests/sweep.cjs`), the preview is checked against the page: component libraries 389 of 390 checks match, product sites 175 of 183 and other real sites 322 of 328; the rest are listed with a reason (a logo used as a mask, an SVG mask, a part beyond the 40 drawn) or are a pixel or two off. It is also tried through its real side panel on sites known for their motion (Stripe, Linear, Vercel, Framer, Apple, Raycast, Clerk, Resend, Supabase and others), the way a person would use it. What is left is listed in `REAL_SITES.md`.
 
 ## Known limits
 
