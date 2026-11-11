@@ -2989,3 +2989,81 @@ test('keyframes written in em are read and previewed at the part’s font size',
   }, capture);
   expect(end).toBeCloseTo(-80, 0);
 });
+
+// Found on Stripe: its nav menu opens on hover in a wrapper with no size of
+// its own, and other parts in that wrapper start moving a moment later. The
+// wrapper cannot be drawn, so recording stays on the menu, and its take is
+// still named by the hover on the button.
+test('a part opened by a hover stays followed when a wrapper with no size moves beside it', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-tip-button { display: inline-block; width: 80px; height: 32px; background: #ddd }
+     .sp-tip { position: fixed; left: 40px; top: 160px; width: 120px; height: 40px; background: #222;
+       animation: sp-tip-in .3s ease-out }
+     .sp-tip-arrow { position: fixed; left: 200px; top: 160px; width: 10px; height: 10px; background: #222;
+       animation: sp-tip-in .3s ease-out }
+     @keyframes sp-tip-in { from { opacity: 0; translate: 0 6px } }`,
+    '<a id="sp-tip-button">Tip</a>',
+    '#sp-tip-button',
+  );
+  await page.evaluate(() => {
+    const button = document.getElementById('sp-tip-button') as HTMLElement;
+    button.addEventListener('pointerenter', () =>
+      window.setTimeout(() => {
+        const wrapper = document.createElement('div');
+        const tip = document.createElement('div');
+        tip.className = 'sp-tip';
+        wrapper.append(tip);
+        document.body.append(wrapper);
+        window.setTimeout(() => {
+          const arrow = document.createElement('div');
+          arrow.className = 'sp-tip-arrow';
+          wrapper.append(arrow);
+        }, 120);
+      }, 300),
+    );
+  });
+  await page.mouse.move(2, 2);
+  await page.hover('#sp-tip-button');
+  await page.waitForTimeout(1200);
+  const takes = await takesNow(page);
+  expect(takes.length).toBeGreaterThan(0);
+  const capture = captureOf(takes[0] as Take);
+  expect(capture.root.label).toBe('div.sp-tip');
+  expect(capture.trigger).toBe('hover');
+});
+
+// Found on Framer's site: a hover writes the part's inline style a few
+// times (opacity, and its own variables) and a CSS transition carries the
+// change out. That is the browser's motion: the hover and its way back are
+// one take, not two cut at the pointer's crossing.
+test('a hover a script writes inline and a transition carries out is one take with its leave', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    '#sp-fade { width: 120px; height: 40px; background: #36f; transition: opacity .3s ease }',
+    '<div id="sp-fade"></div>',
+    '#sp-fade',
+  );
+  await page.evaluate(() => {
+    const fade = document.getElementById('sp-fade') as HTMLElement;
+    const write = (opacity: string): void => {
+      fade.style.opacity = opacity;
+      requestAnimationFrame(() => {
+        fade.style.setProperty('--sp-step', '1');
+        requestAnimationFrame(() => fade.style.setProperty('--sp-step', '2'));
+      });
+    };
+    fade.addEventListener('mouseenter', () => write('0.6'));
+    fade.addEventListener('mouseleave', () => write('1'));
+  });
+  await page.hover('#sp-fade');
+  await page.waitForTimeout(900);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1200);
+  const takes = await takesNow(page);
+  expect(takes.map((take) => take.capture?.trigger)).toEqual(['hover-and-leave']);
+});

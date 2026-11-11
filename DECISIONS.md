@@ -1150,3 +1150,13 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 
 ### D201. One verb for changes said the same way
 **Chose:** "darkens its background and darkens its border" reads "darkens its background and border".
+
+### D202. A part opened by a hover stays followed, and named by the hover
+**Chose:**
+- A part with no size is never offered as a parent to move recording to; if moving fails all the same, recording goes on where it was and still knows the element it came from.
+- When a take was already under way as recording moved, its start is taken from animations of its own, not from one that follows the scroll.
+**Why:** Stripe's nav menu, opened by a hover: its recorder tried to move to a wrapper with no size when the nav's arrows moved, failed, and started again without knowing it came from the button. The take was named "already running" and left out: nothing was recorded. And Stripe's nav runs a scroll-driven animation for as long as the page is open, which put the take's start at the page's load.
+
+### D203. Moved by a script means written frame after frame, with no animation of its own
+**Chose:** a part counts as moved by a script, for keeping a hover and its way back apart and for cutting a take where the pointer crosses the edge, only when it was written at least three times and has no browser animation of its own in the take.
+**Why:** on Framer's and Linear's sites a hover writes the part's inline style (opacity: 0.6, its own variables) and a CSS transition carries it out. Any write made it "scripted", so every hover was cut in two at the pointer's crossing: "Hover in" and "Hover out", never "Hover in and out".

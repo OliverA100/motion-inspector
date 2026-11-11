@@ -75,7 +75,9 @@ export function record(
           watch(parent, true);
           onMoved?.(labelOf(parent));
         } catch {
-          watch(watched);
+          // Still the part recording moved to, if it had: what it came from
+          // names what set it off.
+          watch(watched, watched !== element);
         }
       },
     });

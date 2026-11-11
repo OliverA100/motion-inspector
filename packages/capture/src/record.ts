@@ -1524,7 +1524,11 @@ function triggerOf(
     // picked never reaches this list.
     // A loop running since the page loaded (a shimmer on a nearby button,
     // found on MUI) says nothing of when this began: the ones that end do.
-    const ending = take.filter((seen) => Number.isFinite(seen.timing.endTime));
+    // One that follows the scroll has no start of its own to go by (Stripe's
+    // nav runs one for as long as the page is open).
+    const ending = take.filter(
+      (seen) => Number.isFinite(seen.timing.endTime) && seen.scroll === null,
+    );
     const began = Math.min(...(ending.length > 0 ? ending : take).map((seen) => seen.startTime));
     const press = pageEvents
       .filter((event) => event.time <= began + 50 && event.time >= began - 700)
@@ -1629,6 +1633,9 @@ function onlyHowItMoves(before: string | null, after: string | null): boolean {
       .join(';');
   return before !== after && looks(before) === looks(after);
 }
+
+// Writes it takes for a part to count as moved by a script.
+const SCRIPT_FRAMES = 3;
 
 // How long the parent beside an element waits for what the element has
 // just expanded to start moving.
@@ -2728,7 +2735,16 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // it reverses, which is sent again to replace the first version.
     // Not when a script moves parts in either: the way in and the way out
     // are kept as two takes, the second starting where the first ended.
-    const scriptedNow = finishedScripted.size > 0;
+    // Moved by a script means written frame after frame. One write that a
+    // CSS transition then carries out (Framer setting opacity: 0.6 inline
+    // on hover) is the browser's motion, read exactly.
+    // A part with a browser animation of its own is moved by that, whatever
+    // the script writes around it.
+    const scriptedNow = Array.from(finishedScripted).some(
+      (element) =>
+        (finishedFilm.get(element)?.length ?? 0) >= SCRIPT_FRAMES &&
+        !finished.some((seen) => seen.target === element && seen.pseudoElement === null),
+    );
     const scriptedBefore = previousScripted;
     previousScripted = scriptedNow;
     if (
@@ -2915,7 +2931,15 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // A take is starting: not idle, or the seed would be cleared before the
     // script's first write.
     lastActivity = performance.now();
-    if (scripted.size === 0) {
+    // Only motion a script writes frame after frame is cut here. A part a
+    // CSS transition carries after one write is the browser's motion, and
+    // its way back joins it.
+    const movedByScript = Array.from(scripted).some(
+      (element) =>
+        (film.get(element)?.length ?? 0) >= SCRIPT_FRAMES &&
+        !take.some((seen) => seen.target === element && seen.pseudoElement === null),
+    );
+    if (!movedByScript) {
       for (const [element, frame] of restingFrames) {
         if (!element.isConnected) continue;
         film.set(element, [{ ...frame, time: seedTime }]);
@@ -3122,7 +3146,12 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // nothing of its own, or something next to it moved at the same moment.
     if (options.onParentAnimation !== undefined) {
       const parent = animatedParent(now);
-      if (parent !== null) {
+      // One with no size cannot be drawn: recording stays where it is.
+      const drawable =
+        parent !== null &&
+        parent.getClientRects().length > 0 &&
+        parent.getBoundingClientRect().width > 0;
+      if (parent !== null && drawable) {
         stopped = true;
         watcher.disconnect();
         textWatcher.disconnect();
