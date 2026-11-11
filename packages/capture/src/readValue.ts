@@ -296,3 +296,28 @@ export function readValue(property: string, value: string, box: BoxSize): Parsed
   }
   return readColor(text);
 }
+
+// Chrome reports the lengths in a CSS transition's transform keyframes
+// times the device pixel ratio: translate(2px) on a screen with a ratio of
+// 2 comes back from getKeyframes() as translate(4px), while the page and
+// getComputedStyle move it 2 px (found on Sonner's arrow, on a Retina
+// screen). Keyframe animations, percentages, turns and scales are reported
+// as written. This divides those lengths back: px in translate and
+// perspective, and the moves of matrix() and matrix3d(). See D214.
+export function unzoomTransform(value: string, zoom: number): string {
+  if (zoom === 1 || !Number.isFinite(zoom) || zoom <= 0) return value;
+  const px = (length: string): string =>
+    length.replace(/(-?[\d.]+(?:e-?\d+)?)px/g, (_, number: string) => `${Number(number) / zoom}px`);
+  return value.replace(/([a-zA-Z0-9]+)\(([^()]*)\)/g, (whole, name: string, args: string) => {
+    const fn = name.toLowerCase();
+    if (fn.startsWith('translate') || fn === 'perspective') return `${name}(${px(args)})`;
+    if (fn === 'matrix' || fn === 'matrix3d') {
+      const parts = args.split(',').map((part) => part.trim());
+      const moves = fn === 'matrix' ? [4, 5] : [12, 13, 14];
+      return `${name}(${parts
+        .map((part, index) => (moves.includes(index) ? String(Number(part) / zoom) : part))
+        .join(', ')})`;
+    }
+    return whole;
+  });
+}

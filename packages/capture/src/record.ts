@@ -26,7 +26,7 @@ import {
   type TransformFunction,
   type Trigger,
 } from '@motion-inspector/core';
-import { readValue } from './readValue';
+import { readValue, unzoomTransform } from './readValue';
 import {
   type Film,
   FILM_EVERY_MS,
@@ -566,7 +566,18 @@ function read(animation: Animation): Seen | null {
     composite: keyframe.composite,
     values: Object.keys(keyframe)
       .filter((key) => !NOT_PROPERTIES.includes(key))
-      .map((key) => ({ property: cssName(key), value: String(keyframe[key]) })),
+      .map((key) => {
+        const value = String(keyframe[key]);
+        // A transition's transform lengths come back times the device
+        // pixel ratio (unzoomTransform, D214).
+        return {
+          property: cssName(key),
+          value:
+            key === 'transform' && animation instanceof CSSTransition
+              ? unzoomTransform(value, window.devicePixelRatio)
+              : value,
+        };
+      }),
   }));
   const now = asNumber(document.timeline.currentTime) ?? 0;
   const seen: Seen = {

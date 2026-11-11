@@ -3427,3 +3427,65 @@ test('an animation cancelled as it ends does not hold its last keyframe', async 
   }, captures);
   expect(Math.max(...misses)).toBeLessThan(2);
 });
+
+// Found on Sonner's arrow, on a Retina screen: Chrome reports the lengths
+// in a CSS transition's transform keyframes times the device pixel ratio
+// (D214). The first test pins what Chrome does, so a change in Chrome is
+// noticed; the second that the take reads the move the page makes.
+test.describe('on a screen with a device pixel ratio of 2', () => {
+  const atRatio2 = async (
+    browserType: import('@playwright/test').BrowserType,
+    baseURL: string | undefined,
+  ): Promise<{ page: Page; close: () => Promise<void> }> => {
+    const browser = await browserType.launch({ args: ['--force-device-scale-factor=2'] });
+    const page = await (
+      await browser.newContext({ baseURL, viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 })
+    ).newPage();
+    return { page, close: () => browser.close() };
+  };
+
+  test('Chrome reports a transition transform doubled', async ({ playwright, baseURL }) => {
+    const { page, close } = await atRatio2(playwright.chromium, baseURL);
+    await page.goto('/fixtures.html');
+    const reported = await page.evaluate(() => {
+      const box = document.createElement('div');
+      box.style.cssText = 'width: 20px; height: 20px; transition: transform 1s';
+      document.body.append(box);
+      box.getBoundingClientRect();
+      box.style.transform = 'translateX(2px)';
+      return [
+        devicePixelRatio,
+        box.getAnimations()[0]?.effect?.getKeyframes().at(-1)?.transform,
+        box.animate([{ transform: 'translateX(2px)' }], 1000).effect?.getKeyframes()[0]?.transform,
+      ];
+    });
+    await close();
+    expect(reported).toEqual([2, 'translateX(4px)', 'translateX(2px)']);
+  });
+
+  test('a hover that moves 2 px is read as 2 px', async ({ playwright, baseURL }) => {
+    const { page, close } = await atRatio2(playwright.chromium, baseURL);
+    await setUp(
+      page,
+      `#sp-arrow { display: inline-block; width: 14px; height: 14px; background: #222; transition: transform .15s ease-out }
+       #sp-arrow:hover { transform: translateX(0.125rem) rotate(0deg) }`,
+      '<div id="sp-arrow"></div>',
+      '#sp-arrow',
+    );
+    const box = await page.locator('#sp-arrow').boundingBox();
+    await page.mouse.move((box?.x ?? 0) + 7, (box?.y ?? 0) + 7, { steps: 3 });
+    await page.waitForTimeout(500);
+    const capture = onlyCapture(await takesNow(page));
+    const miss = await page.evaluate(async (taken) => {
+      const path = '/src/probeCheck.ts';
+      const module = (await import(/* @vite-ignore */ path)) as {
+        worstMiss: (capture: unknown) => { px: number; opacity: number };
+      };
+      return module.worstMiss(taken);
+    }, capture);
+    await close();
+    expect(capture.tracks[0]?.keyframes.at(-1)?.value).toBe('translateX(2px) rotate(0deg)');
+    expect(describeCapture(capture)).toContain('moves right 2 px');
+    expect(miss.px).toBeLessThan(0.5);
+  });
+});
