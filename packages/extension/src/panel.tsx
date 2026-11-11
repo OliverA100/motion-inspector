@@ -434,6 +434,10 @@ function PanelApp() {
         dispatch({ kind: 'pickedGone' });
         heard('gone');
       }
+      if (message.type === 'cannotRecord' && typeof message.why === 'string') {
+        dispatch({ kind: 'cannotRecord', why: message.why });
+        heard('gone');
+      }
       if (message.type === 'recording') {
         dispatch({ kind: 'recordingStarted' });
         heard('recording');

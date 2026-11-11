@@ -3297,3 +3297,56 @@ test('a dialog recording moved to rests where the page leaves it', async ({ page
   }, capture);
   expect(miss.px).toBeLessThan(2);
 });
+
+// Found on Cosmos: the text of a link sits in an element with display:
+// contents, which has no box. Clicked to pick, that element was chosen,
+// and recording could not start. The link around it is chosen instead.
+test('picker: a part with no box of its own picks the part around it', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `#sp-cosmos { display: inline-block; padding: 12px; background: #ddd; transition: background-color .2s }
+      #sp-cosmos.on { background: #999 } #sp-cosmos > div { display: contents }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<a id="sp-cosmos"><div>Explore</div></a>';
+    document.body.prepend(holder);
+    window.pickResult = window.MotionCapture.pickAndRecord();
+  });
+  const box = await page.locator('#sp-cosmos').boundingBox();
+  await page.mouse.move(
+    (box?.x ?? 0) + (box?.width ?? 0) / 2,
+    (box?.y ?? 0) + (box?.height ?? 0) / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.up();
+  expect(await page.evaluate(() => window.pickResult)).toBe(true);
+  await page.evaluate(() => document.getElementById('sp-cosmos')?.classList.add('on'));
+  await page.waitForTimeout(700);
+  expect(onlyCapture(await takesNow(page)).root.label).toBe('a');
+});
+
+// Found on Bootstrap's copy buttons: the tooltip a hover opens has its
+// style written and is taken off the page in one go as the pointer leaves.
+// The write was seen once it was already gone, and the part was measured
+// from an empty style: the take failed with an opacity that is no number.
+test('a part written to and removed at once is not measured', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-tip { display: inline-block; width: 120px; height: 32px; background: #222 } #sp-tip span { display: block; width: 40px; height: 8px }',
+    '<div id="sp-tip"><span></span></div>',
+    '#sp-tip',
+  );
+  await page.evaluate(() => {
+    const tip = document.getElementById('sp-tip') as HTMLElement;
+    tip.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+    const arrow = tip.querySelector('span') as HTMLElement;
+    setTimeout(() => {
+      arrow.style.transform = 'translateX(4px)';
+      tip.remove();
+    }, 250);
+  });
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.length).toBeGreaterThan(0);
+});

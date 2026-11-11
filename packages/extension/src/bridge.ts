@@ -90,7 +90,12 @@ const onMessage = (
   if (message.type === 'whereabouts') answer(capture.pickedWhereabouts());
   if (message.type === 'cancel') capture.cancelPicking();
   if (message.type === 'again') {
-    send({ type: capture.recordAgain(onTake, onMoved, onStopped) ? 'recording' : 'gone' });
+    // A failure is said, not swallowed: the panel would wait in silence.
+    try {
+      send({ type: capture.recordAgain(onTake, onMoved, onStopped) ? 'recording' : 'gone' });
+    } catch (error) {
+      send({ type: 'cannotRecord', why: error instanceof Error ? error.message : String(error) });
+    }
   }
   if (message.type === 'stop') {
     // stop() delivers a take that was still in progress before it returns.

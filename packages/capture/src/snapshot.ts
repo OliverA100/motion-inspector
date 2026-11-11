@@ -2750,6 +2750,9 @@ function isInside(owner: Element, element: Element): boolean {
 
 export function addLateShape(snapshot: Snapshot, element: Element): boolean {
   if (snapshot.shapeIdOf.has(element)) return true;
+  // One already off the page (a tooltip written to as it is removed,
+  // found on Bootstrap) has an empty style: there is nothing to measure.
+  if (!element.isConnected) return false;
   let parent = parentAcrossShadow(element);
   while (parent !== null && !snapshot.shapeOf.has(parent)) {
     if (parent === snapshot.rootElement) return false;
@@ -2802,6 +2805,7 @@ export function addLateShape(snapshot: Snapshot, element: Element): boolean {
 // transform attribute, or none. That is the "then" the stage moves from.
 export function addLateGroup(snapshot: Snapshot, group: SVGGElement): boolean {
   if (snapshot.shapeIdOf.has(group)) return true;
+  if (!group.isConnected) return false;
   const svg = group.ownerSVGElement;
   const svgShape = svg === null ? undefined : snapshot.shapeOf.get(svg);
   if (svgShape === undefined) return false;

@@ -11,6 +11,8 @@ export type FromPage =
   // Recording could not begin: the picked element is no longer on the page,
   // and nothing stands where it was.
   | { type: 'gone' }
+  // Recording could not begin for another reason, said in plain words.
+  | { type: 'cannotRecord'; why: string }
   // Picking was cancelled with Escape.
   | { type: 'cancelled' }
   // One take. `capture` has already passed core's checks in the page, and

@@ -91,8 +91,17 @@ export function startPicking(): Picker {
   // The outline follows the element when the page scrolls or resizes.
   const onLayoutChange = (): void => show(current);
 
+  // A part with no box of its own (display: contents, Cosmos's links) cannot
+  // be drawn or recorded: the nearest one around it that has a box is.
+  const withBox = (element: Element | null): Element | null => {
+    let at = element;
+    while (at !== null && at.getClientRects().length === 0) at = at.parentElement;
+    return at ?? element;
+  };
+
   const picked = new Promise<Element | null>((resolve) => {
-    finish = (element) => {
+    finish = (chosen) => {
+      const element = withBox(chosen);
       // Remove the overlay first, so the page gets real hover and click again.
       window.removeEventListener('mousemove', onMove, true);
       window.removeEventListener('keydown', onKey, true);

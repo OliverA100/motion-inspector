@@ -58,6 +58,20 @@ describe('the states of the side panel', () => {
     expect(gone.notice).toBe('The element you picked is no longer on the page. Pick it again.');
   });
 
+  test('recording that could not start says why', () => {
+    const failed = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked', label: 'div', draws: null },
+      {
+        kind: 'cannotRecord',
+        why: 'The picked element has no size or is hidden, so it cannot be drawn.',
+      },
+    ]);
+    expect(failed.notice).toBe(
+      'Recording could not start. The picked element has no size or is hidden, so it cannot be drawn. Pick another element.',
+    );
+  });
+
   test('Escape during picking goes back to idle', () => {
     expect(run([{ kind: 'pickStarted' }, { kind: 'pickCancelled' }]).status).toEqual({
       kind: 'idle',

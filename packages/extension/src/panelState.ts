@@ -74,6 +74,8 @@ export type PanelMsg =
   | { kind: 'tabChanged' }
   // The picked element is no longer on the page.
   | { kind: 'pickedGone' }
+  // Recording could not begin: why, in plain words from the page.
+  | { kind: 'cannotRecord'; why: string }
   | { kind: 'cannotInspect'; why: string }
   // The toolbar icon was clicked, which gives access to the tab in front.
   | { kind: 'accessGiven' }
@@ -132,6 +134,9 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
         pickedDraws: null,
         notice: 'The element you picked is no longer on the page. Pick it again.',
       };
+
+    case 'cannotRecord':
+      return { ...panel, notice: `Recording could not start. ${msg.why} Pick another element.` };
 
     case 'pickCancelled':
       return panel.status.kind === 'picking' ? { ...panel, status: { kind: 'idle' } } : panel;

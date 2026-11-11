@@ -1191,3 +1191,13 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The element recording moved to as its animation began has its look read again once nothing animates it, as a part that appeared during the take does.
 - A part a script writes starts a take only when its film moves, and not when that motion is its own browser animation's.
 **Why:** Raycast's dialog, centered by translate(-50%, -50%) and animated in by a CSS animation that does not fill, was 231 px off once its animation ended: the preview went back to a transform read mid-animation. The script writing its style also put the take's start 366 ms before its animation began.
+
+### D210. A part with no box picks the part around it; a failed start is said
+**Chose:**
+- A picked element with no box of its own (display: contents) is swapped for the nearest element around it that has one.
+- When recording cannot start, the panel says why and asks to pick another element.
+**Why:** on Cosmos, a click picked a link's display: contents wrapper. Recording threw inside the page, where the panel could not hear it, so Record seemed to do nothing.
+
+### D211. A part already off the page is not measured
+**Chose:** a part with no shape that a script writes to is given one only while it is on the page.
+**Why:** Bootstrap writes the style of a tooltip's arrow as it removes the tooltip. The write was seen once both were gone, the arrow was measured from an empty style, and the take failed with an opacity that is no number (four checks in the library sweep).
