@@ -1751,3 +1751,74 @@ test('a dot a script moves round its card with rect() is read as moving along it
     'script:offset-distance',
   ]);
 });
+
+test('a view transition that slides the new picture in is read as the part sliding', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-pages { width: 300px; height: 80px; view-transition-name: sp-pages; background: #eee }
+     ::view-transition-new(sp-pages) { animation: sp-slide-in .4s ease-out }
+     @keyframes sp-slide-in { from { translate: 300px 0 } }`,
+    '<div id="sp-pages"><button id="sp-next">Next</button></div>',
+    '#sp-pages',
+  );
+  await page.evaluate(() =>
+    document.getElementById('sp-next')?.addEventListener('click', () => {
+      document.startViewTransition(() => {
+        (document.getElementById('sp-pages') as HTMLElement).style.background = '#ddd';
+      });
+    }),
+  );
+  await page.click('#sp-next');
+  await page.waitForTimeout(1000);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((track) => track.property)).toEqual(['translate']);
+  expect(describeCapture(capture)).toContain('moves left 300 px');
+  expect(capture.notShown.join(' ')).toContain('cross-fade');
+});
+
+test('a web component: slotted children are drawn, and a hidden popup in a nested shadow root is heard', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    class Popup extends HTMLElement {
+      constructor() {
+        super();
+        const root = this.attachShadow({ mode: 'open' });
+        root.innerHTML =
+          '<style>.panel { display: none; width: 120px; height: 60px; background: white } :host([open]) .panel { display: block }</style><div class="panel"><slot></slot></div>';
+      }
+    }
+    class Picker extends HTMLElement {
+      constructor() {
+        super();
+        const root = this.attachShadow({ mode: 'open' });
+        root.innerHTML =
+          '<style>:host { display: block; width: 160px } button { width: 160px; height: 32px }</style><button><slot name="label"></slot></button><sp-popup><slot></slot></sp-popup>';
+        root.querySelector('button')?.addEventListener('click', () => {
+          const popup = root.querySelector('sp-popup') as HTMLElement;
+          popup.setAttribute('open', '');
+          popup.shadowRoot
+            ?.querySelector('.panel')
+            ?.animate({ opacity: [0, 1] }, { duration: 200, easing: 'ease-out' });
+        });
+      }
+    }
+    customElements.define('sp-popup', Popup);
+    customElements.define('sp-picker', Picker);
+    const picker = document.createElement('sp-picker');
+    picker.innerHTML =
+      '<span slot="label" style="display: inline-block; width: 60px; height: 12px; background: black"></span><div style="height: 20px; background: blue"></div>';
+    document.body.prepend(picker);
+    window.MotionCapture.record(picker);
+  });
+  await page.click('sp-picker');
+  await page.waitForTimeout(600);
+  const capture = onlyCapture(await takesNow(page));
+  const labels = flattenShapes(capture.root).map((shape) => shape.label);
+  // The slotted label is drawn inside the button.
+  expect(labels).toContain('span');
+  expect(capture.tracks.map((track) => track.property)).toEqual(['opacity']);
+});

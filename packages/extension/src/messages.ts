@@ -2,8 +2,11 @@
 
 // From the page (bridge.ts) to the panel.
 export type FromPage =
-  // An element was picked. The page is now being watched.
-  | { type: 'picked' }
+  // An element was picked. It is not recorded until the panel asks.
+  // label names it, such as "button.cta".
+  | { type: 'picked'; label?: string }
+  // Recording of the picked element has begun.
+  | { type: 'recording' }
   // Picking was cancelled with Escape.
   | { type: 'cancelled' }
   // One take. `capture` has already passed core's checks in the page, and
@@ -18,12 +21,19 @@ export type FromPage =
   | { type: 'stopped'; auto?: boolean };
 
 // From the panel to the page.
-// again: record the element picked last once more, without picking.
+// again: record the element picked last, without picking.
 // where: the page answers with the recorded element's box in the window
-// (a PageRect, or null), for "Play the hover".
+// (a PageRect, or null), for "Play the hover" and "Play the click".
 export type ToPage = { type: 'stop' } | { type: 'cancel' } | { type: 'again' } | { type: 'where' };
 
-export type PageRect = { x: number; y: number; width: number; height: number };
+export type PageRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  // True when something on the page sits over its middle (a fixed header).
+  covered?: boolean;
+};
 
 // Every message from the page carries this, so the panel can tell them
 // apart from anything else that uses chrome.runtime messages.

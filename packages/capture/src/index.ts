@@ -83,6 +83,23 @@ export function stop(): TakeResult[] {
   return takes;
 }
 
+// Lets the user pick an element, without recording it: recording starts
+// when asked (recordAgain), so whatever reaching for it set off, such as
+// its hover, is over by then. Resolves with the element's label, or null
+// if picking was cancelled.
+export async function pick(): Promise<string | null> {
+  recorder?.stop();
+  recorder = null;
+  picker?.cancel();
+  picker = startPicking();
+  const element = await picker.picked;
+  picker = null;
+  if (element === null) return null;
+  lastElement = element;
+  takes = [];
+  return labelOf(element);
+}
+
 // Lets the user pick an element, then records it. Resolves with true if an
 // element was picked, false if picking was cancelled.
 export async function pickAndRecord(
@@ -111,16 +128,47 @@ export function recordAgain(
   return true;
 }
 
+// Whether the pointer at the middle of the element would be on it, and not
+// on something over it (a fixed header). Through shadow roots too.
+function reachable(element: Element): boolean {
+  const box = element.getBoundingClientRect();
+  let hit: Node | null = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+  while (hit !== null) {
+    if (hit === element) return true;
+    hit = hit.parentNode ?? (hit instanceof ShadowRoot ? hit.host : null);
+    if (hit instanceof ShadowRoot) hit = hit.host;
+  }
+  return false;
+}
+
 // Where the element being recorded is in the window, for "Play the hover".
-// Scrolled into view first when it is not. null when nothing is recorded.
-export function recordedRect(): { x: number; y: number; width: number; height: number } | null {
+// Scrolled into view first when it is not, at once even on a page that
+// scrolls smoothly: the pointer must not move while the page still glides.
+// When something covers it, it is scrolled to the middle and tried again;
+// covered says whether it still is. null when nothing is recorded.
+export function recordedRect(): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  covered: boolean;
+} | null {
   if (lastElement === null || !lastElement.isConnected) return null;
   const box = lastElement.getBoundingClientRect();
   const inView =
     box.top >= 0 && box.left >= 0 && box.bottom <= innerHeight && box.right <= innerWidth;
-  if (!inView) lastElement.scrollIntoView({ block: 'center', inline: 'center' });
+  const centre = (): void =>
+    lastElement?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+  if (!inView) centre();
+  if (!reachable(lastElement)) centre();
   const now = lastElement.getBoundingClientRect();
-  return { x: now.x, y: now.y, width: now.width, height: now.height };
+  return {
+    x: now.x,
+    y: now.y,
+    width: now.width,
+    height: now.height,
+    covered: !reachable(lastElement),
+  };
 }
 
 export function cancelPicking(): void {

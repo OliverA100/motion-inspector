@@ -270,7 +270,7 @@ function timingOf(computed: ComputedEffectTiming): Seen['timing'] {
 // ---------- View transitions ----------
 
 export const VIEW_TRANSITION_NOTE =
-  'This is a view transition: the browser moves a picture of the part from where it was to where it is now. It is shown as the part moving; the cross-fade between its old and new look is not shown.';
+  "This is a view transition: the browser animates pictures of the part's old and new look. Their motion is shown on the part as it was when picked. The cross-fade between the two looks, and any change in what the part holds, are not shown.";
 
 // True while document.startViewTransition() runs, and for a moment after:
 // when its pictures go, the browser finds the pointer over the page again
@@ -319,6 +319,37 @@ function viewTransitionSeen(
   const effect = animation.effect;
   if (!(effect instanceof KeyframeEffect) || effect.target !== document.documentElement) {
     return null;
+  }
+  // The new picture is the part as it now is: an author's own animation of
+  // it (a page that slides in, found on Chrome's view transition demos) is
+  // the part's. The browser's own fades are the cross-fade, listed.
+  const picture = /^::view-transition-new\((.+)\)$/.exec(effect.pseudoElement ?? '');
+  if (picture !== null) {
+    const part = named().get(picture[1] ?? '') ?? null;
+    if (
+      part === null ||
+      !(animation instanceof CSSAnimation) ||
+      animation.animationName.startsWith('-ua-')
+    ) {
+      return null;
+    }
+    const seen = read(animation);
+    if (seen === null) return null;
+    const drawn = seen.properties.filter((property) => property !== 'mix-blend-mode');
+    if (drawn.length === 0) return null;
+    Object.assign(seen, {
+      target: part,
+      pseudoElement: null,
+      viewTransition: true,
+      properties: drawn,
+      keyframes: seen.keyframes.map((keyframe) => ({
+        ...keyframe,
+        values: keyframe.values.filter((item) => drawn.includes(item.property)),
+      })),
+      backfaceHidden: false,
+      individual: null,
+    });
+    return seen;
   }
   const found = /^::view-transition-group\((.+)\)$/.exec(effect.pseudoElement ?? '');
   if (found === null || found[1] === undefined || found[1] === 'root') return null;
@@ -2406,6 +2437,16 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       finishedScripted,
     );
     const capture = result.capture;
+    // Only the end of something that was already moving when the element
+    // was picked (most often the hover that reaching for it started): its
+    // start was never seen. It is not listed, and nothing joins it: the
+    // next hover is recorded whole.
+    if (capture?.trigger === 'running') {
+      previous = null;
+      previousSamples = [];
+      previousFilm = new Map();
+      return;
+    }
     const moves = capture !== null && (capture.tracks.length > 0 || capture.follows !== null);
     // "Ends where it starts, nothing to see" says why a take is empty. Once
     // a take with motion is in, another such note is only noise (found on

@@ -10,7 +10,7 @@ import { createRoot } from 'react-dom/client';
 import { describeCapture, parseCapture, type Trigger } from '@motion-inspector/core';
 import { Editor, takeLengthMs } from '@motion-inspector/editor';
 import { FROM_PAGE, PANEL_PORT, type FromPage, type PageRect, type ToPage } from './messages';
-import { playHover } from './playHover';
+import { playClick, playHover } from './playHover';
 import './panel.css';
 import {
   initialPanel,
@@ -123,6 +123,7 @@ function statusText(panel: Panel): string {
   const status = panel.status;
   switch (status.kind) {
     case 'idle':
+    case 'ready':
       return panel.stoppedByItself ? 'Recording stopped by itself.' : '';
     case 'picking':
       // With no takes yet, the panel's middle says it under "Pick an element".
@@ -140,11 +141,9 @@ function statusText(panel: Panel): string {
       // yet; in the status line, after the word, when takes are listed.
       const listening = panel.takes.length === 0 ? '' : 'Listening… ';
       return showTip(panel)
-        ? `${listening}${moved}Nothing yet. Hover or click it, or play the hover.`
+        ? `${listening}${moved}Nothing yet. Hover or click it on the page.`
         : `${listening}${moved}Hover or click it on the page.`;
     }
-    case 'nothing-found':
-      return 'Stopped.';
     case 'cannot-inspect':
       return '';
   }
@@ -160,6 +159,7 @@ const TRIGGER_WORDS: { trigger: Trigger; words: string }[] = [
   { trigger: 'blur', words: 'Focus lost' },
   { trigger: 'key', words: 'Key press' },
   { trigger: 'loop', words: 'Loops' },
+  // Not sent since D151: kept for takes saved before.
   { trigger: 'running', words: 'Already running' },
   { trigger: 'scroll', words: 'On scroll' },
   { trigger: 'unknown', words: 'On its own' },
@@ -258,8 +258,26 @@ function PanelApp() {
   }, []);
   const loaded = useRef(false);
   const [copied, setCopied] = useState('');
-  // True while "Play the hover" is moving the pointer.
-  const [playing, setPlaying] = useState(false);
+  // What the extension is playing on the page, while it moves the pointer.
+  const [playing, setPlaying] = useState<'hover' | 'click' | null>(null);
+  // Waiting for the page: recording to begin, or a take to arrive.
+  const waiters = useRef<{ recording: (() => void)[]; take: (() => void)[] }>({
+    recording: [],
+    take: [],
+  });
+  const waitFor = (what: 'recording' | 'take', ms: number): Promise<boolean> =>
+    new Promise((resolve) => {
+      const timer = window.setTimeout(() => resolve(false), ms);
+      waiters.current[what].push(() => {
+        window.clearTimeout(timer);
+        resolve(true);
+      });
+    });
+  const heard = (what: 'recording' | 'take'): void => {
+    const waiting = waiters.current[what];
+    waiters.current[what] = [];
+    for (const resolve of waiting) resolve();
+  };
 
   // Saved takes, once, when the panel opens.
   useEffect(() => {
@@ -294,7 +312,16 @@ function PanelApp() {
         return;
       }
       if (message.from !== FROM_PAGE || sender.tab?.id !== tabId.current) return;
-      if (message.type === 'picked') dispatch({ kind: 'elementPicked' });
+      if (message.type === 'picked') {
+        dispatch({
+          kind: 'elementPicked',
+          label: typeof message.label === 'string' ? message.label : 'the element',
+        });
+      }
+      if (message.type === 'recording') {
+        dispatch({ kind: 'recordingStarted' });
+        heard('recording');
+      }
       if (message.type === 'cancelled') dispatch({ kind: 'pickCancelled' });
       if (message.type === 'stopped') dispatch({ kind: 'stopped', auto: message.auto === true });
       if (message.type === 'moved' && typeof message.label === 'string') {
@@ -312,6 +339,7 @@ function PanelApp() {
           const id = replaced && previousId !== null ? previousId : crypto.randomUUID();
           lastTakeId.current = id;
           dispatch({ kind: 'takeArrived', take: { id, capture: parsed.value }, replaced });
+          heard('take');
         } else {
           dispatch({
             kind: 'takeRejected',
@@ -402,28 +430,71 @@ function PanelApp() {
     tabId.current = tab?.id ?? null;
   };
 
-  const recordAgain = (): void => {
-    if (tabId.current === null) return;
-    dispatch({ kind: 'pickStarted' });
+  // Starts recording the picked element. Resolves once the page says so.
+  const startRecording = async (): Promise<void> => {
+    const started = waitFor('recording', 2000);
     tellPage({ type: 'again' });
+    if (!(await started)) throw new Error('the page did not start recording');
   };
 
-  // Moves a pointer over the recorded element with Chrome's debugger, so
-  // its hover and its way back are recorded without doing them by hand.
+  const record = (): void => {
+    if (tabId.current === null) return;
+    void startRecording().catch(() => {});
+  };
+
+  // Where the picked element is in the window, scrolled into view.
+  const whereIs = async (id: number): Promise<PageRect> => {
+    const where: unknown = await chrome.tabs.sendMessage(id, { type: 'where' } satisfies ToPage);
+    if (where === null || typeof where !== 'object') {
+      throw new Error('the element is no longer on the page');
+    }
+    if ('covered' in where && where.covered === true) {
+      throw new Error('something on the page covers it');
+    }
+    return where as PageRect;
+  };
+
+  // Moves a pointer over the picked element with Chrome's debugger, so its
+  // hover and its way back are recorded without doing them by hand.
+  // Recording starts first, with the pointer off the element.
   const playTheHover = async (): Promise<void> => {
     const id = tabId.current;
-    if (id === null || playing) return;
-    setPlaying(true);
+    if (id === null || playing !== null) return;
+    setPlaying('hover');
     try {
-      const where: unknown = await chrome.tabs.sendMessage(id, { type: 'where' } satisfies ToPage);
-      if (where === null || typeof where !== 'object') {
-        throw new Error('the element is no longer on the page');
-      }
-      await playHover(id, where as PageRect);
+      const rect = await whereIs(id);
+      await startRecording();
+      await playHover(id, rect);
     } catch (error) {
-      dispatch({ kind: 'hoverFailed', why: messageOf(error) });
+      dispatch({ kind: 'playFailed', what: 'hover', why: messageOf(error) });
     } finally {
-      setPlaying(false);
+      setPlaying(null);
+    }
+  };
+
+  // Clicks the picked element with Chrome's debugger. The pointer arrives
+  // and its hover settles before recording starts; recording stops once the
+  // click's take is in, before the pointer leaves. One take: the click.
+  const playTheClick = async (): Promise<void> => {
+    const id = tabId.current;
+    if (id === null || playing !== null) return;
+    setPlaying('click');
+    try {
+      const rect = await whereIs(id);
+      await playClick(id, rect, {
+        ready: startRecording,
+        clicked: async () => {
+          await waitFor('take', 4000);
+          // A take that adds a way back may follow at once.
+          await new Promise((resolve) => window.setTimeout(resolve, 400));
+          tellPage({ type: 'stop' });
+        },
+      });
+    } catch (error) {
+      tellPage({ type: 'stop' });
+      dispatch({ kind: 'playFailed', what: 'click', why: messageOf(error) });
+    } finally {
+      setPlaying(null);
     }
   };
 
@@ -476,34 +547,23 @@ function PanelApp() {
               Cancel
             </button>
           ) : status.kind === 'listening' ? (
-            <>
-              <button
-                type="button"
-                className="btn"
-                disabled={playing}
-                onClick={() => void playTheHover()}
-              >
-                {playing ? 'Playing the hover…' : 'Play the hover'}
-              </button>
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={() => tellPage({ type: 'stop' })}
-              >
-                Stop
-              </button>
-            </>
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={playing !== null}
+              onClick={() => tellPage({ type: 'stop' })}
+            >
+              Stop
+            </button>
           ) : (
-            <>
-              {panel.canRecordAgain && tabId.current !== null ? (
-                <button type="button" className="btn" onClick={recordAgain}>
-                  Record again
-                </button>
-              ) : null}
-              <button type="button" className="btn btn--primary" onClick={() => void pick()}>
-                Pick element
-              </button>
-            </>
+            <button
+              type="button"
+              className={status.kind === 'ready' ? 'btn' : 'btn btn--primary'}
+              disabled={playing !== null}
+              onClick={() => void pick()}
+            >
+              {status.kind === 'ready' ? 'Pick another' : 'Pick element'}
+            </button>
           )}
         </div>
         <details className="xp__menu" ref={menuRef}>
@@ -540,7 +600,11 @@ function PanelApp() {
         </details>
         {waiting ? null : (
           <p className="xp__status" role="status">
-            {copied !== '' ? copied : statusText(panel)}
+            {copied !== ''
+              ? copied
+              : playing !== null
+                ? `Playing the ${playing}…`
+                : statusText(panel)}
           </p>
         )}
       </header>
@@ -553,8 +617,36 @@ function PanelApp() {
           />
           <h2>{status.kind === 'listening' ? 'Listening' : 'Pick an element'}</h2>
           <p className="xp__status" role="status">
-            {copied !== '' ? copied : statusText(panel)}
+            {copied !== ''
+              ? copied
+              : playing !== null
+                ? `Playing the ${playing}…`
+                : statusText(panel)}
           </p>
+        </section>
+      ) : null}
+
+      {status.kind === 'ready' && panel.picked !== null ? (
+        <section className="xp__ready" aria-label="Record">
+          <p className="xp__ready-name">
+            <code>{panel.picked}</code>
+          </p>
+          <p className="xp__ready-text">
+            {status.nothingFound
+              ? 'No animation was found. Try again, or pick its parent or the part that moves.'
+              : 'Recording starts when you choose how to set it off.'}
+          </p>
+          <div className="xp__ready-actions">
+            <button type="button" className="btn btn--primary" onClick={record}>
+              Record
+            </button>
+            <button type="button" className="btn" onClick={() => void playTheHover()}>
+              Play the hover
+            </button>
+            <button type="button" className="btn" onClick={() => void playTheClick()}>
+              Play the click
+            </button>
+          </div>
         </section>
       ) : null}
 
@@ -583,13 +675,6 @@ function PanelApp() {
               <span className="xp__hint">Then no page needs the toolbar icon again.</span>
             </p>
           )}
-        </section>
-      ) : null}
-
-      {status.kind === 'nothing-found' ? (
-        <section className="xp__message">
-          <h2>No animation was found</h2>
-          <p>Try its parent, or the part that moves, then trigger it again.</p>
         </section>
       ) : null}
 

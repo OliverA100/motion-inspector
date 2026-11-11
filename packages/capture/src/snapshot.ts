@@ -202,9 +202,27 @@ function mayAnimate(style: CSSStyleDeclaration): boolean {
   return hasTransition || style.animationName !== 'none' || style.willChange !== 'auto';
 }
 
+// What is drawn inside an element, as the page shows it. An open shadow
+// root replaces the element's own children on screen, and a slot in it
+// shows the children given to it (or its own, when given none): a
+// Shoelace select's options are the page's, shown through its slots. A
+// slot that draws no box itself (display: contents, as slots are) is
+// looked through.
 function childNodesOf(element: Element): Node[] {
-  // An open shadow root replaces the element's own children on screen.
-  return Array.from((element.shadowRoot ?? element).childNodes);
+  const nodes =
+    element instanceof HTMLSlotElement
+      ? slotted(element)
+      : Array.from((element.shadowRoot ?? element).childNodes);
+  return nodes.flatMap((node) =>
+    node instanceof HTMLSlotElement && getComputedStyle(node).display === 'contents'
+      ? childNodesOf(node)
+      : [node],
+  );
+}
+
+function slotted(slot: HTMLSlotElement): Node[] {
+  const given = slot.assignedNodes({ flatten: true });
+  return given.length > 0 ? given : Array.from(slot.childNodes);
 }
 
 // ---------- Where a box is, without its transforms ----------
@@ -1451,6 +1469,26 @@ function byStacking(shapes: RawShape[]): RawShape[] {
 
 // Every animation under an element, including those inside open shadow
 // roots, which getAnimations({ subtree: true }) does not return.
+// The open shadow roots inside an element, nested ones too.
+const MOST_SHADOW_ROOTS = 200;
+function shadowRootsIn(element: Element): ShadowRoot[] {
+  const found: ShadowRoot[] = [];
+  const visit = (scope: Element | ShadowRoot): void => {
+    for (const inside of Array.from(scope.querySelectorAll('*'))) {
+      if (found.length >= MOST_SHADOW_ROOTS) return;
+      if (inside.shadowRoot === null) continue;
+      found.push(inside.shadowRoot);
+      visit(inside.shadowRoot);
+    }
+  };
+  if (element.shadowRoot !== null) {
+    found.push(element.shadowRoot);
+    visit(element.shadowRoot);
+  }
+  visit(element);
+  return found;
+}
+
 export function animationsUnder(root: Element, shadowRoots: ShadowRoot[]): Animation[] {
   return [
     ...root.getAnimations({ subtree: true }),
@@ -1614,6 +1652,13 @@ export function takeSnapshot(rootElement: Element): Snapshot {
   const root = shapesFor(walk, rootElement, '', true)[0];
   if (root === undefined) {
     throw new Error('The picked element has no size or is hidden, so it cannot be drawn.');
+  }
+  // Every open shadow root inside, drawn or not: a closed popup (Shoelace's
+  // dropdown) animates inside one that the walk passed over, since it was
+  // hidden when picked.
+  const known = new Set(walk.snapshot.shadowRoots);
+  for (const shadowRoot of shadowRootsIn(rootElement)) {
+    if (!known.has(shadowRoot)) walk.snapshot.shadowRoots.push(shadowRoot);
   }
 
   // What is already animating right now? Those resting values are not at rest.

@@ -367,3 +367,34 @@ body {
   font-size: var(--text-small);
   color: var(--color-text-muted);
 }
+
+/* An element is picked and nothing is recorded yet: its name, one line,
+   and the three ways to start. */
+.xp__ready {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border-radius: var(--radius-2);
+}
+
+.xp__ready-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xp__ready-text {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.xp__ready-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}

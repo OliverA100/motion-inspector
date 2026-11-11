@@ -23,10 +23,14 @@ describe('the states of the side panel', () => {
     expect(initialPanel).toMatchObject({ status: { kind: 'idle' }, takes: [], selectedId: null });
   });
 
-  test('picking, then listening once an element is picked', () => {
+  test('picking, then ready once an element is picked, then listening once recording starts', () => {
     const picking = run([{ kind: 'pickStarted' }]);
     expect(picking.status).toEqual({ kind: 'picking' });
-    expect(updatePanel(picking, { kind: 'elementPicked' }).status).toEqual({
+    const ready = updatePanel(picking, { kind: 'elementPicked', label: 'div.card' });
+    // Picking records nothing: what reaching for it set off is not a take.
+    expect(ready.status).toEqual({ kind: 'ready', nothingFound: false });
+    expect(ready.picked).toBe('div.card');
+    expect(updatePanel(ready, { kind: 'recordingStarted' }).status).toEqual({
       kind: 'listening',
       waitedMs: 0,
       found: 0,
@@ -41,7 +45,11 @@ describe('the states of the side panel', () => {
   });
 
   test('listening: after 5 seconds with nothing found, a tip is offered', () => {
-    const listening = run([{ kind: 'pickStarted' }, { kind: 'elementPicked' }]);
+    const listening = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
+    ]);
     expect(showTip(listening)).toBe(false);
     expect(showTip(updatePanel(listening, { kind: 'waited', ms: 4000 }))).toBe(false);
     const waited = run(
@@ -69,7 +77,8 @@ describe('the states of the side panel', () => {
   test('a take that completes the shown one replaces it, and is not counted again', () => {
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'takeArrived', take: take('hover'), replaced: false },
       { kind: 'pointerMoved', inPanel: true },
       { kind: 'takeArrived', take: { id: 'hover', capture: loader }, replaced: true },
@@ -84,7 +93,8 @@ describe('the states of the side panel', () => {
     // replace the hover they just captured.
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'takeArrived', take: take('hover'), replaced: false },
       { kind: 'pointerMoved', inPanel: true },
       { kind: 'takeArrived', take: take('hover-out'), replaced: false },
@@ -103,7 +113,8 @@ describe('the states of the side panel', () => {
     const panel = run([
       { kind: 'pointerMoved', inPanel: true },
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
     ]);
     expect(panel.pointerInPanel).toBe(false);
   });
@@ -111,7 +122,8 @@ describe('the states of the side panel', () => {
   test('captured: each new take is shown while the pointer is on the page, and listening goes on', () => {
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'takeArrived', take: take('a'), replaced: false },
       { kind: 'takeArrived', take: take('b'), replaced: false },
     ]);
@@ -123,7 +135,8 @@ describe('the states of the side panel', () => {
   test('recording that moves to a parent is remembered, so the panel can say so', () => {
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'movedToParent', label: 'div.card' },
       { kind: 'takeArrived', take: take('a'), replaced: false },
     ]);
@@ -133,20 +146,22 @@ describe('the states of the side panel', () => {
   test('stop with nothing found says so', () => {
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'stopped', auto: false },
     ]);
-    expect(panel.status).toEqual({ kind: 'nothing-found' });
+    expect(panel.status).toEqual({ kind: 'ready', nothingFound: true });
   });
 
   test('"nothing found" stays when stop is confirmed a second time', () => {
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'stopped', auto: false },
       { kind: 'stopped', auto: false },
     ]);
-    expect(panel.status).toEqual({ kind: 'nothing-found' });
+    expect(panel.status).toEqual({ kind: 'ready', nothingFound: true });
   });
 
   test('a page that cannot be inspected stays so when a late stop arrives', () => {
@@ -157,24 +172,26 @@ describe('the states of the side panel', () => {
     expect(panel.status.kind).toBe('cannot-inspect');
   });
 
-  test('stop after a take goes back to idle', () => {
+  test('stop after a take goes back to the picked element, ready again', () => {
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'takeArrived', take: take('a'), replaced: false },
       { kind: 'stopped', auto: false },
     ]);
-    expect(panel.status).toEqual({ kind: 'idle' });
+    expect(panel.status).toEqual({ kind: 'ready', nothingFound: false });
   });
 
   test('a take flushed just after Stop clears "nothing found"', () => {
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'stopped', auto: false },
       { kind: 'takeArrived', take: take('late'), replaced: false },
     ]);
-    expect(panel.status).toEqual({ kind: 'idle' });
+    expect(panel.status).toEqual({ kind: 'ready', nothingFound: false });
     expect(selectedTake(panel)?.id).toBe('late');
   });
 
@@ -273,18 +290,24 @@ describe('switching pages and stopping by itself', () => {
   test('a recording that stopped by itself says so, and can be recorded again', () => {
     const panel = run([
       { kind: 'pickStarted' },
-      { kind: 'elementPicked' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
       { kind: 'takeArrived', take: take('a'), replaced: false },
       { kind: 'stopped', auto: true },
     ]);
-    expect(panel.status).toEqual({ kind: 'idle' });
+    expect(panel.status).toEqual({ kind: 'ready', nothingFound: false });
     expect(panel.stoppedByItself).toBe(true);
-    expect(panel.canRecordAgain).toBe(true);
+    expect(panel.picked).toBe('div.card');
   });
 
   test('after the tab changes, the last element cannot be recorded again', () => {
-    const panel = run([{ kind: 'pickStarted' }, { kind: 'elementPicked' }, { kind: 'tabChanged' }]);
-    expect(panel.canRecordAgain).toBe(false);
+    const panel = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked', label: 'div.card' },
+      { kind: 'recordingStarted' },
+      { kind: 'tabChanged' },
+    ]);
+    expect(panel.picked).toBeNull();
     expect(panel.status).toEqual({ kind: 'idle' });
   });
 });

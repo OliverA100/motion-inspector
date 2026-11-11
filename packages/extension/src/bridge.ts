@@ -6,11 +6,7 @@ import { FROM_PAGE, PANEL_PORT, type FromPage, type PageRect, type ToPage } from
 
 // The capture script, injected just before this one, puts this on window.
 declare const MotionCapture: {
-  pickAndRecord: (
-    onTake: (take: TakeResult) => void,
-    onMoved: (label: string) => void,
-    onStopped: () => void,
-  ) => Promise<boolean>;
+  pick: () => Promise<string | null>;
   recordAgain: (
     onTake: (take: TakeResult) => void,
     onMoved: (label: string) => void,
@@ -56,7 +52,7 @@ const onMessage = (
   if (message.type === 'where') answer(capture.recordedRect());
   if (message.type === 'cancel') capture.cancelPicking();
   if (message.type === 'again') {
-    send({ type: capture.recordAgain(onTake, onMoved, onStopped) ? 'picked' : 'cancelled' });
+    send({ type: capture.recordAgain(onTake, onMoved, onStopped) ? 'recording' : 'cancelled' });
   }
   if (message.type === 'stop') {
     // stop() delivers a take that was still in progress before it returns.
@@ -85,7 +81,8 @@ const onPanelClosed = (): void => session.end();
 panel.onDisconnect.addListener(onPanelClosed);
 window.motionInspectorSession = session;
 
+// Picking only: recording starts when the panel asks.
 capture
-  .pickAndRecord(onTake, onMoved, onStopped)
-  .then((picked) => send({ type: picked ? 'picked' : 'cancelled' }))
+  .pick()
+  .then((label) => send(label === null ? { type: 'cancelled' } : { type: 'picked', label }))
   .catch(() => send({ type: 'cancelled' }));

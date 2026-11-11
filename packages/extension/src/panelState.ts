@@ -17,14 +17,17 @@ export type Status =
   | { kind: 'idle' }
   // The picker is showing on the page.
   | { kind: 'picking' }
-  // An element is picked and the page is being watched.
+  // An element is picked and nothing is recorded yet: recording starts
+  // when the user chooses Record, Play the hover or Play the click, so
+  // what reaching for it set off is not recorded. nothingFound: the last
+  // recording ended with nothing found.
+  | { kind: 'ready'; nothingFound: boolean }
+  // The picked element is being recorded.
   // waitedMs: how long since it began, or since the last take arrived.
   // found: how many takes have arrived since listening began.
   // movedTo: set when recording moved to a parent of what was picked,
   // because the parent is what animates. It names that parent.
   | { kind: 'listening'; waitedMs: number; found: number; movedTo: string | null }
-  // Stop was pressed and nothing had been found.
-  | { kind: 'nothing-found' }
   // The page cannot be inspected at all, or access was not given.
   | { kind: 'cannot-inspect'; why: string };
 
@@ -40,9 +43,9 @@ export type Panel = {
   // True while the pointer is over the panel. The user is reading or
   // editing here, so a new take must not replace what they are looking at.
   pointerInPanel: boolean;
-  // True when the element picked last can be recorded again without
-  // picking (same tab, same page).
-  canRecordAgain: boolean;
+  // The element picked last, by its label, while it can be recorded
+  // without picking again (same tab, same page). null when there is none.
+  picked: string | null;
   // True when the last recording stopped by itself, a take being complete.
   stoppedByItself: boolean;
 };
@@ -51,7 +54,9 @@ export type PanelMsg =
   | { kind: 'takesLoaded'; takes: StoredTake[] }
   | { kind: 'pickStarted' }
   | { kind: 'pickCancelled' }
-  | { kind: 'elementPicked' }
+  | { kind: 'elementPicked'; label: string }
+  // The page began recording the picked element.
+  | { kind: 'recordingStarted' }
   // Time passed while listening.
   | { kind: 'waited'; ms: number }
   // replaced: true when it completes a take that has already arrived (a
@@ -70,8 +75,8 @@ export type PanelMsg =
   | { kind: 'takeSelected'; id: string }
   | { kind: 'takesCleared' }
   | { kind: 'saveFailed'; why: string }
-  // "Play the hover" could not move the pointer.
-  | { kind: 'hoverFailed'; why: string }
+  // "Play the hover" or "Play the click" could not move the pointer.
+  | { kind: 'playFailed'; what: 'hover' | 'click'; why: string }
   | { kind: 'noticeDismissed' }
   | { kind: 'pointerMoved'; inPanel: boolean };
 
@@ -86,7 +91,7 @@ export const initialPanel: Panel = {
   notice: null,
   problems: [],
   pointerInPanel: false,
-  canRecordAgain: false,
+  picked: null,
   stoppedByItself: false,
 };
 
@@ -121,9 +126,17 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
     case 'elementPicked':
       return {
         ...panel,
-        status: { kind: 'listening', waitedMs: 0, found: 0, movedTo: null },
+        status: { kind: 'ready', nothingFound: false },
         pointerInPanel: false,
-        canRecordAgain: true,
+        picked: msg.label,
+        stoppedByItself: false,
+      };
+
+    case 'recordingStarted':
+      return {
+        ...panel,
+        status: { kind: 'listening', waitedMs: 0, found: 0, movedTo: null },
+        notice: null,
         stoppedByItself: false,
       };
 
@@ -141,8 +154,8 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
               waitedMs: 0,
               found: msg.replaced ? panel.status.found : panel.status.found + 1,
             }
-          : panel.status.kind === 'nothing-found'
-            ? { kind: 'idle' }
+          : panel.status.kind === 'ready'
+            ? { kind: 'ready', nothingFound: false }
             : panel.status;
       const takes = [msg.take, ...panel.takes.filter((take) => take.id !== msg.take.id)];
       // A new take is shown at once, unless the pointer is in the panel.
@@ -172,8 +185,11 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
       // anything, or the second would wipe "nothing found" off the screen.
       if (panel.status.kind === 'picking') return { ...panel, status: { kind: 'idle' } };
       if (panel.status.kind !== 'listening') return panel;
+      // Back to the element, ready to record it again.
       const status: Status =
-        panel.status.found === 0 ? { kind: 'nothing-found' } : { kind: 'idle' };
+        panel.picked === null
+          ? { kind: 'idle' }
+          : { kind: 'ready', nothingFound: panel.status.found === 0 };
       return { ...panel, status, stoppedByItself: msg.auto && panel.status.found > 0 };
     }
 
@@ -182,13 +198,13 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
       // page is cleared, so Pick element is ready at once.
       const stale =
         panel.status.kind === 'cannot-inspect' ||
-        panel.status.kind === 'nothing-found' ||
+        panel.status.kind === 'ready' ||
         panel.status.kind === 'listening' ||
         panel.status.kind === 'picking';
       return {
         ...panel,
         status: stale ? { kind: 'idle' } : panel.status,
-        canRecordAgain: false,
+        picked: null,
         stoppedByItself: false,
       };
     }
@@ -210,10 +226,13 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
     case 'takesCleared':
       return { ...panel, takes: [], selectedId: null };
 
-    case 'hoverFailed':
+    case 'playFailed':
       return {
         ...panel,
-        notice: `The hover could not be played (${msg.why}). Move the pointer over the element yourself.`,
+        notice:
+          msg.what === 'hover'
+            ? `The hover could not be played (${msg.why}). Choose Record and move the pointer over the element yourself.`
+            : `The click could not be played (${msg.why}). Choose Record and click the element yourself.`,
       };
     case 'saveFailed':
       return {
