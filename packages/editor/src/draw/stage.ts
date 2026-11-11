@@ -82,6 +82,10 @@ export type Pose = {
   // An animated z-index: above its siblings when over 0, under them when
   // below (an avatar brought to the front on hover).
   zIndex: number | null;
+  // An animated outline: its color, and its width and offset in px.
+  outlineColor: string | null;
+  outlineWidth: number | null;
+  outlineOffset: number | null;
 };
 
 export type StageData = {
@@ -1186,8 +1190,19 @@ function drawFilled(
     }
     // An outline, outside the box at its offset, over everything else the
     // shape draws (a focus ring).
-    if (shape.outline !== null && shape.outline !== undefined) {
-      const outline = shape.outline;
+    // (A canvas ignores a line width of 0, so an outline 0 wide is skipped.)
+    if (
+      shape.outline !== null &&
+      shape.outline !== undefined &&
+      (pose?.outlineWidth ?? shape.outline.width) > 0
+    ) {
+      // As it is now: a focus ring growing in or changing color.
+      const outline = {
+        ...shape.outline,
+        color: pose?.outlineColor ?? shape.outline.color,
+        width: pose?.outlineWidth ?? shape.outline.width,
+        offset: pose?.outlineOffset ?? shape.outline.offset,
+      };
       shapePath(context, shape, pose, -(outline.offset + outline.width / 2));
       context.strokeStyle = outline.color;
       context.lineWidth = outline.width;

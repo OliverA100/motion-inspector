@@ -978,7 +978,7 @@ function boxShape(
     transform: restingTransform(style, rect, element),
     shadow: restingShadow(style.boxShadow),
     shadows: shadowLayers(style.boxShadow),
-    outline: outlineOf(style),
+    outline: outlineOf(style) ?? quietOutlineOf(style),
     perspective: perspectiveOf(element, style),
     offset: offsetOf(style, rect, element),
     mask: maskOf(walk, style, rect),
@@ -1043,6 +1043,20 @@ function outlineOf(style: CSSStyleDeclaration): RawShape['outline'] {
   return {
     color: style.outlineColor,
     width,
+    offset: parseFloat(style.outlineOffset) || 0,
+    style: lineStyle === 'dashed' || lineStyle === 'dotted' ? lineStyle : 'solid',
+  };
+}
+
+// An outline that has a style but cannot be seen yet (transparent, or 0
+// wide): kept so its color or width can animate in (a focus ring). It does
+// not make the part one that paints.
+function quietOutlineOf(style: CSSStyleDeclaration): RawShape['outline'] {
+  const lineStyle = style.outlineStyle;
+  if (lineStyle === 'none') return null;
+  return {
+    color: style.outlineColor,
+    width: Math.max(parseFloat(style.outlineWidth) || 0, 0),
     offset: parseFloat(style.outlineOffset) || 0,
     style: lineStyle === 'dashed' || lineStyle === 'dotted' ? lineStyle : 'solid',
   };

@@ -48,6 +48,9 @@ export function stillPose(shapeId: Pose['shapeId']): Pose {
     underlineColor: null,
     backdropFilter: null,
     zIndex: null,
+    outlineColor: null,
+    outlineWidth: null,
+    outlineOffset: null,
   };
 }
 

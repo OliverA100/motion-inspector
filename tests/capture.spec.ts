@@ -2142,6 +2142,30 @@ test('a part whose z-index rises is drawn in front of its siblings', async ({ pa
   expect(late.some((value) => value !== null && value > 0)).toBe(true);
 });
 
+// Found on Catalyst: a focus ring whose color comes in, from transparent.
+test('a focus ring that shows by its outline color is kept and previewed', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-ring { width: 80px; height: 30px; background: #eee;
+       outline: 2px solid transparent; outline-offset: 2px; transition: outline-color .3s linear }
+     #sp-ring.on { outline-color: rgb(51, 102, 255) }`,
+    '<div id="sp-ring"></div>',
+    '#sp-ring',
+  );
+  await page.evaluate(() => document.getElementById('sp-ring')?.classList.add('on'));
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.root.outline).toMatchObject({ width: 2, offset: 2, style: 'solid' });
+  const halfway = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (capture: unknown, timeMs: number) => { outlineColor: string | null }[];
+    };
+    return module.posesOf(taken, 150).map((pose) => pose.outlineColor);
+  }, capture);
+  expect(halfway[0]).toMatch(/^rgba\(51, 102, 255, 0\.5/);
+});
+
 // Frosted glass: a card that blurs what is behind it on hover.
 test('a backdrop blur is previewed, not listed as not drawn', async ({ page }) => {
   await setUp(

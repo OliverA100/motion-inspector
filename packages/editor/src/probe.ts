@@ -81,6 +81,10 @@ export const PREVIEWED_PROPERTIES = [
   'backdrop-filter',
   // Which sibling is in front.
   'z-index',
+  // A focus ring.
+  'outline-color',
+  'outline-width',
+  'outline-offset',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -99,6 +103,8 @@ const GEOMETRY = [
   'border-right-width',
   'border-bottom-width',
   'border-left-width',
+  // So does an outline's.
+  'outline-width',
 ];
 
 // Properties that only change layout: their effect is the boxes the page
@@ -519,6 +525,9 @@ function poseOf(
     underlineColor: valueOf('text-decoration-color'),
     backdropFilter: valueOf('backdrop-filter'),
     zIndex: zIndexOf(valueOf('z-index')),
+    outlineColor: valueOf('outline-color'),
+    outlineWidth: pixels(valueOf('outline-width')),
+    outlineOffset: pixels(valueOf('outline-offset')),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,

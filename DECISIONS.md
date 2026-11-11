@@ -1082,3 +1082,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D186. A z-index that animates reorders the siblings
 **Chose:** z-index is previewed. A shape whose z-index animates above 0 is drawn after its siblings, and below 0 before them; the others keep the order capture gave them. The description says it "comes in front of the parts beside it" or "goes behind" them.
 **Why:** CSS-Tricks brings an avatar in front of the ones it overlaps on hover: "Not drawn: z-index".
+
+### D187. A focus ring is kept while it cannot be seen, and animates
+**Chose:** an outline with a style but transparent or 0 wide is kept on its shape (it does not make the part one that paints), and its color, width and offset are previewed. One 0 wide is not drawn.
+**Why:** Catalyst's switch shows a focus ring by its outline color, from transparent: "Not drawn: outline-color". The click sweep, run again: 80 of 83 matched; the others were Radix pages where nothing ran on the clicked part and a dialog whose result changes with what the sweep left open.
