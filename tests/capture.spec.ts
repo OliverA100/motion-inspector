@@ -1841,3 +1841,65 @@ test('the clipping frame counts the translations between it and the element: not
   // The round part sits in the middle of its clipping parent, whole.
   expect(capture.frame).toEqual({ x: -160, y: -60, width: 400, height: 200 });
 });
+
+// ---------- What the take misses ----------
+
+const smil = `<svg width="200" height="60"><rect id="sp-smil-rect" x="0" y="10" width="40" height="40" fill="green">
+  <animate id="sp-smil" attributeName="x" from="0" to="140" dur="0.6s" begin="indefinite" fill="freeze"/>
+</rect></svg>`;
+
+test('a part that moves with no animation the browser lists is named as missed', async ({
+  page,
+}) => {
+  await setUp(page, '#sp-miss { width: 220px }', `<div id="sp-miss">${smil}</div>`, '#sp-miss');
+  await page.evaluate(() =>
+    (document.getElementById('sp-smil') as unknown as { beginElement: () => void }).beginElement(),
+  );
+  await page.waitForTimeout(1500);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks).toEqual([]);
+  expect(capture.missed).toEqual([{ label: 'rect', what: 'moved' }]);
+  expect(describeCapture(capture)).toContain('1 part changed on the page that this preview misses');
+});
+
+// Its color, which no track and no layout measure can carry.
+const smilFill = `<svg width="200" height="60"><rect x="0" y="10" width="40" height="40" fill="rgb(0, 128, 0)">
+  <animate id="sp-smil-fill" attributeName="fill" from="rgb(0, 128, 0)" to="rgb(200, 0, 0)" dur="0.6s" begin="indefinite" fill="freeze"/>
+</rect></svg>`;
+
+test('alongside a transition, a look it cannot read is named and the transition is a track', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    '#sp-both { width: 220px } .sp-fade { width: 40px; height: 20px; background: blue; transition: opacity .6s } .sp-fade.on { opacity: .2 }',
+    `<div id="sp-both"><div class="sp-fade"></div>${smilFill}</div>`,
+    '#sp-both',
+  );
+  await page.evaluate(() => {
+    document.querySelector('.sp-fade')?.classList.add('on');
+    (
+      document.getElementById('sp-smil-fill') as unknown as { beginElement: () => void }
+    ).beginElement();
+  });
+  await page.waitForTimeout(1500);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((track) => track.property)).toContain('opacity');
+  expect(capture.missed).toEqual([{ label: 'rect', what: 'look' }]);
+});
+
+test('a hover that changes a color at once, with no transition, is not called missed', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    '#sp-flip { width: 120px; height: 40px; background: gray } #sp-flip:hover { background: black }',
+    '<div id="sp-flip"></div>',
+    '#sp-flip',
+  );
+  await page.hover('#sp-flip');
+  await page.waitForTimeout(800);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(800);
+  expect(await takesNow(page)).toEqual([]);
+});

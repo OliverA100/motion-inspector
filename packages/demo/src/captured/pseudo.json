@@ -187,5 +187,6 @@
   "trigger": "hover",
   "measured": [],
   "follows": null,
-  "notShown": []
+  "notShown": [],
+  "missed": null
 }

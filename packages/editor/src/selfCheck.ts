@@ -10,6 +10,7 @@
 
 import {
   flattenShapes,
+  type Missed,
   replayFollow,
   type Capture,
   type Shape,
@@ -147,6 +148,62 @@ export function selfCheckWords(checks: ShapeCheck[]): string | null {
   }
   const worst = checks.reduce((first, second) => (second.px > first.px ? second : first));
   return `Checked against the page: off by up to ${pxWords} and ${opacityWords}, most on ${worst.label} at ${Math.round(worst.worstAtMs)} ms.`;
+}
+
+// Whether a "not shown" note is about motion the preview leaves out. Three
+// are not: parts that do not move, left out to keep the drawing simple (a
+// part that moves is in the take, or in what it missed); a gradient drawn
+// as its average color; and a take whose motion ends where it starts. They
+// are still listed; the badge does not count them.
+export function aboutMotion(note: string): boolean {
+  return !(
+    note.endsWith('left out of the drawing, to keep it simple.') ||
+    note.startsWith('A gradient is drawn as the average') ||
+    note.endsWith('so there is nothing to see.')
+  );
+}
+
+// The badge for the whole preview: green only when nothing is known to
+// differ from the page. What the capture saw change and could not explain
+// comes first, then properties the preview does not draw, then distance,
+// then what the capture lists as left out. The tooltip says all of it.
+export function previewBadge(
+  checks: ShapeCheck[],
+  gaps: { missed: Missed[] | null; notDrawn: string[]; leftOut: number },
+): { close: boolean; text: string; detail: string } | null {
+  const position = selfCheckBadge(checks);
+  const missed = gaps.missed ?? [];
+  const lines: string[] = [];
+  const texts: string[] = [];
+  if (missed.length > 0) {
+    const named = missed
+      .map((item) => (item.what === 'moved' ? item.label : `${item.label} (its look)`))
+      .join(', ');
+    lines.push(
+      `${missed.length === 1 ? '1 part' : `${missed.length} parts`} changed on the page and ${missed.length === 1 ? 'is' : 'are'} not in this preview: ${named}.`,
+    );
+    texts.push(missed.length === 1 ? '1 part missing' : `${missed.length} parts missing`);
+  }
+  if (gaps.notDrawn.length > 0) {
+    lines.push(`The preview does not draw ${gaps.notDrawn.join(', ')}.`);
+    texts.push(
+      `Not drawn: ${gaps.notDrawn.slice(0, 2).join(', ')}${gaps.notDrawn.length > 2 ? '…' : ''}`,
+    );
+  }
+  if (position !== null) {
+    lines.push(position.detail);
+    if (!position.close) texts.push(position.text);
+  }
+  if (gaps.leftOut > 0) {
+    lines.push(
+      `${gaps.leftOut === 1 ? '1 thing is' : `${gaps.leftOut} things are`} left out or drawn more simply: see Not shown.`,
+    );
+    texts.push(gaps.leftOut === 1 ? '1 thing left out' : `${gaps.leftOut} things left out`);
+  }
+  if (lines.length === 0) return null;
+  const first = texts[0];
+  if (first === undefined && position !== null) return position;
+  return { close: false, text: first ?? 'Differs from the page', detail: lines.join(' ') };
 }
 
 // The same, as a small badge: a few words, and the sentence for its tooltip.

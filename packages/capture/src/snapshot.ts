@@ -1632,14 +1632,35 @@ function frameOf(walk: Walk): Box | null {
       continue;
     }
     const box = layoutBox(parent, walk);
-    return {
+    const frame = {
       x: box.x + parent.clientLeft - shiftX,
       y: box.y + parent.clientTop - shiftY,
       width: parent.clientWidth,
       height: parent.clientHeight,
     };
+    // A last check against the page as drawn: if the frame would hide more
+    // of the element than its clipping parent does on screen, the frame is
+    // wrong (a transform this does not follow), and nothing is cut.
+    const root = walk.rootElement.getBoundingClientRect();
+    const clip = parent.getBoundingClientRect();
+    const seen = shareInside(root, {
+      x: clip.x + parent.clientLeft,
+      y: clip.y + parent.clientTop,
+      width: parent.clientWidth,
+      height: parent.clientHeight,
+    });
+    const drawn = shareInside({ x: 0, y: 0, width: root.width, height: root.height }, frame);
+    return drawn < seen - 0.1 ? null : frame;
   }
   return null;
+}
+
+// How much of a box lies inside another, from 0 to 1.
+function shareInside(box: Box, inside: Box): number {
+  const width = Math.min(box.x + box.width, inside.x + inside.width) - Math.max(box.x, inside.x);
+  const height = Math.min(box.y + box.height, inside.y + inside.height) - Math.max(box.y, inside.y);
+  const area = box.width * box.height;
+  return area <= 0 ? 1 : (Math.max(0, width) * Math.max(0, height)) / area;
 }
 
 // How far an element's transforms move it, when all they do is move it.

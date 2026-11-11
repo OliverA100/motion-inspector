@@ -892,3 +892,12 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - A take is named by when its own motion began: loops already running when picked are left out of that.
 - The note says "more parts were left out", not "smaller": they are the ones later in the page.
 **Why:** a round button on oliverhassan.dev was drawn cut in half: it sits in a box centred with left: 50% and a -640 px translate. Vercel's backends card left out its peeled flap, the last part of a busy card, and its hover was named "Loops" by the chat's typing dots, running since long before.
+
+### D154. The preview says when it differs from the page
+**Chose:**
+- While a take runs, every part under the picked element that draws something (up to 300) is looked at about eight times a second: its place, size and opacity, and its look (colors, clip, filter, dashes). A part that changed step by step, with two different changed values or more, and that nothing in the take explains (a track or rule of its own or of a part around it, or an animation the browser lists) is named in a new optional field, `Capture.missed`. An instant change, such as a :hover color with no transition, is one step and is not named.
+- Between takes it is watched more slowly (about three times a second). Something that moves with nothing the browser lists and no style a script writes (an SVG `<animate>`) gives a take with no tracks that names it, once it settles or when recording stops, instead of nothing at all.
+- The badge is green only when nothing is known to differ. Otherwise it says the first of: parts missing, properties not drawn, the distance, things left out. Its tooltip says all of them. Notes about the drawing, not about motion (parts that do not move left out to keep it simple, a gradient drawn as its average), do not count.
+- The description ends by naming what the take misses.
+- A clipping frame that would hide more of the element than its clipping parent does on screen is dropped.
+**Why:** the self-check compared only where drawn parts were and how opaque, so it said "Matches the page · 0 px" with Vercel's flap missing, a button cut in half, and a line that never drew. Problems were found by eye, one site at a time.

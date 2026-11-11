@@ -24,7 +24,7 @@ import { Stage } from './pieces/Stage';
 import { layoutReach } from './draw/stage';
 import { Timeline } from './pieces/Timeline';
 import { createProbe, isPreviewed, type Probe } from './probe';
-import { selfCheck, selfCheckBadge } from './selfCheck';
+import { aboutMotion, previewBadge, selfCheck } from './selfCheck';
 import { CheckIcon, RedoIcon, ResetIcon, UndoIcon, WarnIcon } from './pieces/icons';
 import { useFollowing, withFollows } from './following';
 import type { Msg, Speed } from './state/model';
@@ -293,7 +293,20 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
     () =>
       probes === null
         ? null
-        : selfCheckBadge(selfCheck(original, (time) => probes.original.poses(original, time))),
+        : previewBadge(
+            selfCheck(original, (time) => probes.original.poses(original, time)),
+            {
+              missed: original.missed,
+              notDrawn: Array.from(
+                new Set(
+                  original.tracks
+                    .map((track) => track.property)
+                    .filter((name) => !isPreviewed(name)),
+                ),
+              ),
+              leftOut: original.notShown.filter(aboutMotion).length,
+            },
+          ),
     [probes, original],
   );
 

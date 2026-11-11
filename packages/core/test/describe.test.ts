@@ -202,3 +202,11 @@ describe('special properties in plain words', () => {
     ).toBe('The element slants 20 degrees');
   });
 });
+
+test('parts the take misses are named at the end', () => {
+  expect(
+    describeCapture({ ...cardLift, missed: [{ label: 'rect', what: 'moved' }] }).endsWith(
+      '1 part changed on the page that this preview misses: "rect".',
+    ),
+  ).toBe(true);
+});

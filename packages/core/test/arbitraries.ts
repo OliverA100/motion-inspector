@@ -378,6 +378,12 @@ export const rawCapture: fc.Arbitrary<unknown> = rawRoot
         fc.record({ x: anyNumber, y: anyNumber, width: zeroOrMore, height: zeroOrMore }),
       ),
       notShown: fc.array(fc.string(), { maxLength: 3 }),
+      missed: fc.oneof(
+        fc.constant(null),
+        fc.array(fc.record({ label: fc.string(), what: fc.constantFrom('moved', 'look') }), {
+          maxLength: 3,
+        }),
+      ),
     }),
   );
 

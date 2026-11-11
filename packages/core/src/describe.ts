@@ -783,6 +783,16 @@ function followSentence(capture: Capture, follow: Follow): string {
 
 const MAX_GROUPS_DESCRIBED = 5;
 
+// Parts the take misses, said plainly at the end.
+function missedSentence(capture: Capture): string | null {
+  const missed = capture.missed ?? [];
+  if (missed.length === 0) return null;
+  const names = missed.map((item) => `"${item.label}"`).join(', ');
+  return missed.length === 1
+    ? `1 part changed on the page that this preview misses: ${names}.`
+    : `${missed.length} parts changed on the page that this preview misses: ${names}.`;
+}
+
 export function describeCapture(capture: Capture): string {
   // Layout tracks follow from the animations; they get one sentence of
   // their own at the end.
@@ -804,6 +814,7 @@ export function describeCapture(capture: Capture): string {
   const described = groups.slice(0, MAX_GROUPS_DESCRIBED).flatMap(sentencesFor);
   const left = groups.slice(MAX_GROUPS_DESCRIBED).reduce((count, group) => count + group.length, 0);
   const notShown = capture.notShown.length;
+  const missed = missedSentence(capture);
 
   return [
     ...(motions.length === 0 && (capture.follows ?? []).length === 0
@@ -830,5 +841,6 @@ export function describeCapture(capture: Capture): string {
             ? '1 thing is left out of this preview.'
             : `${notShown} things are left out of this preview.`,
         ]),
+    ...(missed === null ? [] : [missed]),
   ].join(' ');
 }

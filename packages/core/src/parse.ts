@@ -27,6 +27,7 @@ import type {
   GroupId,
   IconPath,
   Measured,
+  Missed,
   OffsetPath,
   Follow,
   FollowChannel,
@@ -1102,6 +1103,10 @@ export function parseCapture(value: unknown): Result<Capture> {
     const frame = at('frame', optional(get(source, 'frame'), parseBox));
     const measured = at('measured', optional(get(source, 'measured'), parseMeasuredList));
     const follows = at('follows', optional(get(source, 'follows'), parseFollowList));
+    const missed = at(
+      'missed',
+      optional(get(source, 'missed'), (value) => listOf(value, parseMissed)),
+    );
     const trigger = at(
       'trigger',
       optional(get(source, 'trigger'), (value) => oneOf(value, TRIGGERS)),
@@ -1115,7 +1120,8 @@ export function parseCapture(value: unknown): Result<Capture> {
       !frame.ok ||
       !trigger.ok ||
       !measured.ok ||
-      !follows.ok
+      !follows.ok ||
+      !missed.ok
     ) {
       return failAll(
         [
@@ -1128,6 +1134,7 @@ export function parseCapture(value: unknown): Result<Capture> {
           trigger,
           measured,
           follows,
+          missed,
         ].flatMap(errorsOf),
       );
     }
@@ -1141,7 +1148,17 @@ export function parseCapture(value: unknown): Result<Capture> {
       measured: measured.value,
       follows: follows.value,
       notShown: notShown.value,
+      missed: missed.value === null || missed.value.length === 0 ? null : missed.value,
     });
+  });
+}
+
+function parseMissed(value: unknown): Result<Missed> {
+  return andThen(fields(value), (source) => {
+    const label = at('label', text(get(source, 'label')));
+    const what = at('what', oneOf(get(source, 'what'), ['moved', 'look'] as const));
+    if (!label.ok || !what.ok) return failAll([label, what].flatMap(errorsOf));
+    return ok({ label: label.value, what: what.value });
   });
 }
 

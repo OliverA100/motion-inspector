@@ -22,6 +22,7 @@ import {
   type Capture,
   type Easing,
   type Follow,
+  type Missed,
   type PointerSample,
   type ParsedValue,
   type TransformFunction,
@@ -1698,6 +1699,172 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
   return 'unknown';
 }
 
+// ---------- What the take misses ----------
+
+// While a take runs, every part under the picked element that draws
+// something is looked at a few times a second: its place, size and
+// opacity, and its look. A part that changed step by step (two different
+// changed values or more: an instant :hover flip is one) and that nothing
+// in the take explains is what the preview misses, and the editor says so
+// rather than claim the preview matches the page.
+const WATCH_EVERY_MS = 120;
+const MOST_WATCHED = 300;
+const MOST_MISSED = 8;
+
+type Watched = { place: string; look: string; places: Set<string>; looks: Set<string> };
+export type Watch = Map<Element, Watched>;
+
+// Whether a part draws anything of its own.
+function drawsSomething(element: Element, style: CSSStyleDeclaration): boolean {
+  if (
+    [
+      'img',
+      'svg',
+      'canvas',
+      'video',
+      'path',
+      'circle',
+      'rect',
+      'line',
+      'polygon',
+      'ellipse',
+    ].includes(element.tagName.toLowerCase())
+  ) {
+    return true;
+  }
+  const color = style.backgroundColor;
+  const seeThrough = color === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(color);
+  return (
+    !seeThrough ||
+    style.backgroundImage !== 'none' ||
+    (parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== 'none') ||
+    style.boxShadow !== 'none' ||
+    Array.from(element.childNodes).some(
+      (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '',
+    )
+  );
+}
+
+// The parts to watch, listed when a take begins.
+function partsToWatch(snapshot: Snapshot): Element[] {
+  const all = [
+    snapshot.rootElement,
+    ...Array.from(snapshot.rootElement.querySelectorAll('*')),
+    ...snapshot.shadowRoots.flatMap((root) => Array.from(root.querySelectorAll('*'))),
+  ];
+  const drawn: Element[] = [];
+  for (const element of all) {
+    if (drawn.length >= MOST_WATCHED) break;
+    if (drawsSomething(element, getComputedStyle(element))) drawn.push(element);
+  }
+  return drawn;
+}
+
+// One look at a part. In page coordinates, so scrolling is not motion.
+function lookAt(element: Element): { place: string; look: string } {
+  const box = element.getBoundingClientRect();
+  const style = getComputedStyle(element);
+  const place = [
+    Math.round(box.x + window.scrollX),
+    Math.round(box.y + window.scrollY),
+    Math.round(box.width),
+    Math.round(box.height),
+    // In steps of 5%.
+    Math.round(parseFloat(style.opacity) * 20),
+  ].join(',');
+  const look = [
+    style.backgroundColor,
+    style.color,
+    style.borderTopColor,
+    style.clipPath,
+    style.filter,
+    style.strokeDashoffset,
+    style.fill,
+  ].join('|');
+  return { place, look };
+}
+
+// Returns true when something was seen to change this time.
+export function watchOnce(watch: Watch, parts: Element[]): boolean {
+  let changed = false;
+  for (const element of parts) {
+    if (!element.isConnected) continue;
+    const now = lookAt(element);
+    const known = watch.get(element);
+    if (known === undefined) {
+      watch.set(element, { ...now, places: new Set(), looks: new Set() });
+      continue;
+    }
+    if (now.place !== known.place && !known.places.has(now.place) && known.places.size < 3) {
+      known.places.add(now.place);
+      changed = true;
+    }
+    if (now.look !== known.look && !known.looks.has(now.look) && known.looks.size < 3) {
+      known.looks.add(now.look);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+// Two watches of one take (a hover and its way back): the first one's
+// starting values, and what either saw change.
+export function joinWatches(first: Watch, second: Watch): Watch {
+  const joined: Watch = new Map(first);
+  for (const [element, seen] of second) {
+    const before = joined.get(element);
+    joined.set(
+      element,
+      before === undefined
+        ? seen
+        : {
+            ...before,
+            places: new Set([...before.places, ...seen.places]),
+            looks: new Set([...before.looks, ...seen.looks]),
+          },
+    );
+  }
+  return joined;
+}
+
+// The parts that changed step by step and that nothing in the take
+// explains. A part explains itself and what is inside it: its own tracks,
+// a rule it follows, or an animation of it the take lists as not shown.
+function missedBy(watch: Watch, explained: Set<Element>): Missed[] {
+  const isExplained = (element: Element): boolean => {
+    for (let at: Node | null = element; at !== null;) {
+      if (at instanceof Element && explained.has(at)) return true;
+      at = at.parentNode ?? null;
+      if (at instanceof ShadowRoot) at = at.host;
+    }
+    return false;
+  };
+  const missed: { element: Element; what: Missed['what'] }[] = [];
+  for (const [element, seen] of watch) {
+    const what = seen.places.size >= 2 ? 'moved' : seen.looks.size >= 2 ? 'look' : null;
+    if (what === null || !element.isConnected || isExplained(element)) continue;
+    missed.push({ element, what });
+  }
+  // The outermost of a missed part and what is inside it is said once.
+  const outermost = missed.filter(
+    (item) => !missed.some((other) => other !== item && other.element.contains(item.element)),
+  );
+  return outermost.slice(0, MOST_MISSED).map((item) => ({
+    label: labelOf(item.element),
+    what: item.what,
+  }));
+}
+
+// The parts a browser animation is moving now: what moves them can be
+// read, even when it is not in the take (a loop that ran before the pick).
+function animatedNow(snapshot: Snapshot): Element[] {
+  return animationsUnder(snapshot.rootElement, snapshot.shadowRoots).flatMap((animation) =>
+    animation.effect instanceof KeyframeEffect && animation.effect.target !== null
+      ? [animation.effect.target]
+      : [],
+  );
+}
+
 function buildTake(
   snapshot: Snapshot,
   take: Seen[],
@@ -1706,6 +1873,7 @@ function buildTake(
   trigger: Trigger | null = null,
   film: Film = new Map(),
   scripted: Set<Element> = new Set(),
+  watch: Watch = new Map(),
 ): TakeResult {
   // Parts that were hidden at pick time and appeared for this animation get
   // their shapes now.
@@ -1832,6 +2000,21 @@ function buildTake(
     );
     shape.opacity = fades ? fade.from : fade.to;
   }
+  // What explains a part: the parts with tracks or a rule, and those whose
+  // animations the take saw, drawn or listed.
+  const trackedIds = new Set(
+    [...tracks, ...layout, ...scripts, ...removals, ...follows].map(
+      (item) => (item as { shapeId?: unknown }).shapeId,
+    ),
+  );
+  const explained = new Set<Element>([
+    ...take.map((seen) => seen.target),
+    ...animatedNow(snapshot),
+    ...Array.from(snapshot.ownerOf)
+      .filter(([shape]) => trackedIds.has(shape.id))
+      .map(([, element]) => element),
+  ]);
+  const missed = missedBy(watch, explained);
   const raw = {
     source: {
       url: window.location.href,
@@ -1878,6 +2061,7 @@ function buildTake(
           : []),
       ]),
     ),
+    missed: missed.length > 0 ? missed : null,
   };
   // A last guard: an id used twice would make core reject the whole take.
   // A repeat is renamed; tracks keep pointing at the first.
@@ -2071,6 +2255,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // describes: a script writing inline styles frame by frame.
   let film: Film = new Map();
   let previousFilm: Film = new Map();
+  // What the take misses: every part that draws, watched while it runs.
+  let watch: Watch = new Map();
+  let previousWatch: Watch = new Map();
+  let watchList: Element[] = [];
+  let lastWatched = -Infinity;
+  // Between takes, the element is watched more slowly: something that moves
+  // with no animation the browser lists and no style a script writes (an
+  // SVG <animate>, a canvas-free trick) would otherwise leave no take at
+  // all. When it settles, a take with no tracks says what moved.
+  const IDLE_WATCH_MS = 300;
+  const SETTLES_MS = 500;
+  let idleWatch: Watch = new Map();
+  let idleList: Element[] = [];
+  let lastIdleWatched = -Infinity;
+  let idleChangeBegan: number | null = null;
+  let idleChangeLast = 0;
   let scripted = new Set<Element>();
   // Every element inside when the element was picked, to tell a part made
   // later from one that was there.
@@ -2270,6 +2470,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     film = new Map();
     scripted = new Set();
     lastFilmed = -Infinity;
+    watch = new Map();
   };
 
   const endTake = (quick = false): void => {
@@ -2318,6 +2519,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     const finishedSamples = samples;
     const finishedFilm = film;
     const finishedScripted = scripted;
+    // Set aside with the film: clearing the film starts a new watch.
+    const takenWatch = watch;
     restingFrames = new Map();
     for (const element of finishedScripted) {
       const last = finishedFilm.get(element)?.at(-1);
@@ -2408,6 +2611,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       previous = null;
       previousSamples = [];
       previousFilm = new Map();
+      const mergedWatch = joinWatches(previousWatch, takenWatch);
+      previousWatch = new Map();
       const first = triggerOf(snapshot.rootElement, previousTake);
       const second = triggerOf(snapshot.rootElement, finished);
       const trigger: Trigger =
@@ -2424,6 +2629,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
           trigger,
           mergedFilm,
           new Set([...finishedScripted]),
+          mergedWatch,
         ),
         replaces: true,
       });
@@ -2432,6 +2638,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     previous = finished;
     previousSamples = finishedSamples;
     previousFilm = finishedFilm;
+    const finishedWatch = takenWatch;
+    previousWatch = finishedWatch;
     lastTakeEnd = performance.now();
     const notes = [...chainNote];
     if (finished.some((seen) => seen.viewTransition)) notes.push(VIEW_TRANSITION_NOTE);
@@ -2453,6 +2661,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       cutTrigger ?? options.trigger ?? null,
       finishedFilm,
       finishedScripted,
+      finishedWatch,
     );
     const capture = result.capture;
     // Only the end of something that was already moving when the element
@@ -2550,6 +2759,35 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       );
       return times.length === 0 || Math.max(...times) - Math.min(...times) < turn;
     });
+
+  // A take with no tracks for what the idle watch saw change step by step
+  // and nothing explains. False when there is nothing to send.
+  const sendIdleMissed = (): boolean => {
+    if (
+      idleChangeBegan === null ||
+      missedBy(idleWatch, new Set(animatedNow(snapshot))).length === 0
+    ) {
+      return false;
+    }
+    const began = idleChangeBegan;
+    const seen = idleWatch;
+    idleWatch = new Map();
+    idleChangeBegan = null;
+    lastTakeEnd = performance.now();
+    options.onTake(
+      buildTake(
+        snapshot,
+        [],
+        [],
+        [],
+        triggerOf(snapshot.rootElement, [], began),
+        new Map(),
+        new Set(),
+        seen,
+      ),
+    );
+    return true;
+  };
 
   const onFrame = (): void => {
     const now = performance.now();
@@ -2685,6 +2923,30 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       now - lastStyleChange < 150 ||
       (!settled && Array.from(scripted).some((element) => element.matches(':hover')));
     const docNow = asNumber(document.timeline.currentTime) ?? now;
+    // The whole element, watched while a take runs, for what it misses.
+    if (take.length > 0 || scriptActive || scripted.size > 0) {
+      if (watch.size === 0) watchList = partsToWatch(snapshot);
+      if (watch.size === 0 || now - lastWatched >= WATCH_EVERY_MS) {
+        lastWatched = now;
+        watchOnce(watch, watchList);
+      }
+      idleWatch = new Map();
+      idleChangeBegan = null;
+    } else if (now - lastIdleWatched >= IDLE_WATCH_MS) {
+      lastIdleWatched = now;
+      if (idleWatch.size === 0) idleList = partsToWatch(snapshot);
+      if (watchOnce(idleWatch, idleList)) {
+        idleChangeBegan ??= docNow;
+        idleChangeLast = now;
+      }
+      if (idleChangeBegan !== null && now - idleChangeLast >= SETTLES_MS && sendIdleMissed()) {
+        // Sent.
+      } else if (idleChangeBegan !== null && now - idleChangeLast >= SETTLES_MS) {
+        // A change, but only one step (a :hover flip): watched afresh.
+        idleWatch = new Map();
+        idleChangeBegan = null;
+      }
+    }
     if (
       (take.length > 0 || scriptActive || scripted.size > 0) &&
       docNow - lastFilmed >= FILM_EVERY_MS
@@ -2783,6 +3045,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       watcher.disconnect();
       cancelAnimationFrame(frame);
       endTake();
+      sendIdleMissed();
     },
   };
 }

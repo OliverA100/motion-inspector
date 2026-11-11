@@ -62,7 +62,15 @@ export type Capture = {
   // What the preview leaves out, each in plain words: animations we saw but
   // cannot draw, and things drawn more simply than on the page.
   notShown: string[];
+  // Parts that changed on the page while the take ran, step by step, and
+  // that nothing in the take explains: what the preview misses. null when
+  // nothing was missed, and in takes saved before this was looked for.
+  missed: Missed[] | null;
 };
+
+// A part of the page the take does not explain. moved: its place, size or
+// opacity changed; look: its color, clip or filter did.
+export type Missed = { label: string; what: 'moved' | 'look' };
 
 export type Measured = {
   shapeId: ShapeId;

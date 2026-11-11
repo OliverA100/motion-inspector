@@ -154,6 +154,94 @@ const sites = [
     ['antd-modal', 'https://ant.design/components/modal'],
     ['catalyst-switch', 'https://catalyst.tailwindui.com/docs/switch'],
   ].map(([name, url]) => ({ name: `c-${name}`, url, click: 6, hover: 1 })),
+  // A wide sweep of component libraries, judged by the editor's badge:
+  // run with "node tests/sweep.cjs w-".
+  ...[
+    ['radix-dropdown', 'https://www.radix-ui.com/primitives/docs/components/dropdown-menu'],
+    ['radix-dialog', 'https://www.radix-ui.com/primitives/docs/components/dialog'],
+    ['radix-popover', 'https://www.radix-ui.com/primitives/docs/components/popover'],
+    ['radix-tooltip', 'https://www.radix-ui.com/primitives/docs/components/tooltip'],
+    ['radix-collapsible', 'https://www.radix-ui.com/primitives/docs/components/collapsible'],
+    ['radix-hover-card', 'https://www.radix-ui.com/primitives/docs/components/hover-card'],
+    ['radix-navigation', 'https://www.radix-ui.com/primitives/docs/components/navigation-menu'],
+    ['radix-checkbox', 'https://www.radix-ui.com/primitives/docs/components/checkbox'],
+    ['radix-toast', 'https://www.radix-ui.com/primitives/docs/components/toast'],
+    ['shadcn-sheet', 'https://ui.shadcn.com/docs/components/sheet'],
+    ['shadcn-hover-card', 'https://ui.shadcn.com/docs/components/hover-card'],
+    ['shadcn-tooltip', 'https://ui.shadcn.com/docs/components/tooltip'],
+    ['shadcn-tabs', 'https://ui.shadcn.com/docs/components/tabs'],
+    ['shadcn-collapsible', 'https://ui.shadcn.com/docs/components/collapsible'],
+    ['shadcn-toggle', 'https://ui.shadcn.com/docs/components/toggle'],
+    ['shadcn-sonner', 'https://ui.shadcn.com/docs/components/sonner'],
+    ['shadcn-drawer', 'https://ui.shadcn.com/docs/components/drawer'],
+    ['shadcn-carousel', 'https://ui.shadcn.com/docs/components/carousel'],
+    ['shadcn-popover', 'https://ui.shadcn.com/docs/components/popover'],
+    ['shadcn-select', 'https://ui.shadcn.com/docs/components/select'],
+    ['mantine-menu', 'https://mantine.dev/core/menu/'],
+    ['mantine-popover', 'https://mantine.dev/core/popover/'],
+    ['mantine-tooltip', 'https://mantine.dev/core/tooltip/'],
+    ['mantine-modal', 'https://mantine.dev/core/modal/'],
+    ['mantine-drawer', 'https://mantine.dev/core/drawer/'],
+    ['mantine-tabs', 'https://mantine.dev/core/tabs/'],
+    ['mantine-button', 'https://mantine.dev/core/button/'],
+    ['mantine-loader', 'https://mantine.dev/core/loader/'],
+    ['mantine-transition', 'https://mantine.dev/core/transition/'],
+    ['chakra-menu', 'https://www.chakra-ui.com/docs/components/menu'],
+    ['chakra-popover', 'https://www.chakra-ui.com/docs/components/popover'],
+    ['chakra-tooltip', 'https://www.chakra-ui.com/docs/components/tooltip'],
+    ['chakra-tabs', 'https://www.chakra-ui.com/docs/components/tabs'],
+    ['chakra-dialog', 'https://www.chakra-ui.com/docs/components/dialog'],
+    ['chakra-button', 'https://www.chakra-ui.com/docs/components/button'],
+    ['mui-button', 'https://mui.com/material-ui/react-button/'],
+    ['mui-dialog', 'https://mui.com/material-ui/react-dialog/'],
+    ['mui-tooltip', 'https://mui.com/material-ui/react-tooltip/'],
+    ['mui-drawer', 'https://mui.com/material-ui/react-drawer/'],
+    ['mui-snackbar', 'https://mui.com/material-ui/react-snackbar/'],
+    ['mui-chip', 'https://mui.com/material-ui/react-chip/'],
+    ['mui-slider', 'https://mui.com/material-ui/react-slider/'],
+    ['mui-speed-dial', 'https://mui.com/material-ui/react-speed-dial/'],
+    ['mui-rating', 'https://mui.com/material-ui/react-rating/'],
+    ['antd-dropdown', 'https://ant.design/components/dropdown'],
+    ['antd-tooltip', 'https://ant.design/components/tooltip'],
+    ['antd-popover', 'https://ant.design/components/popover'],
+    ['antd-tabs', 'https://ant.design/components/tabs'],
+    ['antd-drawer', 'https://ant.design/components/drawer'],
+    ['antd-checkbox', 'https://ant.design/components/checkbox'],
+    ['antd-spin', 'https://ant.design/components/spin'],
+    ['headlessui-menu', 'https://headlessui.com/react/menu'],
+    ['headlessui-listbox', 'https://headlessui.com/react/listbox'],
+    ['headlessui-popover', 'https://headlessui.com/react/popover'],
+    ['headlessui-dialog', 'https://headlessui.com/react/dialog'],
+    ['headlessui-tabs', 'https://headlessui.com/react/tabs'],
+    ['daisyui-modal', 'https://daisyui.com/components/modal/'],
+    ['daisyui-dropdown', 'https://daisyui.com/components/dropdown/'],
+    ['daisyui-tabs', 'https://daisyui.com/components/tab/'],
+    ['daisyui-tooltip', 'https://daisyui.com/components/tooltip/'],
+    ['daisyui-button', 'https://daisyui.com/components/button/'],
+    ['flowbite-dropdown', 'https://flowbite.com/docs/components/dropdowns/'],
+    ['flowbite-modal', 'https://flowbite.com/docs/components/modal/'],
+    ['flowbite-tooltip', 'https://flowbite.com/docs/components/tooltips/'],
+    ['bootstrap-dropdown', 'https://getbootstrap.com/docs/5.3/components/dropdowns/'],
+    ['bootstrap-modal', 'https://getbootstrap.com/docs/5.3/components/modal/'],
+    ['bootstrap-offcanvas', 'https://getbootstrap.com/docs/5.3/components/offcanvas/'],
+    ['bootstrap-carousel', 'https://getbootstrap.com/docs/5.3/components/carousel/'],
+    ['bootstrap-spinners', 'https://getbootstrap.com/docs/5.3/components/spinners/'],
+    ['shoelace-dropdown', 'https://shoelace.style/components/dropdown'],
+    ['shoelace-select', 'https://shoelace.style/components/select'],
+    ['shoelace-details', 'https://shoelace.style/components/details'],
+    ['shoelace-tooltip', 'https://shoelace.style/components/tooltip'],
+    ['aceternity-3d-card', 'https://ui.aceternity.com/components/3d-card-effect'],
+    ['aceternity-moving-border', 'https://ui.aceternity.com/components/moving-border'],
+    ['aceternity-tabs', 'https://ui.aceternity.com/components/tabs'],
+    ['magicui-border-beam', 'https://magicui.design/docs/components/border-beam'],
+    ['magicui-number-ticker', 'https://magicui.design/docs/components/number-ticker'],
+    ['magicui-animated-list', 'https://magicui.design/docs/components/animated-list'],
+    ['magicui-blur-fade', 'https://magicui.design/docs/components/blur-fade'],
+    ['motion-examples', 'https://motion.dev/examples'],
+    ['hyperui-buttons', 'https://www.hyperui.dev/components/marketing/buttons'],
+    ['spinkit', 'https://tobiasahlin.com/spinkit/'],
+    ['loading-io', 'https://loading.io/css/'],
+  ].map(([name, url]) => ({ name: `w-${name}`, url, hover: 4, click: 4, loaders: 2 })),
 ];
 
 // ---------- In the page ----------
@@ -470,7 +558,11 @@ async function previewFrames(editor, capture, length) {
     .locator('.mi__check')
     .getAttribute('title', { timeout: 500 })
     .catch(() => null);
-  return { frames, description, check };
+  const badge = await editor
+    .locator('.mi__check')
+    .innerText({ timeout: 500 })
+    .catch(() => null);
+  return { frames, description, check, badge };
 }
 
 // ---------- One image per site ----------
@@ -634,7 +726,7 @@ async function sweepSite(browser, editor, site) {
           preview: preview.frames,
         });
         lines.push(
-          `${site.name} ${n} ${item.kind} ${label}: ${stats} — CHECK ${check} — ${preview.description}${notes ? ` [${notes}]` : ''}`,
+          `${site.name} ${n} ${item.kind} ${label}: BADGE ${preview.badge ?? 'none'} — ${stats} — CHECK ${check} — ${preview.description}${notes ? ` [${notes}]` : ''}`,
         );
       } catch (error) {
         lines.push(
@@ -664,9 +756,21 @@ async function sweepSite(browser, editor, site) {
     for (const line of lines) console.log(line);
     summary.push(...lines);
   }
+  // The verdicts, counted: green, and amber by what the badge says first.
+  const tally = new Map();
+  for (const line of summary) {
+    const badge = /BADGE (.*?) — /.exec(line)?.[1];
+    if (badge === undefined) continue;
+    const kind = badge.startsWith('Matches')
+      ? 'matches'
+      : badge.replace(/^\d+ /, 'N ').replace(/[\d.]+ px/, 'X px').replace(/: .*/, '');
+    tally.set(kind, (tally.get(kind) ?? 0) + 1);
+  }
+  const tallyLines = Array.from(tally, ([kind, count]) => `  ${count}  ${kind}`).sort();
+  console.log(['', 'Verdicts:', ...tallyLines].join('\n'));
   writeFileSync(
     `${out}/summary-${only === undefined ? 'all' : only[0]}.txt`,
-    summary.join('\n') + '\n',
+    [...summary, '', 'Verdicts:', ...tallyLines].join('\n') + '\n',
   );
   await browser.close();
 })();
