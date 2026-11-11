@@ -37,7 +37,9 @@ export type ToPage =
   | { type: 'cancel' }
   | { type: 'again' }
   | { type: 'where' }
-  | { type: 'whereabouts' };
+  | { type: 'whereabouts' }
+  // parent: move the pick to the part around the picked element.
+  | { type: 'parent' };
 
 // How the capture script finds an element again after the page reloads.
 export type Whereabouts = { path: string; short: string; index: number; label: string };

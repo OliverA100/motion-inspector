@@ -1247,3 +1247,19 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D220. Play the hover leaves for the far corner of the window
 **Chose:** after leaving the element on its right, the played pointer jumps to the corner of the window farthest from the element. "Play the click" leaves the same way.
 **Why:** found by hand on oliverhassan.dev. The arrow inside a case-study card moves when the card is hovered (Tailwind's group-hover). Play the hover left the pointer 24 px past the arrow, still on the card, so the page never went back and only "Hover in" was recorded. One jump, so nothing on the way is crossed.
+
+### D221. On a load, recording follows only a part around the element that moves it
+**Chose:** while recording a load, until the picked element moves itself, an animation elsewhere inside a part around it does not move recording there. A part around it that moves (and so moves it) still does.
+**Why:** found by hand on oliverhassan.dev's About page. The photo fading in, 124 ms into the load, moved recording to the whole article; the heading's letters, rising after the intro, were never recorded. Now the take has the letters (62 tracks, 0 px).
+
+### D222. After a move to a part around it, the picked element keeps its own drawing budget
+**Chose:** when recording moves to a part around the picked element, the picked element's parts get the 40-part budget to themselves; the rest of the part around it shares another 40.
+**Why:** the article had more parts than the drawing allows, and the heading's letters, the motion that was picked, were among those left out.
+
+### D223. A new recording's first take is shown
+**Chose:** a take that arrives while the pointer is in the panel replaces the selection only if the selected take is from an earlier recording.
+**Why:** found by hand. After "Load", pressed in the panel, the new take arrived but the take from the element picked before stayed selected. The old rule is kept for a take of the same recording (a hover-out set off by moving to the panel).
+
+### D224. Pick the part around it
+**Chose:** after a pick, the panel offers "Pick the part around it", which moves the pick out one level (to the nearest part with a box, short of the page). While picking, the panel says ↑ and ↓ move to the part around it or inside it.
+**Why:** asked for: a wrapper whose parts cover it all could not be clicked, and the arrow keys were not mentioned anywhere.

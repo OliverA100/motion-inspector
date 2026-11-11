@@ -164,8 +164,8 @@ function statusText(panel: Panel): string {
     case 'picking':
       // With no takes yet, the panel's middle says it under "Pick an element".
       return panel.takes.length === 0
-        ? 'Click it on the page. Esc cancels.'
-        : 'Click an element on the page. Esc cancels.';
+        ? 'Click it on the page. ↑ and ↓ move to the part around it or inside it. Esc cancels.'
+        : 'Click an element on the page. ↑ and ↓ move to the part around it or inside it. Esc cancels.';
     case 'listening': {
       // Say so when the thing being watched is not the thing that was clicked.
       const moved =
@@ -838,9 +838,21 @@ function PanelApp() {
 
       {status.kind === 'ready' && panel.picked !== null ? (
         <section className="xp__ready" aria-label="Record">
-          <p className="xp__ready-name">
-            <code>{panel.picked}</code>
-          </p>
+          <div className="xp__ready-head">
+            <p className="xp__ready-name">
+              <code>{panel.picked}</code>
+            </p>
+            {/* A wrapper whose parts cover it all cannot be clicked: this
+                moves the pick out one level instead. */}
+            <button
+              type="button"
+              className="btn"
+              title="Pick the element this one sits in"
+              onClick={() => tellPage({ type: 'parent' })}
+            >
+              Pick the part around it
+            </button>
+          </div>
           <p className="xp__ready-text">
             {status.nothingFound
               ? nothingFoundText(panel.pickedDraws)

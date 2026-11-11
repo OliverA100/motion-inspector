@@ -48,7 +48,10 @@ export function record(
   takes = [];
   lastElement = element;
   const watch = (watched: Element, moved = false): void => {
-    const snapshot = takeSnapshot(watched);
+    // Moved to a part around the picked element: the picked one keeps a
+    // budget of its own in the drawing (found on oliverhassan.dev: the
+    // heading's letters were left out of the whole article).
+    const snapshot = takeSnapshot(watched, moved ? element : null);
     lastElement = watched;
     if (atLoad) snapshot.runningAtPick = new WeakSet();
     if (moved) snapshot.pickedFrom = element;
@@ -228,6 +231,22 @@ export function choose(where: Whereabouts): string | null {
   pickedWhere = where;
   takes = [];
   return labelOf(element);
+}
+
+// Moves the pick to the part around the picked element: the nearest one
+// with a box of its own, short of the page itself. A wrapper whose children
+// cover it all could only be reached with the picker's up arrow. Returns its
+// label, or null when there is no such part.
+export function pickParent(): string | null {
+  let at = lastElement?.parentElement ?? null;
+  while (at !== null && at.getClientRects().length === 0) at = at.parentElement;
+  if (at === null || at === document.body || at === document.documentElement) return null;
+  recorder?.stop();
+  recorder = null;
+  lastElement = at;
+  pickedWhere = pickedWhereabouts();
+  takes = [];
+  return labelOf(at);
 }
 
 // Lets the user pick an element, without recording it: recording starts

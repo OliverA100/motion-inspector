@@ -345,6 +345,11 @@ type Walk = {
   shapeOf: Map<Element, RawShape>;
   // How many shapes may be made in this walk.
   limit: number;
+  // The element picked first, when recording moved to a part around it:
+  // its parts have a budget of their own (kept counts them), so a big
+  // parent's other parts cannot crowd out what was picked.
+  keep: Element | null;
+  kept: number;
   // False for shapes added after pick time, whose "resting" values would
   // be read when the animation has already happened.
   readsResting: boolean;
@@ -357,6 +362,18 @@ type Walk = {
     'shapeIdOf' | 'resting' | 'shadowRoots' | 'pseudoParts' | 'fadingAtPick'
   >;
 };
+
+// Whether there is no room left in the walk for one more shape of this
+// element. See Walk.keep.
+function full(walk: Walk, element: Element): boolean {
+  if (walk.keep !== null && walk.keep.contains(element)) return walk.kept >= walk.limit;
+  return walk.count - walk.kept >= walk.limit;
+}
+
+function spend(walk: Walk, element: Element): void {
+  walk.count += 1;
+  if (walk.keep !== null && walk.keep.contains(element)) walk.kept += 1;
+}
 
 function readResting(element: Element): Map<string, string> {
   const style = getComputedStyle(element);
@@ -1375,14 +1392,14 @@ function pseudoShape(
     shadowLayers(style.boxShadow) !== null ||
     outlineOf(style) !== null;
   if (!paints && !mayAnimate(style)) return null;
-  if (walk.count >= walk.limit) {
+  if (full(walk, element)) {
     walk.leftOut += 1;
     return null;
   }
   const id = `${parentId}.${walk.count}`;
   const shape = boxShape(walk, element, style, box, id, false);
   shape.label = `${labelOf(element)}${pseudo}`;
-  walk.count += 1;
+  spend(walk, element);
   if (shows) {
     const fontSize = parseFloat(style.fontSize);
     const barHeight = Math.min(
@@ -1493,11 +1510,11 @@ function textBars(
   const fontSize = parseFloat(getComputedStyle(parent.element).fontSize);
   return Array.from(range.getClientRects()).flatMap((rect, index): RawShape[] => {
     if (rect.width === 0 || rect.height === 0) return [];
-    if (walk.count >= walk.limit) {
+    if (full(walk, parent.element)) {
       walk.leftOut += 1;
       return [];
     }
-    walk.count += 1;
+    spend(walk, parent.element);
     const lineHeight = rect.height / scale;
     const height = Number.isFinite(fontSize)
       ? Math.min(fontSize * 0.55, lineHeight * 0.8)
@@ -1616,7 +1633,7 @@ function shapesFor(
   const clipShape = style.clipPath !== 'none' && element.childElementCount > 0;
   const getsShape = isRoot || force || paints || clips || clipShape || mayAnimate(style);
 
-  if (getsShape && walk.count >= walk.limit) {
+  if (getsShape && full(walk, element)) {
     walk.leftOut += 1;
     return [];
   }
@@ -1633,7 +1650,7 @@ function shapesFor(
         ? iconShape(walk, element, style, rect, id)
         : boxShape(walk, element, style, rect, id, isImage)));
   if (shape !== null) {
-    walk.count += 1;
+    spend(walk, element);
     walk.snapshot.shapeIdOf.set(element, id);
     walk.shapeOf.set(element, shape);
     walk.ownerOf.set(shape, element);
@@ -1934,7 +1951,7 @@ function translationOf(
   return onlyMoves ? { x: matrix.e, y: matrix.f } : null;
 }
 
-export function takeSnapshot(rootElement: Element): Snapshot {
+export function takeSnapshot(rootElement: Element, keep: Element | null = null): Snapshot {
   const walk: Walk = {
     rootElement,
     rootRect: rootElement.getBoundingClientRect(),
@@ -1944,6 +1961,8 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     maskedByImage: false,
     shapeOf: new Map(),
     limit: MOST_SHAPES,
+    keep,
+    kept: 0,
     readsResting: true,
     skip: new Set(),
     boxAtPick: new Map(),
@@ -2736,6 +2755,8 @@ function lateWalk(snapshot: Snapshot): Walk {
     maskedByImage: false,
     shapeOf: snapshot.shapeOf,
     limit: count + LATE_SHAPES,
+    keep: null,
+    kept: 0,
     readsResting: false,
     skip: new Set(snapshot.shapeIdOf.keys()),
     boxAtPick: snapshot.boxAtPick,

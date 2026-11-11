@@ -122,6 +122,25 @@ describe('the states of the side panel', () => {
     expect(panel.status).toMatchObject({ kind: 'listening', found: 1 });
   });
 
+  test('the first take of a new recording is shown, even with the pointer in the panel', () => {
+    // Play the load is pressed in the panel; the pointer stays there. A take
+    // left from the element picked before must not stay selected.
+    const panel = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked', label: 'div.flex', draws: null },
+      { kind: 'recordingStarted' },
+      { kind: 'takeArrived', take: take('earlier'), replaced: false },
+      { kind: 'pointerMoved', inPanel: true },
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked', label: 'h1', draws: null },
+      // Back in the panel, to press Load.
+      { kind: 'pointerMoved', inPanel: true },
+      { kind: 'recordingStarted' },
+      { kind: 'takeArrived', take: take('letters'), replaced: false },
+    ]);
+    expect(selectedTake(panel)?.id).toBe('letters');
+  });
+
   test('a take that arrives while the pointer is in the panel is listed, not shown', () => {
     // The hover-out that plays as the user moves to the panel must not
     // replace the hover they just captured.

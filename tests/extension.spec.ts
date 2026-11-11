@@ -80,7 +80,9 @@ test('the capture script is not on the page until Pick element is pressed', asyn
   await panel.getByRole('button', { name: 'Pick element' }).click();
   await expect(pickerOnPage).toHaveCount(1);
   await expect(panel.getByRole('heading', { name: 'Pick an element' })).toBeVisible();
-  await expect(status(panel)).toHaveText('Click it on the page. Esc cancels.');
+  await expect(status(panel)).toHaveText(
+    'Click it on the page. ↑ and ↓ move to the part around it or inside it. Esc cancels.',
+  );
   await expect(panel.getByRole('button', { name: 'Cancel' })).toBeVisible();
 });
 
@@ -345,6 +347,23 @@ test('Play the hover leaves the card around the element too', async ({ context, 
   await expect(panel.locator('.xp__take', { hasText: 'Hover in and out' })).toHaveCount(1, {
     timeout: 8000,
   });
+});
+
+// Asked for: a wrapper whose parts cover it all could not be clicked.
+test('Pick the part around it moves the pick out one level', async ({ context, extensionId }) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await site.evaluate(() => {
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="sp-wrap" style="display: flex; width: 200px"><span id="sp-inner" style="display: block; flex: 1; height: 40px; background: #ccc"></span></div>';
+    document.body.prepend(holder);
+  });
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.click('#sp-inner');
+  await expect(panel.locator('.xp__ready-name')).toHaveText('span');
+  await panel.getByRole('button', { name: 'Pick the part around it' }).click();
+  await expect(panel.locator('.xp__ready-name')).toHaveText('div');
 });
 
 test('recording stops by itself when the motion is done, and can record again', async ({

@@ -183,7 +183,17 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
       // Moving the mouse from the page to the panel plays the element's
       // hover-out, and that must not replace the hover just captured. It
       // goes into the list instead (found walking the flow as a user would).
-      const keep = panel.pointerInPanel && panel.selectedId !== null;
+      // Only a take of this same recording is kept: one left from an earlier
+      // recording gives way (found by hand: after Play the load, with the
+      // pointer in the panel all along, the new take stayed unselected).
+      const thisRecording =
+        panel.status.kind === 'listening'
+          ? panel.takes.slice(0, panel.status.found).map((take) => take.id)
+          : [];
+      const keep =
+        panel.pointerInPanel &&
+        panel.selectedId !== null &&
+        thisRecording.includes(panel.selectedId);
       return {
         ...panel,
         status,

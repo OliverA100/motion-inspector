@@ -16,6 +16,7 @@ declare const MotionCapture: {
   pick: () => Promise<string | null>;
   choose: (where: Whereabouts) => string | null;
   pickedWhereabouts: () => Whereabouts | null;
+  pickParent: () => string | null;
   drawsItself: () => 'canvas' | 'video' | null;
   recordAgain: (
     onTake: (take: TakeResult) => void,
@@ -88,6 +89,10 @@ const onMessage = (
     answer(rect === null ? null : { ...rect, frame });
   }
   if (message.type === 'whereabouts') answer(capture.pickedWhereabouts());
+  if (message.type === 'parent') {
+    const label = capture.pickParent();
+    if (label !== null) send(picked(label));
+  }
   if (message.type === 'cancel') capture.cancelPicking();
   if (message.type === 'again') {
     // A failure is said, not swallowed: the panel would wait in silence.

@@ -396,7 +396,17 @@ body {
   border-radius: var(--radius-2);
 }
 
+/* The picked element's name, and a way to pick the part around it. */
+.xp__ready-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .xp__ready-name {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   overflow: hidden;
   font-size: var(--text-body);

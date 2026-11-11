@@ -2791,6 +2791,15 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       }
       const together = now - lastPickedStart <= SAME_TRIGGER_MS;
       if (foundAnything && !together) continue;
+      // On a load everything on the page starts to move. Until the picked
+      // element moves itself, only a part around it that moves (and so moves
+      // it) is followed, not something in another branch (found on
+      // oliverhassan.dev's About page: the photo fading in moved recording
+      // to the whole article, and the heading's letters, rising after the
+      // intro, were never recorded).
+      if (options.trigger === 'load' && !foundAnything && !target.contains(snapshot.rootElement)) {
+        continue;
+      }
       // Just expanded a part it names: what opens there comes first, so
       // the buttons beside it changing color wait a moment (Stripe's nav).
       if (justExpanded()) {
