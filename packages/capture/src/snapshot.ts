@@ -2510,18 +2510,38 @@ export function frameSvgPart(
   origin: { x: number; y: number },
 ): ReturnType<typeof frameNow> {
   const frame = frameNow(element);
-  const now = svgGeometryOf(element, true);
-  if (drawnWith === null || now === null || drawnWith.width <= 0 || drawnWith.height <= 0) {
-    return frame;
-  }
-  const sx = now.width / drawnWith.width;
-  const sy = now.height / drawnWith.height;
-  const geometry = new DOMMatrix([sx, 0, 0, sy, now.x - sx * drawnWith.x, now.y - sy * drawnWith.y]);
-  // The stage turns the part about its origin (its shape's, as picked): the
-  // geometry change comes first, then its transform, both about that point.
   const { x: ox, y: oy } = origin;
-  const [a, b, c, d, e, f] = frame.matrix;
-  const matrix = new DOMMatrix([a, b, c, d, e, f])
+  // Its own transform, about its origin. Moving along a path
+  // (<animateMotion>) is not in the computed style; it is in the matrix
+  // the browser places the part with, which is read instead.
+  let own = new DOMMatrix([...frame.matrix]);
+  const parent = element.parentElement;
+  if (
+    element.querySelector(':scope > animateMotion') !== null &&
+    element instanceof SVGGraphicsElement &&
+    parent instanceof SVGGraphicsElement
+  ) {
+    const placed = element.getCTM();
+    const around = parent.getCTM();
+    if (placed !== null && around !== null) {
+      own = new DOMMatrix()
+        .translate(-ox, -oy)
+        .multiply(DOMMatrix.fromMatrix(around).inverse().multiply(DOMMatrix.fromMatrix(placed)))
+        .translate(ox, oy);
+    }
+  }
+  const now = svgGeometryOf(element, true);
+  // A change of its geometry: the scale and move that take the outline it
+  // was drawn with to the one it has now, about the same point.
+  const geometry =
+    drawnWith === null || now === null || drawnWith.width <= 0 || drawnWith.height <= 0
+      ? new DOMMatrix()
+      : (() => {
+          const sx = now.width / drawnWith.width;
+          const sy = now.height / drawnWith.height;
+          return new DOMMatrix([sx, 0, 0, sy, now.x - sx * drawnWith.x, now.y - sy * drawnWith.y]);
+        })();
+  const matrix = own
     .multiply(new DOMMatrix().translate(-ox, -oy))
     .multiply(geometry)
     .multiply(new DOMMatrix().translate(ox, oy));

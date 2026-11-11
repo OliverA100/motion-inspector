@@ -1002,7 +1002,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - A loop (repeatCount="indefinite") is filmed for one turn, put in the order of the turn from its start (SMIL says how far into its turn it is), closed so it repeats without a seam, and shown repeating forever. A negative delay keeps the preview in step with the page.
 - The CSS export says a script or an SVG animation moves such a part, not a CSS rule. The descriptions say a measured loop goes "and back" when it ends within 5% of where it began.
 **Why:** SVG spinners are often SMIL. Their parts were reported as changed and missed. A pulsing circle now reads "scales to 2 and back over 1.5 s. It repeats forever." and matches the page.
-**Not done:** <animateMotion>, and SMIL that changes a path's d or a line's ends, are still reported as missed.
+**Not done:** SMIL that changes a path's d or a line's ends is still reported as missed (<animateMotion> was added in D175).
 
 ### D173. SVG spinners, checked against a real set
 **Chose:**
@@ -1018,3 +1018,10 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - When a take holds animations that end and loops that were running long before them (a second or more), the loops are left out of it: they belong to something else on the page.
 - What set a take off is looked for around when its animations that end began, not its loops.
 **Why:** MUI's "show code" toggle: the click fades in the demo toolbar beside it, so recording moved to their parent, where two buttons have shimmered since the page loaded. The take was named as already running (its earliest start was the shimmer's, seconds before the click) and dropped, so nothing was recorded; with the naming fixed, the shimmer led the description.
+
+### D175. SVG animation films under load; moving along a path
+**Chose:**
+- Films of parts an SVG animation moves are never held between frames: they are polled every frame, so a gap is a frame the browser did not draw.
+- A loop's turn is blended across its ends when the step there is like the others (a spin, a pulse out and back), and carried on from each side only at a jump. Each end is carried from a frame at least 8 ms off, never more than a few steps past it.
+- <animateMotion> is filmed: a part's own transform is read from the matrix the browser places it with, relative to its parent's, when it moves along a path.
+**Why:** under load (twelve runs at once) a loop read "moves 211 px right and scales to 0", or "scales to 0.92", where it pulses out and back. Now 96 runs out of 96 read right.

@@ -2207,7 +2207,7 @@ async function stepClasses(page: Page, selector: string, classes: string[]): Pro
       for (const name of names) {
         part.classList.remove(...names);
         part.classList.add(name);
-        await new Promise((resolve) => setTimeout(resolve, 160));
+        await new Promise((resolve) => setTimeout(resolve, 250));
       }
     },
     [selector, classes] as const,
@@ -2291,6 +2291,25 @@ test('an SVG animation that repeats forever is one turn, repeating', async ({ pa
   expect(pulse.timing.iterations).toEqual({ kind: 'infinite' });
   expect(pulse.timing.duration).toBe(800);
   expect(describeCapture(capture)).toContain('scales to 2 and back over 800 ms');
+});
+
+// <animateMotion> moves a part along a path: not in the computed style, but
+// in the matrix the browser places the part with.
+test('a part an SVG animation moves along a path is filmed', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-along { width: 220px }',
+    `<div id="sp-along"><svg width="200" height="60"><circle cx="0" cy="30" r="8" fill="#36f">
+       <animateMotion id="sp-along-move" path="M10 0 L170 0" dur="0.6s" begin="indefinite" fill="freeze"/></circle></svg></div>`,
+    '#sp-along',
+  );
+  await page.evaluate(() =>
+    (document.getElementById('sp-along-move') as unknown as { beginElement: () => void }).beginElement(),
+  );
+  await page.waitForTimeout(1400);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.missed).toBeNull();
+  expect(describeCapture(capture)).toContain('moves right 170 px');
 });
 
 // From svg-spinners' pulse: a circle that grows from r="0", so it has no
