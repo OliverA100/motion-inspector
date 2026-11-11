@@ -946,3 +946,10 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D162. A dialog's backdrop is drawn
 **Chose:** when the recorded element is a dialog open as a modal, its ::backdrop is a shape over the whole window, in the dialog's coordinates, with its own color and animations, filmed like other pseudo-elements. The stage draws it before everything else and not moved by the dialog's own transform (a dialog that scales in does not scale its backdrop), and fits the view to the rest.
 **Why:** the dimming of the page behind a dialog is most of what opening one looks like (daisyUI's and Pico's modals); it was listed, not drawn.
+
+### D163. Dialogs opened by a class; parts measured before they have a shape
+**Chose:**
+- After a press or a hover, an animation inside a part marked as a dialog, menu, listbox or tooltip (role, or aria-modal), outside the picked element and not showing when picked, opens elsewhere: the recording follows the outermost part around it fixed to the window (a modal's dimmed layer), or the part itself. Bootstrap's and Carbon's modals are on the page all along, hidden, and shown by a class; only new parts and the top layer were followed.
+- Layout is sampled for the parts the take's animations move even before they have a shape: a panel hidden when picked gets its shape when the take ends, and its growing is then a layout track (Carbon's accordion opens by max-height and padding).
+- Properties that only change layout (min and max sizes, padding, margin, gap, flex and grid sizing, inset) count as drawn when the take has layout tracks: their effect is the boxes the page measured. The badge, the Not shown tab and the take list agree.
+**Why:** Carbon's Storybook, recorded through its preview frame (D160).

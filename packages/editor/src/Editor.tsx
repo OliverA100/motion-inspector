@@ -23,7 +23,7 @@ import { SpeedGraph } from './pieces/SpeedGraph';
 import { Stage } from './pieces/Stage';
 import { layoutReach } from './draw/stage';
 import { Timeline } from './pieces/Timeline';
-import { createProbe, isPreviewed, type Probe } from './probe';
+import { createProbe, isPreviewed, notDrawn, type Probe } from './probe';
 import { aboutMotion, previewBadge, selfCheck } from './selfCheck';
 import { CheckIcon, RedoIcon, ResetIcon, UndoIcon, WarnIcon } from './pieces/icons';
 import { useFollowing, withFollows } from './following';
@@ -297,13 +297,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
             selfCheck(original, (time) => probes.original.poses(original, time)),
             {
               missed: original.missed,
-              notDrawn: Array.from(
-                new Set(
-                  original.tracks
-                    .map((track) => track.property)
-                    .filter((name) => !isPreviewed(name)),
-                ),
-              ),
+              notDrawn: notDrawn(original),
               leftOut: original.notShown.filter(aboutMotion).length,
             },
           ),
@@ -331,9 +325,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
   const longDescription = description.length > 180;
   const [descriptionOpen, setDescriptionOpen] = useState(false);
   const segments = selected === null ? null : segmentLabels(selected.mine);
-  const notPreviewed = Array.from(
-    new Set(edited.tracks.map((track) => track.property).filter((name) => !isPreviewed(name))),
-  );
+  const notPreviewed = notDrawn(edited);
   const hasNotes = edited.notShown.length > 0 || notPreviewed.length > 0;
 
   return (

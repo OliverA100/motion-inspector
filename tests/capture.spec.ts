@@ -2001,3 +2001,27 @@ test('an arrow after a link, in the flow of its text, is drawn, moved and checke
   // Filmed, so the badge can check it.
   expect(capture.measured?.some((entry) => entry.shapeId === arrow?.id)).toBe(true);
 });
+
+test('a dialog on the page all along, shown by a class, is followed from its button', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-modal { position: fixed; inset: 0; background: rgb(0 0 0 / .4); opacity: 0; visibility: hidden;
+       transition: opacity .25s, visibility 0s linear .25s }
+     #sp-modal.show { opacity: 1; visibility: visible; transition: opacity .25s, visibility 0s }
+     #sp-modal .sp-panel { width: 200px; height: 120px; margin: 60px auto; background: white;
+       translate: 0 -20px; transition: translate .25s ease-out }
+     #sp-modal.show .sp-panel { translate: 0 0 }`,
+    `<button id="sp-launch" onclick="document.getElementById('sp-modal').classList.add('show')">Open</button>
+     <div id="sp-modal"><div class="sp-panel" role="dialog" aria-modal="true">Hi</div></div>`,
+    '#sp-launch',
+  );
+  await page.click('#sp-launch');
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  // The fixed layer around the dialog, with the dialog inside it.
+  expect(capture.root.label).toBe('div');
+  expect(capture.tracks.map((track) => track.property).sort()).toEqual(['opacity', 'translate']);
+  expect(capture.trigger).toBe('click');
+});

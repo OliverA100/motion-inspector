@@ -91,6 +91,24 @@ const GEOMETRY = [
   'border-left-width',
 ];
 
+// Properties that only change layout: their effect is the boxes the page
+// measured, drawn by the take's layout tracks (an accordion opened by
+// max-height and padding).
+const LAYOUT_ONLY =
+  /^(max-|min-)(width|height)$|^padding|^margin|^(row-|column-)?gap$|^flex-|^grid-|^inset/;
+
+// The properties a capture animates that its preview does not draw.
+export function notDrawn(capture: Capture): string[] {
+  const measuresLayout = capture.tracks.some((track) => track.origin === 'layout');
+  return Array.from(
+    new Set(
+      capture.tracks
+        .map((track) => track.property)
+        .filter((name) => !isPreviewed(name) && !(measuresLayout && LAYOUT_ONLY.test(name))),
+    ),
+  );
+}
+
 export function isPreviewed(property: string): boolean {
   return PREVIEWED_PROPERTIES.includes(property);
 }

@@ -256,6 +256,13 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 80 | Chrome view transition demos | A page that slides in with its own animation of ::view-transition-new gave no motion | Read as the part's own (D150) |
 | 81 | oliverhassan.dev | A round button drawn cut in half: its box is centred with a -640 px translate, which the clipping frame left out | D153: whole |
 | 82 | vercel.com/backends | The peeled flap was left out of the drawing (the last part of a busy card); the hover was named "Loops" after the chat's typing dots, and its start "Already running" | D151, D153: flap drawn, within 1 px; "Hover in", "Hover out" |
+| 83 | Radix (tooltips), Mantine (tooltip, popover) | Tooltips opened by hovering, at the end of the page, gave no take | Followed from the hovered element (D157) |
+| 84 | shadcn (popover), Radix (navigation menu) | 12 to 68 px and 100% opacity off: a sub-millisecond start offset; a late part's rest read mid-animation; a closed panel left shown | D157: 0 px |
+| 85 | Mantine (loader) | A full turn about y (rotateY 0 to 3600deg) dropped as no change | D157: drawn, "turns round 10 times" |
+| 86 | Ant Design (tabs, spin) | A closed dropdown made 60 layout tracks; spinner dots 70% opacity off | D159: 0 px |
+| 87 | Headless UI, Storybook | Components shown in a frame could not be picked | D160: picked, recorded and played inside frames |
+| 88 | Carbon (Storybook) | Button, toggle: 0 px. An accordion opened by max-height and padding was called not drawn | D163: its panel is measured, 0 px |
+| 89 | Magic UI, link arrows | Masked rings and fading edges drawn whole; arrows after links listed | D155, D158: drawn |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 

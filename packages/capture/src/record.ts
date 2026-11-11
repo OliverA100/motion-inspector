@@ -242,6 +242,26 @@ function playStart(animation: Animation, endTime: number, now: number): number {
   return rate < 0 ? start - endTime / Math.abs(rate) : start;
 }
 
+// Parts that open as a whole, named by their role.
+const OPENS_AS =
+  '[role="dialog"], [role="alertdialog"], [aria-modal="true"], [role="menu"], [role="listbox"], [role="tooltip"]';
+
+function isShowing(element: Element): boolean {
+  if (element.getClientRects().length === 0) return false;
+  const style = getComputedStyle(element);
+  return style.visibility !== 'hidden' && parseFloat(style.opacity) > 0;
+}
+
+// What opens with a dialog: the outermost part around it fixed to the
+// window (the dimmed layer of a modal), or the dialog itself.
+function overlayOf(part: Element): Element {
+  let found = part;
+  for (let at = part.parentElement; at !== null && at !== document.body; at = at.parentElement) {
+    if (getComputedStyle(at).position === 'fixed') found = at;
+  }
+  return found;
+}
+
 // Open popovers and dialogs. ":popover-open" is not known to every
 // browser; one that does not know it has no popovers to find.
 const TOP_LAYER = 'dialog[open], :popover-open';
@@ -954,8 +974,16 @@ function movesLayout(seen: Seen): boolean {
 
 type LayoutSample = { time: number; boxes: Map<Element, Box> };
 
-function sampleLayout(snapshot: Snapshot): LayoutSample {
+// targets: the parts the take's animations move, measured whether they have
+// a shape yet or not: one hidden when picked (an accordion's panel) gets its
+// shape when the take ends, and its growing is then a layout track.
+function sampleLayout(snapshot: Snapshot, targets: Element[] = []): LayoutSample {
   const boxes = new Map<Element, Box>();
+  for (const element of targets) {
+    if (snapshot.shapeOf.has(element) || !(element instanceof HTMLElement)) continue;
+    if (!element.isConnected || element.getClientRects().length === 0) continue;
+    boxes.set(element, layoutNow(snapshot, element));
+  }
   for (const [element, shape] of snapshot.shapeOf) {
     if (shape.kind === 'text' || !(element instanceof HTMLElement)) continue;
     // One taken off the page has no layout: measured, it would jump to the
@@ -2507,6 +2535,12 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // A native popover or dialog is on the page all along and is shown in the
   // top layer when opened: one that was closed at pick counts as opened.
   const openAtPick = new WeakSet<Element>(topLayerParts());
+  // Dialogs, menus, listboxes and tooltips already on the page, hidden
+  // until opened by a class (Carbon's modal, Bootstrap's): the ones showing
+  // when picked are not opened by anything now.
+  const shownAtPick = new WeakSet<Element>(
+    Array.from(document.querySelectorAll(OPENS_AS)).filter(isShowing),
+  );
   // Parts opened elsewhere, gathered for a moment before one is chosen.
   let openedParts: Element[] = [];
   let openedTargets: Element[] = [];
@@ -2537,6 +2571,15 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     if (!pressed && !hovered) return null;
     const shown = topLayerPartOf(target);
     if (shown !== null && !openAtPick.has(shown)) return shown;
+    const opening = target.closest(OPENS_AS);
+    if (
+      opening !== null &&
+      !shownAtPick.has(opening) &&
+      !snapshot.rootElement.contains(opening) &&
+      !opening.contains(snapshot.rootElement)
+    ) {
+      return overlayOf(opening);
+    }
     if (inDocumentAtPick.has(target)) return null;
     // The new parts above it, up to the portal's own container.
     const chain: Element[] = [target];
@@ -3074,7 +3117,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         return;
       }
     }
-    if (take.some(movesLayout) && samples.length < 600) samples.push(sampleLayout(snapshot));
+    if (take.some(movesLayout) && samples.length < 600) {
+      samples.push(
+        sampleLayout(
+          snapshot,
+          take.filter((seen) => seen.pseudoElement === null).map((seen) => seen.target),
+        ),
+      );
+    }
 
     // Film the parts that move: those a browser animation moves (to check
     // the preview against) and those a script moves (to fit), about 25
