@@ -19,6 +19,7 @@ type CaptureGlobal = {
   stop: () => Take[];
   pickAndRecord: () => Promise<boolean>;
   cancelPicking: () => void;
+  drawsItself: () => 'canvas' | 'video' | null;
 };
 
 declare global {

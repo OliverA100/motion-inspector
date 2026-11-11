@@ -3,8 +3,9 @@
 // From the page (bridge.ts) to the panel.
 export type FromPage =
   // An element was picked. It is not recorded until the panel asks.
-  // label names it, such as "button.cta".
-  | { type: 'picked'; label?: string }
+  // label names it, such as "button.cta". draws: it is or holds a canvas
+  // or a video, whose pictures are made frame by frame and cannot be read.
+  | { type: 'picked'; label?: string; draws?: 'canvas' | 'video' | null }
   // Recording of the picked element has begun.
   | { type: 'recording' }
   // Picking was cancelled with Escape.

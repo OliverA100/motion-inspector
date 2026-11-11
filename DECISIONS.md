@@ -961,3 +961,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - Motion a script makes is written as translate, rotate, skewX and scale. The lean is what a turn in 3D looks like once flattened. A part whose own transform turns it out of the page's plane gets a note saying it is shown flat; the badge does not count it, because the check measures the picture. translateZ(0) does not count as a turn.
 - A change that first happens once a hover's way back has begun is said with the way back ("Then it goes back and disappears").
 **Why:** Shoelace's tooltip was not followed: its bubble animates in the tooltip's shadow root, and document.getAnimations() leaves shadow roots out. Aceternity's logo: four corner dots were reported missing, and the turned mark was 2.8 px off; now 0.5 px.
+
+### D165. A canvas or a video is named when nothing is found
+**Chose:** when the picked element is or holds a canvas or a video at least 8 px wide and tall, and a recording finds nothing, the panel says that what a script draws on a canvas, or what a video plays, cannot be recorded, instead of suggesting a parent. Only the tag and size are read; no pixel is.
+**Why:** a chart or a Lottie animation drawn on a canvas left "No animation was found. Try again, or pick its parent", which sent people looking for something the tool cannot read. Reading the canvas to notice it changing would read image data from the page.

@@ -16,6 +16,7 @@ declare const MotionCapture: {
   pick: () => Promise<string | null>;
   choose: (where: Whereabouts) => string | null;
   pickedWhereabouts: () => Whereabouts | null;
+  drawsItself: () => 'canvas' | 'video' | null;
   recordAgain: (
     onTake: (take: TakeResult) => void,
     onMoved: (label: string) => void,
@@ -118,16 +119,23 @@ const onPanelClosed = (): void => session.end();
 panel.onDisconnect.addListener(onPanelClosed);
 window.motionInspectorSession = session;
 
+// What the panel is told about the picked element.
+const picked = (label: string): FromPage => ({
+  type: 'picked',
+  label,
+  draws: capture.drawsItself(),
+});
+
 // Picking only: recording starts when the panel asks. After "Play the
 // load", the element is chosen again instead.
 const chosen = window.motionInspectorChoose;
 delete window.motionInspectorChoose;
 if (chosen !== undefined) {
   const label = capture.choose(chosen);
-  send(label === null ? { type: 'cancelled' } : { type: 'picked', label });
+  send(label === null ? { type: 'cancelled' } : picked(label));
 } else {
   capture
     .pick()
-    .then((label) => send(label === null ? { type: 'cancelled' } : { type: 'picked', label }))
+    .then((label) => send(label === null ? { type: 'cancelled' } : picked(label)))
     .catch(() => send({ type: 'cancelled' }));
 }

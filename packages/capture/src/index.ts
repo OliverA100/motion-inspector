@@ -90,6 +90,26 @@ export function stop(): TakeResult[] {
   return takes;
 }
 
+// Whether the picked element is, or holds, a canvas or a video that can be
+// seen. Their pictures are made frame by frame (a script drawing, a film),
+// not by animating parts, so a recording finds nothing to read in them.
+// Nothing in them is read: only their tag and size.
+export function drawsItself(): 'canvas' | 'video' | null {
+  if (lastElement === null || !lastElement.isConnected) return null;
+  for (const tag of ['canvas', 'video'] as const) {
+    const found = [
+      ...(lastElement.matches(tag) ? [lastElement] : []),
+      ...Array.from(lastElement.querySelectorAll(tag)),
+    ];
+    const seen = found.some((part) => {
+      const box = part.getBoundingClientRect();
+      return box.width >= 8 && box.height >= 8;
+    });
+    if (seen) return tag;
+  }
+  return null;
+}
+
 // Where the picked element is, so it can be found again after the page
 // reloads: a path of child positions from the nearest parent with an id
 // (or the body), and a short selector with its place among what it

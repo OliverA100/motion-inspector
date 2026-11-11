@@ -46,6 +46,9 @@ export type Panel = {
   // The element picked last, by its label, while it can be recorded
   // without picking again (same tab, same page). null when there is none.
   picked: string | null;
+  // Whether the picked element is or holds a canvas or a video: their
+  // pictures are made frame by frame, so a recording may find nothing.
+  pickedDraws: 'canvas' | 'video' | null;
   // True when the last recording stopped by itself, a take being complete.
   stoppedByItself: boolean;
 };
@@ -54,7 +57,7 @@ export type PanelMsg =
   | { kind: 'takesLoaded'; takes: StoredTake[] }
   | { kind: 'pickStarted' }
   | { kind: 'pickCancelled' }
-  | { kind: 'elementPicked'; label: string }
+  | { kind: 'elementPicked'; label: string; draws: 'canvas' | 'video' | null }
   // The page began recording the picked element.
   | { kind: 'recordingStarted' }
   // Time passed while listening.
@@ -92,6 +95,7 @@ export const initialPanel: Panel = {
   problems: [],
   pointerInPanel: false,
   picked: null,
+  pickedDraws: null,
   stoppedByItself: false,
 };
 
@@ -129,6 +133,7 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
         status: { kind: 'ready', nothingFound: false },
         pointerInPanel: false,
         picked: msg.label,
+        pickedDraws: msg.draws,
         stoppedByItself: false,
       };
 
@@ -205,6 +210,7 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
         ...panel,
         status: stale ? { kind: 'idle' } : panel.status,
         picked: null,
+        pickedDraws: null,
         stoppedByItself: false,
       };
     }

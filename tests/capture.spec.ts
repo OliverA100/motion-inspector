@@ -1604,6 +1604,27 @@ async function setUp(page: Page, css: string, html: string, pick: string): Promi
 const takesNow = async (page: Page): Promise<Take[]> =>
   page.evaluate(() => window.MotionCapture.stop());
 
+// A canvas or a video makes its pictures frame by frame: nothing the
+// recorder reads. The panel says so when a recording finds nothing.
+test('a picked part that holds a canvas or a video says so; a tiny one does not', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  const draws = await page.evaluate(() => {
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="sp-chart"><canvas width="200" height="80"></canvas></div><div id="sp-film"><video width="160" height="90"></video></div><div id="sp-dot"><canvas width="4" height="4"></canvas></div>';
+    document.body.prepend(holder);
+    const read = (id: string): unknown => {
+      window.MotionCapture.record(document.getElementById(id) as Element);
+      window.MotionCapture.stop();
+      return window.MotionCapture.drawsItself();
+    };
+    return [read('sp-chart'), read('sp-film'), read('sp-dot')];
+  });
+  expect(draws).toEqual(['canvas', 'video', null]);
+});
+
 // Found on Shoelace: the tooltip's bubble animates in its host's shadow
 // root, outside the picked button, where document.getAnimations() does not
 // look.

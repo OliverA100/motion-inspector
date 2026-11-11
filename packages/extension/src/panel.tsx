@@ -135,6 +135,18 @@ async function loadTakes(): Promise<StoredTake[]> {
 // ---------- What the panel says ----------
 
 // One short line, or nothing: the buttons and the page say the rest.
+// What the panel says when a recording found nothing. A canvas or a video
+// makes its pictures frame by frame, which no recording can read.
+function nothingFoundText(draws: 'canvas' | 'video' | null): string {
+  if (draws === 'canvas') {
+    return 'No animation was found. It holds a canvas: what a script draws on a canvas cannot be recorded, only parts the page animates.';
+  }
+  if (draws === 'video') {
+    return 'No animation was found. It holds a video, which plays frames rather than moving parts, so it cannot be recorded.';
+  }
+  return 'No animation was found. Try again, or pick its parent or the part that moves.';
+}
+
 function statusText(panel: Panel): string {
   const status = panel.status;
   switch (status.kind) {
@@ -401,6 +413,7 @@ function PanelApp() {
         dispatch({
           kind: 'elementPicked',
           label: typeof message.label === 'string' ? message.label : 'the element',
+          draws: message.draws === 'canvas' || message.draws === 'video' ? message.draws : null,
         });
       }
       if (message.type === 'recording') {
@@ -762,9 +775,7 @@ function PanelApp() {
             <code>{panel.picked}</code>
           </p>
           <p className="xp__ready-text">
-            {status.nothingFound
-              ? 'No animation was found. Try again, or pick its parent or the part that moves.'
-              : 'Recording starts when you choose how to set it off.'}
+            {status.nothingFound ? nothingFoundText(panel.pickedDraws) : 'Recording starts when you choose how to set it off.'}
           </p>
           <div className="xp__ready-actions">
             <button type="button" className="btn btn--primary" onClick={record}>

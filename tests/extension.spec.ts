@@ -185,6 +185,29 @@ test('stop with nothing found says what the cause might be', async ({ context, e
   await expect(nothing).toBeVisible();
 });
 
+test('nothing found on a canvas says a canvas cannot be recorded', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await site.evaluate(() => {
+    const chart = document.createElement('canvas');
+    chart.id = 'sp-canvas';
+    chart.width = 200;
+    chart.height = 80;
+    document.body.prepend(chart);
+  });
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.click('#sp-canvas');
+  await record(panel, site);
+  await expect(listening(panel)).toBeVisible();
+  await panel.getByRole('button', { name: 'Stop' }).click();
+  await expect(
+    panel.getByText('No animation was found. It holds a canvas: what a script draws'),
+  ).toBeVisible();
+});
+
 test('after 5 seconds of listening with nothing found, it offers a tip', async ({
   context,
   extensionId,
