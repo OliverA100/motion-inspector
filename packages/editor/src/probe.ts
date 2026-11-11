@@ -77,6 +77,8 @@ export const PREVIEWED_PROPERTIES = [
   'background-size',
   // A link's underline changing color (or showing, from transparent).
   'text-decoration-color',
+  // Frosted glass: what is behind, blurred.
+  'backdrop-filter',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -513,6 +515,7 @@ function poseOf(
     d: shape.kind === 'path' ? pathData(valueOf('d')) : null,
     backgroundSize: firstLayer(valueOf('background-size')),
     underlineColor: valueOf('text-decoration-color'),
+    backdropFilter: valueOf('backdrop-filter'),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,

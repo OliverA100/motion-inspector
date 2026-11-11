@@ -2118,6 +2118,29 @@ test('a path whose outline morphs is drawn as it is now', async ({ page }) => {
   expect(halfway).toEqual(['M 30 7.5 L 92.5 30 L 70 92.5 L 7.5 70 Z']);
 });
 
+// Frosted glass: a card that blurs what is behind it on hover.
+test('a backdrop blur is previewed, not listed as not drawn', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-glass { width: 200px; height: 80px; background: rgba(255, 255, 255, 0.2);
+       backdrop-filter: blur(0px); transition: backdrop-filter .4s linear }
+     #sp-glass.on { backdrop-filter: blur(12px) }`,
+    '<div id="sp-glass"></div>',
+    '#sp-glass',
+  );
+  await page.evaluate(() => document.getElementById('sp-glass')?.classList.add('on'));
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  const halfway = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (capture: unknown, timeMs: number) => { backdropFilter: string | null }[];
+    };
+    return module.posesOf(taken, 200).map((pose) => pose.backdropFilter);
+  }, capture);
+  expect(halfway).toEqual(['blur(6px)']);
+});
+
 // Found on Arc: a link whose underline shows on hover, by its color. The
 // underline is kept with the link even while it cannot be seen.
 test('an underline that shows on hover is kept, previewed and said', async ({ page }) => {

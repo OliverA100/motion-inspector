@@ -1056,3 +1056,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The stage draws it under each line of text inside the shape, as one line under the spaces too, in its color now (text-decoration-color is previewed).
 - A color that goes from nothing to something is said as "shows its underline in blue", and the other way as "hides its background", rather than naming the page's color behind it.
 **Why:** Arc's links show their underline on hover by its color: "Not drawn: text-decoration-color", and links were drawn with no underline at all.
+
+### D182. An animated backdrop blur is drawn
+**Chose:** backdrop-filter is previewed. Before a shape is filled, what is already drawn behind it is drawn again within it through the filter, its lengths scaled as the stage is. A backdrop filter at rest is not kept yet: only one that animates is drawn.
+**Why:** frosted glass that blurs in on hover (common on product sites) was listed as not drawn.

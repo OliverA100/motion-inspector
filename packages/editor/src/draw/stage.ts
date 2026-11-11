@@ -76,6 +76,9 @@ export type Pose = {
   // An animated text-decoration-color: the color of the underline under the
   // text inside the shape.
   underlineColor: string | null;
+  // An animated backdrop-filter ("blur(12px)"): what is behind the shape,
+  // seen through it (frosted glass).
+  backdropFilter: string | null;
 };
 
 export type StageData = {
@@ -404,6 +407,27 @@ function taperedPieces(
 // parent's opacity fades everything inside it (found on a real site, where
 // an arrow inside a hidden span was drawn).
 type Underline = { color: string; thickness: number };
+
+// Frosted glass: what is already drawn behind the shape, redrawn within it
+// through its backdrop-filter. Lengths in it are in the page's px, so they
+// are scaled as the stage is.
+function drawBackdrop(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  filter: string,
+): void {
+  const matrix = context.getTransform();
+  const scale = Math.hypot(matrix.a, matrix.b) || 1;
+  const scaled = filter.replace(/(-?\d*\.?\d+)px/g, (_whole, amount: string) => `${Number(amount) * scale}px`);
+  context.save();
+  shapePath(context, shape, pose);
+  context.clip();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.filter = scaled;
+  context.drawImage(context.canvas, 0, 0);
+  context.restore();
+}
 
 // The underline under a line of text: one line, under its spaces too, as
 // CSS draws it, just below the words.
@@ -1060,6 +1084,11 @@ function drawFilled(
       pose,
       shadows.filter((layer) => !layer.inset),
     );
+    // What is behind it, seen through it, before it is filled.
+    const backdrop = pose?.backdropFilter ?? null;
+    if (backdrop !== null && backdrop !== 'none' && shape.kind !== 'text') {
+      drawBackdrop(context, shape, pose, backdrop);
+    }
     if (shape.kind === 'text' && shape.words !== null) wordsPath(context, shape);
     else shapePath(context, shape, pose);
     const fill =
