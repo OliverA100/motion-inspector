@@ -30,6 +30,8 @@ const AUTO_STOP_MS = 1500;
 
 // The element recorded last, so it can be recorded again without picking.
 let lastElement: Element | null = null;
+// Where the picked element was, to find it again if the page replaces it.
+let pickedWhere: Whereabouts | null = null;
 
 export function record(
   target: Element | string,
@@ -119,7 +121,8 @@ export function drawsItself(): 'canvas' | 'video' | null {
 export type Whereabouts = { path: string; short: string; index: number; label: string };
 
 export function pickedWhereabouts(): Whereabouts | null {
-  if (lastElement === null || !lastElement.isConnected) return null;
+  // Replaced by the page since: where it was when picked.
+  if (lastElement === null || !lastElement.isConnected) return pickedWhere;
   const steps: string[] = [];
   let at: Element | null = lastElement;
   while (at !== null && at !== document.body && at !== document.documentElement) {
@@ -222,6 +225,7 @@ export function choose(where: Whereabouts): string | null {
   recorder?.stop();
   recorder = null;
   lastElement = element;
+  pickedWhere = where;
   takes = [];
   return labelOf(element);
 }
@@ -239,6 +243,7 @@ export async function pick(): Promise<string | null> {
   picker = null;
   if (element === null) return null;
   lastElement = element;
+  pickedWhere = pickedWhereabouts();
   takes = [];
   return labelOf(element);
 }
@@ -266,6 +271,11 @@ export function recordAgain(
   onMoved?: (label: string) => void,
   onStopped?: () => void,
 ): boolean {
+  // The page may have replaced it since it was picked (GSAP splitting a
+  // label into letters on hover): the one now in its place is recorded.
+  if (lastElement !== null && !lastElement.isConnected && pickedWhere !== null) {
+    lastElement = findAgain(pickedWhere) ?? lastElement;
+  }
   if (lastElement === null || !lastElement.isConnected) return false;
   record(lastElement, onTake, onMoved, onStopped);
   return true;

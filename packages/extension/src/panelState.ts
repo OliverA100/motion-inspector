@@ -72,6 +72,8 @@ export type PanelMsg =
   // The tab in front changed, or its page did. A message about the old one
   // no longer applies.
   | { kind: 'tabChanged' }
+  // The picked element is no longer on the page.
+  | { kind: 'pickedGone' }
   | { kind: 'cannotInspect'; why: string }
   // The toolbar icon was clicked, which gives access to the tab in front.
   | { kind: 'accessGiven' }
@@ -121,6 +123,15 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
 
     case 'pickStarted':
       return { ...panel, status: { kind: 'picking' }, notice: null };
+
+    case 'pickedGone':
+      return {
+        ...panel,
+        status: { kind: 'idle' },
+        picked: null,
+        pickedDraws: null,
+        notice: 'The element you picked is no longer on the page. Pick it again.',
+      };
 
     case 'pickCancelled':
       return panel.status.kind === 'picking' ? { ...panel, status: { kind: 'idle' } } : panel;

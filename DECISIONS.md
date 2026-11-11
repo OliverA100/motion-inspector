@@ -1173,3 +1173,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D205. Recording does not stop by itself as the pointer leaves
 **Chose:** recording stops by itself only once the pointer has been still for half a second, and, after a hover, not while the pointer is where the element was when recording began (a hover can move or narrow it from under a pointer that has not moved).
 **Why:** tested through the real side panel, a hover held longer than recording waits to stop came out as "Hover in" alone, on oliverhassan.dev's rolling button and on Stripe's nav. Recording stopped in the very frame the pointer left, before the page began its way back: a script (React) answers a frame or more later. Recorded by a test harness, which leaves sooner, it had not shown.
+
+### D206. A picked element the page replaced is found again
+**Chose:** where the picked element was is kept when it is picked. If the page has replaced it by the time recording starts (or Play the load asks for it), the element now in its place is used. If nothing stands there, the panel says "The element you picked is no longer on the page. Pick it again." instead of doing nothing.
+**Why:** on gsap.com the picked label is split into letters on hover, replacing it. Record and the Play buttons then did nothing at all, with no word why.

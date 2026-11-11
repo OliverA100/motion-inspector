@@ -47,6 +47,17 @@ describe('the states of the side panel', () => {
     expect(updatePanel(ready, { kind: 'tabChanged' }).pickedDraws).toBeNull();
   });
 
+  test('a picked element the page took away asks to be picked again', () => {
+    const gone = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked', label: 'span.label', draws: null },
+      { kind: 'pickedGone' },
+    ]);
+    expect(gone.status).toEqual({ kind: 'idle' });
+    expect(gone.picked).toBeNull();
+    expect(gone.notice).toBe('The element you picked is no longer on the page. Pick it again.');
+  });
+
   test('Escape during picking goes back to idle', () => {
     expect(run([{ kind: 'pickStarted' }, { kind: 'pickCancelled' }]).status).toEqual({
       kind: 'idle',

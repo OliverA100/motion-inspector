@@ -8,6 +8,9 @@ export type FromPage =
   | { type: 'picked'; label?: string; draws?: 'canvas' | 'video' | null }
   // Recording of the picked element has begun.
   | { type: 'recording' }
+  // Recording could not begin: the picked element is no longer on the page,
+  // and nothing stands where it was.
+  | { type: 'gone' }
   // Picking was cancelled with Escape.
   | { type: 'cancelled' }
   // One take. `capture` has already passed core's checks in the page, and

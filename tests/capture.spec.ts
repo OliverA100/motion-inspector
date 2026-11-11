@@ -3196,3 +3196,45 @@ test('a way back that starts a moment after the pointer leaves a long hover is r
   );
   expect(triggers.at(-1)).toBe('replaces hover-and-leave');
 });
+
+// Found on gsap.com: the page replaced the picked label (splitting it into
+// letters on hover) before Record was pressed. The one now in its place is
+// recorded, not nothing.
+test('a picked element the page replaced is found again where it was', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `.sp-label { display: inline-block; transition: transform .2s } .sp-label.on { transform: translateY(-4px) }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.id = 'sp-wrap';
+    holder.innerHTML = '<span class="sp-label">Get GSAP</span>';
+    document.body.prepend(holder);
+  });
+  const result = await page.evaluate(async () => {
+    const capture = window.MotionCapture as unknown as {
+      choose: (where: {
+        path: string;
+        short: string;
+        index: number;
+        label: string;
+      }) => string | null;
+      recordAgain: (onTake: (take: Take) => void) => boolean;
+      stop: () => Take[];
+    };
+    capture.choose({
+      path: '#sp-wrap > span:nth-child(1)',
+      short: 'span.sp-label',
+      index: 0,
+      label: 'span.sp-label',
+    });
+    // The page puts a new label in its place.
+    const wrap = document.getElementById('sp-wrap') as HTMLElement;
+    wrap.innerHTML = '<span class="sp-label">Get GSAP</span>';
+    const started = capture.recordAgain(() => {});
+    wrap.querySelector('.sp-label')?.classList.add('on');
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    return { started, takes: capture.stop().length };
+  });
+  expect(result).toEqual({ started: true, takes: 1 });
+});

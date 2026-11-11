@@ -60,6 +60,9 @@ async function inject(tabId: number): Promise<void> {
   }
 }
 
+// Recording could not begin because the picked element is gone.
+const GONE = 'gone';
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -317,11 +320,16 @@ function PanelApp() {
   // What the extension is playing on the page, while it moves the pointer.
   const [playing, setPlaying] = useState<'hover' | 'click' | 'load' | null>(null);
   // Waiting for the page: recording to begin, or a take to arrive.
-  const waiters = useRef<{ recording: (() => void)[]; take: (() => void)[] }>({
+  const waiters = useRef<{
+    recording: (() => void)[];
+    take: (() => void)[];
+    gone: (() => void)[];
+  }>({
     recording: [],
     take: [],
+    gone: [],
   });
-  const waitFor = (what: 'recording' | 'take', ms: number): Promise<boolean> =>
+  const waitFor = (what: 'recording' | 'take' | 'gone', ms: number): Promise<boolean> =>
     new Promise((resolve) => {
       const timer = window.setTimeout(() => resolve(false), ms);
       waiters.current[what].push(() => {
@@ -329,7 +337,7 @@ function PanelApp() {
         resolve(true);
       });
     });
-  const heard = (what: 'recording' | 'take'): void => {
+  const heard = (what: 'recording' | 'take' | 'gone'): void => {
     const waiting = waiters.current[what];
     waiters.current[what] = [];
     for (const resolve of waiting) resolve();
@@ -421,6 +429,10 @@ function PanelApp() {
           label: typeof message.label === 'string' ? message.label : 'the element',
           draws: message.draws === 'canvas' || message.draws === 'video' ? message.draws : null,
         });
+      }
+      if (message.type === 'gone') {
+        dispatch({ kind: 'pickedGone' });
+        heard('gone');
       }
       if (message.type === 'recording') {
         dispatch({ kind: 'recordingStarted' });
@@ -544,8 +556,14 @@ function PanelApp() {
   // Starts recording the picked element. Resolves once the page says so.
   const startRecording = async (): Promise<void> => {
     const started = waitFor('recording', 2000);
+    const gone = waitFor('gone', 2000);
     tellPage({ type: 'again' });
-    if (!(await started)) throw new Error('the page did not start recording');
+    const outcome = await Promise.race([
+      started.then((ok) => (ok ? 'started' : 'silent')),
+      gone.then((ok) => (ok ? 'gone' : 'silent')),
+    ]);
+    if (outcome === 'gone') throw new Error(GONE);
+    if (outcome !== 'started') throw new Error('the page did not start recording');
   };
 
   const record = (): void => {
@@ -588,7 +606,9 @@ function PanelApp() {
         await waitFor('take', 2000);
       });
     } catch (error) {
-      dispatch({ kind: 'playFailed', what: 'hover', why: messageOf(error) });
+      // Gone: the panel has already said so.
+      if (messageOf(error) !== GONE)
+        dispatch({ kind: 'playFailed', what: 'hover', why: messageOf(error) });
     } finally {
       setPlaying(null);
     }
@@ -638,7 +658,9 @@ function PanelApp() {
         files: ['capture.iife.js', 'bridge.js'],
       });
     } catch (error) {
-      dispatch({ kind: 'playFailed', what: 'load', why: messageOf(error) });
+      // Gone: the panel has already said so.
+      if (messageOf(error) !== GONE)
+        dispatch({ kind: 'playFailed', what: 'load', why: messageOf(error) });
     } finally {
       reloading.current = false;
       setPlaying(null);
@@ -665,7 +687,9 @@ function PanelApp() {
       });
     } catch (error) {
       tellPage({ type: 'stop' });
-      dispatch({ kind: 'playFailed', what: 'click', why: messageOf(error) });
+      // Gone: the panel has already said so.
+      if (messageOf(error) !== GONE)
+        dispatch({ kind: 'playFailed', what: 'click', why: messageOf(error) });
     } finally {
       setPlaying(null);
     }
