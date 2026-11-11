@@ -89,6 +89,9 @@ export type Pose = {
   // An animated mask-position, as computed CSS: a shimmer sweeping across.
   maskX: string | null;
   maskY: string | null;
+  // An animated letter-spacing, in px: the text inside spreads with the
+  // box the layout measured (letters are never copied, so not counted).
+  letterSpacing: number | null;
 };
 
 export type StageData = {
@@ -795,17 +798,21 @@ function sidePath(
 }
 
 // A line of text as one rounded bar per word, with the gaps between.
-function wordsPath(context: CanvasRenderingContext2D, shape: Shape): void {
+// stretch: text whose letters spread (letter-spacing) is drawn wider by
+// the same share as its box, from the box's left edge.
+function wordsPath(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  stretch: { from: number; by: number } | null = null,
+): void {
   context.beginPath();
   const height = shape.box.height;
+  const across = (x: number): number =>
+    stretch === null ? x : stretch.from + (x - stretch.from) * stretch.by;
   for (const word of shape.words ?? []) {
-    context.roundRect(
-      shape.box.x + word.x,
-      shape.box.y,
-      Math.max(word.width, 0),
-      height,
-      height / 2,
-    );
+    const left = across(shape.box.x + word.x);
+    const right = across(shape.box.x + word.x + Math.max(word.width, 0));
+    context.roundRect(left, shape.box.y, right - left, height, height / 2);
   }
 }
 
@@ -1112,6 +1119,22 @@ function drawFilled(
     context.fillRect(backdrop.box.x, backdrop.box.y, backdrop.box.width, backdrop.box.height);
     context.restore();
   }
+  // Each shape's parent, for text whose letters a parent spreads.
+  const parentOf = new Map<string, Shape>();
+  const visit = (shape: Shape): void => {
+    for (const child of shape.children) {
+      parentOf.set(child.id, shape);
+      visit(child);
+    }
+  };
+  visit(root);
+  const spreadOf = (shape: Shape): { from: number; by: number } | null => {
+    const parent = parentOf.get(shape.id);
+    if (parent === undefined || parent.box.width <= 0) return null;
+    const pose = poses.find((candidate) => candidate.shapeId === parent.id);
+    if (pose?.letterSpacing == null || pose.width == null) return null;
+    return { from: parent.box.x, by: pose.width / parent.box.width };
+  };
   walk(context, root, poses, (shape, pose, textColor, alpha, context, underline) => {
     context.globalAlpha = alpha;
     // Box shadows: the outer ones under the shape, the inner ones over its
@@ -1128,7 +1151,7 @@ function drawFilled(
     if (backdrop !== null && backdrop !== 'none' && shape.kind !== 'text') {
       drawBackdrop(context, shape, pose, backdrop);
     }
-    if (shape.kind === 'text' && shape.words !== null) wordsPath(context, shape);
+    if (shape.kind === 'text' && shape.words !== null) wordsPath(context, shape, spreadOf(shape));
     else shapePath(context, shape, pose);
     const fill =
       shape.kind === 'text' && textColor !== null ? textColor : (pose?.fill ?? shape.fill);
@@ -1324,22 +1347,27 @@ function union(first: Area, second: Area | null): Area {
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
-// Where the layout tracks of a capture take its parts at their end: an
-// item pushed down, a list grown taller. Measured from the shapes' boxes.
+// Where the layout tracks of a capture take its parts, as far as they go:
+// an item pushed down, a list grown taller. Measured from the shapes' boxes.
 export function layoutReach(capture: Capture): Area | null {
   let reach: Area | null = null;
   for (const track of capture.tracks) {
     if (track.origin !== 'layout') continue;
     const shape = findShape(capture.root, track.shapeId);
     const first = track.keyframes[0]?.parsed;
-    const last = track.keyframes[track.keyframes.length - 1]?.parsed;
-    if (shape === null || first?.kind !== 'length' || last?.kind !== 'length') continue;
-    const moved = { ...shape.box };
-    if (track.property === 'left') moved.x += last.px - first.px;
-    if (track.property === 'top') moved.y += last.px - first.px;
-    if (track.property === 'width') moved.width = Math.max(moved.width, last.px);
-    if (track.property === 'height') moved.height = Math.max(moved.height, last.px);
-    reach = reach === null ? moved : union(reach, moved);
+    if (shape === null || first?.kind !== 'length') continue;
+    // Every keyframe, not only the last: a box that grows on hover and
+    // shrinks back on leave is widest in the middle.
+    for (const keyframe of track.keyframes) {
+      const now = keyframe.parsed;
+      if (now?.kind !== 'length') continue;
+      const moved = { ...shape.box };
+      if (track.property === 'left') moved.x += now.px - first.px;
+      if (track.property === 'top') moved.y += now.px - first.px;
+      if (track.property === 'width') moved.width = Math.max(moved.width, now.px);
+      if (track.property === 'height') moved.height = Math.max(moved.height, now.px);
+      reach = reach === null ? moved : union(reach, moved);
+    }
   }
   return reach;
 }

@@ -53,6 +53,7 @@ export function stillPose(shapeId: Pose['shapeId']): Pose {
     outlineOffset: null,
     maskX: null,
     maskY: null,
+    letterSpacing: null,
   };
 }
 

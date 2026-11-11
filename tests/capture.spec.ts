@@ -2142,6 +2142,37 @@ test('a part whose z-index rises is drawn in front of its siblings', async ({ pa
   expect(late.some((value) => value !== null && value > 0)).toBe(true);
 });
 
+// Text that spreads out on hover: its box grows (a layout track), and the
+// text inside is drawn spreading with it.
+test('letters spreading out are previewed with the box they widen', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-spread { display: inline-block; font: 600 16px system-ui; letter-spacing: 0px;
+       transition: letter-spacing .4s linear }
+     #sp-spread.on { letter-spacing: 4px }`,
+    '<a id="sp-spread">Explore the docs</a>',
+    '#sp-spread',
+  );
+  await page.evaluate(() => document.getElementById('sp-spread')?.classList.add('on'));
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  const properties = capture.tracks.map((item) => `${item.origin}:${item.property}`);
+  expect(properties).toContain('css-transition:letter-spacing');
+  expect(properties).toContain('layout:width');
+  const halfway = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (
+        capture: unknown,
+        timeMs: number,
+      ) => { letterSpacing: number | null; width: number | null }[];
+    };
+    return module.posesOf(taken, 200).find((pose) => pose.letterSpacing !== null) ?? null;
+  }, capture);
+  expect(halfway?.letterSpacing).toBeCloseTo(2, 0);
+  expect(halfway?.width).toBeGreaterThan(capture.root.box.width);
+});
+
 // A shimmer: a gradient mask moved across by -webkit-mask-position, which
 // Chrome reports as webkitMaskPositionX: -webkit-mask-position-x.
 test('a gradient mask that moves by its position is previewed', async ({ page }) => {

@@ -1097,3 +1097,9 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 **Found in Chrome:** a font-size transition's getKeyframes() gives 0px for both ends, whatever the real sizes. It was taken for an animation that ends where it starts, and a link whose text grows on hover read "No animations were captured".
 **Chose (for now):** it is listed as not shown, saying Chrome does not report its values; the box it grows is measured by layout tracks, so the preview's box matches the page. A take with only layout tracks no longer begins "No animations were captured". Asserted in tests/spike.spec.ts, and in docs/chrome-findings.md.
 **Options, for the owner to choose:** (a) leave it listed, as now; (b) read the two ends from the page itself, its font size before the take and where it rests after, which is right for a transition between two states; (c) film the font size every frame, as a script's motion is, and fit a measured track. (b) and (c) would also need the text bars to grow with it, which the preview does not do yet.
+
+### D190. Letters spreading out; the view takes in what layout reaches
+**Chose:**
+- letter-spacing is previewed. Letters are never copied, so they are not counted: the text inside a part whose letter-spacing animates is drawn wider by the same share as the box the layout measured, from the box's left edge. A box that simply widens does not stretch its text.
+- The stage is framed to where layout tracks take their parts at any keyframe, not only at their last one: a box that widens on hover and back on leave is widest in the middle.
+**Why:** a link whose letters spread on hover was "Not drawn: letter-spacing", and once drawn, its text ran off the edge of the view.

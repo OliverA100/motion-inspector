@@ -90,6 +90,8 @@ export const PREVIEWED_PROPERTIES = [
   '-webkit-mask-position-y',
   'mask-position-x',
   'mask-position-y',
+  // Text spreading out.
+  'letter-spacing',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -553,6 +555,7 @@ function poseOf(
     outlineWidth: pixels(valueOf('outline-width')),
     outlineOffset: pixels(valueOf('outline-offset')),
     maskX: firstLayer(valueOf('-webkit-mask-position-x') ?? valueOf('mask-position-x')),
+    letterSpacing: pixels(valueOf('letter-spacing')),
     maskY: firstLayer(valueOf('-webkit-mask-position-y') ?? valueOf('mask-position-y')),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
