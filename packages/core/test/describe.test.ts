@@ -217,6 +217,12 @@ describe('special properties in plain words', () => {
     ['background-size', '0% 2px', '100% 2px', 'The element widens its background from 0% to 100%'],
     ['z-index', 'auto', '10', 'The element comes in front of the parts beside it'],
     [
+      '-webkit-mask-position-x',
+      '100%',
+      '0%',
+      'The element sweeps its mask across, from 100% to 0%',
+    ],
+    [
       'clip-path',
       'circle(0% at 50% 50%)',
       'circle(75% at 50% 50%)',

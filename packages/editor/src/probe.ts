@@ -88,6 +88,8 @@ export const PREVIEWED_PROPERTIES = [
   // A gradient mask that moves (a shimmer over text).
   '-webkit-mask-position-x',
   '-webkit-mask-position-y',
+  'mask-position-x',
+  'mask-position-y',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -137,9 +139,17 @@ type Entry = { element: HTMLElement; animation: Animation | null };
 // A property and value as element.animate() takes them. Chrome animates
 // a mask's position only through its shorthand: one side of it is played
 // that way, the other side held at 0%.
+// The same property under the name Chrome computes it by: an unprefixed
+// mask-position-x is computed only as -webkit-mask-position-x.
+function readAs(property: string): string {
+  return property === 'mask-position-x' || property === 'mask-position-y'
+    ? `-webkit-${property}`
+    : property;
+}
+
 function animatedAs(property: string, value: string): Record<string, string> {
-  if (property === '-webkit-mask-position-x') return { maskPosition: `${value} 0%` };
-  if (property === '-webkit-mask-position-y') return { maskPosition: `0% ${value}` };
+  if (readAs(property) === '-webkit-mask-position-x') return { maskPosition: `${value} 0%` };
+  if (readAs(property) === '-webkit-mask-position-y') return { maskPosition: `0% ${value}` };
   return { [camelCase(property)]: value };
 }
 
@@ -542,8 +552,8 @@ function poseOf(
     outlineColor: valueOf('outline-color'),
     outlineWidth: pixels(valueOf('outline-width')),
     outlineOffset: pixels(valueOf('outline-offset')),
-    maskX: firstLayer(valueOf('-webkit-mask-position-x')),
-    maskY: firstLayer(valueOf('-webkit-mask-position-y')),
+    maskX: firstLayer(valueOf('-webkit-mask-position-x') ?? valueOf('mask-position-x')),
+    maskY: firstLayer(valueOf('-webkit-mask-position-y') ?? valueOf('mask-position-y')),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,
@@ -625,7 +635,7 @@ export function createProbe(): Probe {
     if (image !== null) return image;
     const entry = entries.get(track);
     if (entry === undefined || entry.animation === null) return null;
-    const value = getComputedStyle(entry.element).getPropertyValue(track.property);
+    const value = getComputedStyle(entry.element).getPropertyValue(readAs(track.property));
     // A translate in % or calc() ("calc(100% - 2px)" on shadcn's switch) is
     // measured against the element's own size. The probe's element has the
     // shape's size and nothing else moving it, so how far it is drawn from

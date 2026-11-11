@@ -428,6 +428,10 @@ function phraseBetween(
   if (property === 'clip-path') return clipPhrase(from.value, to.value);
   // An SVG path's d: its outline turns into another (an icon morphing).
   if (property === 'd') return 'morphs its outline';
+  // A mask moved across: a shimmer sweeping over the part.
+  if (/^(-webkit-)?mask-position-[xy]$/.test(property)) {
+    return `sweeps its mask ${property.endsWith('x') ? 'across' : 'down'}, from ${from.value} to ${to.value}`;
+  }
   // Which sibling is in front: said as that, not as numbers.
   if (property === 'z-index') {
     const before = Number.parseInt(from.value, 10) || 0;

@@ -290,6 +290,8 @@ const PLAIN_NAMES: { property: string; name: string }[] = [
   { property: 'background-size', name: 'Background size' },
   { property: '-webkit-mask-position-x', name: 'Mask, across' },
   { property: '-webkit-mask-position-y', name: 'Mask, down' },
+  { property: 'mask-position-x', name: 'Mask, across' },
+  { property: 'mask-position-y', name: 'Mask, down' },
   { property: 'letter-spacing', name: 'Letter spacing' },
   { property: 'font-size', name: 'Text size' },
 ];
