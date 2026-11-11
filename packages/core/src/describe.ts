@@ -662,6 +662,17 @@ function movementFirst(groups: PropertyGroup[]): PropertyGroup[] {
   return [...groups.filter(isMovement), ...groups.filter((group) => !isMovement(group))];
 }
 
+// A dialog's backdrop shades the page behind it: said as that, not as a
+// color, which depends on what is under it.
+function dimPhrase(group: PropertyGroup): string {
+  const keyframes = group.tracks[0]?.keyframes ?? [];
+  const alpha = (keyframe: Keyframe | undefined): number =>
+    keyframe?.parsed?.kind === 'color' ? keyframe.parsed.a : 0;
+  return alpha(keyframes[keyframes.length - 1]) >= alpha(keyframes[0])
+    ? 'dims the page behind it'
+    : 'stops dimming the page behind it';
+}
+
 function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
   const all = capture.tracks.filter((track) => track.shapeId === shape.id);
   // The way back of a hover is described in one sentence of its own.
@@ -676,7 +687,9 @@ function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
     shape,
     isRoot: shape.id === capture.root.id,
     phrases: movementFirst(groupByShorthand(tracks)).flatMap((group) =>
-      changePhrase(group, backdropOf(capture)).split(PART),
+      shape.label.endsWith('::backdrop') && group.property === 'background-color'
+        ? [dimPhrase(group)]
+        : changePhrase(group, backdropOf(capture)).split(PART),
     ),
     durationMs: Math.max(...tracks.map((track) => track.timing.duration)),
     delayMs: Math.min(...tracks.map(effectiveDelay)),
@@ -728,7 +741,9 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
     ? `Each of the ${motions.length} ${name}shapes`
     : first.isRoot
       ? 'The element'
-      : `The ${name}shape`;
+      : first.shape.label.endsWith('::backdrop')
+        ? 'The backdrop'
+        : `The ${name}shape`;
   const pronoun = many ? 'Each' : 'It';
   const delays = staggerWords(motions.map((motion) => motion.delayMs));
 

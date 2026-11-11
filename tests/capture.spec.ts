@@ -1635,6 +1635,7 @@ test('a modal dialog is followed, and its backdrop is drawn behind it', async ({
     backdrop?.id,
   );
   expect(capture.notShown).toEqual([]);
+  expect(describeCapture(capture)).toContain('The backdrop dims the page behind it');
 });
 
 test('a player sped up, and one played backwards, are timed as they play', async ({ page }) => {
