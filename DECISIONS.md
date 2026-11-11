@@ -1003,3 +1003,12 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The CSS export says a script or an SVG animation moves such a part, not a CSS rule. The descriptions say a measured loop goes "and back" when it ends within 5% of where it began.
 **Why:** SVG spinners are often SMIL. Their parts were reported as changed and missed. A pulsing circle now reads "scales to 2 and back over 1.5 s. It repeats forever." and matches the page.
 **Not done:** <animateMotion>, and SMIL that changes a path's d or a line's ends, are still reported as missed.
+
+### D173. SVG spinners, checked against a real set
+**Chose:**
+- A part whose resting size is 0 (r="0", a pulse growing from nothing) is drawn at the largest size its SVG animation reaches, and scales from there.
+- A loop's one turn is carried to its very start and end from the frames beside each, as a move, a turn, a lean and a scale, never blended across the turn: a loop may jump back each turn. Where SVG animation's clock and the page's disagree by a few ms, a jump many times the usual step within three frames of the turn's start or end marks where the turn really ends.
+- Films thinned to 120 frames keep the frames a hold put in, and those beside them.
+- The check against the page counts as right any opacity the page passed through between two frames: at a jump, which side a frame falls on is when it was taken.
+- Descriptions of measured motion leave out moves under half a pixel, the measuring's own tolerance.
+**Why:** ten spinners from svg-spinners (MIT), recorded on a local page: all match the page, 0 to 1.2 px. A loop made of a chain of animations (begin="a.end") is measured as a stretch and not said to repeat; hearing the browser's begin events to find its turn was tried and split the recording into takes, so it was taken out.

@@ -269,6 +269,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 93 | Duolingo (Lottie characters, SVG) | Take refused (tracks named undrawn groups); layers shown and hidden read as slow fades | D166, D167: 1.2 px |
 | 94 | Radix (search dialog) | Dimming drawn over the dialog; it went back to 0% opacity after its fade | D170: 0 px |
 | 95 | Aceternity (logo text) | A spring set off by the pointer arriving was called following the pointer | D168: measured as motion |
+| 96 | svg-spinners (10 SMIL spinners, local page) | Every part reported missed: SMIL is in no animation API | D172, D173: all match, 0 to 1.2 px |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 

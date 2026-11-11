@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { aboutMotion, previewBadge, type ShapeCheck } from '../src/selfCheck';
+import { cardLift } from '@motion-inspector/core/src/samples';
+import { stillPose } from '../src/following';
+import { aboutMotion, previewBadge, selfCheck, type ShapeCheck } from '../src/selfCheck';
 
 const close: ShapeCheck = {
   shapeId: 's0' as ShapeCheck['shapeId'],
@@ -63,5 +65,35 @@ describe('the preview badge', () => {
     expect(
       aboutMotion('A script turns span.block in 3D. It is shown flat, as it looks on the page.'),
     ).toBe(false);
+  });
+});
+
+describe('the check against the page', () => {
+  // One box, filmed at 0, 16 and 33 ms. Between the last two the page's
+  // opacity jumped from 0.2 to 1 (a dot lit again).
+  const capture = {
+    ...cardLift,
+    measured: [
+      {
+        shapeId: cardLift.root.id,
+        frames: [0, 16, 33].map((t, index) => ({
+          t,
+          matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
+          taper: null,
+          opacity: [0.2, 0.2, 1][index] ?? 1,
+        })),
+      },
+    ],
+  };
+  const posesWith = (opacityAt33: number) => (time: number) => [
+    { ...stillPose(cardLift.root.id), opacity: time === 33 ? opacityAt33 : 0.2 },
+  ];
+
+  test('at a jump between two frames, a value the page passed through is no difference', () => {
+    expect(selfCheck(capture, posesWith(0.7))[0]?.opacity).toBe(0);
+  });
+
+  test('outside what the page passed through, it is', () => {
+    expect(selfCheck(capture, posesWith(0.1))[0]?.opacity).toBeCloseTo(0.1);
   });
 });

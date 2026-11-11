@@ -1198,12 +1198,19 @@ function sameFrame(one: FilmFrame, other: FilmFrame): boolean {
 // earlier look goes just before each long gap's end.
 const HOLD_AFTER_MS = 50;
 
+// The frames a hold put in, and those it holds before: kept when a film is
+// thinned, or a held value would become a slow change again.
+const holdEdges = new WeakSet<FilmFrame>();
+
 function withHolds(frames: FilmFrame[]): FilmFrame[] {
   return frames.flatMap((frame, index) => {
     const next = frames[index + 1];
-    return next !== undefined && next.time - frame.time > HOLD_AFTER_MS
-      ? [frame, { ...frame, time: next.time - ONE_FRAME_MS }]
-      : [frame];
+    if (next === undefined || next.time - frame.time <= HOLD_AFTER_MS) return [frame];
+    const hold = { ...frame, time: next.time - ONE_FRAME_MS };
+    holdEdges.add(frame);
+    holdEdges.add(hold);
+    holdEdges.add(next);
+    return [frame, hold];
   });
 }
 
@@ -1333,6 +1340,77 @@ const smilTurnAt = new WeakMap<Element, { at: number; into: number }>();
 
 // One filmed turn of a loop, put in the order of the turn: a loop filmed
 // from halfway through starts from its beginning all the same.
+// A 2D matrix as rotate(turn) skewX(lean) scale(sx, sy) after a move, and
+// back (the same reading the script tracks use).
+type MatrixPose = { x: number; y: number; turn: number; lean: number; sx: number; sy: number };
+
+function poseOfMatrix([a, b, c, d, e, f]: FilmFrame['matrix']): MatrixPose {
+  const sx = Math.hypot(a, b);
+  const det = a * d - b * c;
+  return {
+    x: e,
+    y: f,
+    turn: Math.atan2(b, a),
+    lean: Math.abs(det) < 1e-9 ? 0 : Math.atan((a * c + b * d) / det),
+    sx,
+    sy: sx < 1e-9 ? Math.hypot(c, d) : det / sx,
+  };
+}
+
+function matrixOfPose(pose: MatrixPose): FilmFrame['matrix'] {
+  const cos = Math.cos(pose.turn);
+  const sin = Math.sin(pose.turn);
+  const tan = Math.tan(pose.lean);
+  // rotate x skewX x scale
+  return [
+    cos * pose.sx,
+    sin * pose.sx,
+    (cos * tan - sin) * pose.sy,
+    (sin * tan + cos) * pose.sy,
+    pose.x,
+    pose.y,
+  ];
+}
+
+// How different two frames look: their matrices and opacity.
+function frameStep(one: FilmFrame, other: FilmFrame): number {
+  return (
+    one.matrix.reduce((sum, value, index) => sum + Math.abs(value - (other.matrix[index] ?? 0)), 0) +
+    Math.abs(one.opacity - other.opacity) * 10
+  );
+}
+
+// A loop that jumps back at the end of its turn (a pulse growing from
+// nothing) is ordered by the browser's clock for SVG animations, which can
+// be a few ms from the page's: a frame from just before the jump may land
+// at the start of the turn, or one from just after at its end. Where a jump
+// many times larger than the usual step sits within a few frames of the
+// turn's start or end, the frames on its wrong side go to the other end.
+function acrossTheJump(frames: FilmFrame[], first: number, loopMs: number): FilmFrame[] {
+  if (frames.length < 6) return frames;
+  const steps = frames.slice(1).map((frame, index) => frameStep(frames[index] as FilmFrame, frame));
+  const usual = [...steps].sort((one, other) => one - other)[Math.floor(steps.length / 2)] ?? 0;
+  const near = 3 * ONE_FRAME_MS;
+  const isJump = (index: number): boolean => (steps[index] ?? 0) > Math.max(usual * 5, 1e-6);
+  // At the start: frames 0..k, then a jump.
+  for (let index = 0; index < steps.length; index += 1) {
+    if ((frames[index + 1]?.time ?? Infinity) - first > near) break;
+    if (isJump(index)) {
+      const moved = frames.slice(0, index + 1).map((frame) => ({ ...frame, time: frame.time + loopMs }));
+      return [...frames.slice(index + 1), ...moved];
+    }
+  }
+  // At the end: a jump, then frames that belong to the next turn.
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    if (first + loopMs - (frames[index]?.time ?? -Infinity) > near) break;
+    if (isJump(index)) {
+      const moved = frames.slice(index + 1).map((frame) => ({ ...frame, time: frame.time - loopMs }));
+      return [...moved, ...frames.slice(0, index + 1)];
+    }
+  }
+  return frames;
+}
+
 function turnPhase(time: number, loopMs: number, turn: { at: number; into: number }): number {
   return (((turn.into + time - turn.at) % loopMs) + loopMs) % loopMs;
 }
@@ -1340,26 +1418,48 @@ function turnPhase(time: number, loopMs: number, turn: { at: number; into: numbe
 function inTurnOrder(frames: FilmFrame[], loopMs: number, turn: { at: number; into: number }): FilmFrame[] {
   const first = frames[0]?.time ?? 0;
   const phase = (time: number): number => turnPhase(time, loopMs, turn);
-  const ordered = frames
+  const placed = frames
     .map((frame) => ({ ...frame, time: first + phase(frame.time) }))
     .sort((one, other) => one.time - other.time);
+  const ordered = acrossTheJump(placed, first, loopMs);
+  // The turn's very start and end, carried on from the frames beside each:
+  // a loop may be smooth across its turn, or jump back (a pulse growing
+  // from nothing), so neither is blended across the turn.
   const early = ordered[0];
+  const second = ordered[1];
   const late = ordered[ordered.length - 1];
-  if (early === undefined || late === undefined) return ordered;
-  // The turn's very start, between the last frame of one turn and the
-  // first of the next. Then closed: it ends as it began, one whole turn
-  // later, so it repeats without a seam and lasts as long as the author's.
-  const before = loopMs - (late.time - first);
-  const after = early.time - first;
-  const share = before + after > 0 ? before / (before + after) : 0;
-  const blend = (one: number, other: number): number => one + (other - one) * share;
-  const start: FilmFrame = {
-    ...early,
-    time: first,
-    matrix: late.matrix.map((value, index) => blend(value, early.matrix[index] ?? value)) as FilmFrame['matrix'],
-    opacity: blend(late.opacity, early.opacity),
+  const beforeLate = ordered[ordered.length - 2];
+  if (early === undefined || second === undefined || late === undefined || beforeLate === undefined) {
+    return ordered;
+  }
+  // Carried on as a move, a turn, a lean and a scale, not number by number:
+  // a steady turn stays a turn, and a scale stops at nothing.
+  const carried = (from: FilmFrame, to: FilmFrame, time: number): FilmFrame => {
+    const share = to.time === from.time ? 0 : (time - from.time) / (to.time - from.time);
+    const along = (one: number, other: number): number => one + (other - one) * share;
+    const one = poseOfMatrix(from.matrix);
+    const other = poseOfMatrix(to.matrix);
+    // The turn the short way round.
+    let turnTo = other.turn;
+    while (turnTo - one.turn > Math.PI) turnTo -= 2 * Math.PI;
+    while (turnTo - one.turn < -Math.PI) turnTo += 2 * Math.PI;
+    return {
+      ...(Math.abs(time - from.time) < Math.abs(time - to.time) ? from : to),
+      time,
+      matrix: matrixOfPose({
+        x: along(one.x, other.x),
+        y: along(one.y, other.y),
+        turn: along(one.turn, turnTo),
+        lean: along(one.lean, other.lean),
+        sx: Math.max(0, along(one.sx, other.sx)),
+        sy: Math.max(0, along(one.sy, other.sy)),
+      }),
+      opacity: Math.min(Math.max(along(from.opacity, to.opacity), 0), 1),
+    };
   };
-  return [start, ...ordered.filter((frame) => frame.time > first), { ...start, time: first + loopMs }];
+  const start = carried(early, second, first);
+  const end = carried(beforeLate, late, first + loopMs);
+  return [start, ...ordered.filter((frame) => frame.time > first && frame.time < first + loopMs), end];
 }
 
 function scriptTracksFor(
@@ -1410,7 +1510,7 @@ function scriptTracksFor(
     // the last one kept.
     const every = Math.ceil(filmed.length / 120);
     const frames = filmed.filter(
-      (_frame, index) => index % every === 0 || index === filmed.length - 1,
+      (frame, index) => index % every === 0 || index === filmed.length - 1 || holdEdges.has(frame),
     );
     const times = frames.map((frame) => frame.time);
     const span = Math.max((times[times.length - 1] ?? 0) - (times[0] ?? 0), 1);
@@ -3255,7 +3355,11 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   const sendIdleMissed = (): boolean => {
     // Parts an SVG animation moves are filmed whenever they change: one
     // still looping after its turn was shown is not missed.
-    for (const part of smilParts.keys()) idleWatch.delete(part);
+    for (const watched of Array.from(idleWatch.keys())) {
+      if (Array.from(smilParts.keys()).some((part) => part.contains(watched))) {
+        idleWatch.delete(watched);
+      }
+    }
     if (
       idleChangeBegan === null ||
       missedBy(idleWatch, new Set(animatedNow(snapshot))).length === 0
@@ -3396,7 +3500,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         stopped = true;
         watcher.disconnect();
         textWatcher.disconnect();
-        options.onParentAnimation(parent);
+          options.onParentAnimation(parent);
         return;
       }
     }

@@ -2252,6 +2252,26 @@ test('an SVG animation that repeats forever is one turn, repeating', async ({ pa
   expect(describeCapture(capture)).toContain('scales to 2 and back over 800 ms');
 });
 
+// From svg-spinners' pulse: a circle that grows from r="0", so it has no
+// outline at rest. It is drawn at the largest size its animation reaches,
+// and its loop jumps back to nothing each turn.
+test('an SVG pulse growing from nothing is drawn at its largest and scales from 0', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    '#sp-grow { width: 60px }',
+    `<div id="sp-grow"><svg width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="0">
+       <animate attributeName="r" dur="0.8s" values="0;11" repeatCount="indefinite"/>
+       <animate attributeName="opacity" dur="0.8s" values="1;0" repeatCount="indefinite"/></circle></svg></div>`,
+    '#sp-grow',
+  );
+  await page.waitForTimeout(1600);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.missed).toBeNull();
+  expect(describeCapture(capture)).toContain('scales from 0 to 1 and fades from 100% to 0% over 800 ms');
+});
+
 // A number counting up, written by a script: the text changes, and text is
 // never copied. Said as that, not as a part gone missing.
 test('text a script changes is named as text, not as a missing part', async ({ page }) => {

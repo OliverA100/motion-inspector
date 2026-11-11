@@ -111,7 +111,13 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
       const preview = pose?.matrix ?? shape.transform ?? identity;
       // What is seen of it: nothing while it is hidden.
       const seen = pose?.visible === false ? 0 : (pose?.opacity ?? shape.opacity);
-      opacity = Math.max(opacity, Math.abs(seen - frame.opacity));
+      // Where the page jumped between two frames (a dot lit again), any
+      // value it passed through is right: which side of the jump a frame
+      // falls on is when the frame was taken, not a difference.
+      const before = entry.frames[index - 1]?.opacity ?? frame.opacity;
+      const low = Math.min(before, frame.opacity);
+      const high = Math.max(before, frame.opacity);
+      opacity = Math.max(opacity, seen < low ? low - seen : seen > high ? seen - high : 0);
       // Unseen on the page and in the preview (removed, hidden): where it
       // would be does not matter.
       if (seen === 0 && frame.opacity === 0) return;

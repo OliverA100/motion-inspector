@@ -120,14 +120,15 @@ function turnWords(verb: string, degrees: number): string {
   return `${verb} ${spoken(Math.abs(degrees))} degrees`;
 }
 
-function movePhrases(from: Pose, to: Pose): string[] {
+// smallestMove: under it a move is not said. Measured motion is fitted
+// within half a pixel, so less than that is the measuring, not a move.
+function movePhrases(from: Pose, to: Pose, smallestMove = 0.05): string[] {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const sideways = `${spoken(Math.abs(dx))} px`;
   const vertical = `${spoken(Math.abs(dy))} px`;
-  // Less than a twentieth of a pixel is said as 0 px: not a move.
-  const movesX = Math.abs(dx) >= 0.05;
-  const movesY = Math.abs(dy) >= 0.05;
+  const movesX = Math.abs(dx) >= smallestMove;
+  const movesY = Math.abs(dy) >= smallestMove;
   const move =
     movesX && movesY
       ? [`moves ${sideways} ${dx < 0 ? 'left' : 'right'} and ${vertical} ${dy < 0 ? 'up' : 'down'}`]
@@ -386,6 +387,7 @@ function phraseBetween(
   to: Keyframe,
   backdrop: Rgb,
   pivot: Pivot | null = null,
+  measured = false,
 ): string {
   // Hidden throughout: a part taken off the page, from that moment.
   if (property === 'visibility' && to.value === 'hidden') return 'disappears';
@@ -409,7 +411,7 @@ function phraseBetween(
     }
   }
   if (TRANSFORM_PROPERTIES.includes(property) && fromPose !== null && toPose !== null) {
-    const phrases = movePhrases(fromPose, toPose);
+    const phrases = movePhrases(fromPose, toPose, measured ? 0.5 : 0.05);
     // Kept apart, so they join the other changes in one list.
     if (phrases.length > 0) return phrases.join(PART);
   }
@@ -671,9 +673,9 @@ function changePhrase(group: PropertyGroup, backdrop: Rgb, pivot: Pivot | null =
     const farthest = keyframes.reduce((best, keyframe) =>
       distance(first, keyframe) > distance(first, best) ? keyframe : best,
     );
-    return `${joinWithAnd(phraseBetween(group.property, first, farthest, backdrop, pivot).split(PART))} and back`;
+    return `${joinWithAnd(phraseBetween(group.property, first, farthest, backdrop, pivot, track?.origin === 'script').split(PART))} and back`;
   }
-  const phrase = phraseBetween(group.property, first, last, backdrop, pivot);
+  const phrase = phraseBetween(group.property, first, last, backdrop, pivot, track?.origin === 'script');
   // Keyframes an author wrote say the motion has stages (a bounce). Those
   // fitted to measured motion are only how closely it was followed.
   const measured = group.tracks[0]?.origin === 'script';

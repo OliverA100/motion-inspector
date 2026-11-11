@@ -377,6 +377,25 @@ function length(value: SVGAnimatedLength): number {
   return value.baseVal.value;
 }
 
+// A size the part has at rest, or, when that is 0 (a pulse growing from
+// nothing, found on svg-spinners), the largest an SVG animation (SMIL) on
+// it takes it to: the outline drawn, from which its film scales.
+function restingSize(element: Element, value: SVGAnimatedLength, name: string): number {
+  const base = value.baseVal.value;
+  if (base > 0) return base;
+  const sizes = Array.from(element.querySelectorAll('animate'))
+    .filter((animation) => animation.getAttribute('attributeName') === name)
+    .flatMap((animation) =>
+      ['values', 'from', 'to'].flatMap((attribute) =>
+        (animation.getAttribute(attribute) ?? '')
+          .split(/[;\s]+/)
+          .map(Number.parseFloat)
+          .filter(Number.isFinite),
+      ),
+    );
+  return Math.max(base, ...sizes);
+}
+
 // A part's resting dash pattern, such as "80px, 200px", in its own units.
 function restingDash(style: CSSStyleDeclaration): RawIconPath['dash'] {
   if (style.strokeDasharray === 'none' || style.strokeDasharray === '') return null;
@@ -396,8 +415,14 @@ function pathDataOf(element: Element, style: CSSStyleDeclaration): string | null
   if (element instanceof SVGCircleElement || element instanceof SVGEllipseElement) {
     const cx = length(element.cx);
     const cy = length(element.cy);
-    const rx = element instanceof SVGCircleElement ? length(element.r) : length(element.rx);
-    const ry = element instanceof SVGCircleElement ? length(element.r) : length(element.ry);
+    const rx =
+      element instanceof SVGCircleElement
+        ? restingSize(element, element.r, 'r')
+        : restingSize(element, element.rx, 'rx');
+    const ry =
+      element instanceof SVGCircleElement
+        ? restingSize(element, element.r, 'r')
+        : restingSize(element, element.ry, 'ry');
     if (rx <= 0 || ry <= 0) return null;
     // From the right-hand point, clockwise, as SVG draws a circle. A dash
     // pattern (a spinner drawing itself) starts there.
@@ -2452,13 +2477,16 @@ export type SvgGeometry = { x: number; y: number; width: number; height: number 
 export function svgGeometryOf(element: Element, now: boolean): SvgGeometry | null {
   const read = (value: SVGAnimatedLength): number =>
     now ? value.animVal.value : value.baseVal.value;
+  // The sizes the outline was drawn with (see restingSize).
+  const size = (value: SVGAnimatedLength, name: string): number =>
+    now ? value.animVal.value : restingSize(element, value, name);
   if (element instanceof SVGCircleElement) {
-    const r = read(element.r);
+    const r = size(element.r, 'r');
     return { x: read(element.cx) - r, y: read(element.cy) - r, width: 2 * r, height: 2 * r };
   }
   if (element instanceof SVGEllipseElement) {
-    const rx = read(element.rx);
-    const ry = read(element.ry);
+    const rx = size(element.rx, 'rx');
+    const ry = size(element.ry, 'ry');
     return { x: read(element.cx) - rx, y: read(element.cy) - ry, width: 2 * rx, height: 2 * ry };
   }
   if (element instanceof SVGRectElement) {

@@ -19,7 +19,7 @@ import type { Pose } from './draw/stage';
 type Point = { x: number; y: number };
 
 // A pose that changes nothing, for a part the timeline does not move.
-function stillPose(shapeId: Pose['shapeId']): Pose {
+export function stillPose(shapeId: Pose['shapeId']): Pose {
   return {
     shapeId,
     matrix: null,
