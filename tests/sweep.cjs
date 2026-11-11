@@ -27,8 +27,9 @@ const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 const { chromium } = require('@playwright/test');
 
+// CAPTURE=path sweeps another build of the capture script (to compare two).
 const captureScript = readFileSync(
-  resolve(__dirname, '../packages/capture/dist/capture.iife.js'),
+  process.env.CAPTURE ?? resolve(__dirname, '../packages/capture/dist/capture.iife.js'),
   'utf8',
 );
 const out = resolve(__dirname, '../real-sites-output/sweep');

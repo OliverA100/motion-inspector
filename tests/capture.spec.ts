@@ -2509,6 +2509,36 @@ test('text a script changes is named as text, not as a missing part', async ({ p
   expect(missed).toEqual([{ label: 'span', what: 'text' }]);
 });
 
+// Found on GitHub: an item in a marquee, hovered. The marquee carries it
+// along all the while: that is not motion of the item the preview misses.
+test('an item a marquee carries along is not called missed when hovered', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #sp-strip { width: 300px; overflow: hidden }
+      #sp-track { display: flex; gap: 10px; width: max-content; animation: sp-scroll 3s linear infinite }
+      @keyframes sp-scroll { to { transform: translateX(-200px) } }
+      #sp-track li { list-style: none; width: 60px; height: 30px; background: #ddd; transition: background-color .2s }
+      #sp-track li.on { background: #36f }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="sp-strip"><ul id="sp-track"><li></li><li id="sp-item"></li><li></li></ul></div>';
+    document.body.prepend(holder);
+  });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    const item = document.getElementById('sp-item') as Element;
+    window.MotionCapture.record(item);
+    item.classList.add('on');
+  });
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => item.property)).toEqual(['background-color']);
+  expect(capture.missed).toBeNull();
+});
+
 // The picked element's own text counting up, in a block that keeps its size.
 test('a block whose own text counts up is named as text', async ({ page }) => {
   await setUp(

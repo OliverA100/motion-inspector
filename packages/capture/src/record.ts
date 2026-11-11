@@ -2145,13 +2145,19 @@ function partsToWatch(snapshot: Snapshot): Element[] {
   return drawn;
 }
 
-// One look at a part. In page coordinates, so scrolling is not motion.
-function lookAt(element: Element): { place: string; look: string } {
+// One look at a part, its place from `origin`: the parts inside the picked
+// element from its corner, and the picked element from its parent's, so
+// scrolling, and being carried along by a parent outside it (a marquee's
+// item, found on GitHub), are not motion of its own.
+function lookAt(
+  element: Element,
+  origin: { x: number; y: number },
+): { place: string; look: string } {
   const box = element.getBoundingClientRect();
   const style = getComputedStyle(element);
   const place = [
-    Math.round(box.x + window.scrollX),
-    Math.round(box.y + window.scrollY),
+    Math.round(box.x - origin.x),
+    Math.round(box.y - origin.y),
     Math.round(box.width),
     Math.round(box.height),
     // In steps of 5%.
@@ -2170,11 +2176,22 @@ function lookAt(element: Element): { place: string; look: string } {
 }
 
 // Returns true when something was seen to change this time.
-export function watchOnce(watch: Watch, parts: Element[]): boolean {
+export function watchOnce(watch: Watch, parts: Element[], root: Element | null = null): boolean {
+  const page = { x: -window.scrollX, y: -window.scrollY };
+  const corner = root?.getBoundingClientRect() ?? page;
+  const rootCorner = { x: corner.x, y: corner.y };
+  // The picked element from its parent's corner: carried by a parent
+  // that moves (a marquee's track) is not motion of its own; moved by
+  // itself, it is.
+  const parentBox = root?.parentElement?.getBoundingClientRect();
+  const parentCorner = parentBox === undefined ? page : { x: parentBox.x, y: parentBox.y };
   let changed = false;
   for (const element of parts) {
     if (!element.isConnected) continue;
-    const now = lookAt(element);
+    const now = lookAt(
+      element,
+      root === null ? page : element === root ? parentCorner : rootCorner,
+    );
     const known = watch.get(element);
     if (known === undefined) {
       watch.set(element, { ...now, places: new Set(), looks: new Set(), texts: 0 });
@@ -2297,6 +2314,28 @@ function buildTake(
     else addLatePseudo(snapshot, seen.target, seen.pseudoElement);
     if (seen.pseudoElement === null) settleLateShape(snapshot, seen.target);
     else settlePseudo(snapshot, seen.target, seen.pseudoElement);
+  }
+  for (const seen of take) {
+    // One already taken off the page (a ripple, removed once it has
+    // spread) cannot be read again: its rest is the last look its film
+    // shows of it, not the one it had as it appeared (found on MUI's tabs:
+    // the ripple went back to nothing in the preview, 81 px off).
+    // Still running another animation (its way out) is the same: not read.
+    if (
+      seen.pseudoElement === null &&
+      (!seen.target.isConnected || seen.target.getAnimations().length > 0)
+    ) {
+      const shape = snapshot.shapeOf.get(seen.target);
+      const last = film.get(seen.target)?.findLast((frame) => frame.opacity > 0);
+      if (shape !== undefined && last !== undefined && shape.id.includes('.late')) {
+        shape.opacity = Math.min(Math.max(last.opacity, 0), 1);
+        if (shape.kind === 'box') {
+          const flat = last.matrix.every((value, index) => value === [1, 0, 0, 1, 0, 0][index]);
+          shape.transform = flat ? null : last.matrix;
+          shape.individual = null;
+        }
+      }
+    }
   }
   // The take starts with the first animation that is new and can be drawn.
   // One that was already running (a loader beside a hovered button) would
@@ -3683,14 +3722,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       if (watch.size === 0) watchList = partsToWatch(snapshot);
       if (watch.size === 0 || now - lastWatched >= WATCH_EVERY_MS) {
         lastWatched = now;
-        watchOnce(watch, watchList);
+        watchOnce(watch, watchList, snapshot.rootElement);
       }
       idleWatch = new Map();
       idleChangeBegan = null;
     } else if (now - lastIdleWatched >= IDLE_WATCH_MS) {
       lastIdleWatched = now;
       if (idleWatch.size === 0) idleList = partsToWatch(snapshot);
-      if (watchOnce(idleWatch, idleList)) {
+      if (watchOnce(idleWatch, idleList, snapshot.rootElement)) {
         idleChangeBegan ??= docNow;
         idleChangeLast = now;
       }

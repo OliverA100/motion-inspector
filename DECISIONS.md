@@ -1071,3 +1071,10 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D184. The look before a take helps the fit, and is not checked
 **Chose:** the look a part had before a take, put at the start of its film, is used to fit what no animation explains, and left out of the film the preview is checked against. Read where an earlier take ended, it may be out of date by the next one.
 **Why:** the product sweep, run again: 171 of 185 matched (165 before today), but Railway, Cal and Figma showed 100% opacity off at 0 ms, all from that look being out of date. Without it in the check, all three match.
+
+### D185. A part gone from the page rests where it was last seen; carried is not moved
+**Chose:**
+- A part that appeared during a take and is gone (or running its way out) when the take ends cannot be read again: its rest is the last look its film shows of it, not the one it had as it appeared.
+- The watch measures the parts inside the picked element from its corner, and the picked element from its parent's. Being carried along by a parent outside it (a marquee) is not motion the preview misses.
+- The sweep takes CAPTURE=path, to run another build of the capture script, so two can be compared on the same pages.
+**Why:** the original sweep, run again (318 of 331 matched): MUI's tabs were 81 px off (the ripple went back to nothing once its spread ended, while the page held it until it was removed), and GitHub's marquee item was called missed. Both match now. Bisected by sweeping three builds of the day.
