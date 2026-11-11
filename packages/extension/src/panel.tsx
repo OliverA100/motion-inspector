@@ -484,7 +484,10 @@ function PanelApp() {
     try {
       const rect = await whereIs(id);
       await startRecording();
-      await playHover(id, rect);
+      // The hover's own motion is over when its take arrives.
+      await playHover(id, rect, async () => {
+        await waitFor('take', 2000);
+      });
     } catch (error) {
       dispatch({ kind: 'playFailed', what: 'hover', why: messageOf(error) });
     } finally {

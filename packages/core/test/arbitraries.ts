@@ -306,6 +306,22 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
         y: anyNumber,
       }),
     ),
+    mask: fc.oneof(
+      fc.constant(null),
+      fc.array(
+        fc.record({
+          gradient: anyGradient,
+          area: fc.record({ x: anyNumber, y: anyNumber, width: zeroOrMore, height: zeroOrMore }),
+          composite: fc.constantFrom(
+            'add' as const,
+            'subtract' as const,
+            'intersect' as const,
+            'exclude' as const,
+          ),
+        }),
+        { minLength: 1, maxLength: 3 },
+      ),
+    ),
     offset: fc.oneof(
       fc.constant(null),
       fc.record({

@@ -18,18 +18,18 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-// The path: wait outside, come in from the left to the middle, sweep
-// across (parts that follow the pointer get something to follow), rest,
-// then leave on the right. Points in the page's CSS pixels; ms is the
-// pause after each.
+type Point = { x: number; y: number; ms: number };
+
+// The path, in three parts: wait outside and come in from the left to the
+// middle; a small, slow sweep round the middle, well inside the element
+// (parts that follow the pointer get something to follow), back to the
+// middle; then leave on the right. Between them the panel waits for the
+// hover to settle. Points in the page's CSS pixels; ms is the pause after
+// each.
 export function hoverPath(
   rect: Rect,
   viewport: { width: number; height: number },
-): {
-  x: number;
-  y: number;
-  ms: number;
-}[] {
+): { comeIn: Point[]; follow: Point[]; leave: Point[] } {
   const clampX = (x: number): number => Math.min(Math.max(x, 1), viewport.width - 2);
   const clampY = (y: number): number => Math.min(Math.max(y, 1), viewport.height - 2);
   const middleY = rect.y + rect.height / 2;
@@ -42,14 +42,21 @@ export function hoverPath(
   const outsideRight = { x: clampX(rect.x + rect.width + 24), y: clampY(middleY), ms: 0 };
   // Into the middle in a few steps, as a hand would.
   const comeIn = [0.1, 0.25, 0.4, 0.5].map((fraction) => at(fraction, 0.5, 30));
-  // Across: around the middle, then the corners' way, slowly.
-  const across = Array.from({ length: 24 }, (_item, step) =>
-    at(0.5 + 0.35 * Math.cos(step / 4), 0.5 + 0.35 * Math.sin(step / 3), 40),
+  // Round the middle, slowly, a fifth of the way to the edges.
+  const sweep = Array.from({ length: 20 }, (_item, step) =>
+    at(0.5 + 0.2 * Math.cos(step / 3), 0.5 + 0.2 * Math.sin(step / 2.5), 45),
   );
-  const rest = [at(0.5, 0.5, 700)];
   const leave = [0.7, 0.9].map((fraction) => at(fraction, 0.5, 30));
-  return [outsideLeft, ...comeIn, ...across, ...rest, ...leave, outsideRight];
+  return {
+    comeIn: [outsideLeft, ...comeIn],
+    follow: [...sweep, at(0.5, 0.5, PAUSE_MS)],
+    leave: [...leave, outsideRight],
+  };
 }
+
+// A held moment in the hover, before and after the sweep: the take shows
+// the hovered state, not a way out that starts as the way in ends.
+const PAUSE_MS = 500;
 
 // The click's path: wait outside, come in to the middle, and rest there so
 // the hover it sets off is over before the press; after the click, leave.
@@ -62,13 +69,11 @@ export function clickPath(
   leave: { x: number; y: number; ms: number }[];
 } {
   const path = hoverPath(rect, viewport);
-  const outside = path[0] ?? { x: 1, y: 1, ms: 300 };
   const middle = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-  const last = path[path.length - 1] ?? outside;
   return {
-    comeIn: [outside, ...path.slice(1, 5), { ...middle, ms: HOVER_SETTLES_MS }],
+    comeIn: [...path.comeIn, { ...middle, ms: HOVER_SETTLES_MS }],
     press: middle,
-    leave: [{ ...last, ms: 0 }],
+    leave: path.leave.slice(-1),
   };
 }
 
@@ -117,11 +122,22 @@ async function withDebugger(
   }
 }
 
-// Moves the pointer along the hover's path. Resolves when done; rejects
-// with what went wrong (no access to the tab, another debugger attached).
-export async function playHover(tabId: number, rect: Rect): Promise<void> {
+// Moves the pointer along the hover's path: in, then waits for the hover
+// to settle (settled: the panel waits for its take) and a moment more,
+// sweeps gently, holds, and leaves. Resolves when done; rejects with what
+// went wrong (no access to the tab, another debugger attached).
+export async function playHover(
+  tabId: number,
+  rect: Rect,
+  settled: () => Promise<void>,
+): Promise<void> {
   await withDebugger(tabId, async (target) => {
-    await moveAlong(target, hoverPath(rect, await viewportOf(target)));
+    const path = hoverPath(rect, await viewportOf(target));
+    await moveAlong(target, path.comeIn);
+    await settled();
+    await wait(PAUSE_MS);
+    await moveAlong(target, path.follow);
+    await moveAlong(target, path.leave);
   });
 }
 

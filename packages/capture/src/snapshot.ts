@@ -6,7 +6,7 @@
 // image data from the page.
 
 import { offsetMatrix, type OffsetPath, type ShadowLayer } from '@motion-inspector/core';
-import { gradientColor, readGradient, readGradients, type RawGradient } from './gradient';
+import { gradientColor, readGradient, readGradients, topLevel, type RawGradient } from './gradient';
 import { readColor, readValue } from './readValue';
 
 // The properties the editor can preview. Their resting values are read for
@@ -84,6 +84,7 @@ export type RawShape = {
   // Only boxes are seen through a parent's perspective. Left out elsewhere.
   perspective?: Perspective | null;
   offset?: OffsetPath | null;
+  mask?: RawMaskLayer[] | null;
   individual?: Individual | null;
   backfaceHidden?: boolean;
   clipPath: string | null;
@@ -97,6 +98,12 @@ export type RawShape = {
   words: { x: number; width: number }[] | null;
   icon: RawIconPath[] | null;
   children: RawShape[];
+};
+
+export type RawMaskLayer = {
+  gradient: RawGradient;
+  area: Box;
+  composite: 'add' | 'subtract' | 'intersect' | 'exclude';
 };
 
 // A ::before or ::after that has a shape of its own.
@@ -317,6 +324,8 @@ type Walk = {
   count: number;
   leftOut: number;
   flattenedBackground: boolean;
+  // A part was masked with an image, which is not drawn.
+  maskedByImage: boolean;
   // The shape made for each element, to adjust after the walk.
   shapeOf: Map<Element, RawShape>;
   // How many shapes may be made in this walk.
@@ -942,6 +951,7 @@ function boxShape(
     outline: outlineOf(style),
     perspective: perspectiveOf(element, style),
     offset: offsetOf(style, rect, element),
+    mask: maskOf(walk, style, rect),
     individual: individualOf(style, rect),
     backfaceHidden: style.backfaceVisibility === 'hidden',
     clipPath: basicClipPath(style.clipPath),
@@ -953,27 +963,14 @@ function boxShape(
     icon: null,
     children: [],
   };
-  const backgroundAverage =
-    (hasBackgroundImage ? gradientColor(style.backgroundImage) : null) ??
-    (hasColor ? style.backgroundColor : null);
   if (clipsToText(style)) {
     // The background shows only through the letters: it colors the text
     // bars (see textPaint), not the box (found on Retool).
     shape.fill = null;
     shape.gradient = null;
-  } else if (ringMask(style) && backgroundAverage !== null) {
-    // The "gradient border" trick: a mask cuts the background down to the
-    // ring of padding around the content. Drawn as a ring in its average
-    // color, not as the full gradient (found on Retool).
-    shape.fill = null;
-    shape.gradient = null;
-    shape.stroke = {
-      color: backgroundAverage,
-      width: Math.max(parseFloat(style.paddingTop) || 1, 1),
-      sides: null,
-      style: 'solid',
-    };
   }
+  // The "gradient border" trick (a mask that keeps only the ring of padding
+  // round the content, found on Retool) is drawn by its mask (D155).
   return shape;
 }
 
@@ -985,14 +982,6 @@ function clipsToText(style: CSSStyleDeclaration): boolean {
 }
 
 // A mask made of a content-box layer taken away from the whole box.
-function ringMask(style: CSSStyleDeclaration): boolean {
-  return (
-    style.maskImage !== 'none' &&
-    /exclude|xor/.test(style.maskComposite) &&
-    style.maskClip.includes('content-box')
-  );
-}
-
 // The color text is drawn in: its own, or, for see-through text, the
 // background that a parent clips to its letters.
 function textPaint(element: Element, style: CSSStyleDeclaration): string {
@@ -1699,6 +1688,7 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     count: 0,
     leftOut: 0,
     flattenedBackground: false,
+    maskedByImage: false,
     shapeOf: new Map(),
     limit: MOST_SHAPES,
     readsResting: true,
@@ -1815,6 +1805,9 @@ export function takeSnapshot(rootElement: Element): Snapshot {
             `${walk.leftOut} more ${walk.leftOut === 1 ? 'part was' : 'parts were'} left out of the drawing, to keep it simple.`,
           ]
         : []),
+      ...(walk.maskedByImage
+        ? ['A mask made from an image is not drawn: the part is drawn whole.']
+        : []),
       ...(walk.flattenedBackground
         ? [
             'A gradient is drawn as the average of its colors, and an image background as flat gray.',
@@ -1922,6 +1915,83 @@ export function perspectiveOf(element: Element, style: CSSStyleDeclaration): Per
   const [originX = 0, originY = 0] = style.transformOrigin.split(' ').map(parseFloat);
   const [viewX = 0, viewY = 0] = parentStyle.perspectiveOrigin.split(' ').map(parseFloat);
   return { distance, x: viewX - (left + originX), y: viewY - (top + originY) };
+}
+
+// ---------- Masks ----------
+
+// -webkit-mask-composite names, as the standard ones.
+const WEBKIT_COMPOSITE: Record<string, RawMaskLayer['composite']> = {
+  'source-over': 'add',
+  xor: 'exclude',
+  'source-in': 'intersect',
+  'source-out': 'subtract',
+};
+
+// A mask made of gradients, its layers top first. Every layer must be
+// read, or how they combine cannot be: then there is none, and a mask
+// from an image is said to be left out.
+function maskOf(walk: Walk, style: CSSStyleDeclaration, rect: Box): RawMaskLayer[] | null {
+  const image = style.maskImage || style.webkitMaskImage || 'none';
+  if (image === 'none' || image === '') return null;
+  const written = topLevel(image);
+  if (image.includes('url(')) {
+    walk.maskedByImage = true;
+    return null;
+  }
+  const positions = topLevel(style.maskPosition || style.webkitMaskPosition || '0% 0%');
+  const xs = positions.map((place) => place.trim().split(/\s+/)[0] ?? '0%');
+  const ys = positions.map((place) => place.trim().split(/\s+/)[1] ?? '0%');
+  const layers = readGradients(image, rect, {
+    size: style.maskSize || style.webkitMaskSize || 'auto',
+    x: xs.join(', '),
+    y: ys.join(', '),
+    repeat: style.maskRepeat || style.webkitMaskRepeat || 'repeat',
+  });
+  if (layers.length !== written.length) return null;
+  const pick = (list: string[], index: number): string =>
+    list[index] ?? list[list.length - 1] ?? '';
+  const clips = topLevel(style.maskClip || style.webkitMaskClip || 'border-box');
+  const composites = topLevel(
+    style.maskComposite || (style as { webkitMaskComposite?: string }).webkitMaskComposite || 'add',
+  );
+  const side = (value: string): number => parseFloat(value) || 0;
+  const border = {
+    top: side(style.borderTopWidth),
+    right: side(style.borderRightWidth),
+    bottom: side(style.borderBottomWidth),
+    left: side(style.borderLeftWidth),
+  };
+  const padding = {
+    top: side(style.paddingTop),
+    right: side(style.paddingRight),
+    bottom: side(style.paddingBottom),
+    left: side(style.paddingLeft),
+  };
+  const inset = (
+    by: { top: number; right: number; bottom: number; left: number },
+    from: Box,
+  ): Box => ({
+    x: from.x + by.left,
+    y: from.y + by.top,
+    width: Math.max(0, from.width - by.left - by.right),
+    height: Math.max(0, from.height - by.top - by.bottom),
+  });
+  const whole = { x: 0, y: 0, width: rect.width, height: rect.height };
+  return layers.map((gradient, index) => {
+    const clip = pick(clips, index).trim();
+    const area =
+      clip === 'padding-box'
+        ? inset(border, whole)
+        : clip === 'content-box'
+          ? inset(padding, inset(border, whole))
+          : whole;
+    const named = pick(composites, index).trim();
+    const composite =
+      named === 'add' || named === 'subtract' || named === 'intersect' || named === 'exclude'
+        ? named
+        : (WEBKIT_COMPOSITE[named] ?? 'add');
+    return { gradient, area, composite };
+  });
 }
 
 // ---------- Motion along a path ----------
@@ -2227,6 +2297,7 @@ function lateWalk(snapshot: Snapshot): Walk {
     count,
     leftOut: 0,
     flattenedBackground: false,
+    maskedByImage: false,
     shapeOf: snapshot.shapeOf,
     limit: count + LATE_SHAPES,
     readsResting: false,

@@ -5,6 +5,7 @@
 import {
   findShape,
   type Capture,
+  type MaskLayer,
   type ShadowLayer,
   type Shape,
   type ShapeId,
@@ -413,8 +414,13 @@ function walk(
   // An animated opacity is the element's opacity at that moment. It
   // replaces the resting one, it does not multiply it.
   const alpha = pose?.visible === false ? 0 : parentAlpha * (pose?.opacity ?? shape.opacity);
-  // The shape and what is inside it, once placed.
+  // The shape and what is inside it, once placed, cut by its mask if it has
+  // one. CSS masks after the filter.
   const drawPlaced = (context: CanvasRenderingContext2D): void => {
+    if (shape.mask !== null && drawMasked(context, shape, pose, drawFilteredContent)) return;
+    drawFilteredContent(context);
+  };
+  const drawFilteredContent = (context: CanvasRenderingContext2D): void => {
     // A filter acts on the shape and everything inside it once they are
     // drawn, as in CSS: a drop shadow on a wrapper falls outside the clip of
     // a part inside it (Vercel's peeled corner). So they are drawn on a
@@ -521,6 +527,79 @@ function drawFiltered(
     /(-?\d*\.?\d+)px/g,
     (_match, value: string) => `${Number(value) * pixels}px`,
   );
+  context.drawImage(picture.canvas, 0, 0);
+  context.restore();
+  return true;
+}
+
+// A shape drawn on a canvas of its own and cut by its mask: each layer is
+// its gradient over its area, the layers are put together from the bottom
+// up as mask-composite says, and what shows of the shape is what the mask
+// covers. False when there is no canvas to spare (drawn whole instead).
+const MASK_COMPOSITE: Record<MaskLayer['composite'], GlobalCompositeOperation> = {
+  add: 'source-over',
+  subtract: 'source-out',
+  intersect: 'source-in',
+  exclude: 'xor',
+};
+
+function drawMasked(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  pose: Pose | null,
+  draw: (context: CanvasRenderingContext2D) => void,
+): boolean {
+  const layers = shape.mask;
+  if (layers === null) return false;
+  const width = context.canvas.width;
+  const height = context.canvas.height;
+  const picture = offscreen(width, height);
+  if (picture === null) return false;
+  const now = context.getTransform();
+  picture.context.setTransform(now);
+  picturesInUse += 1;
+  try {
+    draw(picture.context);
+    const mask = offscreen(width, height);
+    if (mask === null) return false;
+    picturesInUse += 1;
+    try {
+      const layer = offscreen(width, height);
+      if (layer === null) return false;
+      // Bottom layer first: CSS lists the top one first.
+      [...layers].reverse().forEach((item, index) => {
+        layer.context.setTransform(1, 0, 0, 1, 0, 0);
+        layer.context.clearRect(0, 0, width, height);
+        layer.context.setTransform(now);
+        layer.context.beginPath();
+        layer.context.rect(
+          shape.box.x + item.area.x,
+          shape.box.y + item.area.y,
+          item.area.width,
+          item.area.height,
+        );
+        layer.context.save();
+        layer.context.clip();
+        fillGradient(layer.context, shape, pose, item.gradient);
+        layer.context.restore();
+        mask.context.globalCompositeOperation =
+          index === 0 ? 'source-over' : MASK_COMPOSITE[item.composite];
+        mask.context.drawImage(layer.canvas, 0, 0);
+      });
+      mask.context.globalCompositeOperation = 'source-over';
+      picture.context.save();
+      picture.context.setTransform(1, 0, 0, 1, 0, 0);
+      picture.context.globalCompositeOperation = 'destination-in';
+      picture.context.drawImage(mask.canvas, 0, 0);
+      picture.context.restore();
+    } finally {
+      picturesInUse -= 1;
+    }
+  } finally {
+    picturesInUse -= 1;
+  }
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
   context.drawImage(picture.canvas, 0, 0);
   context.restore();
   return true;

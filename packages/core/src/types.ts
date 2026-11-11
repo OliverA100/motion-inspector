@@ -203,6 +203,10 @@ export type Shape = {
   // Motion along a path (CSS offset-path: path()), null for none. Older
   // takes have none.
   offset: OffsetPath | null;
+  // A CSS mask made of gradients, its layers top first, as CSS lists them.
+  // null for none, and for a mask made from an image, which is not copied.
+  // Older takes have none.
+  mask: MaskLayer[] | null;
   // CSS translate, rotate and scale, the properties apart from transform,
   // as computed when the take began, null where none. CSS applies them
   // with transform, so an animation of transform alone keeps them (a caret
@@ -327,6 +331,17 @@ export type Track = {
 // named one such as "--hero"). range: animation-range as computed
 // ("normal", "entry 0% cover 50%").
 export type ScrollDriven = { timeline: string; range: string };
+
+// One layer of a mask: a gradient (its stops' alpha is what shows), the
+// area it covers (mask-clip: the border, padding or content box), in px
+// from the shape's top left, and how it combines with the layers under it
+// (mask-composite). A ring of light round a card is a solid layer on the
+// content box excluded from one on the whole box.
+export type MaskLayer = {
+  gradient: Gradient;
+  area: { x: number; y: number; width: number; height: number };
+  composite: 'add' | 'subtract' | 'intersect' | 'exclude';
+};
 
 // A path the shape is placed along, with what CSS needs to place it.
 export type OffsetPath = {

@@ -901,3 +901,14 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The description ends by naming what the take misses.
 - A clipping frame that would hide more of the element than its clipping parent does on screen is dropped.
 **Why:** the self-check compared only where drawn parts were and how opaque, so it said "Matches the page · 0 px" with Vercel's flap missing, a button cut in half, and a line that never drew. Problems were found by eye, one site at a time.
+
+### D155. Masks and repeating gradients are drawn
+**Chose:**
+- A CSS mask made of gradients (`mask-image`, or `-webkit-mask-image`) is read as layers, top first, in a new optional field, `Shape.mask`: each layer's gradient (its alpha is what shows), the area it covers (`mask-clip`: the border, padding or content box) and how it combines with the layers under it (`mask-composite`, or the `-webkit-` names). The editor draws the shape, after its filter, on a canvas of its own, builds the mask from the bottom layer up (add, subtract, intersect and exclude are the canvas's source-over, source-out, source-in and xor), and keeps what the mask covers. Every layer must be read, or how they combine cannot be: then there is no mask. A mask from an image is not copied; it is listed.
+- The "gradient border" trick (a mask that keeps the ring of padding round the content) is drawn by its mask, with its gradient, no longer as a solid ring in its average color.
+- `repeating-linear-gradient`, `repeating-radial-gradient` and `repeating-conic-gradient` are drawn: one period of stops, repeated over the gradient, up to 32 stops (the average color past that).
+**Why:** Magic UI's border beam and shine borders, marquees that fade at their edges, and number tickers are masked; they were drawn whole. Stripes were flat gray.
+
+### D156. Play the hover holds the hover
+**Chose:** the pointer comes in, then waits for the hover's take (its own motion is over), at most 2 seconds, and half a second more; then a small, slow sweep round the middle, well inside the element, for parts that follow the pointer; back to the middle for another half second; then out.
+**Why:** asked for by the user: the way out began as the way in ended, or before (a sweep across most of the element, and a fixed 0.7 s rest, could leave a slow hover unfinished or the element when it moved under the pointer).

@@ -26,6 +26,7 @@ import type {
   Gradient,
   GroupId,
   IconPath,
+  MaskLayer,
   Measured,
   Missed,
   OffsetPath,
@@ -518,6 +519,23 @@ function parsePerspective(value: unknown): Result<NonNullable<Shape['perspective
   });
 }
 
+const MOST_MASK_LAYERS = 8;
+
+function parseMaskLayer(value: unknown): Result<MaskLayer> {
+  return andThen(fields(value), (source) => {
+    const gradient = at('gradient', parseGradient(get(source, 'gradient')));
+    const area = at('area', parseBox(get(source, 'area')));
+    const composite = at(
+      'composite',
+      oneOf(get(source, 'composite'), ['add', 'subtract', 'intersect', 'exclude'] as const),
+    );
+    if (!gradient.ok || !area.ok || !composite.ok) {
+      return failAll([gradient, area, composite].flatMap(errorsOf));
+    }
+    return ok({ gradient: gradient.value, area: area.value, composite: composite.value });
+  });
+}
+
 const MOST_PATH_POINTS = 1024;
 
 function parseXY(value: unknown): Result<{ x: number; y: number }> {
@@ -816,6 +834,16 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
     const outline = at('outline', optional(get(source, 'outline'), parseOutline));
     const perspective = at('perspective', optional(get(source, 'perspective'), parsePerspective));
     const offset = at('offset', optional(get(source, 'offset'), parseOffsetPath));
+    const mask = at(
+      'mask',
+      optional(get(source, 'mask'), (value) =>
+        andThen(listOf(value, parseMaskLayer), (layers) =>
+          layers.length === 0 || layers.length > MOST_MASK_LAYERS
+            ? fail(`From 1 to ${MOST_MASK_LAYERS} mask layers.`)
+            : ok(layers),
+        ),
+      ),
+    );
     const individual = at('individual', optional(get(source, 'individual'), parseIndividual));
     const backfaceHidden = at('backfaceHidden', optional(get(source, 'backfaceHidden'), boolean));
     const clipPath = at('clipPath', optional(get(source, 'clipPath'), text));
@@ -855,6 +883,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !outline.ok ||
       !perspective.ok ||
       !offset.ok ||
+      !mask.ok ||
       !individual.ok ||
       !backfaceHidden.ok ||
       !clipPath.ok ||
@@ -884,6 +913,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
           outline,
           perspective,
           offset,
+          mask,
           individual,
           backfaceHidden,
           clipPath,
@@ -913,6 +943,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       outline: outline.value,
       perspective: perspective.value,
       offset: offset.value,
+      mask: mask.value,
       individual: individual.value,
       backfaceHidden: backfaceHidden.value ?? false,
       clipPath: clipPath.value,

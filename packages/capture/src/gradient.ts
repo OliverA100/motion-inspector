@@ -68,7 +68,7 @@ export function tileOf(sizing: Sizing, box: Size): RawTile | null {
 }
 
 // Splits at commas that are not inside brackets.
-function topLevel(text: string): string[] {
+export function topLevel(text: string): string[] {
   const parts: string[] = [];
   let depth = 0;
   let start = 0;
@@ -220,7 +220,40 @@ export function readGradient(
   return best;
 }
 
+// A repeating gradient's stops, repeated over the whole gradient: the
+// stops between the first and the last make one period. null when the
+// period is empty, or so short that it would take too many stops (then
+// the average color is drawn).
+const MOST_STOPS = 32;
+function repeated(stops: RawStop[]): RawStop[] | null {
+  const first = stops[0];
+  const last = stops[stops.length - 1];
+  if (first === undefined || last === undefined) return null;
+  const period = last.at - first.at;
+  if (!(period > 0)) return null;
+  const out: RawStop[] = [];
+  for (let start = first.at - Math.ceil(first.at / period) * period; start < 1; start += period) {
+    for (const stop of stops) {
+      const at = start + (stop.at - first.at);
+      if (at >= -period && at <= 1 + period) out.push({ color: stop.color, at });
+    }
+    if (out.length > MOST_STOPS) return null;
+  }
+  return out.map((stop) => ({ color: stop.color, at: Math.min(Math.max(stop.at, 0), 1) }));
+}
+
 function readLayer(layerText: string, box: Size, sizing: Sizing | null): RawGradient | null {
+  const written = layerParts(layerText);
+  if (written !== null && written.name.startsWith('repeating-')) {
+    const once = readLayer(
+      `${written.name.slice('repeating-'.length)}(${written.inside})`,
+      box,
+      sizing,
+    );
+    if (once === null) return null;
+    const stops = repeated(once.stops);
+    return stops === null ? null : { ...once, stops };
+  }
   const tile = sizing === null ? null : tileOf(sizing, box);
   // Directions and px stops are measured on the image, which is the tile.
   if (tile !== null) box = { width: tile.width, height: tile.height };

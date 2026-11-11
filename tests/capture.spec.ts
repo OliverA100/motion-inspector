@@ -1903,3 +1903,28 @@ test('a hover that changes a color at once, with no transition, is not called mi
   await page.waitForTimeout(800);
   expect(await takesNow(page)).toEqual([]);
 });
+
+test('a ring mask is read as its two layers, and a repeating gradient as its stops', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-ring { position: relative; width: 200px; height: 80px; padding: 3px; border-radius: 12px;
+       background: repeating-linear-gradient(90deg, rgb(0, 0, 255) 0 20px, rgb(255, 165, 0) 20px 40px);
+       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+       -webkit-mask-composite: xor; mask-composite: exclude; transition: opacity .2s }
+     #sp-ring.on { opacity: .5 }`,
+    '<div id="sp-ring"></div>',
+    '#sp-ring',
+  );
+  await page.evaluate(() => document.getElementById('sp-ring')?.classList.add('on'));
+  await page.waitForTimeout(600);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.root.mask?.map((layer) => [layer.composite, layer.area])).toEqual([
+    ['exclude', { x: 3, y: 3, width: 194, height: 74 }],
+    ['exclude', { x: 0, y: 0, width: 200, height: 80 }],
+  ]);
+  // Stripes, not their average: the stops repeat across the box.
+  expect(capture.root.gradient?.stops.length).toBeGreaterThan(8);
+  expect(capture.notShown.join(' ')).not.toContain('average of its colors');
+});
