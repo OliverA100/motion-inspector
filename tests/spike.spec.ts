@@ -557,11 +557,9 @@ test('font-size transition: Chrome reports both keyframes as 0px', async ({ page
     const link = document.getElementById('g') as HTMLElement;
     link.classList.add('on');
     await new Promise((resolve) => requestAnimationFrame(resolve));
-    return link.getAnimations()[0]?.effect instanceof KeyframeEffect
-      ? link
-          .getAnimations()[0]
-          ?.effect?.getKeyframes()
-          .map((keyframe) => keyframe.fontSize)
+    const effect = link.getAnimations()[0]?.effect;
+    return effect instanceof KeyframeEffect
+      ? effect.getKeyframes().map((keyframe) => keyframe.fontSize)
       : null;
   });
   expect(keyframes).toEqual(['0px', '0px']);

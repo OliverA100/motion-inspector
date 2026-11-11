@@ -283,6 +283,15 @@ const PLAIN_NAMES: { property: string; name: string }[] = [
   { property: 'stroke', name: 'Stroke' },
   { property: 'stroke-dashoffset', name: 'Dash offset' },
   { property: 'stroke-dasharray', name: 'Dashes' },
+  { property: 'd', name: 'Outline shape' },
+  { property: 'offset-distance', name: 'Along its path' },
+  { property: 'z-index', name: 'In front or behind' },
+  { property: 'text-decoration-color', name: 'Underline color' },
+  { property: 'background-size', name: 'Background size' },
+  { property: '-webkit-mask-position-x', name: 'Mask, across' },
+  { property: '-webkit-mask-position-y', name: 'Mask, down' },
+  { property: 'letter-spacing', name: 'Letter spacing' },
+  { property: 'font-size', name: 'Text size' },
 ];
 
 // The plain word for a CSS property, shown before the CSS term.

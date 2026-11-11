@@ -262,7 +262,8 @@ describe('plain words', () => {
     expect(plainName('transform')).toBe('Move and scale');
     expect(plainName('border-top-left-radius')).toBe('Corner, top left');
     expect(plainName('filter')).toBe('Filter');
-    expect(plainName('letter-spacing')).toBeNull();
+    expect(plainName('letter-spacing')).toBe('Letter spacing');
+    expect(plainName('word-spacing')).toBeNull();
   });
 });
 
