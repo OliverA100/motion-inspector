@@ -86,6 +86,9 @@ export type Pose = {
   outlineColor: string | null;
   outlineWidth: number | null;
   outlineOffset: number | null;
+  // An animated mask-position, as computed CSS: a shimmer sweeping across.
+  maskX: string | null;
+  maskY: string | null;
 };
 
 export type StageData = {
@@ -672,7 +675,12 @@ function drawMasked(
         );
         layer.context.save();
         layer.context.clip();
-        fillGradient(layer.context, shape, pose, item.gradient);
+        // A mask's tile moves by its own position, not the background's.
+        const masking =
+          pose === null
+            ? null
+            : { ...pose, backgroundX: pose.maskX, backgroundY: pose.maskY, backgroundSize: null };
+        fillGradient(layer.context, shape, masking, item.gradient);
         layer.context.restore();
         mask.context.globalCompositeOperation =
           index === 0 ? 'source-over' : MASK_COMPOSITE[item.composite];

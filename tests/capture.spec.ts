@@ -2142,6 +2142,32 @@ test('a part whose z-index rises is drawn in front of its siblings', async ({ pa
   expect(late.some((value) => value !== null && value > 0)).toBe(true);
 });
 
+// A shimmer: a gradient mask moved across by -webkit-mask-position, which
+// Chrome reports as webkitMaskPositionX: -webkit-mask-position-x.
+test('a gradient mask that moves by its position is previewed', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-shine { width: 240px; height: 40px; background: #36f;
+       -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.3) 30%, #000 50%, rgba(0, 0, 0, 0.3) 70%);
+       -webkit-mask-size: 300% 100%; -webkit-mask-position: 100% 0; transition: -webkit-mask-position .4s linear }
+     #sp-shine.on { -webkit-mask-position: 0% 0 }`,
+    '<div id="sp-shine"></div>',
+    '#sp-shine',
+  );
+  await page.evaluate(() => document.getElementById('sp-shine')?.classList.add('on'));
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => item.property)).toEqual(['-webkit-mask-position-x']);
+  const halfway = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (capture: unknown, timeMs: number) => { maskX: string | null }[];
+    };
+    return module.posesOf(taken, 200).map((pose) => pose.maskX);
+  }, capture);
+  expect(halfway).toEqual(['50%']);
+});
+
 // Found on Catalyst: a focus ring whose color comes in, from transparent.
 test('a focus ring that shows by its outline color is kept and previewed', async ({ page }) => {
   await setUp(

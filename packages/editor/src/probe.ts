@@ -85,6 +85,9 @@ export const PREVIEWED_PROPERTIES = [
   'outline-color',
   'outline-width',
   'outline-offset',
+  // A gradient mask that moves (a shimmer over text).
+  '-webkit-mask-position-x',
+  '-webkit-mask-position-y',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -131,8 +134,19 @@ export function isPreviewed(property: string): boolean {
 
 type Entry = { element: HTMLElement; animation: Animation | null };
 
+// A property and value as element.animate() takes them. Chrome animates
+// a mask's position only through its shorthand: one side of it is played
+// that way, the other side held at 0%.
+function animatedAs(property: string, value: string): Record<string, string> {
+  if (property === '-webkit-mask-position-x') return { maskPosition: `${value} 0%` };
+  if (property === '-webkit-mask-position-y') return { maskPosition: `0% ${value}` };
+  return { [camelCase(property)]: value };
+}
+
 function camelCase(property: string): string {
-  return property.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+  // A prefixed one is written webkitMaskPositionX for animate(), no capital.
+  const plain = property.replace(/^-(webkit|moz)-/, '$1-');
+  return plain.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 }
 
 function createEntry(host: HTMLElement, track: Track, shape: Shape | null): Entry {
@@ -152,7 +166,7 @@ function createEntry(host: HTMLElement, track: Track, shape: Shape | null): Entr
       track.keyframes.map((keyframe) => ({
         offset: keyframe.offset,
         easing: easingToCss(keyframe.easing),
-        [camelCase(track.property)]: keyframe.value,
+        ...animatedAs(track.property, keyframe.value),
       })),
       {
         delay: timing.delay,
@@ -528,6 +542,8 @@ function poseOf(
     outlineColor: valueOf('outline-color'),
     outlineWidth: pixels(valueOf('outline-width')),
     outlineOffset: pixels(valueOf('outline-offset')),
+    maskX: firstLayer(valueOf('-webkit-mask-position-x')),
+    maskY: firstLayer(valueOf('-webkit-mask-position-y')),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,

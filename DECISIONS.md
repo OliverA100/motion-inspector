@@ -1086,3 +1086,9 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D187. A focus ring is kept while it cannot be seen, and animates
 **Chose:** an outline with a style but transparent or 0 wide is kept on its shape (it does not make the part one that paints), and its color, width and offset are previewed. One 0 wide is not drawn.
 **Why:** Catalyst's switch shows a focus ring by its outline color, from transparent: "Not drawn: outline-color". The click sweep, run again: 80 of 83 matched; the others were Radix pages where nothing ran on the clicked part and a dialog whose result changes with what the sweep left open.
+
+### D188. A gradient mask that moves is drawn
+**Chose:**
+- A prefixed property keeps its leading dash: Chrome reports -webkit-mask-position-x as webkitMaskPositionX, which was named "webkit-mask-position-x".
+- The mask's position is previewed. Chrome animates it through element.animate() only as the mask-position shorthand, so the probe plays one side that way, the other held at 0%, and reads the side back. The stage moves a mask's tile by the mask's position, no longer by the background's.
+**Why:** a shimmer over text, a gradient mask swept across by its position, was listed as not drawn.

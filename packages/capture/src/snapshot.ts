@@ -1741,7 +1741,10 @@ export function cssName(name: string): string {
   if (name === 'cssFloat') return 'float';
   if (name === 'cssOffset') return 'offset';
   if (name.startsWith('--')) return name;
-  return name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+  // A prefixed property keeps its leading dash: Chrome reports
+  // -webkit-mask-position-x as webkitMaskPositionX.
+  const dashed = name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+  return /^(webkit|moz)-/.test(dashed) ? `-${dashed}` : dashed;
 }
 
 // The color of the page behind an element: what is drawn under its middle,

@@ -51,6 +51,8 @@ export function stillPose(shapeId: Pose['shapeId']): Pose {
     outlineColor: null,
     outlineWidth: null,
     outlineOffset: null,
+    maskX: null,
+    maskY: null,
   };
 }
 
