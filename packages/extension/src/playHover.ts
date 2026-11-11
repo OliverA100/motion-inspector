@@ -23,7 +23,8 @@ type Point = { x: number; y: number; ms: number };
 // The path, in three parts: wait outside and come in from the left to the
 // middle; a small, slow sweep round the middle, well inside the element
 // (parts that follow the pointer get something to follow), back to the
-// middle; then leave on the right. Between them the panel waits for the
+// middle; then leave on the right, and go on to the corner of the window
+// farthest from it. Between them the panel waits for the
 // hover to settle. Points in the page's CSS pixels; ms is the pause after
 // each.
 export function hoverPath(
@@ -39,7 +40,18 @@ export function hoverPath(
     ms,
   });
   const outsideLeft = { x: clampX(rect.x - 24), y: clampY(middleY), ms: 300 };
-  const outsideRight = { x: clampX(rect.x + rect.width + 24), y: clampY(middleY), ms: 0 };
+  const outsideRight = { x: clampX(rect.x + rect.width + 24), y: clampY(middleY), ms: 300 };
+  // Off whatever is around the element too. A card whose hover moves the
+  // arrow inside it (Tailwind's group-hover, found on oliverhassan.dev) goes
+  // back only when the pointer leaves the card: 24 px past the arrow was
+  // still on it, and only the hover in was recorded. One jump, so nothing is
+  // crossed on the way.
+  const middleX = rect.x + rect.width / 2;
+  const away = {
+    x: middleX < viewport.width / 2 ? viewport.width - 2 : 1,
+    y: middleY < viewport.height / 2 ? viewport.height - 2 : 1,
+    ms: 0,
+  };
   // Into the middle in a few steps, as a hand would.
   const comeIn = [0.1, 0.25, 0.4, 0.5].map((fraction) => at(fraction, 0.5, 30));
   // Round the middle, slowly, a fifth of the way to the edges.
@@ -50,7 +62,7 @@ export function hoverPath(
   return {
     comeIn: [outsideLeft, ...comeIn],
     follow: [...sweep, at(0.5, 0.5, PAUSE_MS)],
-    leave: [...leave, outsideRight],
+    leave: [...leave, outsideRight, away],
   };
 }
 

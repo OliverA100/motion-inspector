@@ -1243,3 +1243,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The stage's "Original" and "Mine" captions sit in a band of their own; they were half under the drawing.
 - The ready panel says who sets the motion off: "Press Record, then hover or click it on the page yourself. Or let the panel do it for you…", with the buttons under "or do it for me".
 **Why:** all asked for after trying the panel by hand. On its own tab, the curve's row was out of sight.
+
+### D220. Play the hover leaves for the far corner of the window
+**Chose:** after leaving the element on its right, the played pointer jumps to the corner of the window farthest from the element. "Play the click" leaves the same way.
+**Why:** found by hand on oliverhassan.dev. The arrow inside a case-study card moves when the card is hovered (Tailwind's group-hover). Play the hover left the pointer 24 px past the arrow, still on the card, so the page never went back and only "Hover in" was recorded. One jump, so nothing on the way is crossed.

@@ -320,6 +320,33 @@ test('several takes are listed, and any one can be opened', async ({ context, ex
   await expect(panel.locator('.mi__description')).toContainText('moves down 56 px');
 });
 
+// Found by hand on oliverhassan.dev: the arrow inside a case-study card
+// moves when the card is hovered (Tailwind's group-hover). Play the hover
+// left the pointer 24 px past the arrow, still on the card, so the page
+// never went back and only the hover in was recorded.
+test('Play the hover leaves the card around the element too', async ({ context, extensionId }) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await site.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `#sp-card { display: grid; place-items: center; width: 360px; height: 200px; background: #eee }
+      #sp-card .arrow { width: 48px; height: 48px; border-radius: 50%; background: #222; transition: transform .3s }
+      #sp-card:hover .arrow { transform: scale(1.2) }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<button id="sp-card"><span class="arrow"></span></button>';
+    document.body.prepend(holder);
+  });
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.click('#sp-card .arrow');
+  await site.mouse.move(700, 600);
+  await panel.getByRole('button', { name: 'Play the hover' }).click();
+  await site.bringToFront();
+  await expect(panel.locator('.xp__take', { hasText: 'Hover in and out' })).toHaveCount(1, {
+    timeout: 8000,
+  });
+});
+
 test('recording stops by itself when the motion is done, and can record again', async ({
   context,
   extensionId,
