@@ -292,6 +292,9 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 116 | Bootstrap (copy buttons, library sweep) | The tooltip's arrow, written to as it was removed, was measured from an empty style: the take failed (4 checks) | Parts off the page are not measured (D211): one "Hover in and out" take, 0 px |
 | 117 | Mercury, Dub | A hover whose way back has no animation was "Hover in" alone, which read like a missed leave | Said: "Hover in, back at once" (D212) |
 | 118 | Stripe (counter) | Each digit rolls up and the page cancels it as it ends; the preview held it, 18 px off | Dropped fill when cancelled at its end (D213): 0 px. The first roll on load, held 450 ms before its cancel, still holds |
+| 119 | Sonner, Vaul, Cal.com, basement.studio (on a Retina screen) | A transition's transform read twice as far as it moves: Sonner's arrow "4 px" and 2 px off, Cal's nav highlight 457 px off | Chrome reports those lengths times the device pixel ratio; divided back (D214) |
+| 120 | Magic UI | A 90-second marquee made a load take "180 s" long | A loop counts for at most 10 s of a take (D215) |
+| 121 | basement.studio | A link that blinks through an unregistered CSS variable stayed at 50% in the preview | A part a variable moves is shown by its film (D216): 1% |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 
