@@ -1604,6 +1604,40 @@ async function setUp(page: Page, css: string, html: string, pick: string): Promi
 const takesNow = async (page: Page): Promise<Take[]> =>
   page.evaluate(() => window.MotionCapture.stop());
 
+// Found on Shoelace: the tooltip's bubble animates in its host's shadow
+// root, outside the picked button, where document.getAnimations() does not
+// look.
+test('a tooltip bubble in the shadow root around the picked button is followed', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    customElements.define(
+      'sp-tip',
+      class extends HTMLElement {
+        connectedCallback(): void {
+          const root = this.attachShadow({ mode: 'open' });
+          root.innerHTML = `<slot></slot><div role="tooltip" style="display:none;position:absolute;top:40px;left:0;width:120px;height:30px;background:#333"></div>`;
+          const bubble = root.querySelector('[role=tooltip]') as HTMLElement;
+          this.addEventListener('pointerenter', () => {
+            bubble.style.display = 'block';
+            bubble.animate({ opacity: [0, 1], scale: [0.8, 1] }, { duration: 200 });
+          });
+        }
+      },
+    );
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:relative;padding:20px';
+    holder.innerHTML = '<sp-tip><button id="sp-tip-button">Info</button></sp-tip>';
+    document.body.prepend(holder);
+    window.MotionCapture.record(document.getElementById('sp-tip-button') as Element);
+  });
+  await page.hover('#sp-tip-button');
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((track) => track.property).sort()).toEqual(['opacity', 'scale']);
+});
+
 test('a native popover opened by its button is followed into the top layer', async ({ page }) => {
   await setUp(
     page,
@@ -1807,7 +1841,7 @@ test('a part a script turns in 3D keeps its lean when flattened', async ({ page 
   const turn = track(capture, 'transform');
   const last = turn.keyframes[turn.keyframes.length - 1]?.value ?? '';
   expect(last).toContain('skewX(');
-  const seen = capture.measured[0]?.frames.at(-1)?.matrix ?? [];
+  const seen = capture.measured?.[0]?.frames.at(-1)?.matrix ?? [];
   const drawn = await page.evaluate((value) => {
     const m = new DOMMatrix(value);
     return [m.a, m.b, m.c, m.d];

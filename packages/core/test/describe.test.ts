@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import { describeCapture } from '../src/describe';
-import type { ParsedValue } from '../src/types';
+import type { Capture, ParsedValue } from '../src/types';
 import { capture } from './arbitraries';
 import {
   bounce,
@@ -81,6 +81,36 @@ describe('describeCapture on the sample captures', () => {
     expect(describeCapture(backwards)).toBe(
       'The element moves down 2 px and changes its shadow over 180 ms. It starts slow and speeds up.',
     );
+  });
+
+  test('a part hidden once it has faded back out disappears on the way back', () => {
+    const template = buttonHover.tracks[0];
+    if (template === undefined) throw new Error('the sample has a track');
+    const step = (offset: number, value: string) => ({
+      offset,
+      value,
+      parsed: null,
+      easing: { kind: 'linear' as const },
+      implicit: false,
+    });
+    const timed = (property: string, startOffset: number, from: string, to: string) => ({
+      ...template,
+      property,
+      startOffset,
+      groupId: null,
+      keyframes: [step(0, from), step(1, to)],
+      timing: { ...template.timing, delay: 0, duration: 150 },
+    });
+    const tooltip = {
+      ...buttonHover,
+      tracks: [
+        timed('opacity', 0, '0', '1'),
+        timed('opacity', 550, '1', '0'),
+        timed('visibility', 699, 'hidden', 'hidden'),
+      ] as unknown as Capture['tracks'],
+    };
+    expect(describeCapture(tooltip)).toContain('Then it goes back and disappears.');
+    expect(describeCapture(tooltip)).not.toContain('100% and disappears');
   });
 
   test('a capture with no tracks', () => {

@@ -112,6 +112,7 @@ Recorded at the start of M5, before the real capture code.
 | --- | --- | --- |
 | Animation on `::after` | `effect.target` is the element itself. `effect.pseudoElement` is `"::after"`. It is returned by `getAnimations({ subtree: true })` like any other. | Checks `pseudoElement` first. If it is set, the animation goes to `notShown`, because there is no shape for a pseudo-element. Without that check it would be drawn as if the whole element moved. |
 | Animation inside an open shadow root | `host.getAnimations({ subtree: true })` does **not** return it. `host.shadowRoot.getAnimations()` does. | On every frame, also asks each open shadow root under the picked element. The snapshot walks into open shadow roots too, so the shapes exist. |
+| Animation in a shadow root outside the picked element | `document.getAnimations()` does **not** return it either (checked on Shoelace, Chrome 157). | A tooltip bubble or menu panel that animates in the shadow root of a component the pick sits in is found by also asking the shadow roots of the pick's nearest hosts (D164). |
 | Scroll-driven animation | `animation.timeline` is a `ScrollTimeline` (or `ViewTimeline`). `getTiming().duration` is `"auto"`. `currentTime`, `startTime` and the computed duration are percentages of the scroll range, as objects, not numbers of milliseconds. | Anything whose timeline is not a `DocumentTimeline` goes to `notShown`. Its times are never read as numbers. |
 
 ## Not covered by the spike

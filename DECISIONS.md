@@ -953,3 +953,11 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - Layout is sampled for the parts the take's animations move even before they have a shape: a panel hidden when picked gets its shape when the take ends, and its growing is then a layout track (Carbon's accordion opens by max-height and padding).
 - Properties that only change layout (min and max sizes, padding, margin, gap, flex and grid sizing, inset) count as drawn when the take has layout tracks: their effect is the boxes the page measured. The badge, the Not shown tab and the take list agree.
 **Why:** Carbon's Storybook, recorded through its preview frame (D160).
+
+### D164. Shadow roots around the pick; tiny dots; a flattened 3D turn keeps its lean
+**Chose:**
+- What opens elsewhere is also looked for in the shadow roots of the components the picked element sits in or is slotted into (up to four levels up), and those inside them. Animations in the picked element's own shadow roots stay its own.
+- A part 2 px or smaller is left out only when it cuts off what overflows it (screen-reader text). One that paints and cuts nothing off is drawn.
+- Motion a script makes is written as translate, rotate, skewX and scale. The lean is what a turn in 3D looks like once flattened.
+- A change that first happens once a hover's way back has begun is said with the way back ("Then it goes back and disappears").
+**Why:** Shoelace's tooltip was not followed: its bubble animates in the tooltip's shadow root, and document.getAnimations() leaves shadow roots out. Aceternity's logo: four corner dots were reported missing, and the turned mark was 2.8 px off; now 0.5 px.

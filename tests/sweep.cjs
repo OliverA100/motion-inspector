@@ -308,8 +308,24 @@ function listCandidates() {
 }
 
 // Remembers every animation that exists now, so the new ones can be told.
+// Every animation, the ones in open shadow roots too: document.getAnimations()
+// leaves those out (found on Shoelace).
+function everyAnimation() {
+  const roots = [document];
+  const visit = (scope) => {
+    for (const element of scope.querySelectorAll("*")) {
+      if (element.shadowRoot !== null) {
+        roots.push(element.shadowRoot);
+        visit(element.shadowRoot);
+      }
+    }
+  };
+  visit(document);
+  return roots.flatMap((root) => root.getAnimations());
+}
+
 function rememberAnimations() {
-  window.__sweepBefore = new WeakSet(document.getAnimations());
+  window.__sweepBefore = new WeakSet(window.__sweepEvery());
 }
 
 // The animations started since rememberAnimations, near the element.
@@ -333,7 +349,7 @@ function newAnimationsNear(selector, loader) {
   };
   const all = loader
     ? element.getAnimations({ subtree: true })
-    : document.getAnimations().filter((a) => !window.__sweepBefore.has(a));
+    : window.__sweepEvery().filter((a) => !window.__sweepBefore.has(a));
   return all.filter((a) => a.timeline instanceof DocumentTimeline && near(a.effect?.target));
 }
 
@@ -608,6 +624,9 @@ async function sweepSite(browser, editor, site) {
     await page.waitForTimeout(2500);
     await page.evaluate(captureScript + '\n;window.MotionCapture = MotionCapture;');
     await page.evaluate(`window.__sweepNew = ${newAnimationsNear.toString()};`);
+    await page.evaluate(`window.__sweepEvery = ${everyAnimation.toString()};`);
+    // A dialog open at load (a site's news) covers what is swept.
+    await page.evaluate(() => document.querySelectorAll('dialog[open], sl-dialog[open]').forEach((open) => open.remove()));
     const found = await page.evaluate(listCandidates);
     if (process.env.SWEEP_DEBUG) {
       console.log(
@@ -686,7 +705,17 @@ async function sweepSite(browser, editor, site) {
         }
         const usable = real.takes.filter((t) => t.capture !== null);
         const problems = real.takes.flatMap((t) => t.problems).slice(0, 3);
-        const take = usable.find((t) => t.capture.tracks.length > 0) ?? usable[0];
+        // Pausing the page to photograph it can leave the recording with
+        // nothing whole; the recording made without pausing is what the
+        // tool shows, so it is the one that decides.
+        const clean = (await recordClean(page, selector, item.kind).catch(() => [])).filter(
+          (t) => t.capture !== null,
+        );
+        const take =
+          usable.find((t) => t.capture.tracks.length > 0) ??
+          usable[0] ??
+          clean.find((t) => t.capture.tracks.length > 0) ??
+          clean[0];
         const stats = `${real.count} animations on the page, ${real.takes.length} takes, ${take ? take.capture.tracks.length : 0} tracks, ${Math.round(real.length)} ms`;
         if (!take) {
           rows.push({
@@ -702,9 +731,6 @@ async function sweepSite(browser, editor, site) {
           );
           continue;
         }
-        const clean = (await recordClean(page, selector, item.kind).catch(() => [])).filter(
-          (t) => t.capture !== null,
-        );
         const shown =
           clean.find((t) => t.capture.tracks.length > 0 || (t.capture.follows ?? []).length > 0) ??
           take;

@@ -1637,7 +1637,7 @@ function byStacking(shapes: RawShape[]): RawShape[] {
 // roots, which getAnimations({ subtree: true }) does not return.
 // The open shadow roots inside an element, nested ones too.
 const MOST_SHADOW_ROOTS = 200;
-function shadowRootsIn(element: Element): ShadowRoot[] {
+export function shadowRootsIn(element: Element): ShadowRoot[] {
   const found: ShadowRoot[] = [];
   const visit = (scope: Element | ShadowRoot): void => {
     for (const inside of Array.from(scope.querySelectorAll('*'))) {

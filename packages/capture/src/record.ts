@@ -35,6 +35,7 @@ import {
   addLateShape,
   settleLateShape,
   animationsUnder,
+  shadowRootsIn,
   cssName,
   labelOf,
   containingBlock,
@@ -107,6 +108,26 @@ function nearbyParentHolding(target: Element, picked: Element): Element | null {
     current = current.parentElement;
   }
   return null;
+}
+
+// The shadow roots of the components the picked element sits in or is
+// slotted into, and those inside them. A tooltip's bubble animates in its
+// host's shadow root, outside the pick, and document.getAnimations() does
+// not list animations inside shadow roots (found on Shoelace's tooltip).
+function shadowRootsAround(picked: Element): ShadowRoot[] {
+  const found: ShadowRoot[] = [];
+  let current: Element | null = picked;
+  for (let level = 0; level < NEARBY_LEVELS && current !== null; level += 1) {
+    const parentNode: Node | null = current.parentNode;
+    const parent: Element | null =
+      current.parentElement ?? (parentNode instanceof ShadowRoot ? parentNode.host : null);
+    if (parent === null || parent === document.body || parent === document.documentElement) break;
+    if (parent.shadowRoot !== null && !found.includes(parent.shadowRoot)) {
+      for (const root of shadowRootsIn(parent)) if (!found.includes(root)) found.push(root);
+    }
+    current = parent;
+  }
+  return found;
 }
 
 // An animation that starts this close to one on the picked element has the
@@ -730,7 +751,7 @@ function removalTracksFor(
         groupId: null,
         // A millisecond early: frame times are kept to a tenth, and the frame
         // that saw it gone may round to just before the moment.
-        startOffset: Math.max(0, at - 1),
+        startOffset: Math.max(0, Math.floor(at - 1)),
         interrupted: false,
         keyframes: [keyframe(0, 'hidden'), keyframe(1, 'hidden')],
         timing: {
@@ -2534,7 +2555,19 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // Animations that were already running when recording began belong to
   // something else on the page (a loader, a slideshow). They never move the
   // recording.
-  for (const animation of document.getAnimations()) parentsChecked.add(animation);
+  const aroundRoots = shadowRootsAround(snapshot.rootElement);
+  // Animations outside the picked element: the page's, and those in the
+  // shadow roots around it (not the ones inside it, which are its own).
+  const animationsOutside = (): Animation[] => [
+    ...document.getAnimations(),
+    ...aroundRoots.flatMap((root) =>
+      root.getAnimations().filter((animation) => {
+        const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
+        return target !== null && !snapshot.shadowRoots.includes(target.getRootNode() as ShadowRoot);
+      }),
+    ),
+  ];
+  for (const animation of animationsOutside()) parentsChecked.add(animation);
   let lastPickedStart = -Infinity;
 
   // A nearby parent that holds a new animation outside the picked element:
@@ -2616,7 +2649,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   const animatedParent = (now: number): Element | null => {
     const opened = openedParts;
     const targets = openedTargets;
-    for (const animation of document.getAnimations()) {
+    for (const animation of animationsOutside()) {
       if (parentsChecked.has(animation)) continue;
       parentsChecked.add(animation);
       const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;

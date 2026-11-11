@@ -653,6 +653,8 @@ type ShapeMotion = {
   // True when the take also holds the way back (a hover's leave).
   goesBack: boolean;
   backCutShort: boolean;
+  // What first changes on the way back, said with it.
+  thenPhrases: string[];
 };
 
 // Movement is named first, because it is what the eye follows.
@@ -676,8 +678,14 @@ function dimPhrase(group: PropertyGroup): string {
 function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
   const all = capture.tracks.filter((track) => track.shapeId === shape.id);
   // The way back of a hover is described in one sentence of its own.
-  const tracks = firstOfEach(all);
   const back = waysBack(all);
+  // A change that first happens once the way back has begun is part of it:
+  // a tooltip hidden after it fades out disappears on the way back, not on
+  // the way in (found on Shoelace).
+  const backStarts = Math.min(...back.map((track) => track.startOffset));
+  const firsts = firstOfEach(all);
+  const tracks = firsts.filter((track) => track.startOffset < backStarts);
+  const then = firsts.filter((track) => track.startOffset >= backStarts);
   // The sentence about pacing uses the transform if there is one, because
   // movement is what the eye follows.
   const mainTrack =
@@ -697,6 +705,9 @@ function motionOf(capture: Capture, shape: Shape): ShapeMotion | null {
     interrupted: tracks.some((track) => track.interrupted),
     goesBack: back.length > 0,
     backCutShort: back.some((track) => track.interrupted),
+    thenPhrases: groupByShorthand(then).flatMap((group) =>
+      changePhrase(group, backdropOf(capture)).split(PART),
+    ),
   };
 }
 
@@ -710,6 +721,7 @@ function sameMotionKey(motion: ShapeMotion): string {
     motion.mainTrack.timing.iterations,
     motion.mainTrack.timing.direction,
     motion.goesBack,
+    motion.thenPhrases,
     easingSentence(motion.mainTrack, ''),
   ]);
 }
@@ -746,6 +758,10 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
         : `The ${name}shape`;
   const pronoun = many ? 'Each' : 'It';
   const delays = staggerWords(motions.map((motion) => motion.delayMs));
+  const goesBack =
+    first.thenPhrases.length > 0
+      ? `Then it goes back and ${joinWithAnd(first.thenPhrases)}.`
+      : 'Then it goes back.';
 
   return [
     first.mainTrack.scroll !== null
@@ -755,8 +771,8 @@ function sentencesFor(motions: ShapeMotion[]): string[] {
     repeatSentence(first.mainTrack, pronoun),
     first.goesBack
       ? first.backCutShort
-        ? 'Then it goes back. The browser shortened the way back, because it started before the first part had finished.'
-        : 'Then it goes back.'
+        ? `${goesBack} The browser shortened the way back, because it started before the first part had finished.`
+        : goesBack
       : null,
     motions.some((motion) => motion.interrupted)
       ? 'The browser shortened this transition, because it reversed one that was still running.'

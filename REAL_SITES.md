@@ -263,6 +263,8 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 87 | Headless UI, Storybook | Components shown in a frame could not be picked | D160: picked, recorded and played inside frames |
 | 88 | Carbon (Storybook) | Button, toggle: 0 px. An accordion opened by max-height and padding was called not drawn | D163: its panel is measured, 0 px |
 | 89 | Magic UI, link arrows | Masked rings and fading edges drawn whole; arrows after links listed | D155, D158: drawn |
+| 90 | Aceternity (logo) | 4 corner dots reported missing; the mark turned in 3D 2.8 px off | D164: 0.5 px |
+| 91 | Shoelace (dropdown, tooltip, details) | Tooltip bubble not followed; its hiding said with the way in | D164: followed, 0 px |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 
