@@ -969,6 +969,10 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D166. SVG parts moved by their attributes; films start from where the part was
 **Chose:**
 - The film also listens to the transform and opacity attributes of SVG parts, which GSAP and Lottie write every frame instead of a style. A group written to gets a shape then, and the parts inside it move into it.
-- Each part's look is read when recording starts (its shape, and up to 200 SVG groups), and again where it comes to rest when a take ends. A film's first frame is that look, one frame before the script's first write, once a second write shows the part is moving (one write is a jump).
+- Each part's look is read when recording starts (its shape, and up to 600 SVG groups), and again where it comes to rest when a take ends. A film's first frame is that look, one frame before the script's first write, once a second write shows the part is moving (one write is a jump).
 - A transform that both moves and turns (or scales) about a point away from the shape's middle is described by where its middle goes. A turn about an SVG group's corner with the move that keeps it in place reads "rotates 90 degrees", not "moves 100 px right and rotates". A turn with no move (a hinge) is said as before.
 **Why:** a group turned in place by its transform attribute was not recorded at all (the check said a part was missing). Every film began one step into its motion, because a write is heard only once it is made: fades from 99%, turns of 89 degrees.
+
+### D167. A script's film holds still between writes
+**Chose:** when two writes to a part are more than 50 ms apart, a frame holding the earlier look goes one frame before the later write, so the part stays as it was until the script changes it. Parts the browser also moves (a transition the script set) are not held: they keep moving between writes. An SVG group whose shape could not be made (nothing in it is drawn) keeps no id, so no track can name it.
+**Why:** Duolingo's Lottie characters turn layers on and off by display, seconds apart. The two frames were joined by a straight line, a slow fade the page never showed, and the check said 100% opacity off. Before that, tracks named groups that were never drawn and the take was refused as invalid.

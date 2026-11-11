@@ -265,6 +265,8 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 89 | Magic UI, link arrows | Masked rings and fading edges drawn whole; arrows after links listed | D155, D158: drawn |
 | 90 | Aceternity (logo) | 4 corner dots reported missing; the mark turned in 3D 2.8 px off | D164: 0.5 px |
 | 91 | Shoelace (dropdown, tooltip, details) | Tooltip bubble not followed; its hiding said with the way in | D164: followed, 0 px |
+| 92 | LottieFiles | Its players draw on a canvas: "No animation was found" sent people to a parent | D165: says a canvas cannot be recorded |
+| 93 | Duolingo (Lottie characters, SVG) | Take refused (tracks named undrawn groups); layers shown and hidden read as slow fades | D166, D167: 1.2 px |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 
@@ -281,6 +283,6 @@ The sweep now also runs Magic UI, Aceternity, a scroll-driven demo, and menus an
 - **Layout is measured, not computed** (D119): parts pushed or resized by an animation move as they did on the page, but only for the take as it was recorded.
 - **A pseudo-element in the flow of text** is placed from its element's text: right for one at the start or end of a line, approximate inside a flex or grid layout.
 - **Motion driven by script frame by frame** is measured, not read (D124): transform and opacity only, fitted to keyframes. A rule that is not linear in the pointer's place (a glare that turns with its angle) is shown as measured over time.
-- **Parts inside an iframe** are not recorded: the recorder works in the page it was opened on.
+- **Parts inside a frame** are recorded (D160). Play the hover and Play the click need to know where a frame from another site is, which it does not say.
 - **A view transition's cross-fade** is listed, not drawn.
 - **SVG masks and clips are not drawn.** Railway's moving trains are a mask; they are listed with that reason.

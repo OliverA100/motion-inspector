@@ -1187,6 +1187,22 @@ function sameFrame(one: FilmFrame, other: FilmFrame): boolean {
   );
 }
 
+// Between two writes a part holds still: a script that writes every frame
+// leaves frames 16 ms apart, but one that shows a layer and hides it later
+// (Lottie, by display) leaves two frames seconds apart, which a straight
+// line between them would turn into a slow fade. A frame holding the
+// earlier look goes just before each long gap's end.
+const HOLD_AFTER_MS = 50;
+
+function withHolds(frames: FilmFrame[]): FilmFrame[] {
+  return frames.flatMap((frame, index) => {
+    const next = frames[index + 1];
+    return next !== undefined && next.time - frame.time > HOLD_AFTER_MS
+      ? [frame, { ...frame, time: next.time - ONE_FRAME_MS }]
+      : [frame];
+  });
+}
+
 // Film up to its last change: a part held still at the end (the pointer
 // resting on a card) adds only time.
 function withoutStillEnd(frames: FilmFrame[]): FilmFrame[] {
@@ -1261,7 +1277,7 @@ const FILM_EVERY_MS = 38;
 const ONE_FRAME_MS = 1000 / 60;
 // SVG groups read when recording starts, at most (a Lottie drawing has
 // hundreds).
-const MOST_KNOWN_GROUPS = 200;
+const MOST_KNOWN_GROUPS = 600;
 const MOST_FRAMES = 400;
 // A script that keeps changing styles ends its take after this long.
 const LONGEST_SCRIPT_TAKE_MS = 4000;
@@ -1311,9 +1327,15 @@ function scriptTracksFor(
   takeStart: number,
 ): unknown[] {
   const tracks: unknown[] = [];
-  for (const [element, filmed] of film) {
+  for (const [element, written] of film) {
     const shapeId = snapshot.shapeIdOf.get(element);
     const shape = snapshot.shapeOf.get(element);
+    // A part moved by the browser as well (a transition the script set)
+    // keeps moving between writes: those films are not held.
+    const movedByBrowser = take.some(
+      (seen) => seen.target === element && seen.pseudoElement === null,
+    );
+    const filmed = movedByBrowser ? written : withHolds(written);
     if (
       !scripted.has(element) ||
       filmed.length < 3 ||

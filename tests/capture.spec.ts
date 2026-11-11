@@ -1873,6 +1873,38 @@ test('a part a script turns in 3D keeps its lean when flattened', async ({ page 
   );
 });
 
+// Found on Duolingo: Lottie shows and hides layers in single writes,
+// seconds apart. Between writes the part holds still; a straight line
+// between them would be a slow fade the page never showed.
+test('a part a script dims and restores later holds still in between', async ({ page }) => {
+  await setUp(
+    page,
+    '.sp-held, .sp-moving { width: 40px; height: 40px; background: #36f }',
+    '<div id="sp-held-box"><div class="sp-held"></div><div class="sp-moving"></div></div>',
+    '#sp-held-box',
+  );
+  await page.evaluate(() => {
+    const part = document.querySelector('.sp-held') as HTMLElement;
+    setTimeout(() => (part.style.opacity = '0.3'), 50);
+    setTimeout(() => (part.style.opacity = '1'), 650);
+    // Another part moves all the while, as a Lottie drawing's others do.
+    const moving = document.querySelector('.sp-moving') as HTMLElement;
+    const start = performance.now();
+    const step = (now: number): void => {
+      const done = Math.min((now - start) / 800, 1);
+      moving.style.transform = `translateX(${done * 80}px)`;
+      if (done < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await page.waitForTimeout(1300);
+  const capture = onlyCapture(await takesNow(page));
+  const fade = track(capture, 'opacity');
+  // Still dim just before it is restored.
+  const late = fade.keyframes.filter((keyframe) => keyframe.offset > 0.8 && keyframe.offset < 1);
+  expect(late.map((keyframe) => keyframe.value)).toContain('0.3');
+});
+
 // GSAP and Lottie move SVG parts by writing their transform and opacity
 // attributes every frame, not their style.
 test('an SVG group a script turns by its transform attribute is filmed, and said as a turn in place', async ({

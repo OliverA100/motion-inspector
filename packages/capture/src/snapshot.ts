@@ -2688,7 +2688,15 @@ function addNewGroup(snapshot: Snapshot, group: SVGGElement, svgShape: RawShape)
     walk.count += 1;
   }
   snapshot.nextId.value = walk.count;
-  if (shape.children.length === 0) return false;
+  if (shape.children.length === 0) {
+    // Nothing in it to draw (a Lottie layer left out with the parts past
+    // the most drawn): it is not in the drawing, so nothing may name it.
+    // Its id was given when its shape was made (found on Duolingo: tracks
+    // named shapes that were never drawn, and the take was refused).
+    snapshot.shapeIdOf.delete(group);
+    snapshot.shapeOf.delete(group);
+    return false;
+  }
   svgShape.children.push(shape);
   return true;
 }
