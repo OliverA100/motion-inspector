@@ -99,3 +99,22 @@ describe('Copy for AI', () => {
     });
   });
 });
+
+describe('what Copy CSS says about how the page made the motion', () => {
+  test('motion a script made is said to be measured', () => {
+    const measured = {
+      ...cardLift,
+      tracks: cardLift.tracks.map((track) => ({ ...track, origin: 'script' as const })),
+    };
+    expect(captureToCss(measured)).toContain('a script on the page moves this, frame by frame');
+  });
+
+  test('a view transition is said to be one', () => {
+    const noted = {
+      ...cardLift,
+      notShown: ['This is a view transition: the browser animates pictures of the part.'],
+    };
+    expect(captureToCss(noted)).toContain('The page plays this as a view transition');
+    expect(captureToCss(cardLift)).not.toContain('view transition');
+  });
+});

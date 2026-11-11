@@ -277,6 +277,13 @@ export function captureToCss(capture: Capture): string {
       ),
       '}',
       ...(entry.transitions.length > 0 ? transitionValuesComment(entry.transitions) : []),
+      // Motion a script made is measured: said, so it is not taken for CSS
+      // the page wrote.
+      ...(entry.units.some((unit) => unit.tracks.some((track) => track.origin === 'script'))
+        ? [
+            `/* ${safeInComment(entry.selector)}: a script on the page moves this, frame by frame. These keyframes are measured from it. */`,
+          ]
+        : []),
     ].join('\n');
   });
 
@@ -286,6 +293,14 @@ export function captureToCss(capture: Capture): string {
       flattenShapes(capture.root).find((shape) => shape.id === follow.shapeId)?.label ?? 'A part';
     return `/* ${safeInComment(label)} follows the pointer. CSS cannot do that alone: a script sets its transform each frame. "Copy for AI" has the rule. */`;
   });
+  // A view transition is not CSS on the element: said how the page did it.
+  const viewTransition = capture.notShown.some((note) =>
+    note.startsWith('This is a view transition'),
+  )
+    ? [
+        '/* The page plays this as a view transition: the part has a view-transition-name, and the change happens inside document.startViewTransition(). The keyframes above draw the same motion on the element itself. */',
+      ]
+    : [];
   if (sections.length === 0 && follows.length === 0) return '/* No animations to export. */';
-  return [...sections, ...follows].join('\n\n');
+  return [...sections, ...follows, ...viewTransition].join('\n\n');
 }

@@ -938,3 +938,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D160. Elements inside frames
 **Chose:** "Pick element" puts the capture script into every frame of the tab, not only the page, so a part shown in a frame can be picked: a component in Storybook, a demo on a docs site (Headless UI, Material Web). Each frame offers the picker; the first to pick is the one the panel talks to from then on, and the others stop offering it. Play the hover and Play the click move the pointer to where the frame shows the element, found by adding up the frames it is inside (each scrolled into view); a frame from another site does not say where it is, and the panel says so. Play the load reloads only the page itself, so it is offered for an element of the page, not of a frame. If a frame cannot be reached, the page alone is used.
 **Why:** the component sweep found Headless UI's demos in a frame, with nothing to pick; Storybook shows every story in one.
+
+### D161. Copy CSS says how the page made the motion
+**Chose:** keyframes measured from a script are followed by a comment that says so, and a take read from a view transition ends with a comment saying how the page plays it (a view-transition-name, and the change inside document.startViewTransition()), since the keyframes draw the same motion on the element itself instead.
+**Why:** both export as plain keyframes, which a reader would take for CSS the page wrote.
