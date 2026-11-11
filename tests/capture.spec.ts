@@ -2500,6 +2500,26 @@ test('text a script changes is named as text, not as a missing part', async ({ p
   expect(missed).toEqual([{ label: 'span', what: 'text' }]);
 });
 
+// The picked element's own text counting up, in a block that keeps its size.
+test('a block whose own text counts up is named as text', async ({ page }) => {
+  await setUp(page, '#sp-total { font: 600 28px system-ui }', '<div id="sp-total">0</div>', '#sp-total');
+  await page.evaluate(() => {
+    const total = document.getElementById('sp-total') as HTMLElement;
+    const start = performance.now();
+    const step = (now: number): void => {
+      const done = Math.min((now - start) / 600, 1);
+      total.textContent = String(Math.round(done * 1234));
+      if (done < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await page.waitForTimeout(1400);
+  const takes = await takesNow(page);
+  expect(takes.flatMap((take) => take.capture?.missed ?? [])).toEqual([
+    { label: 'div', what: 'text' },
+  ]);
+});
+
 test('a hover that changes a color at once, with no transition, is not called missed', async ({
   page,
 }) => {

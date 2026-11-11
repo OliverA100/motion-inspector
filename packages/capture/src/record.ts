@@ -2907,6 +2907,12 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         }
         const seen = part === null ? undefined : watching.get(part);
         if (seen !== undefined) seen.texts += 1;
+        // A change seen between takes, though no box moved (a block's
+        // number counting up keeps its width).
+        if (seen !== undefined && watching === idleWatch) {
+          idleChangeBegan ??= asNumber(document.timeline.currentTime) ?? performance.now();
+          idleChangeLast = performance.now();
+        }
       }
     }
   });

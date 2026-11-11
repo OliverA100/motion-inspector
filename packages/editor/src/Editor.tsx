@@ -540,8 +540,12 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                     <h2 className="panel__title">Nothing to play</h2>
                   </header>
                   <p className="panel__note">
-                    Nothing here can be played back. It may be drawn on a canvas or tied to
-                    scrolling. Try another element, or trigger it again.
+                    {(original.missed ?? []).length > 0 &&
+                    (original.missed ?? []).every((item) => item.what === 'text')
+                      ? 'Only its text changed, and text is never copied, so there is nothing to play.'
+                      : (original.missed ?? []).length > 0
+                        ? 'Parts changed on the page in a way the preview cannot draw. They are named above.'
+                        : 'Nothing here can be played back. It may be drawn on a canvas or tied to scrolling. Try another element, or trigger it again.'}
                   </p>
                 </section>
               )}

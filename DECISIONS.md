@@ -1060,3 +1060,10 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D182. An animated backdrop blur is drawn
 **Chose:** backdrop-filter is previewed. Before a shape is filled, what is already drawn behind it is drawn again within it through the filter, its lengths scaled as the stage is. A backdrop filter at rest is not kept yet: only one that animates is drawn.
 **Why:** frosted glass that blurs in on hover (common on product sites) was listed as not drawn.
+
+### D183. A block's own text counting up is seen; the empty timeline says why
+**Chose:**
+- A change of text seen between takes counts as a change for the watch, though no box moved: a block keeps its size while its number counts up.
+- When a take has nothing to play, the timeline says what the take saw: only text changing (never copied), or parts changing in a way the preview cannot draw, named above. The canvas and scroll hint stays for a take that saw nothing.
+**Why:** checking the panel with a counter picked whole: it said "No animation was found" while the number counted to 1234, and once found, "it may be drawn on a canvas" under a take about text.
+**Not done:** in the panel, a played hover over a counter named its take "On its own"; recorded directly, the same take is named a hover.
