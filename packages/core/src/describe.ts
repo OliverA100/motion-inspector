@@ -621,6 +621,7 @@ function colorNoun(property: string): string | null {
     return 'border';
   }
   if (property === 'outline-color') return 'outline';
+  if (property === 'text-decoration-color') return 'underline';
   if (property === 'fill' || property === 'stroke') return property;
   return null;
 }
@@ -636,6 +637,10 @@ function colorChange(property: string, from: Keyframe, to: Keyframe, backdrop: R
   const after = seen(b, backdrop);
   const nameBefore = colorName(before);
   const nameAfter = colorName(after);
+  // From nothing, or to nothing: it shows or hides, rather than turning
+  // from the page's own color (an underline fading in on hover).
+  if (a.a < 0.02 && b.a >= 0.02) return `shows its ${noun} in ${nameAfter}`;
+  if (a.a >= 0.02 && b.a < 0.02) return `hides its ${noun}`;
   if (nameBefore !== nameAfter) return `turns its ${noun} from ${nameBefore} to ${nameAfter}`;
   const lighter = hsl(after).l - hsl(before).l;
   if (lighter < -0.02) return `darkens its ${noun}`;

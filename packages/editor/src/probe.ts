@@ -75,6 +75,8 @@ export const PREVIEWED_PROPERTIES = [
   'd',
   // A gradient's tile growing (an underline drawn in on hover).
   'background-size',
+  // A link's underline changing color (or showing, from transparent).
+  'text-decoration-color',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -510,6 +512,7 @@ function poseOf(
     backgroundImage: valueOf('background-image'),
     d: shape.kind === 'path' ? pathData(valueOf('d')) : null,
     backgroundSize: firstLayer(valueOf('background-size')),
+    underlineColor: valueOf('text-decoration-color'),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,

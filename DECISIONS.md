@@ -1049,3 +1049,10 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The stage clips every gradient tile to its own area, a single one too. A background image that does not repeat is painted only where its tile is, as in CSS.
 - background-size is previewed: the probe reads it, and the tile takes that size (px, a share of the box, or auto for the resting size). The description says the background widens or grows, from what to what.
 **Why:** Retool's links draw their underline in on hover by growing a gradient's size. It was listed as not drawn, and at rest a 2 px underline of 0 width filled the whole link.
+
+### D181. Underlines are drawn
+**Chose:**
+- A shape keeps the underline its element draws under its text (text-decoration: underline): its color and thickness. **Format:** Shape.underline, { color, thickness } or null; captures made before it read as null. It is kept while it cannot be seen (transparent), since its color may animate in.
+- The stage draws it under each line of text inside the shape, as one line under the spaces too, in its color now (text-decoration-color is previewed).
+- A color that goes from nothing to something is said as "shows its underline in blue", and the other way as "hides its background", rather than naming the page's color behind it.
+**Why:** Arc's links show their underline on hover by its color: "Not drawn: text-decoration-color", and links were drawn with no underline at all.

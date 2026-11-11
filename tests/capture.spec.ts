@@ -2118,6 +2118,24 @@ test('a path whose outline morphs is drawn as it is now', async ({ page }) => {
   expect(halfway).toEqual(['M 30 7.5 L 92.5 30 L 70 92.5 L 7.5 70 Z']);
 });
 
+// Found on Arc: a link whose underline shows on hover, by its color. The
+// underline is kept with the link even while it cannot be seen.
+test('an underline that shows on hover is kept, previewed and said', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-ulink { text-decoration: underline 2px; text-decoration-color: transparent;
+       transition: text-decoration-color .3s }
+     #sp-ulink.on { text-decoration-color: rgb(51, 102, 255) }`,
+    '<a id="sp-ulink">Pricing and plans</a>',
+    '#sp-ulink',
+  );
+  await page.evaluate(() => document.getElementById('sp-ulink')?.classList.add('on'));
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.root.underline).toEqual({ color: 'rgba(0, 0, 0, 0)', thickness: 2 });
+  expect(describeCapture(capture)).toContain('shows its underline in blue');
+});
+
 // Found on Retool: an underline drawn in on hover by growing the size of a
 // gradient that does not repeat. Drawn only where its tile is.
 test('an underline drawn in by background-size is previewed and said in words', async ({

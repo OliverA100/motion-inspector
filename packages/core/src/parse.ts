@@ -584,6 +584,15 @@ function parseOffsetPath(value: unknown): Result<OffsetPath> {
   });
 }
 
+function parseUnderline(value: unknown): Result<NonNullable<Shape['underline']>> {
+  return andThen(fields(value), (source) => {
+    const color = at('color', text(get(source, 'color')));
+    const thickness = at('thickness', notNegative(get(source, 'thickness')));
+    if (!color.ok || !thickness.ok) return failAll([color, thickness].flatMap(errorsOf));
+    return ok({ color: color.value, thickness: thickness.value });
+  });
+}
+
 function parseOutline(value: unknown): Result<NonNullable<Shape['outline']>> {
   return andThen(fields(value), (source) => {
     const color = at('color', text(get(source, 'color')));
@@ -861,6 +870,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       ),
     );
     const words = at('words', optional(get(source, 'words'), parseWords));
+    const underline = at('underline', optional(get(source, 'underline'), parseUnderline));
     const children = at(
       'children',
       listOf(get(source, 'children'), (child) => parseShapeAtDepth(child, depth + 1)),
@@ -892,6 +902,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       !gradient.ok ||
       !gradients.ok ||
       !words.ok ||
+      !underline.ok ||
       !children.ok
     ) {
       return failAll(
@@ -952,6 +963,7 @@ function parseShapeAtDepth(value: unknown, depth: number): Result<Shape> {
       gradient: gradient.value,
       gradients: gradients.value,
       words: words.value,
+      underline: underline.value,
       icon: icon.value,
       children: children.value,
     });

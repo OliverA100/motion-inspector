@@ -268,6 +268,18 @@ describe('special properties in plain words', () => {
     );
   });
 
+  test('an underline that changes color', () => {
+    const color = (r: number, g: number, b: number, a: number): ParsedValue => ({ kind: 'color', r, g, b, a });
+    expect(
+      firstSentence(
+        changing('text-decoration-color', 'rgb(120, 120, 120)', 'rgb(0, 0, 255)', [
+          color(120, 120, 120, 1),
+          color(0, 0, 255, 1),
+        ]),
+      ),
+    ).toMatch(/^The element turns its underline/);
+  });
+
   test('a stroke drawn by its dash offset', () => {
     expect(firstSentence(changing('stroke-dashoffset', '300px', '0px', [px(300), px(0)]))).toBe(
       'The element draws its line',

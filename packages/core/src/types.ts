@@ -240,6 +240,10 @@ export type Shape = {
   // text. x is from the left of the box. Only boxes, never the words.
   // null draws one bar for the line.
   words: { x: number; width: number }[] | null;
+  // The line under its text (text-decoration: underline): its color, and
+  // its thickness in px. The text inside the shape is drawn with it. null
+  // when there is none. Missing in captures made before it was kept.
+  underline: { color: string; thickness: number } | null;
   // The outline of an SVG icon, so an arrow previews as an arrow. Only
   // geometry is copied, never text or image data. null for everything
   // that is not an icon, and for icons too complex to copy.

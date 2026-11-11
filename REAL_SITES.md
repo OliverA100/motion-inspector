@@ -278,6 +278,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 102 | Attio (buttons) | Lit by a variable in a radial gradient: listed as not drawn | D177: filmed and drawn |
 | 103 | Figma (button icon) | 2.2 px off: an svg's translate: 0 -50% read from its drawing | D179: 0 px |
 | 104 | Retool (link underline) | Not drawn: background-size; a 2 px tile filled the whole link | D180: drawn, 0 px |
+| 105 | Arc (links) | Not drawn: text-decoration-color; no underline drawn | D181: drawn and said |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 

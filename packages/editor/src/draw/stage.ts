@@ -73,6 +73,9 @@ export type Pose = {
   // An animated background-size, as computed CSS ("100% 2px"): the size of
   // a gradient's tile (an underline growing under a link).
   backgroundSize: string | null;
+  // An animated text-decoration-color: the color of the underline under the
+  // text inside the shape.
+  underlineColor: string | null;
 };
 
 export type StageData = {
@@ -400,6 +403,26 @@ function taperedPieces(
 // alpha is the shape's opacity times its parents' opacities: in CSS, a
 // parent's opacity fades everything inside it (found on a real site, where
 // an arrow inside a hidden span was drawn).
+type Underline = { color: string; thickness: number };
+
+// The underline under a line of text: one line, under its spaces too, as
+// CSS draws it, just below the words.
+function drawUnderline(
+  context: CanvasRenderingContext2D,
+  shape: Shape,
+  underline: Underline,
+): void {
+  const words = shape.words ?? [];
+  if (words.length === 0) return;
+  const left = Math.min(...words.map((word) => word.x));
+  const right = Math.max(...words.map((word) => word.x + Math.max(word.width, 0)));
+  context.save();
+  context.fillStyle = underline.color;
+  const top = shape.box.y + shape.box.height + Math.max(1, underline.thickness);
+  context.fillRect(shape.box.x + left, top, right - left, underline.thickness);
+  context.restore();
+}
+
 function walk(
   context: CanvasRenderingContext2D,
   shape: Shape,
@@ -412,12 +435,21 @@ function walk(
     textColor: string | null,
     alpha: number,
     context: CanvasRenderingContext2D,
+    underline: Underline | null,
   ) => void,
   textColor: string | null = null,
   parentAlpha = 1,
+  parentUnderline: Underline | null = null,
 ): void {
   const pose = poses.find((candidate) => candidate.shapeId === shape.id) ?? null;
   const inherited = pose?.textColor ?? textColor;
+  // The underline this shape draws under its text, in its color now, or
+  // the one from a parent: CSS draws it under all the text inside.
+  const own = shape.underline;
+  const underline =
+    own === null
+      ? parentUnderline
+      : { ...own, color: pose?.underlineColor ?? own.color };
   // An animated opacity is the element's opacity at that moment. It
   // replaces the resting one, it does not multiply it.
   const alpha = pose?.visible === false ? 0 : parentAlpha * (pose?.opacity ?? shape.opacity);
@@ -450,7 +482,7 @@ function walk(
       const path = clipPathOf(clip, box);
       if (path !== null) context.clip(path);
     }
-    paint(shape, pose, inherited, alpha, context);
+    paint(shape, pose, inherited, alpha, context, underline);
     // A shape that cuts off its content, or whose size is animating, clips
     // its children. The second case covers accordions and drawers: CSS adds
     // overflow: hidden only while they animate, so it is not there when the
@@ -462,7 +494,7 @@ function walk(
     for (const child of shape.children) {
       // Drawn first, on its own (see drawFilled).
       if (isBackdrop(child)) continue;
-      walk(context, child, poses, paint, inherited, alpha);
+      walk(context, child, poses, paint, inherited, alpha, underline);
     }
   };
   const tapered = taperedPieces(shape, pose);
@@ -1017,7 +1049,7 @@ function drawFilled(
     context.fillRect(backdrop.box.x, backdrop.box.y, backdrop.box.width, backdrop.box.height);
     context.restore();
   }
-  walk(context, root, poses, (shape, pose, textColor, alpha, context) => {
+  walk(context, root, poses, (shape, pose, textColor, alpha, context, underline) => {
     context.globalAlpha = alpha;
     // Box shadows: the outer ones under the shape, the inner ones over its
     // fill (below).
@@ -1039,6 +1071,7 @@ function drawFilled(
       context.fillStyle = fill;
       context.fill();
     }
+    if (shape.kind === 'text' && underline !== null) drawUnderline(context, shape, underline);
     // A gradient a script rewrites as it goes replaces the resting one.
     const moving = pose?.backgroundImage != null ? cssLinearGradient(pose.backgroundImage) : null;
     if (moving !== null) fillMovingGradient(context, shape, pose, moving);

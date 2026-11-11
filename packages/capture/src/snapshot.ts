@@ -96,6 +96,7 @@ export type RawShape = {
   // Every layer, when there are several. Left out elsewhere.
   gradients?: RawGradient[] | null;
   words: { x: number; width: number }[] | null;
+  underline?: { color: string; thickness: number } | null;
   icon: RawIconPath[] | null;
   children: RawShape[];
 };
@@ -989,6 +990,7 @@ function boxShape(
     gradient: drawable,
     gradients: layers.length > 1 ? layers : null,
     words: null,
+    underline: underlineOf(style),
     icon: null,
     children: [],
   };
@@ -1520,6 +1522,21 @@ function textBars(
     walk.ownerOf.set(bar, parent.element);
     return [bar];
   });
+}
+
+// The line under an element's text, when it draws one: text-decoration is
+// not inherited, but CSS draws it under all the text inside. Its thickness
+// "auto" is about a fourteenth of the font size, at least 1 px.
+function underlineOf(style: CSSStyleDeclaration): { color: string; thickness: number } | null {
+  if (!style.textDecorationLine.split(' ').includes('underline')) return null;
+  // Kept when it cannot be seen yet: its color may animate in (a link's
+  // underline shown on hover).
+  const color = style.textDecorationColor;
+  const given = parseFloat(style.textDecorationThickness);
+  const thickness = Number.isFinite(given)
+    ? given
+    : Math.max(1, Math.round(parseFloat(style.fontSize) / 14));
+  return { color, thickness };
 }
 
 // A tiny part that is a mark of its own: it paints, and it does not cut off

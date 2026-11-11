@@ -352,6 +352,10 @@ function rawShape(children: fc.Arbitrary<RawShape[]>): fc.Arbitrary<RawShape> {
       fc.constant(null),
       fc.array(fc.record({ x: anyNumber, width: zeroOrMore }), { maxLength: 4 }),
     ),
+    underline: fc.oneof(
+      fc.constant(null),
+      fc.record({ color: fc.constant('rgb(0, 0, 0)'), thickness: zeroOrMore }),
+    ),
     gradient: fc.oneof(fc.constant(null), anyGradient),
     gradients: fc.oneof(fc.constant(null), fc.array(anyGradient, { minLength: 2, maxLength: 3 })),
     children,

@@ -38,6 +38,7 @@
     "gradient": null,
     "gradients": null,
     "words": null,
+    "underline": null,
     "icon": null,
     "children": [
       {
@@ -83,6 +84,7 @@
             "width": 20.61
           }
         ],
+        "underline": null,
         "icon": null,
         "children": []
       },
@@ -120,6 +122,7 @@
         "gradient": null,
         "gradients": null,
         "words": null,
+        "underline": null,
         "icon": null,
         "children": []
       }
