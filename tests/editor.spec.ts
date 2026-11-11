@@ -18,7 +18,7 @@ async function openPaused(
   await expect(time(page)).toHaveText(`${timeMs} of ${totalMs} ms`);
   await expect(page.locator('.mi canvas').first()).toBeVisible();
 }
-const curveText = (page: Page) => page.locator('.readout code');
+const curveText = (page: Page) => page.getByRole('textbox', { name: /Curve value/ });
 const handles = (page: Page) => page.locator('.curve__handle');
 
 test('the probe and core agree on every sample capture', async ({ page }) => {
@@ -153,22 +153,22 @@ test('a bar cannot be dragged out of view or below zero', async ({ page }) => {
 
 test('a steps easing can be edited: how many steps, and when they jump', async ({ page }) => {
   await openPaused(page, 'steps', 0, 1000);
-  await expect(curveText(page)).toHaveText('steps(5)');
+  await expect(curveText(page)).toHaveValue('steps(5)');
   await expect(page.locator('.readout__feel')).toHaveText(
     'Moves in 5 jumps, and holds still in between.',
   );
   await page.getByRole('spinbutton', { name: /Steps/ }).fill('8');
-  await expect(curveText(page)).toHaveText('steps(8)');
+  await expect(curveText(page)).toHaveValue('steps(8)');
   await page.getByRole('radio', { name: 'Start of each step' }).click();
-  await expect(curveText(page)).toHaveText('steps(8, start)');
+  await expect(curveText(page)).toHaveValue('steps(8, start)');
   await page.getByRole('button', { name: 'Reset curve' }).click();
-  await expect(curveText(page)).toHaveText('steps(5)');
+  await expect(curveText(page)).toHaveValue('steps(5)');
 });
 
 test('a smooth curve can be changed to steps, and back', async ({ page }) => {
   await openPaused(page, 'card-lift', 0, 400);
   await page.getByRole('button', { name: 'Steps', exact: true }).click();
-  await expect(curveText(page)).toHaveText('steps(5)');
+  await expect(curveText(page)).toHaveValue('steps(5)');
   await expect(handles(page)).toHaveCount(0);
   await page.getByRole('button', { name: 'Change to a smooth curve' }).click();
   await expect(handles(page)).toHaveCount(2);
@@ -234,11 +234,11 @@ test('reset: the curve, one row, or everything', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Slow start', exact: true }).click();
   await page.getByRole('spinbutton', { name: /Duration/ }).fill('250');
-  await expect(curveText(page)).toHaveText('ease-in');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.42, 0, 1, 1)');
 
   // Reset curve: the curve goes back, the timing stays.
   await resetCurve.click();
-  await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.34, 1.56, 0.64, 1)');
   await expect(page.getByRole('spinbutton', { name: /Duration/ })).toHaveValue('250');
 
   // Reset this row: the timing goes back too.
@@ -248,7 +248,7 @@ test('reset: the curve, one row, or everything', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Slow end', exact: true }).click();
   await resetAll.click();
-  await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.34, 1.56, 0.64, 1)');
 });
 
 test('a row shows the whole name of its shape', async ({ page }) => {
@@ -282,7 +282,7 @@ test('dragging a handle changes the curve, even outside the canvas, then replays
   page,
 }) => {
   await openPaused(page, 'card-lift', 0, 400);
-  await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.34, 1.56, 0.64, 1)');
   const box = await handles(page).first().boundingBox();
   if (box === null) throw new Error('No handle');
   const startX = box.x + box.width / 2;
@@ -291,10 +291,10 @@ test('dragging a handle changes the curve, even outside the canvas, then replays
   await page.mouse.move(startX, startY);
   await page.mouse.down();
   await page.mouse.move(startX + 30, startY + 40, { steps: 5 });
-  await expect(curveText(page)).not.toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(curveText(page)).not.toHaveValue('cubic-bezier(0.34, 1.56, 0.64, 1)');
   // Far outside the canvas: the drag keeps going, and x stays within 0 to 1.
   await page.mouse.move(startX + 2000, startY - 2000, { steps: 5 });
-  await expect(curveText(page)).toContainText('cubic-bezier(1, ');
+  await expect(curveText(page)).toHaveValue(/^cubic-bezier\(1, /);
   await page.mouse.up();
 
   // Letting go replays the preview by itself.
@@ -308,14 +308,14 @@ test('a handle can be moved with the arrow keys and reset with a double-click', 
   await openPaused(page, 'card-lift', 0, 400);
   await handles(page).first().focus();
   await page.keyboard.press('ArrowRight');
-  await expect(curveText(page)).toHaveText('cubic-bezier(0.35, 1.56, 0.64, 1)');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.35, 1.56, 0.64, 1)');
   await page.keyboard.press('Shift+ArrowDown');
-  await expect(curveText(page)).toHaveText('cubic-bezier(0.35, 1.46, 0.64, 1)');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.35, 1.46, 0.64, 1)');
   // The arrow keys moved the handle, not the playhead.
   await expect(time(page)).toHaveText('0 of 400 ms');
 
   await handles(page).first().dblclick();
-  await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.34, 1.56, 0.64, 1)');
 });
 
 test('the description follows the edit', async ({ page }) => {
@@ -327,7 +327,7 @@ test('the description follows the edit', async ({ page }) => {
   await page.getByRole('button', { name: 'Slow start' }).click();
   await expect(page.locator('.mi__description')).toContainText('It starts slow and speeds up.');
   await expect(page.locator('.readout__feel')).toHaveText('Starts slow, ends abrupt.');
-  await expect(curveText(page)).toHaveText('ease-in');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.42, 0, 1, 1)');
 });
 
 test('a timeline row can be selected, and unselected by clicking it again', async ({ page }) => {
@@ -336,7 +336,7 @@ test('a timeline row can be selected, and unselected by clicking it again', asyn
   await expect(shadow).toHaveAttribute('aria-pressed', 'false');
   await shadow.click();
   await expect(shadow).toHaveAttribute('aria-pressed', 'true');
-  await expect(curveText(page)).toHaveText('ease-out');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0, 0, 0.58, 1)');
 
   await shadow.click();
   await expect(shadow).toHaveAttribute('aria-pressed', 'false');
@@ -464,18 +464,18 @@ for (const width of [1280, 360]) {
 
 test('a track with several keyframes lets me pick the segment', async ({ page }) => {
   await openPaused(page, 'bounce', 0, 900);
-  await expect(curveText(page)).toHaveText('ease-in');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.42, 0, 1, 1)');
   await page.getByRole('radio', { name: '40 to 60%' }).click();
-  await expect(curveText(page)).toHaveText('ease-out');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0, 0, 0.58, 1)');
 });
 
 test('a linear() easing is read-only until it is converted to a bezier', async ({ page }) => {
   await openPaused(page, 'linear-spring', 0, 700);
   await expect(handles(page)).toHaveCount(0);
-  await expect(curveText(page)).toContainText('linear(');
+  await expect(curveText(page)).toHaveValue(/^linear\(/);
   await page.getByRole('button', { name: 'Convert to a curve with handles' }).click();
   await expect(handles(page)).toHaveCount(2);
-  await expect(curveText(page)).toContainText('cubic-bezier(');
+  await expect(curveText(page)).toHaveValue(/^cubic-bezier\(/);
 });
 
 test('on one column, the preview stays in view while scrolling down to the curve', async ({
@@ -522,4 +522,22 @@ test('on one column, the selected row opens under itself with its curve', async 
   const first = await background.boundingBox();
   if (moved === null || first === null) throw new Error('Not found');
   expect(moved.y).toBeGreaterThan(first.y);
+});
+
+// Asked for: the curve's values can be typed, not only dragged.
+test('a curve can be typed in, and one that is not an easing is put back', async ({ page }) => {
+  await openPaused(page, 'card-lift', 0, 400);
+  const field = page.getByRole('textbox', { name: /Curve value/ });
+  await field.fill('cubic-bezier(0.2, 0.9, 0.3, 1.3)');
+  await field.press('Enter');
+  await expect(field).toHaveValue('cubic-bezier(0.2, 0.9, 0.3, 1.3)');
+  await expect(page.locator('.readout__feel').first()).toContainText('overshoots');
+  await field.fill('ease-in');
+  await field.press('Enter');
+  await expect(field).toHaveValue('cubic-bezier(0.42, 0, 1, 1)');
+  await field.fill('not a curve');
+  await field.press('Enter');
+  await expect(field).toHaveAttribute('aria-invalid', 'true');
+  await field.press('Escape');
+  await expect(field).toHaveValue('cubic-bezier(0.42, 0, 1, 1)');
 });

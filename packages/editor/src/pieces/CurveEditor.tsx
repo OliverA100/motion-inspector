@@ -20,6 +20,7 @@ import {
   fitBezier,
   formatNumber,
   nearestNamedEasing,
+  parseEasing,
   steps,
   type Easing,
   type StepPosition,
@@ -68,6 +69,7 @@ type Props = {
 
 const HEIGHT = 260;
 const COMPACT_HEIGHT = 120;
+const COMPACT_RANGE = { lowest: -0.1, highest: 1.2 };
 const HIT_SIZE = 24;
 // "Close to ease-out" is only said when the curves are hard to tell apart.
 const CLOSE_ENOUGH = 0.03;
@@ -118,6 +120,63 @@ function clamp(value: number, lowest: number, highest: number): number {
 
 type Drag = { index: 0 | 1; left: number; top: number };
 
+// The curve as CSS writes it, in a field: type or paste one (from the
+// browser's dev tools, say) and press Enter, or leave the field. One that is
+// not an easing is marked, and put back on leaving.
+function EasingInput(props: { easing: Easing; onChange: (easing: Easing) => void }) {
+  // A cubic-bezier is shown as its four numbers, even when CSS has a name
+  // for it (ease-in-out): those are what can be changed.
+  const css =
+    props.easing.kind === 'cubic-bezier'
+      ? `cubic-bezier(${[props.easing.x1, props.easing.y1, props.easing.x2, props.easing.y2]
+          .map((value) => formatNumber(value))
+          .join(', ')})`
+      : easingToCss(props.easing);
+  const [text, setText] = useState<string | null>(null);
+  const [invalid, setInvalid] = useState(false);
+  const apply = (): boolean => {
+    if (text === null) return true;
+    const parsed = parseEasing(text);
+    if (!parsed.ok) {
+      setInvalid(true);
+      return false;
+    }
+    setText(null);
+    setInvalid(false);
+    if (easingToCss(parsed.value) !== css) props.onChange(parsed.value);
+    return true;
+  };
+  return (
+    <input
+      className="easing-input"
+      aria-label="Curve value (CSS easing)"
+      aria-invalid={invalid}
+      title={invalid ? 'Not an easing CSS can read, such as cubic-bezier(0.4, 0, 0.2, 1)' : css}
+      spellCheck={false}
+      autoComplete="off"
+      value={text ?? css}
+      onChange={(event) => {
+        setText(event.target.value);
+        setInvalid(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') apply();
+        if (event.key === 'Escape') {
+          setText(null);
+          setInvalid(false);
+          event.currentTarget.blur();
+        }
+      }}
+      onBlur={() => {
+        if (!apply()) {
+          setText(null);
+          setInvalid(false);
+        }
+      }}
+    />
+  );
+}
+
 export function CurveEditor(props: Props) {
   const { original, mine, showOriginal, playhead, onChange, onCommit, onDragChange } = props;
   const theme = useTheme();
@@ -128,7 +187,11 @@ export function CurveEditor(props: Props) {
 
   // The chart's vertical scale. It starts wide and only ever widens, and
   // never during a drag, so the grid does not move under the pointer.
-  const [range, setRange] = useState(() => widenRange(DEFAULT_RANGE, [original, mine]));
+  // In an opened row, room for a little overshoot only: it still widens
+  // when a curve needs more.
+  const [range, setRange] = useState(() =>
+    widenRange(props.compact === true ? COMPACT_RANGE : DEFAULT_RANGE, [original, mine]),
+  );
   useEffect(() => {
     if (drag !== null) return;
     const wider = widenRange(range, [original, mine]);
@@ -317,8 +380,14 @@ export function CurveEditor(props: Props) {
             </>
           )}
         </p>
-        <p className="readout__css" title={easingToCss(mine)}>
-          <code>{easingToCss(mine)}</code>
+        <p className="readout__css">
+          <EasingInput
+            easing={mine}
+            onChange={(easing) => {
+              onChange(easing);
+              onCommit();
+            }}
+          />
           {nearest.distance > 0 && nearest.distance < CLOSE_ENOUGH ? (
             <span> close to {nearest.name}</span>
           ) : null}

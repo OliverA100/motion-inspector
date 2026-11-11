@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { captureFixture } from './capture-helpers';
 
 const time = (page: Page) => page.locator('.playback__time');
-const curveText = (page: Page) => page.locator('.readout code');
+const curveText = (page: Page) => page.getByRole('textbox', { name: /Curve value/ });
 const duration = (page: Page) => page.getByRole('spinbutton', { name: /Duration/ });
 
 async function openPaused(page: Page, sample: string, totalMs: number): Promise<void> {
@@ -28,19 +28,19 @@ test('undo and redo work from the buttons and from the keyboard', async ({ page 
   await page.getByRole('button', { name: 'Slow start', exact: true }).click();
   await duration(page).fill('250');
   await duration(page).blur();
-  await expect(curveText(page)).toHaveText('ease-in');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.42, 0, 1, 1)');
 
   // Undo the duration, then the curve.
   await undo.click();
   await expect(duration(page)).toHaveValue('400');
-  await expect(curveText(page)).toHaveText('ease-in');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.42, 0, 1, 1)');
   await page.keyboard.press(undoKey);
-  await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.34, 1.56, 0.64, 1)');
   await expect(undo).toBeDisabled();
 
   // And forward again.
   await page.keyboard.press(redoKey);
-  await expect(curveText(page)).toHaveText('ease-in');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.42, 0, 1, 1)');
   await redo.click();
   await expect(duration(page)).toHaveValue('250');
   await expect(redo).toBeDisabled();
@@ -55,10 +55,10 @@ test('dragging a handle is one undo step, however far it moved', async ({ page }
   await page.mouse.down();
   await page.mouse.move(box.x + 60, box.y + 80, { steps: 12 });
   await page.mouse.up();
-  await expect(curveText(page)).not.toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(curveText(page)).not.toHaveValue('cubic-bezier(0.34, 1.56, 0.64, 1)');
 
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(curveText(page)).toHaveText('cubic-bezier(0.34, 1.56, 0.64, 1)');
+  await expect(curveText(page)).toHaveValue('cubic-bezier(0.34, 1.56, 0.64, 1)');
   await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
 });
 
