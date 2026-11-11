@@ -398,9 +398,7 @@ for (const width of [1280, 360]) {
   test(`nothing shifts while the editor is used, at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await openPaused(page, 'card-lift', 0, 400);
-    // On one column the curve is a tab of its own. Switching tabs changes
-    // the page on purpose; nothing may move after that.
-    if (width < 960) await page.getByRole('button', { name: 'Curve', exact: true }).click();
+    // On one column the curve is under the timeline, on the same tab.
     let before = await layout(page);
     const same = async (): Promise<void> => expect(await layout(page)).toBe(before);
 
@@ -485,7 +483,6 @@ test('on one column, the preview stays in view while scrolling down to the curve
 }) => {
   await page.setViewportSize({ width: 360, height: 760 });
   await openPaused(page, 'card-lift', 0, 400);
-  await page.getByRole('button', { name: 'Curve', exact: true }).click();
   await page.getByRole('button', { name: 'Slow start', exact: true }).scrollIntoViewIfNeeded();
   await expect(page.locator('.stage canvas')).toBeInViewport();
   await expect(page.getByRole('button', { name: 'Slow start', exact: true })).toBeInViewport();

@@ -191,15 +191,23 @@ test('nothing found on a canvas says a canvas cannot be recorded', async ({
 }) => {
   const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
   await site.evaluate(() => {
+    const holder = document.createElement('div');
+    holder.id = 'sp-chart';
+    holder.style.cssText = 'display: inline-block; padding: 8px';
     const chart = document.createElement('canvas');
     chart.id = 'sp-canvas';
     chart.width = 200;
     chart.height = 80;
-    document.body.prepend(chart);
+    holder.append(chart);
+    document.body.prepend(holder);
   });
   await panel.getByRole('button', { name: 'Pick element' }).click();
   await site.bringToFront();
+  // The canvas itself is not picked (D218): the part around it is.
   await site.click('#sp-canvas');
+  await expect(panel.getByRole('button', { name: 'Record', exact: true })).toBeHidden();
+  await site.keyboard.press('ArrowUp');
+  await site.keyboard.press('Enter');
   await record(panel, site);
   await expect(listening(panel)).toBeVisible();
   await panel.getByRole('button', { name: 'Stop' }).click();

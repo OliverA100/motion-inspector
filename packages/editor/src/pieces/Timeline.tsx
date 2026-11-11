@@ -81,6 +81,9 @@ type Props = {
   onDurationChange: (index: number, durationMs: number) => void;
   // Puts a row's timing and curve back to the original.
   onReset: (index: number) => void;
+  // Puts every row back to the original. Enabled when anything is edited.
+  onResetAll: () => void;
+  anyEdited: boolean;
   // Gives a row its own timing, apart from the rows it is linked with.
   onUnlink: (index: number) => void;
   // The pointer is on a row, or left the rows (null).
@@ -509,12 +512,17 @@ export function Timeline(props: Props) {
             selectedIndex !== null && props.onDurationChange(selectedIndex, value)
           }
         />
-        <Button
-          disabled={selected === null || !selected.edited}
-          onClick={() => selectedIndex !== null && props.onReset(selectedIndex)}
-        >
-          Reset this row
-        </Button>
+        <div className="fields__resets">
+          <Button
+            disabled={selected === null || !selected.edited}
+            onClick={() => selectedIndex !== null && props.onReset(selectedIndex)}
+          >
+            Reset this row
+          </Button>
+          <Button disabled={!props.anyEdited} onClick={props.onResetAll}>
+            Reset all
+          </Button>
+        </div>
         {/* One line, always there, so nothing moves when it changes. */}
         <p className="fields__link">
           <span>
@@ -525,14 +533,14 @@ export function Timeline(props: Props) {
               : selected.scroll
                 ? 'Follows the scroll: 0 to 100% of its range, shown over 1 s. Its curve can be edited.'
                 : linked
-                  ? `Timing and curve shared with ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}.`
-                  : 'Its own timing and curve.'}
+                  ? `Comes from the same animation as ${selected.linkedCount} other ${selected.linkedCount === 1 ? 'row' : 'rows'}: editing its timing or curve changes ${selected.linkedCount === 1 ? 'it' : 'them'} too.`
+                  : 'Edits change this row only.'}
           </span>
           <Button
             disabled={!linked}
             onClick={() => selectedIndex !== null && props.onUnlink(selectedIndex)}
           >
-            Unlink this row
+            Edit on its own
           </Button>
         </p>
       </div>

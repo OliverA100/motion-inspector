@@ -58,6 +58,8 @@ type Props = {
   onCommit: () => void;
   // Puts the curve back to the original's.
   onReset: () => void;
+  // The row the curve is for, as the timeline names it. null: not said.
+  of?: string | null;
   onDragChange: (dragging: boolean) => void;
 };
 
@@ -222,7 +224,7 @@ export function CurveEditor(props: Props) {
     <section className="panel">
       <header className="panel__head">
         <h2 className="panel__title" title={props.term}>
-          Curve
+          {props.of === undefined || props.of === null ? 'Curve' : `Curve of ${props.of}`}
         </h2>
         <HelpTip
           icon={<HelpIcon />}

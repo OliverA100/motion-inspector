@@ -7,7 +7,12 @@
 
 import { StrictMode, useEffect, useReducer, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { describeCapture, parseCapture, SNAPS_BACK_NOTE, type Trigger } from '@motion-inspector/core';
+import {
+  describeCapture,
+  parseCapture,
+  SNAPS_BACK_NOTE,
+  type Trigger,
+} from '@motion-inspector/core';
 import { aboutMotion, Editor, notDrawn, takeLengthMs } from '@motion-inspector/editor';
 import {
   FROM_PAGE,
@@ -839,19 +844,19 @@ function PanelApp() {
           <p className="xp__ready-text">
             {status.nothingFound
               ? nothingFoundText(panel.pickedDraws)
-              : 'Recording starts when you choose how to set it off.'}
+              : 'Press Record, then hover or click it on the page yourself. Or let the panel do it for you: it moves the pointer, clicks or reloads the page, and records what plays.'}
           </p>
           <div className="xp__ready-actions">
             <button type="button" className="btn btn--primary" onClick={record}>
               Record
             </button>
-            <span className="xp__ready-or">or play it:</span>
-            <div className="xp__plays" role="group" aria-label="Play it">
+            <span className="xp__ready-or">or do it for me:</span>
+            <div className="xp__plays" role="group" aria-label="Do it for me">
               <button
                 type="button"
                 className="btn"
                 aria-label="Play the hover"
-                title="Move the pointer in, hold, and out"
+                title="The panel moves the pointer onto it, holds, moves off, and records"
                 onClick={() => void playTheHover()}
               >
                 Hover
@@ -860,7 +865,7 @@ function PanelApp() {
                 type="button"
                 className="btn"
                 aria-label="Play the click"
-                title="Click it once"
+                title="The panel clicks it once and records"
                 onClick={() => void playTheClick()}
               >
                 Click
@@ -869,7 +874,7 @@ function PanelApp() {
                 type="button"
                 className="btn"
                 aria-label="Play the load"
-                title="Reload the page and record it from the start"
+                title="The panel reloads the page and records it from the start"
                 onClick={() => void playTheLoad()}
               >
                 Load
@@ -944,7 +949,14 @@ function PanelApp() {
                               >
                                 {/* A warning mark, drawn: the panel's words use no exclamation marks. */}
                                 <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                                  <rect x="4" y="1" width="2" height="5" rx="1" fill="currentColor" />
+                                  <rect
+                                    x="4"
+                                    y="1"
+                                    width="2"
+                                    height="5"
+                                    rx="1"
+                                    fill="currentColor"
+                                  />
                                   <circle cx="5" cy="8.2" r="1.1" fill="currentColor" />
                                 </svg>
                               </span>

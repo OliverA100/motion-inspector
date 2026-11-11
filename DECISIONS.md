@@ -1225,3 +1225,21 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D216. A part a CSS variable moves is shown by its film, over its own animations
 **Chose:** on a part that an animation of CSS variables moves, a property its film measured is shown by that film. The part's own transition or animation of the same property is left out.
 **Why:** basement.studio's links fade to 50% with an opacity transition, then blink back through an animated variable used in their opacity. Chrome lists no values for an unregistered variable's keyframes, so only the film has the blink. The transition alone left the link at 50% while the page blinked back to full: 50% off. Now 1% off.
+
+### D217. A hover set off by the part around the element waits for that part to be left
+**Chose:** when a hover take began with the pointer coming onto a part around the picked element (the nearest one it came onto), recording waits for the pointer to leave that part, not just the element, before stopping by itself.
+**Why:** found by hand on oliverhassan.dev. The arrow inside a case-study card moves when the card is hovered (Tailwind's group-hover). With the arrow picked, moving off it while still on the card stopped recording half a second later; the page went back only when the pointer left the card, so only "Hover in" was recorded.
+
+### D218. The picker does not pick a canvas or a video
+**Chose:** a canvas or video element with no CSS transition or animation of its own is outlined in grey, dashed, with "canvas · cannot be recorded · ↑ picks the part around it", and a click or Enter on it does not pick it. One the page moves as a box can still be picked.
+**Why:** asked for. Their pictures are made frame by frame and none of their pixels are read, so a recording of one found nothing and looked broken.
+
+### D219. The curve sits under the timeline, named by its row
+**Chose:**
+- In one column (the side panel), the curve and speed graph are shown in the Timeline tab, under the selected row's timing, and there is no Curve tab. The curve's title names the row, as the timeline does: "Curve of Move and scale on div.fx-card".
+- "Reset all" sits beside "Reset this row".
+- "Unlink this row" is "Edit on its own", and the line beside it says what linked means: "Comes from the same animation as 1 other row: editing its timing or curve changes it too."
+- The timeline no longer keeps the wheel to itself (`overscroll-behavior: contain`): over it, the panel scrolls.
+- The stage's "Original" and "Mine" captions sit in a band of their own; they were half under the drawing.
+- The ready panel says who sets the motion off: "Press Record, then hover or click it on the page yourself. Or let the panel do it for you…", with the buttons under "or do it for me".
+**Why:** all asked for after trying the panel by hand. On its own tab, the curve's row was out of sight.

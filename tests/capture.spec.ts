@@ -3525,3 +3525,96 @@ test('a part a variable moves shows its film over its own transition', async ({ 
   }, capture);
   expect(miss.opacity).toBeLessThan(0.1);
 });
+
+// Found by hand on oliverhassan.dev: the arrow inside a case-study card
+// moves when the card is hovered (Tailwind's group-hover). With the arrow
+// picked, moving off it while still on the card stopped recording; the
+// page went back only when the pointer left the card, unrecorded.
+test('a hover set off by the card around the element waits for the card to be left', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `#sp-card { display: grid; place-items: center; width: 300px; height: 160px; background: #eee }
+      #sp-card .arrow { width: 40px; height: 40px; background: #222; transition: transform .3s }
+      #sp-card:hover .arrow { transform: translateX(8px) }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<button id="sp-card"><span class="arrow"></span></button>';
+    document.body.prepend(holder);
+  });
+  await page.mouse.move(500, 600);
+  await page.evaluate(() => {
+    const seen: Take[] = [];
+    (window as unknown as { seenTakes: Take[] }).seenTakes = seen;
+    window.MotionCapture.record(
+      document.querySelector('#sp-card .arrow') as Element,
+      (take) => seen.push(take),
+      () => {},
+      // @ts-expect-error: the fourth argument, onStopped, is not in the test's type.
+      () => {},
+    );
+  });
+  const card = await page.locator('#sp-card').boundingBox();
+  const x = (card?.x ?? 0) + 150;
+  const y = (card?.y ?? 0) + 80;
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.waitForTimeout(800);
+  // Off the arrow, still on the card, and still for a while.
+  await page.mouse.move(x - 100, y + 50, { steps: 5 });
+  await page.waitForTimeout(1500);
+  await page.mouse.move(500, 600, { steps: 5 });
+  await page.waitForTimeout(1200);
+  const triggers = await page.evaluate(() =>
+    (window as unknown as { seenTakes: Take[] }).seenTakes.map(
+      (take) => `${take.replaces ? 'replaces ' : ''}${take.capture?.trigger}`,
+    ),
+  );
+  expect(triggers.at(-1)).toBe('replaces hover-and-leave');
+});
+
+// Asked for: a canvas or a video records nothing, since none of its
+// pixels are read. The picker says so and does not pick it; the part around
+// it can be picked with the up arrow. One the page moves as a box can.
+test('picker: a canvas cannot be picked, the part around it can', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const holder = document.createElement('div');
+    holder.innerHTML = `<div id="sp-stage" style="display: inline-block; padding: 10px; background: #ddd">
+        <canvas id="sp-gl" width="160" height="90" style="display: block"></canvas></div>
+      <canvas id="sp-moved" width="60" height="40" style="display: block; transition: transform .2s"></canvas>`;
+    document.body.prepend(holder);
+    (window as unknown as { picked: string }).picked = 'pending';
+    void window.MotionCapture.pickAndRecord().then((result) => {
+      (window as unknown as { picked: string }).picked = String(result);
+    });
+  });
+  const canvas = await page.locator('#sp-gl').boundingBox();
+  await page.mouse.move((canvas?.x ?? 0) + 80, (canvas?.y ?? 0) + 45, { steps: 3 });
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => (window as unknown as { picked: string }).picked)).toBe(
+    'pending',
+  );
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => (window as unknown as { picked: string }).picked)).toBe('true');
+  await page.evaluate(() => window.MotionCapture.stop());
+
+  // A canvas with a transition of its own is a box that moves: it can be picked.
+  await page.evaluate(() => {
+    (window as unknown as { picked: string }).picked = 'pending';
+    void window.MotionCapture.pickAndRecord().then((result) => {
+      (window as unknown as { picked: string }).picked = String(result);
+    });
+  });
+  const moved = await page.locator('#sp-moved').boundingBox();
+  await page.mouse.move((moved?.x ?? 0) + 30, (moved?.y ?? 0) + 20, { steps: 3 });
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => (window as unknown as { picked: string }).picked)).toBe('true');
+});

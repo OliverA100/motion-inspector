@@ -167,7 +167,7 @@ test('rows from one animation move together until one is unlinked', async ({ pag
   await page.setViewportSize({ width: 1280, height: 1000 });
   await page.goto('/?sample=dots&time=0&quiet');
   await expect(time(page)).toHaveText('0 of 2400 ms');
-  await expect(page.getByText('Timing and curve shared with 1 other row')).toBeVisible();
+  await expect(page.getByText('Comes from the same animation as 1 other row')).toBeVisible();
 
   // Linked: changing the first row's duration changes its partner's too.
   await duration(page).fill('900');
@@ -176,9 +176,9 @@ test('rows from one animation move together until one is unlinked', async ({ pag
   await expect(duration(page)).toHaveValue('900');
 
   // Unlinked: it no longer follows.
-  await page.getByRole('button', { name: 'Unlink this row' }).click();
+  await page.getByRole('button', { name: 'Edit on its own' }).click();
   // The note about sharing goes away (it keeps its space, but is hidden).
-  await expect(page.getByText('Timing and curve shared with')).toBeHidden();
+  await expect(page.getByText('Comes from the same animation as')).toBeHidden();
   await duration(page).fill('500');
   await duration(page).blur();
   await page.locator('.timeline__label').nth(0).click();

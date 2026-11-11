@@ -154,6 +154,8 @@ function TimelinePiece() {
       onDelayChange={() => {}}
       onDurationChange={() => {}}
       onReset={() => {}}
+      onResetAll={() => {}}
+      anyEdited={false}
       onUnlink={() => {}}
       onHoverRow={() => {}}
       onCommit={() => {}}

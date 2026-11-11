@@ -1731,6 +1731,45 @@ function hoveredAround(element: Element | null): Element | null {
   return null;
 }
 
+// The part whose hover set a take off: a part around the element that the
+// pointer came onto as it began (a card whose hover moves the arrow inside
+// it, Tailwind's group-hover, found on oliverhassan.dev). Moving off the
+// arrow but staying on the card is no leave: the page goes back only when
+// the pointer leaves the card. null when the hover began on the element.
+function hoverSetOffBy(elements: (Element | null)[], start: number): Element | null {
+  const near = pageEvents.filter(
+    // The move that set it off comes before it: moves onto the arrow after
+    // the card's hover began say nothing of what began it.
+    (event) => event.type === 'over' && event.time <= start + 17 && event.time >= start - 700,
+  );
+  for (const event of [...near].reverse()) {
+    const target = event.target;
+    if (!(target instanceof Node)) continue;
+    for (const element of elements) {
+      if (element === null) continue;
+      // The pointer can come onto the card and the arrow in one move: the
+      // nearest part around the element that it came onto counts, not the
+      // page's sections around the card.
+      let found: Element | null = null;
+      for (
+        let around = element.parentElement;
+        around !== null && around !== document.body && around !== document.documentElement;
+        around = around.parentElement
+      ) {
+        const cameOnto =
+          around.contains(target) &&
+          !(event.related instanceof Node && around.contains(event.related));
+        if (cameOnto) {
+          found = around;
+          break;
+        }
+      }
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
 // How long recording waits for the way back while the pointer stays on
 // what it hovered, before stopping by itself all the same.
 const HOVER_WAITS_MS = 10000;
@@ -3055,15 +3094,27 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       takenPseudoFilm,
     );
     const capture = result.capture;
+    const setOffBy =
+      capture?.trigger === 'hover'
+        ? hoverSetOffBy(
+            [snapshot.rootElement, snapshot.pickedFrom ?? null],
+            Math.min(...finished.map((seen) => seen.startTime)),
+          )
+        : null;
     hoveredWhenSent =
       capture?.trigger === 'hover'
-        ? (hoveredAround(snapshot.rootElement) ?? hoveredAround(snapshot.pickedFrom ?? null))
+        ? setOffBy !== null && setOffBy.matches(':hover')
+          ? setOffBy
+          : (hoveredAround(snapshot.rootElement) ?? hoveredAround(snapshot.pickedFrom ?? null))
         : null;
     hoverArea =
       capture?.trigger === 'hover'
-        ? [boxAtStart, pageBox(snapshot.rootElement), pageBox(snapshot.pickedFrom ?? null)].filter(
-            (box): box is Box => box !== null && box.width > 0,
-          )
+        ? [
+            boxAtStart,
+            pageBox(snapshot.rootElement),
+            pageBox(snapshot.pickedFrom ?? null),
+            pageBox(setOffBy),
+          ].filter((box): box is Box => box !== null && box.width > 0)
         : [];
     // Only the end of something that was already moving when the element
     // was picked (most often the hover that reaching for it started): its

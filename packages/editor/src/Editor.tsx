@@ -84,11 +84,12 @@ function plural(count: number, word: string): string {
 }
 
 // The editor, wrapped so that a failure shows a message and not a blank page.
-type Tab = 'timeline' | 'curve' | 'export' | 'notes';
+// The curve is shown with the timeline, under the row it is for: on its
+// own tab, the row it belonged to was out of sight.
+type Tab = 'timeline' | 'export' | 'notes';
 
 const TABS: { id: Tab; text: string }[] = [
   { id: 'timeline', text: 'Timeline' },
-  { id: 'curve', text: 'Curve' },
   { id: 'export', text: 'Export' },
   { id: 'notes', text: 'Not shown' },
 ];
@@ -311,6 +312,12 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
   // A capture with nothing to play shows no timeline and no curve.
   const hasTracks = edited.tracks.length > 0;
   const selected = selectedTracks(model);
+  // The selected row, named as the timeline names it, for the curve's title.
+  const selectedRow = shownRows[rowOfTrack(model.selectedTrack) ?? -1];
+  const selectedName =
+    selectedRow === undefined
+      ? null
+      : `${selectedRow.name ?? selectedRow.property} on ${selectedRow.shapeLabel}`;
   // Motion measured on the page and followed by many keyframes, straight
   // between them: those are not curves anyone wrote, and editing one would
   // only put a kink in the path. One fitted curve is shown as a curve.
@@ -520,6 +527,8 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                       dispatch({ kind: 'trackReset', trackIndex });
                     }
                   }}
+                  onResetAll={() => dispatch({ kind: 'allReset' })}
+                  anyEdited={isAnythingEdited(model)}
                   onUnlink={(row) =>
                     dispatch({ kind: 'trackUnlinked', trackIndex: trackOfRow(row) })
                   }
@@ -580,7 +589,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
           </div>
 
           <div className="mi__column">
-            <div className="mi__pane" data-active={tab === 'curve'}>
+            <div className="mi__pane" data-active={tab === 'timeline'}>
               {hasTracks ? (
                 <>
                   {/* Each slot keeps its height when nothing is selected, so the
@@ -601,6 +610,7 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                       <CurveEditor
                         // A different track or segment starts with a fresh chart.
                         key={`${model.selectedTrack}-${model.selectedSegment}`}
+                        of={selectedName}
                         original={easingAt(selected.original, model.selectedSegment)}
                         mine={easingAt(selected.mine, model.selectedSegment)}
                         showOriginal={showOriginal}

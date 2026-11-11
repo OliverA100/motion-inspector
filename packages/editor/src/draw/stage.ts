@@ -126,7 +126,7 @@ const PADDING = 32;
 // Small things (a 14 px spinner, an icon) are drawn up to four times their
 // size, so their motion can be seen.
 const MAX_SCALE = 4;
-const CAPTION_HEIGHT = 20;
+const CAPTION_HEIGHT = 28;
 
 // inset: how far inside the box the outline runs. A border is drawn inside
 // the box in CSS, so its line runs half its width inside the edge.
@@ -1517,9 +1517,10 @@ export function shapeAt(
 function caption(context: CanvasRenderingContext2D, theme: Theme, text: string, x: number): void {
   context.fillStyle = theme.muted;
   context.font = `${theme.textSmall}px ${theme.fontUi}`;
-  context.textBaseline = 'top';
+  // In the middle of its band, above the drawing: never under it.
+  context.textBaseline = 'middle';
   context.textAlign = 'left';
-  context.fillText(text, x + 12, 10);
+  context.fillText(text, x + 12, CAPTION_HEIGHT / 2);
 }
 
 function paintBackdrop(context: CanvasRenderingContext2D, data: StageData, area: Area): void {

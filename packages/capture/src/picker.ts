@@ -9,10 +9,24 @@
 import { labelOf } from './snapshot';
 
 const OUTLINE_COLOR = '#2f6fed';
+const REFUSED_COLOR = '#6b7280';
 // Above anything a page is likely to use.
 const TOP_LAYER = '2147483647';
 // Events the page must not receive while picking.
 const BLOCKED = ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'dblclick'];
+
+// A canvas or a video makes its pictures frame by frame, and none of their
+// pixels are read: picked, it would record nothing. One the page moves as a
+// box (a transition or an animation on it) can still be recorded.
+function cannotRecord(element: Element): string | null {
+  const tag = element.tagName.toLowerCase();
+  if (tag !== 'canvas' && tag !== 'video') return null;
+  const style = getComputedStyle(element);
+  const moves =
+    style.animationName.split(',').some((name) => name.trim() !== 'none') ||
+    style.transitionDuration.split(',').some((duration) => parseFloat(duration) > 0);
+  return moves ? null : tag;
+}
 
 export type Picker = {
   // Resolves with the picked element, or null if picking was cancelled.
@@ -47,13 +61,24 @@ export function startPicking(): Picker {
       return;
     }
     const rect = element.getBoundingClientRect();
+    const refused = cannotRecord(element);
+    const color = refused === null ? OUTLINE_COLOR : REFUSED_COLOR;
+    overlay.box.style.borderColor = color;
+    overlay.box.style.borderStyle = refused === null ? 'solid' : 'dashed';
+    overlay.box.style.background =
+      refused === null ? 'rgba(47,111,237,0.08)' : 'rgba(107,114,128,0.08)';
+    overlay.label.style.background = color;
     overlay.box.style.display = 'block';
     overlay.box.style.left = `${rect.left}px`;
     overlay.box.style.top = `${rect.top}px`;
     overlay.box.style.width = `${rect.width}px`;
     overlay.box.style.height = `${rect.height}px`;
     // The tag, first class and size: enough to know what is under the pointer.
-    overlay.label.textContent = `${labelOf(element)}  ${Math.round(rect.width)} × ${Math.round(rect.height)}`;
+    // One that cannot be recorded says so, and how to get the part around it.
+    overlay.label.textContent =
+      refused === null
+        ? `${labelOf(element)}  ${Math.round(rect.width)} × ${Math.round(rect.height)}`
+        : `${refused} · cannot be recorded · ↑ picks the part around it`;
     overlay.label.style.display = 'block';
     overlay.label.style.left = `${Math.max(0, rect.left)}px`;
     // Above the element, or just inside its top when there is no room.
@@ -73,14 +98,23 @@ export function startPicking(): Picker {
     // the element clicked, not nothing.
     if (event.type === 'click') {
       const target = event.composedPath()[0];
-      finish(current ?? (target instanceof Element && target !== overlay.host ? target : null));
+      const chosen =
+        current ?? (target instanceof Element && target !== overlay.host ? target : null);
+      // One that cannot be recorded is not picked: picking goes on.
+      if (chosen !== null && cannotRecord(chosen) !== null) {
+        show(chosen);
+        return;
+      }
+      finish(chosen);
     }
   };
 
   const onKey = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') finish(null);
-    else if (event.key === 'Enter') finish(current);
-    else if (event.key === 'ArrowUp' && current?.parentElement) show(current.parentElement);
+    else if (event.key === 'Enter') {
+      if (current !== null && cannotRecord(current) !== null) return;
+      finish(current);
+    } else if (event.key === 'ArrowUp' && current?.parentElement) show(current.parentElement);
     else if (event.key === 'ArrowDown' && current?.firstElementChild)
       show(current.firstElementChild);
     else return;

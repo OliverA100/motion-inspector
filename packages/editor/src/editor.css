@@ -723,10 +723,10 @@ html {
   grid-template-columns: fit-content(55%) minmax(0, 1fr);
   /* At most about eight rows, and never so tall that the whole timeline
      panel (play controls above, Delay and Duration below) cannot fit in
-     the window at once. More rows than that scroll inside this box. */
+     the window at once. More rows than that scroll inside this box; at its
+     ends, or when they all fit, the wheel scrolls the panel. */
   max-height: max(160px, min(448px, 100vh - 380px));
   overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 /* The ruler, and the empty corner beside it, stay at the top while the
@@ -923,6 +923,14 @@ html {
   justify-items: start;
   padding: var(--space-3);
   border-top: var(--hairline) solid var(--color-border);
+}
+
+/* The two resets side by side, on a line of their own. */
+.fields__resets {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .fields__title,
