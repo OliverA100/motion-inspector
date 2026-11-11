@@ -3702,9 +3702,17 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         const now: FilmFrame = { time: docNow, ...frameNow(element) };
         // Its look before the take, a frame before: a change made at the
         // same moment with no transition (a class flip) shows in the film.
+        // Just before its first animation began, which may be a few frames
+        // before it was first filmed.
         const before = frames.length === 0 ? lastKnown.get(element) : undefined;
+        const began = Math.min(
+          docNow - ONE_FRAME_MS,
+          ...take
+            .filter((seen) => seen.target === element && Number.isFinite(seen.startTime))
+            .map((seen) => seen.startTime - 1),
+        );
         if (before !== undefined && !sameFrame(before, now)) {
-          frames.push({ ...before, time: docNow - ONE_FRAME_MS });
+          frames.push({ ...before, time: began });
         }
         frames.push(now);
         film.set(element, frames);

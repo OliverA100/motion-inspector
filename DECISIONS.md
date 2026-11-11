@@ -1037,3 +1037,9 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D178. What a page changes with no animation, on a part it also animates, is measured
 **Chose:** parts the browser animates are filmed for the check. Their film is now also fitted, as a script's is, for what none of their own animations change (their own properties are left to their tracks): a class flip with no transition. Every filmed part's film starts from its look before the take, and that look is kept where each take ends.
 **Why:** Cal's menu fades out, and in the same moment a class shrinks it to 0.95 with no transition: the preview kept it full size, 20 px off. Now 0 px.
+
+### D179. A film's first look is from before the part's first animation; an svg in the page is a box
+**Chose:**
+- The look a part had before a take goes into its film just before its first animation began, not a frame before it was first filmed (which may be some frames later).
+- An <svg> in the page (not inside another svg) takes percentages in its film from its CSS box, as the snapshot does, not from its drawing.
+**Why:** Figma's button: its icon's fade looked 29% off in its first frame (the look before the take sat inside the fade), and its translate: 0 -50% was read as 7.8 px instead of 10. Now 0 px.

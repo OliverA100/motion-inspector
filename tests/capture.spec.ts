@@ -1047,6 +1047,25 @@ test('a loop that only turns a registered variable is filmed for one turn and dr
   expect(capture.notShown.join(' ')).not.toContain('only changes CSS variables');
 });
 
+// Found on Figma: an icon that is an <svg> in the page, moved by
+// translate: 0 -50%, which is half its CSS box (not half its drawing).
+test('a percentage on an svg in the page is of its box, in its film too', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-icon-box { width: 60px; height: 40px; padding-top: 20px }
+     #sp-icon-box svg { display: block; width: 20px; height: 20px; translate: 0 -50%; opacity: 0; transition: opacity .2s }
+     #sp-icon-box.on svg { opacity: 1 }`,
+    '<div id="sp-icon-box"><svg viewBox="0 0 20 20"><path d="M4 4 L16 10 L4 16 Z"></path></svg></div>',
+    '#sp-icon-box',
+  );
+  await page.evaluate(() => document.getElementById('sp-icon-box')?.classList.add('on'));
+  await page.waitForTimeout(600);
+  const capture = onlyCapture(await takesNow(page));
+  const film = capture.measured?.[0]?.frames ?? [];
+  expect(film.length).toBeGreaterThan(1);
+  for (const frame of film) expect(frame.matrix[5]).toBeCloseTo(-10, 1);
+});
+
 // Found on Cal: a menu fades out, and at the same moment a class shrinks it
 // to 0.95 with no transition. Its fade is a track; the shrink, seen only in
 // its film, is measured too.

@@ -2559,12 +2559,18 @@ export function frameNow(element: Element): {
   const style = getComputedStyle(element);
   const opacity = parseFloat(style.opacity);
   // translate's percentages are of the element's own box, before transforms.
+  // An <svg> in the page (not inside another) is a CSS box, like an HTML
+  // element: its own box, not its drawing's (Figma's button icon, moved by
+  // translate: 0 -50%, was read 2 px short).
+  const outerSvg = element instanceof SVGSVGElement && !(element.parentElement instanceof SVGElement);
   const size =
     element instanceof HTMLElement
       ? { width: element.offsetWidth, height: element.offsetHeight }
-      : element instanceof SVGGraphicsElement
-        ? element.getBBox()
-        : { width: 0, height: 0 };
+      : outerSvg
+        ? { width: element.clientWidth, height: element.clientHeight }
+        : element instanceof SVGGraphicsElement
+          ? element.getBBox()
+          : { width: 0, height: 0 };
   const own = transformNow(style, size, element);
   const perspective = perspectiveOf(element, style);
   const seen = perspective === null ? own : perspectiveMatrix(perspective).multiply(own);
