@@ -2671,7 +2671,11 @@ export function layoutNow(snapshot: Snapshot, element: Element): Box {
 // tilted, while the page showed it open.
 export function settleLateShape(snapshot: Snapshot, element: Element): void {
   const shape = snapshot.shapeOf.get(element);
-  if (shape === undefined || !shape.id.includes('.late') || !element.isConnected) return;
+  // So is the element recording moved to as its animation began (a dialog
+  // that opened: Raycast's, centered by a transform its animation replaces).
+  const movedTo = snapshot.pickedFrom !== undefined && element === snapshot.rootElement;
+  if (shape === undefined || (!shape.id.includes('.late') && !movedTo) || !element.isConnected)
+    return;
   if (element.getAnimations().length > 0) return;
   const style = getComputedStyle(element);
   const opacity = parseFloat(style.opacity);

@@ -1793,9 +1793,18 @@ function buildTake(
   const firstFrame = Math.min(
     ...Array.from(film.values()).flatMap((frames) => frames.map((frame) => frame.time)),
   );
+  // Only a part the script moves: one it writes but leaves still (Radix
+  // placing Raycast's dialog, whose CSS animation runs a moment later) says
+  // nothing of when the motion began.
   const firstScripted = Math.min(
     ...Array.from(film)
-      .filter(([element]) => scripted.has(element))
+      .filter(
+        ([element, frames]) =>
+          scripted.has(element) &&
+          movesInFilm(frames) &&
+          // Its film is its own animation's motion, which starts the take.
+          !take.some((seen) => seen.target === element && seen.pseudoElement === null),
+      )
       .flatMap(([, frames]) => frames.map((frame) => frame.time)),
   );
   const takeStart =

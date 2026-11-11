@@ -1185,3 +1185,9 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D208. A take that goes there and back first stops where it is held
 **Chose:** a take with a way back (a hover and its leave, a menu opened and closed) stops its first play at the held moment, where the way back begins. Play goes on from there; replay, a scrub or an edit drops the stop.
 **Why:** played to its end, a hover and its leave ends where it began, so the preview of Linear's menu sat on an empty frame after its first play: what the hover opened was never on screen unless one scrubbed back.
+
+### D209. A dialog recording moved to rests where the page leaves it
+**Chose:**
+- The element recording moved to as its animation began has its look read again once nothing animates it, as a part that appeared during the take does.
+- A part a script writes starts a take only when its film moves, and not when that motion is its own browser animation's.
+**Why:** Raycast's dialog, centered by translate(-50%, -50%) and animated in by a CSS animation that does not fill, was 231 px off once its animation ended: the preview went back to a transform read mid-animation. The script writing its style also put the take's start 366 ms before its animation began.

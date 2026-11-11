@@ -3259,3 +3259,41 @@ test('a resting transform given as a plain matrix is read as a move', async ({ p
   const capture = onlyCapture(await takesNow(page));
   expect(describeCapture(capture)).toContain('moves up 24 px');
 });
+
+// Found on Raycast: a dialog a click opens, centered by translate(-50%,
+// -50%), its CSS animation not filling, its style written by a script as it
+// opens. Recording moves to it as it animates; once its animation is over
+// it rests centered, as on the page.
+test('a dialog recording moved to rests where the page leaves it', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-open { display: inline-block; width: 80px; height: 32px; background: #ddd }
+     .sp-dialog { position: fixed; left: 50%; top: 50%; width: 300px; height: 200px; background: #222;
+       transform: translate(-50%, -50%); animation: sp-dialog-in .15s ease-out }
+     @keyframes sp-dialog-in { from { opacity: 0; transform: translate(-50%, -48%) scale(0.96) } }`,
+    '<button id="sp-open">Open</button>',
+    '#sp-open',
+  );
+  await page.evaluate(() => {
+    document.getElementById('sp-open')?.addEventListener('click', () => {
+      const dialog = document.createElement('div');
+      dialog.className = 'sp-dialog';
+      dialog.setAttribute('role', 'dialog');
+      document.body.append(dialog);
+      dialog.style.setProperty('--sp-open', '1');
+      requestAnimationFrame(() => dialog.style.setProperty('--sp-open', '2'));
+    });
+  });
+  await page.click('#sp-open');
+  await page.waitForTimeout(900);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.root.label).toBe('div.sp-dialog');
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number; opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.px).toBeLessThan(2);
+});
