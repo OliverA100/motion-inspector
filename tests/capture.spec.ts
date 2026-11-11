@@ -1847,6 +1847,34 @@ test('a part a script turns in 3D keeps its lean when flattened', async ({ page 
     return [m.a, m.b, m.c, m.d];
   }, last);
   drawn.forEach((value, index) => expect(Math.abs(value - (seen[index] ?? 0))).toBeLessThan(0.01));
+  expect(capture.notShown).toContain(
+    'A script turns div.sp-tilt-face in 3D. It is shown flat, as it looks on the page.',
+  );
+});
+
+test('a script that adds translateZ(0) to get a layer is not said to turn in 3D', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    '.sp-layer { width: 40px; height: 40px; background: #36f }',
+    '<div id="sp-layer-box"><div class="sp-layer"></div></div>',
+    '#sp-layer-box',
+  );
+  await page.evaluate(() => {
+    const part = document.querySelector('.sp-layer') as HTMLElement;
+    const start = performance.now();
+    const step = (now: number): void => {
+      const done = Math.min((now - start) / 400, 1);
+      part.style.transform = `translateX(${done * 60}px) translateZ(0)`;
+      if (done < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await page.waitForTimeout(1000);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((track) => track.property)).toEqual(['transform']);
+  expect(capture.notShown.join(' ')).not.toContain('in 3D');
 });
 
 test('a view transition that slides the new picture in is read as the part sliding', async ({

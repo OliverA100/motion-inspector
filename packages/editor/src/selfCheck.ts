@@ -150,16 +150,18 @@ export function selfCheckWords(checks: ShapeCheck[]): string | null {
   return `Checked against the page: off by up to ${pxWords} and ${opacityWords}, most on ${worst.label} at ${Math.round(worst.worstAtMs)} ms.`;
 }
 
-// Whether a "not shown" note is about motion the preview leaves out. Three
+// Whether a "not shown" note is about motion the preview leaves out. Four
 // are not: parts that do not move, left out to keep the drawing simple (a
 // part that moves is in the take, or in what it missed); a gradient drawn
-// as its average color; and a take whose motion ends where it starts. They
+// as its average color; a take whose motion ends where it starts; and a
+// part turned in 3D, drawn flat as it looks (the check measures that). They
 // are still listed; the badge does not count them.
 export function aboutMotion(note: string): boolean {
   return !(
     note.endsWith('left out of the drawing, to keep it simple.') ||
     note.startsWith('A gradient is drawn as the average') ||
-    note.endsWith('so there is nothing to see.')
+    note.endsWith('so there is nothing to see.') ||
+    note.endsWith('It is shown flat, as it looks on the page.')
   );
 }
 

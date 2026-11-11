@@ -2397,6 +2397,8 @@ export function framePseudo(
 ): {
   matrix: [number, number, number, number, number, number];
   taper: [number, number] | null;
+  // Whether its own transform turns it in depth (rotateX, rotateY).
+  deep: boolean;
   opacity: number;
   styles: string[];
 } {
@@ -2414,6 +2416,7 @@ export function framePseudo(
   return {
     matrix: matrix.every(Number.isFinite) ? matrix : [1, 0, 0, 1, 0, 0],
     taper: null,
+    deep: turnsInDepth(own),
     opacity:
       style.display === 'none' || style.visibility === 'hidden'
         ? 0
@@ -2424,9 +2427,17 @@ export function framePseudo(
   };
 }
 
+// Whether a transform turns a part out of the page's plane. translateZ(0)
+// and translate3d(x, y, 0), written to get a layer of its own, do not.
+function turnsInDepth(matrix: DOMMatrix): boolean {
+  return [matrix.m13, matrix.m23, matrix.m31, matrix.m32].some((value) => Math.abs(value) > 1e-6);
+}
+
 export function frameNow(element: Element): {
   matrix: [number, number, number, number, number, number];
   taper: [number, number] | null;
+  // Whether its own transform turns it in depth (rotateX, rotateY).
+  deep: boolean;
   opacity: number;
   styles: string[];
 } {
@@ -2457,6 +2468,7 @@ export function frameNow(element: Element): {
   return {
     matrix: matrix.every(Number.isFinite) ? matrix : [1, 0, 0, 1, 0, 0],
     taper: flat || !Number.isFinite(g) || !Number.isFinite(h) ? null : [g, h],
+    deep: turnsInDepth(own),
     // What is seen: a part with no box (display: none once a collapse
     // ends, found on Chakra's accordion) or hidden is not seen at all,
     // whatever its opacity says.

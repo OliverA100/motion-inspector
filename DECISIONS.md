@@ -958,6 +958,6 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 **Chose:**
 - What opens elsewhere is also looked for in the shadow roots of the components the picked element sits in or is slotted into (up to four levels up), and those inside them. Animations in the picked element's own shadow roots stay its own.
 - A part 2 px or smaller is left out only when it cuts off what overflows it (screen-reader text). One that paints and cuts nothing off is drawn.
-- Motion a script makes is written as translate, rotate, skewX and scale. The lean is what a turn in 3D looks like once flattened.
+- Motion a script makes is written as translate, rotate, skewX and scale. The lean is what a turn in 3D looks like once flattened. A part whose own transform turns it out of the page's plane gets a note saying it is shown flat; the badge does not count it, because the check measures the picture. translateZ(0) does not count as a turn.
 - A change that first happens once a hover's way back has begun is said with the way back ("Then it goes back and disappears").
 **Why:** Shoelace's tooltip was not followed: its bubble animates in the tooltip's shadow root, and document.getAnimations() leaves shadow roots out. Aceternity's logo: four corner dots were reported missing, and the turned mark was 2.8 px off; now 0.5 px.

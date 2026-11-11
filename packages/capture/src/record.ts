@@ -1169,6 +1169,7 @@ type FilmFrame = {
   time: number;
   matrix: [number, number, number, number, number, number];
   taper: [number, number] | null;
+  deep: boolean;
   opacity: number;
   // The computed text of FILMED_STYLES, in that order.
   styles: string[];
@@ -2042,6 +2043,17 @@ function buildTake(
     new Set(Array.from(scripted).filter((element) => !followed.has(element))),
     takeStart,
   ) as { shapeId: unknown; property: unknown; groupId: string | null }[];
+  // A part a script turns in 3D is measured as it looks: flat. Said, so
+  // "rotates and slants" is not taken for what the page wrote.
+  const flattened = Array.from(film)
+    .filter(
+      ([element, frames]) =>
+        scripted.has(element) &&
+        !followed.has(element) &&
+        scripts.some((track) => track.shapeId === snapshot.shapeIdOf.get(element)) &&
+        frames.some((frame) => frame.deep || frame.taper !== null),
+    )
+    .map(([element]) => `A script turns ${labelOf(element)} in 3D. It is shown flat, as it looks on the page.`);
   // A variable whose effect was measured is shown by that: its own values
   // cannot be drawn, and listing them would only repeat it.
   const measuredIds = new Set(scripts.map((track) => track.shapeId));
@@ -2216,6 +2228,7 @@ function buildTake(
             ),
         ),
         ...snapshot.notes,
+        ...flattened,
         ...built.flatMap((item) => item.notShown),
         // Something did run. Say so, rather than "nothing was captured".
         ...(tracks.length + scripts.length + follows.length === 0

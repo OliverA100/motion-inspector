@@ -54,5 +54,8 @@ describe('the preview badge', () => {
     expect(aboutMotion('The backdrop behind dialog is not shown: it covers the whole page.')).toBe(
       true,
     );
+    expect(
+      aboutMotion('A script turns span.block in 3D. It is shown flat, as it looks on the page.'),
+    ).toBe(false);
   });
 });
