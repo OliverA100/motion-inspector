@@ -20,14 +20,59 @@ const out = resolve(__dirname, '../real-sites-output');
 // `trigger`: 'hover' (default), 'click', or 'none' for things already running.
 const sites = [
   { name: 'bootstrap-buttons', url: 'https://getbootstrap.com/docs/5.3/components/buttons/' },
-  { name: 'bootstrap-spinners', url: 'https://getbootstrap.com/docs/5.3/components/spinners/', pick: '.bd-example .spinner-border', trigger: 'none' },
-  { name: 'bootstrap-spinner-grow', url: 'https://getbootstrap.com/docs/5.3/components/spinners/', pick: '.bd-example .spinner-grow', trigger: 'none' },
-  { name: 'bootstrap-accordion', url: 'https://getbootstrap.com/docs/5.3/components/accordion/', pick: '.bd-example .accordion', trigger: 'click', clickTarget: '.bd-example .accordion-item:nth-child(2) .accordion-button' },
-  { name: 'bootstrap-carousel', url: 'https://getbootstrap.com/docs/5.3/components/carousel/', pick: '.bd-example .carousel', trigger: 'click', clickTarget: '.bd-example .carousel-control-next' },
-  { name: 'bootstrap-dropdown', url: 'https://getbootstrap.com/docs/5.3/components/dropdowns/', pick: '.bd-example .dropdown', trigger: 'click', clickTarget: '.bd-example .dropdown-toggle' },
-  { name: 'bootstrap-tabs', url: 'https://getbootstrap.com/docs/5.3/components/navs-tabs/', pick: '.bd-example .tab-content', trigger: 'click', clickTarget: '.bd-example #profile-tab, .bd-example [data-bs-target="#profile-tab-pane"]' },
-  { name: 'bootstrap-progress', url: 'https://getbootstrap.com/docs/5.3/components/progress/', pick: '.bd-example .progress-bar-animated', trigger: 'none' },
-  { name: 'animate-style', url: 'https://animate.style/', pick: 'h1', trigger: 'click', clickTarget: '.animation-item' },
+  {
+    name: 'bootstrap-spinners',
+    url: 'https://getbootstrap.com/docs/5.3/components/spinners/',
+    pick: '.bd-example .spinner-border',
+    trigger: 'none',
+  },
+  {
+    name: 'bootstrap-spinner-grow',
+    url: 'https://getbootstrap.com/docs/5.3/components/spinners/',
+    pick: '.bd-example .spinner-grow',
+    trigger: 'none',
+  },
+  {
+    name: 'bootstrap-accordion',
+    url: 'https://getbootstrap.com/docs/5.3/components/accordion/',
+    pick: '.bd-example .accordion',
+    trigger: 'click',
+    clickTarget: '.bd-example .accordion-item:nth-child(2) .accordion-button',
+  },
+  {
+    name: 'bootstrap-carousel',
+    url: 'https://getbootstrap.com/docs/5.3/components/carousel/',
+    pick: '.bd-example .carousel',
+    trigger: 'click',
+    clickTarget: '.bd-example .carousel-control-next',
+  },
+  {
+    name: 'bootstrap-dropdown',
+    url: 'https://getbootstrap.com/docs/5.3/components/dropdowns/',
+    pick: '.bd-example .dropdown',
+    trigger: 'click',
+    clickTarget: '.bd-example .dropdown-toggle',
+  },
+  {
+    name: 'bootstrap-tabs',
+    url: 'https://getbootstrap.com/docs/5.3/components/navs-tabs/',
+    pick: '.bd-example .tab-content',
+    trigger: 'click',
+    clickTarget: '.bd-example #profile-tab, .bd-example [data-bs-target="#profile-tab-pane"]',
+  },
+  {
+    name: 'bootstrap-progress',
+    url: 'https://getbootstrap.com/docs/5.3/components/progress/',
+    pick: '.bd-example .progress-bar-animated',
+    trigger: 'none',
+  },
+  {
+    name: 'animate-style',
+    url: 'https://animate.style/',
+    pick: 'h1',
+    trigger: 'click',
+    clickTarget: '.animation-item',
+  },
   { name: 'tailwind', url: 'https://tailwindcss.com/' },
   { name: 'github', url: 'https://github.com/features' },
   { name: 'mdn', url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/transition' },
@@ -35,7 +80,12 @@ const sites = [
   { name: 'vercel', url: 'https://vercel.com/' },
   { name: 'linear', url: 'https://linear.app/' },
   { name: 'daisyui-button', url: 'https://daisyui.com/components/button/' },
-  { name: 'daisyui-loading', url: 'https://daisyui.com/components/loading/', pick: '.loading', trigger: 'none' },
+  {
+    name: 'daisyui-loading',
+    url: 'https://daisyui.com/components/loading/',
+    pick: '.loading',
+    trigger: 'none',
+  },
   { name: 'mui-buttons', url: 'https://mui.com/material-ui/react-button/' },
   { name: 'css-tricks', url: 'https://css-tricks.com/' },
   { name: 'web-dev', url: 'https://web.dev/' },
@@ -53,13 +103,32 @@ function findCandidates(limit) {
     if (!transitions && !animated) continue;
     const rect = element.getBoundingClientRect();
     if (rect.width < 16 || rect.height < 12 || rect.width > 700 || rect.height > 500) continue;
-    if (rect.top < 60 || rect.bottom > window.innerHeight - 10 || rect.left < 0 || rect.right > window.innerWidth) continue;
-    if (style.visibility === 'hidden' || style.display === 'none' || parseFloat(style.opacity) === 0) continue;
+    if (
+      rect.top < 60 ||
+      rect.bottom > window.innerHeight - 10 ||
+      rect.left < 0 ||
+      rect.right > window.innerWidth
+    )
+      continue;
+    if (
+      style.visibility === 'hidden' ||
+      style.display === 'none' ||
+      parseFloat(style.opacity) === 0
+    )
+      continue;
     const key = `${element.tagName}.${element.classList[0] ?? ''}.${animated ? 'a' : 't'}`;
     if (seen.has(key)) continue;
     seen.add(key);
     element.setAttribute('data-mi-candidate', String(found.length));
-    found.push({ index: found.length, tag: element.tagName.toLowerCase(), cls: element.className && element.className.baseVal === undefined ? String(element.className).slice(0, 60) : '', running: animated });
+    found.push({
+      index: found.length,
+      tag: element.tagName.toLowerCase(),
+      cls:
+        element.className && element.className.baseVal === undefined
+          ? String(element.className).slice(0, 60)
+          : '',
+      running: animated,
+    });
     if (found.length >= limit) break;
   }
   return found;
@@ -138,7 +207,10 @@ async function recordOne(page, selector, trigger, clickTarget) {
       await page.waitForTimeout(2500);
       // Some sites refuse scripts added as a tag (their content security
       // policy). The extension injects differently, so use evaluate here.
-      await page.evaluate(require('node:fs').readFileSync(captureScript, 'utf8') + '\n;window.MotionCapture = MotionCapture;');
+      await page.evaluate(
+        require('node:fs').readFileSync(captureScript, 'utf8') +
+          '\n;window.MotionCapture = MotionCapture;',
+      );
       const targets = site.pick
         ? [{ selector: site.pick, trigger: site.trigger ?? 'hover', label: site.pick }]
         : (await page.evaluate(findCandidates, 5)).map((c) => ({
@@ -170,7 +242,9 @@ async function recordOne(page, selector, trigger, clickTarget) {
     report.push(entry);
     await context.close();
     const total = entry.results.reduce((sum, r) => sum + r.takes.length, 0);
-    console.log(`${site.name}: ${entry.failed ?? `${entry.results.length} elements, ${total} takes`}${errors.length ? `, ${errors.length} page errors` : ''}`);
+    console.log(
+      `${site.name}: ${entry.failed ?? `${entry.results.length} elements, ${total} takes`}${errors.length ? `, ${errors.length} page errors` : ''}`,
+    );
   }
   writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 2));
   await browser.close();

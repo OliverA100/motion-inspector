@@ -125,6 +125,52 @@ export async function playHover(tabId: number, rect: Rect): Promise<void> {
   });
 }
 
+// Reloads the page with the capture script put in before the page's own
+// scripts (source), so what plays as it loads is recorded from its first
+// frame. The script keeps its takes on window.motionInspectorLoad, read
+// back here once it is done or after LOAD_LIMIT_MS. The script is taken out
+// again before the debugger detaches: only this one load has it.
+const LOAD_LIMIT_MS = 12000;
+export type LoadResult = { found: boolean; takes: unknown[]; problem: string | null };
+
+export async function playLoad(tabId: number, source: string): Promise<LoadResult> {
+  let result: LoadResult = { found: false, takes: [], problem: null };
+  await withDebugger(tabId, async (target) => {
+    await chrome.debugger.sendCommand(target, 'Page.enable');
+    const added = (await chrome.debugger.sendCommand(
+      target,
+      'Page.addScriptToEvaluateOnNewDocument',
+      { source },
+    )) as { identifier: string };
+    try {
+      await chrome.debugger.sendCommand(target, 'Page.reload', {});
+      const began = Date.now();
+      while (Date.now() - began < LOAD_LIMIT_MS) {
+        await wait(300);
+        // While the page is between documents there is nothing to ask.
+        const answer = (await chrome.debugger
+          .sendCommand(target, 'Runtime.evaluate', {
+            expression: 'JSON.stringify(window.motionInspectorLoad ?? null)',
+            returnByValue: true,
+          })
+          .catch(() => null)) as { result?: { value?: unknown } } | null;
+        const value = answer?.result?.value;
+        if (typeof value !== 'string' || value === 'null') continue;
+        const state = JSON.parse(value) as LoadResult & { done: boolean };
+        result = { found: state.found, takes: state.takes, problem: state.problem };
+        if (state.done) break;
+      }
+    } finally {
+      await chrome.debugger
+        .sendCommand(target, 'Page.removeScriptToEvaluateOnNewDocument', {
+          identifier: added.identifier,
+        })
+        .catch(() => {});
+    }
+  });
+  return result;
+}
+
 // Moves the pointer onto the element, waits for its hover to be over, then
 // asks for recording to start (ready), clicks, waits for what the click set
 // off (clicked), and leaves: only the click is recorded.

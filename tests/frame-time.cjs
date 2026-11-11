@@ -76,7 +76,10 @@ async function wiggle(page, from, to) {
       await wiggle(page, grab, { x: grab.x + 120, y: grab.y + 90 });
       await stopMeasuring(page, `${sample}, dragging a curve handle${suffix}`);
       await page.mouse.up();
-      await page.getByRole('button', { name: 'Pause' }).click().catch(() => {});
+      await page
+        .getByRole('button', { name: 'Pause' })
+        .click()
+        .catch(() => {});
 
       // 3. Scrubbing on the timeline's ruler.
       const bars = await page.getByRole('slider', { name: 'Time' }).boundingBox();

@@ -74,6 +74,9 @@ export type RecorderOptions = {
   // what moves: what is already happening is what was asked for, not the
   // pick's own hover.
   moved?: boolean;
+  // What set every take off, when the recorder knows better than the page
+  // can say: "load", when recording began as the page loaded.
+  trigger?: Trigger;
 };
 
 // How far up to look for a parent that animates. Further up are things like
@@ -1654,8 +1657,14 @@ function triggerOf(root: Element, take: Seen[], scriptStart: number | null = nul
     const transitions = take.every((seen) => seen.origin === 'css-transition');
     return transitions && root.matches(':hover') ? 'hover' : 'running';
   }
+  // Named by when its own motion began: a loop that was already running
+  // when picked (the typing dots in Vercel's chat card) started long before
+  // whatever set the rest off.
+  const own = take.filter((seen) => !(seen.runningAtPick && !Number.isFinite(seen.timing.endTime)));
   const start =
-    take.length > 0 ? Math.min(...take.map((seen) => seen.startTime)) : (scriptStart ?? 0);
+    own.length > 0
+      ? Math.min(...own.map((seen) => seen.startTime))
+      : (scriptStart ?? (take.length > 0 ? Math.min(...take.map((seen) => seen.startTime)) : 0));
   const near = pageEvents.filter((event) => event.time <= start + 50 && event.time >= start - 700);
   // While the page scrolls, things pass under a pointer that stands still:
   // those crossings are not hovers. A script moving parts with the scroll
@@ -2079,13 +2088,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // style: this runs right after the script, in the same frame. Filming in
   // the recorder's own frame callback could come before the script's in
   // that frame, and see every frame one frame late.
+  // Parts with no shape that a script wrote to, tried once each.
+  const triedLate = new WeakSet<Element>();
   const watcher = new MutationObserver((records) => {
     const time = asNumber(document.timeline.currentTime) ?? performance.now();
     const changed = new Set<Element>();
     for (const record of records) {
       const target = record.target;
       if (!(target instanceof Element) || endless.has(target)) continue;
-      if (!snapshot.shapeOf.has(target)) continue;
+      // A part left out of the drawing (past the most shapes, or later in
+      // the page than the rest) that a script moves gets a shape now:
+      // Vercel's peeled corner, the last part of a busy card.
+      if (!snapshot.shapeOf.has(target)) {
+        if (triedLate.has(target)) continue;
+        triedLate.add(target);
+        if (!addLateShape(snapshot, target)) continue;
+      }
       changed.add(target);
     }
     for (const element of changed) {
@@ -2432,7 +2450,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       finished,
       finishedSamples,
       notes,
-      cutTrigger,
+      cutTrigger ?? options.trigger ?? null,
       finishedFilm,
       finishedScripted,
     );

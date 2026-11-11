@@ -23,8 +23,15 @@ const out = resolve(__dirname, '../screenshots/flow');
   const shot = (name) => panel.screenshot({ path: `${out}/${name}.png` });
   const log = async (step) => {
     const takes = await panel.locator('.xp__take').count();
-    const shown = await panel.locator('.xp__take[aria-pressed="true"] code').first().textContent().catch(() => null);
-    const description = await panel.locator('.mi__description').textContent().catch(() => '');
+    const shown = await panel
+      .locator('.xp__take[aria-pressed="true"] code')
+      .first()
+      .textContent()
+      .catch(() => null);
+    const description = await panel
+      .locator('.mi__description')
+      .textContent()
+      .catch(() => '');
     console.log(`${step}: takes ${takes}, shown ${shown}, "${(description ?? '').slice(0, 70)}"`);
   };
 
@@ -69,7 +76,9 @@ const out = resolve(__dirname, '../screenshots/flow');
       .concat(
         [...document.querySelectorAll('button')]
           .filter((b) => /Copy CSS|Copy for AI/.test(b.textContent))
-          .map((b) => `${b.textContent}: ${Math.round(b.getBoundingClientRect().top + scrollY)} px`),
+          .map(
+            (b) => `${b.textContent}: ${Math.round(b.getBoundingClientRect().top + scrollY)} px`,
+          ),
       ),
   );
   console.log('positions in the panel (window is 760 px tall):\n  ' + where.join('\n  '));

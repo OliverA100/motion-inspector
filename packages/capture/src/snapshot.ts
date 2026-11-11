@@ -1608,7 +1608,15 @@ function opacityUp(item: Element): number {
 // The padding box of the nearest parent that cuts off what is inside it,
 // relative to the picked element. The page itself (body, html) does not
 // count: it scrolls rather than cuts.
+// Layout leaves transforms out, and the parts between the picked element
+// and its clipping parent may be moved by one: a box centred with left: 50%
+// and translate(-50%) (found on oliverhassan.dev, where the frame cut a
+// button in half). Their translations are added back. One that turns,
+// scales or tilts cannot be: then there is no frame, and nothing is cut
+// that the page shows.
 function frameOf(walk: Walk): Box | null {
+  let shiftX = 0;
+  let shiftY = 0;
   for (
     let parent = walk.rootElement.parentElement;
     parent !== null;
@@ -1616,16 +1624,51 @@ function frameOf(walk: Walk): Box | null {
   ) {
     if (parent === document.body || parent === document.documentElement) return null;
     const style = getComputedStyle(parent);
-    if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
+    if (style.overflowX === 'visible' && style.overflowY === 'visible') {
+      const moved = translationOf(style, parent);
+      if (moved === null) return null;
+      shiftX += moved.x;
+      shiftY += moved.y;
+      continue;
+    }
     const box = layoutBox(parent, walk);
     return {
-      x: box.x + parent.clientLeft,
-      y: box.y + parent.clientTop,
+      x: box.x + parent.clientLeft - shiftX,
+      y: box.y + parent.clientTop - shiftY,
       width: parent.clientWidth,
       height: parent.clientHeight,
     };
   }
   return null;
+}
+
+// How far an element's transforms move it, when all they do is move it.
+// null when they turn, scale or tilt it.
+function translationOf(
+  style: CSSStyleDeclaration,
+  element: Element,
+): { x: number; y: number } | null {
+  if (
+    (style.transform === 'none' || style.transform === '') &&
+    (style.translate === 'none' || style.translate === '') &&
+    (style.rotate === 'none' || style.rotate === '') &&
+    (style.scale === 'none' || style.scale === '')
+  ) {
+    return { x: 0, y: 0 };
+  }
+  const size =
+    element instanceof HTMLElement
+      ? { width: element.offsetWidth, height: element.offsetHeight }
+      : { width: 0, height: 0 };
+  const matrix = transformNow(style, size, element);
+  const still = (value: number, to: number): boolean => Math.abs(value - to) < 1e-6;
+  const onlyMoves =
+    still(matrix.a, 1) &&
+    still(matrix.b, 0) &&
+    still(matrix.c, 0) &&
+    still(matrix.d, 1) &&
+    matrix.is2D;
+  return onlyMoves ? { x: matrix.e, y: matrix.f } : null;
 }
 
 export function takeSnapshot(rootElement: Element): Snapshot {
@@ -1748,7 +1791,7 @@ export function takeSnapshot(rootElement: Element): Snapshot {
     notes: [
       ...(walk.leftOut > 0
         ? [
-            `${walk.leftOut} smaller ${walk.leftOut === 1 ? 'part was' : 'parts were'} left out of the drawing, to keep it simple.`,
+            `${walk.leftOut} more ${walk.leftOut === 1 ? 'part was' : 'parts were'} left out of the drawing, to keep it simple.`,
           ]
         : []),
       ...(walk.flattenedBackground

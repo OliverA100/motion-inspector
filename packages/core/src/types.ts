@@ -120,6 +120,9 @@ export type Trigger =
   // Animations that follow the page's scroll, listed when the element is
   // picked.
   | 'scroll'
+  // Played as the page loaded: recorded from the first frame by reloading
+  // it ("Play the load"). Older takes have none.
+  | 'load'
   | 'unknown';
 
 // ---------- Shapes ----------

@@ -27,7 +27,10 @@ const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 const { chromium } = require('@playwright/test');
 
-const captureScript = readFileSync(resolve(__dirname, '../packages/capture/dist/capture.iife.js'), 'utf8');
+const captureScript = readFileSync(
+  resolve(__dirname, '../packages/capture/dist/capture.iife.js'),
+  'utf8',
+);
 const out = resolve(__dirname, '../real-sites-output/sweep');
 const EDITOR = 'http://localhost:5173';
 const FRACTIONS = [0, 0.25, 0.5, 0.75, 0.98];
@@ -37,7 +40,10 @@ const MOST_LOADERS = 3;
 
 const sites = [
   { name: 'hover-css', url: 'https://ianlunn.github.io/Hover/', hover: 10 },
-  { name: 'w3-animated-buttons', url: 'https://www.w3schools.com/howto/howto_css_animated_buttons.asp' },
+  {
+    name: 'w3-animated-buttons',
+    url: 'https://www.w3schools.com/howto/howto_css_animated_buttons.asp',
+  },
   { name: 'css-loaders', url: 'https://cssloaders.github.io/', loaders: 6 },
   { name: 'animate-style', url: 'https://animate.style/' },
   { name: 'uikit-animation', url: 'https://getuikit.com/docs/animation' },
@@ -58,10 +64,22 @@ const sites = [
   { name: 'pico', url: 'https://picocss.com/docs/switch' },
   { name: 'antd-button', url: 'https://ant.design/components/button' },
   { name: 'antd-switch', url: 'https://ant.design/components/switch' },
-  { name: 'magicui-shimmer', url: 'https://magicui.design/docs/components/shimmer-button', loaders: 3 },
+  {
+    name: 'magicui-shimmer',
+    url: 'https://magicui.design/docs/components/shimmer-button',
+    loaders: 3,
+  },
   { name: 'magicui-marquee', url: 'https://magicui.design/docs/components/marquee', loaders: 3 },
-  { name: 'aceternity-hover', url: 'https://ui.aceternity.com/components/card-hover-effect', hover: 6 },
-  { name: 'sda-image-reveal', url: 'https://scroll-driven-animations.style/demos/image-reveal/css/', loaders: 3 },
+  {
+    name: 'aceternity-hover',
+    url: 'https://ui.aceternity.com/components/card-hover-effect',
+    hover: 6,
+  },
+  {
+    name: 'sda-image-reveal',
+    url: 'https://scroll-driven-animations.style/demos/image-reveal/css/',
+    loaders: 3,
+  },
   { name: 'chakra', url: 'https://chakra-ui.com/docs/components/switch' },
   { name: 'tailwind', url: 'https://tailwindcss.com/' },
   { name: 'vercel', url: 'https://vercel.com/' },
@@ -155,7 +173,9 @@ function listCandidates() {
     if (r.width < 10 || r.height < 10 || r.width > 1100 || r.height > 450) return false;
     if (r.bottom < 0 || r.top > window.innerHeight * 4) return false;
     const style = getComputedStyle(el);
-    return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity) > 0.05;
+    return (
+      style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity) > 0.05
+    );
   };
   const list = (selector, kind) => {
     const found = [];
@@ -241,7 +261,8 @@ async function settle(page) {
 
 async function trigger(page, selector, kind) {
   if (kind === 'hover') await page.hover(selector, { force: true, timeout: 2000 });
-  if (kind === 'click') await page.click(selector, { force: true, timeout: 2000, noWaitAfter: true });
+  if (kind === 'click')
+    await page.click(selector, { force: true, timeout: 2000, noWaitAfter: true });
 }
 
 // Does triggering this element start any animation? Leaves it as it was.
@@ -249,7 +270,10 @@ async function trigger(page, selector, kind) {
 // banner or overlay on top of it. A hover that lands on something else
 // rightly captures nothing, and would look like a failure.
 async function reachable(page, selector) {
-  await page.locator(selector).evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => {});
+  await page
+    .locator(selector)
+    .evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    .catch(() => {});
   return page.evaluate((sel) => {
     const element = document.querySelector(sel);
     if (element === null) return false;
@@ -277,7 +301,12 @@ async function animates(page, selector, kind) {
     window.__sweepObserver = new MutationObserver((list) => {
       window.__sweepStyleChanges += list.length;
     });
-    if (scope) window.__sweepObserver.observe(scope, { attributes: true, attributeFilter: ['style'], subtree: true });
+    if (scope)
+      window.__sweepObserver.observe(scope, {
+        attributes: true,
+        attributeFilter: ['style'],
+        subtree: true,
+      });
   }, selector);
   await trigger(page, selector, kind);
   // Watched every frame for up to 400 ms: a framework may start the
@@ -360,7 +389,12 @@ async function recordOne(page, selector, kind) {
   }
   const viewport = page.viewportSize();
   const pad = 16;
-  if (paused.area.right <= 0 || paused.area.bottom <= 0 || paused.area.left >= viewport.width || paused.area.top >= viewport.height) {
+  if (
+    paused.area.right <= 0 ||
+    paused.area.bottom <= 0 ||
+    paused.area.left >= viewport.width ||
+    paused.area.top >= viewport.height
+  ) {
     await page.evaluate(() => window.__sweep.animations.forEach((a) => a.play()));
     await page.evaluate(() => window.MotionCapture.stop());
     return { error: 'the animated area is off screen' };
@@ -420,7 +454,10 @@ async function recordClean(page, selector, kind) {
 
 async function previewFrames(editor, capture, length) {
   await editor.goto(`${EDITOR}/?quiet`);
-  await editor.evaluate((json) => sessionStorage.setItem('motion-inspector-capture', json), JSON.stringify(capture));
+  await editor.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
   const frames = [];
   for (const fraction of FRACTIONS) {
     await editor.goto(`${EDITOR}/?capture=session&quiet&time=${Math.round(length * fraction)}`);
@@ -445,10 +482,13 @@ function escape(text) {
 async function montage(browser, site, rows) {
   const img = (buffer) =>
     `<img style="max-height:84px;max-width:236px;display:block;margin:auto" src="data:image/png;base64,${buffer.toString('base64')}">`;
-  const cell = (buffer) => `<td style="padding:2px;border:1px solid #ddd;width:240px;height:88px">${img(buffer)}</td>`;
+  const cell = (buffer) =>
+    `<td style="padding:2px;border:1px solid #ddd;width:240px;height:88px">${img(buffer)}</td>`;
   const body = rows
     .map(
-      (row) => `<div style="margin:10px 0 2px;font-weight:600">${row.n}. ${escape(row.kind)} · ${escape(row.label)} · ${escape(row.stats)}</div>
+      (
+        row,
+      ) => `<div style="margin:10px 0 2px;font-weight:600">${row.n}. ${escape(row.kind)} · ${escape(row.label)} · ${escape(row.stats)}</div>
       <div style="color:#333;margin-bottom:2px">${escape(row.description).slice(0, 330)}</div>
       ${row.notes ? `<div style="color:#a33;margin-bottom:2px">${escape(row.notes).slice(0, 250)}</div>` : ''}
       ${row.real ? `<table style="border-collapse:collapse"><tr>${row.real.map(cell).join('')}</tr><tr>${row.preview.map(cell).join('')}</tr></table>` : ''}`,
@@ -465,7 +505,9 @@ async function montage(browser, site, rows) {
 // ---------- Run ----------
 
 async function sweepSite(browser, editor, site) {
-  const context = await browser.newContext({ viewport: site.viewport ?? { width: 1280, height: 800 } });
+  const context = await browser.newContext({
+    viewport: site.viewport ?? { width: 1280, height: 800 },
+  });
   const page = await context.newPage();
   const lines = [];
   const rows = [];
@@ -482,7 +524,10 @@ async function sweepSite(browser, editor, site) {
           await page.evaluate(() =>
             [...document.querySelectorAll('[data-mi-sweep]')]
               .slice(0, 30)
-              .map((el) => `${el.getAttribute('data-mi-sweep')} ${el.tagName} ${String(el.className).slice(0, 30)}`),
+              .map(
+                (el) =>
+                  `${el.getAttribute('data-mi-sweep')} ${el.tagName} ${String(el.className).slice(0, 30)}`,
+              ),
           ),
         ),
         JSON.stringify(found.clicks.slice(0, 10)),
@@ -505,16 +550,25 @@ async function sweepSite(browser, editor, site) {
       if (result === 'script') {
         const label = await page.evaluate((sel) => {
           const el = document.querySelector(sel);
-          return el === null ? '?' : `${el.tagName.toLowerCase()}${[...el.classList].slice(0, 2).map((c) => `.${c}`).join('')}`;
+          return el === null
+            ? '?'
+            : `${el.tagName.toLowerCase()}${[...el.classList]
+                .slice(0, 2)
+                .map((c) => `.${c}`)
+                .join('')}`;
         }, selector);
-        lines.push(`${site.name} - ${item.kind} ${label}: MOVED BY SCRIPT (inline styles changed every frame; no browser animation)`);
+        lines.push(
+          `${site.name} - ${item.kind} ${label}: MOVED BY SCRIPT (inline styles changed every frame; no browser animation)`,
+        );
         continue;
       }
       const ok = result === true;
       if (process.env.SWEEP_DEBUG) {
         const what = await page.evaluate((sel) => {
           const el = document.querySelector(sel);
-          return el === null ? 'gone' : `${el.tagName} ${String(el.className).slice(0, 50)} ${el.getAttribute('aria-controls') ?? ''}`;
+          return el === null
+            ? 'gone'
+            : `${el.tagName} ${String(el.className).slice(0, 50)} ${el.getAttribute('aria-controls') ?? ''}`;
         }, selector);
         console.log(`  [${item.kind}] ${what} -> ${ok}`);
       }
@@ -526,7 +580,10 @@ async function sweepSite(browser, editor, site) {
       const label = await page.evaluate((sel) => {
         const el = document.querySelector(sel);
         if (el === null) return null;
-        return `${el.tagName.toLowerCase()}${[...el.classList].slice(0, 3).map((c) => `.${c}`).join('')}`;
+        return `${el.tagName.toLowerCase()}${[...el.classList]
+          .slice(0, 3)
+          .map((c) => `.${c}`)
+          .join('')}`;
       }, selector);
       if (label === null) continue;
       try {
@@ -540,8 +597,17 @@ async function sweepSite(browser, editor, site) {
         const take = usable.find((t) => t.capture.tracks.length > 0) ?? usable[0];
         const stats = `${real.count} animations on the page, ${real.takes.length} takes, ${take ? take.capture.tracks.length : 0} tracks, ${Math.round(real.length)} ms`;
         if (!take) {
-          rows.push({ n, kind: item.kind, label, stats, description: `NO USABLE CAPTURE. ${problems.join(' | ')}`, notes: '' });
-          lines.push(`${site.name} ${n} ${item.kind} ${label}: no usable capture ${problems.join(' | ')}`);
+          rows.push({
+            n,
+            kind: item.kind,
+            label,
+            stats,
+            description: `NO USABLE CAPTURE. ${problems.join(' | ')}`,
+            notes: '',
+          });
+          lines.push(
+            `${site.name} ${n} ${item.kind} ${label}: no usable capture ${problems.join(' | ')}`,
+          );
           continue;
         }
         const clean = (await recordClean(page, selector, item.kind).catch(() => [])).filter(
@@ -550,14 +616,30 @@ async function sweepSite(browser, editor, site) {
         const shown =
           clean.find((t) => t.capture.tracks.length > 0 || (t.capture.follows ?? []).length > 0) ??
           take;
-        writeFileSync(`${out}/${site.name}-${n}.json`, JSON.stringify(clean.length > 0 ? clean : real.takes, null, 1));
+        writeFileSync(
+          `${out}/${site.name}-${n}.json`,
+          JSON.stringify(clean.length > 0 ? clean : real.takes, null, 1),
+        );
         const preview = await previewFrames(editor, shown.capture, real.length);
         const notes = take.capture.notShown.join(' / ');
         const check = preview.check ?? 'no film';
-        rows.push({ n, kind: item.kind, label, stats: `${stats} · ${check}`, description: preview.description, notes, real: real.frames, preview: preview.frames });
-        lines.push(`${site.name} ${n} ${item.kind} ${label}: ${stats} — CHECK ${check} — ${preview.description}${notes ? ` [${notes}]` : ''}`);
+        rows.push({
+          n,
+          kind: item.kind,
+          label,
+          stats: `${stats} · ${check}`,
+          description: preview.description,
+          notes,
+          real: real.frames,
+          preview: preview.frames,
+        });
+        lines.push(
+          `${site.name} ${n} ${item.kind} ${label}: ${stats} — CHECK ${check} — ${preview.description}${notes ? ` [${notes}]` : ''}`,
+        );
       } catch (error) {
-        lines.push(`${site.name} ${n} ${item.kind} ${label}: FAILED ${String(error).split('\n')[0]}`);
+        lines.push(
+          `${site.name} ${n} ${item.kind} ${label}: FAILED ${String(error).split('\n')[0]}`,
+        );
       }
     }
     if (rows.length > 0) await montage(browser, site, rows);
@@ -575,11 +657,16 @@ async function sweepSite(browser, editor, site) {
   const browser = await chromium.launch();
   const editor = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const summary = [];
-  for (const site of sites.filter((s) => only === undefined || only.some((part) => s.name.includes(part)))) {
+  for (const site of sites.filter(
+    (s) => only === undefined || only.some((part) => s.name.includes(part)),
+  )) {
     const lines = await sweepSite(browser, editor, site);
     for (const line of lines) console.log(line);
     summary.push(...lines);
   }
-  writeFileSync(`${out}/summary-${only === undefined ? 'all' : only[0]}.txt`, summary.join('\n') + '\n');
+  writeFileSync(
+    `${out}/summary-${only === undefined ? 'all' : only[0]}.txt`,
+    summary.join('\n') + '\n',
+  );
   await browser.close();
 })();

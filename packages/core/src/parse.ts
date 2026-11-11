@@ -303,6 +303,7 @@ const TRIGGERS = [
   'loop',
   'running',
   'scroll',
+  'load',
   'unknown',
 ] as const;
 

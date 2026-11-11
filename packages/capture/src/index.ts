@@ -4,7 +4,7 @@
 
 import { startPicking, type Picker } from './picker';
 import { startRecording, type Recorder, type TakeResult } from './record';
-import { labelOf, takeSnapshot } from './snapshot';
+import { labelOf, selectorOf, takeSnapshot } from './snapshot';
 
 export { startPicking } from './picker';
 export { startRecording } from './record';
@@ -36,6 +36,9 @@ export function record(
   onTake?: (result: TakeResult) => void,
   onMoved?: (label: string) => void,
   onStopped?: () => void,
+  // True when recording begins as the page loads: what is already running
+  // then is what the load set off, not something else on the page.
+  atLoad = false,
 ): void {
   const element = typeof target === 'string' ? document.querySelector(target) : target;
   if (element === null) throw new Error(`Nothing matches "${String(target)}".`);
@@ -44,8 +47,11 @@ export function record(
   lastElement = element;
   const watch = (watched: Element, moved = false): void => {
     lastElement = watched;
-    recorder = startRecording(takeSnapshot(watched), {
+    const snapshot = takeSnapshot(watched);
+    if (atLoad) snapshot.runningAtPick = new WeakSet();
+    recorder = startRecording(snapshot, {
       moved,
+      ...(atLoad ? { trigger: 'load' as const } : {}),
       ...(onStopped === undefined
         ? {}
         : {
@@ -81,6 +87,110 @@ export function stop(): TakeResult[] {
   recorder?.stop();
   recorder = null;
   return takes;
+}
+
+// Where the picked element is, so it can be found again after the page
+// reloads: a path of child positions from the nearest parent with an id
+// (or the body), and a short selector with its place among what it
+// matches, if the path no longer leads to it.
+export type Whereabouts = { path: string; short: string; index: number; label: string };
+
+export function pickedWhereabouts(): Whereabouts | null {
+  if (lastElement === null || !lastElement.isConnected) return null;
+  const steps: string[] = [];
+  let at: Element | null = lastElement;
+  while (at !== null && at !== document.body && at !== document.documentElement) {
+    if (at.id !== '' && document.querySelectorAll(`#${CSS.escape(at.id)}`).length === 1) {
+      steps.unshift(`#${CSS.escape(at.id)}`);
+      break;
+    }
+    const parent: Element | null = at.parentElement;
+    const place = parent === null ? 1 : Array.from(parent.children).indexOf(at) + 1;
+    steps.unshift(`${at.tagName.toLowerCase()}:nth-child(${place})`);
+    at = parent;
+  }
+  if (at === document.body) steps.unshift('body');
+  const short = selectorOf(lastElement);
+  return {
+    path: steps.join(' > '),
+    short,
+    index: Math.max(0, Array.from(document.querySelectorAll(short)).indexOf(lastElement)),
+    label: labelOf(lastElement),
+  };
+}
+
+// The element again after a reload, or null while it is not there yet.
+function findAgain(where: Whereabouts): Element | null {
+  try {
+    const byPath = document.querySelector(where.path);
+    if (byPath !== null && labelOf(byPath) === where.label) return byPath;
+    return document.querySelectorAll(where.short)[where.index] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// What recording at load has found, read back by the panel through the
+// debugger once the page has loaded.
+type LoadState = { found: boolean; done: boolean; takes: TakeResult[]; problem: string | null };
+declare global {
+  interface Window {
+    motionInspectorLoad?: LoadState;
+  }
+}
+
+// Run before the page's own scripts, as it begins to load ("Play the
+// load"): waits for the element, frame by frame, and records it from the
+// first frame it is drawn in, when its entrance animations begin.
+export function recordOnLoad(where: Whereabouts, limitMs = 8000): void {
+  const state: LoadState = { found: false, done: false, takes: [], problem: null };
+  window.motionInspectorLoad = state;
+  const began = performance.now();
+  const look = (): void => {
+    const element = findAgain(where);
+    const box = element?.getBoundingClientRect();
+    if (element !== null && element !== undefined && box !== undefined && box.width > 0) {
+      state.found = true;
+      try {
+        record(
+          element,
+          (take) => {
+            state.takes = take.replaces
+              ? [...state.takes.slice(0, -1), take]
+              : [...state.takes, take];
+          },
+          undefined,
+          () => {
+            state.done = true;
+          },
+          true,
+        );
+      } catch (error) {
+        state.problem = error instanceof Error ? error.message : String(error);
+        state.done = true;
+      }
+      return;
+    }
+    if (performance.now() - began > limitMs) {
+      state.problem = 'the element was not found after the page loaded';
+      state.done = true;
+      return;
+    }
+    requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+}
+
+// Chooses an element by its whereabouts, without the picker: after "Play
+// the load" put the scripts back on the reloaded page. Its label, or null.
+export function choose(where: Whereabouts): string | null {
+  const element = findAgain(where);
+  if (element === null) return null;
+  recorder?.stop();
+  recorder = null;
+  lastElement = element;
+  takes = [];
+  return labelOf(element);
 }
 
 // Lets the user pick an element, without recording it: recording starts

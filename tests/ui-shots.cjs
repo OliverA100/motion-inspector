@@ -46,7 +46,10 @@ const extensionDir = resolve(__dirname, '../packages/extension/dist-test');
   }
   const browser = await chromium.launch();
   for (const scheme of ['light', 'dark']) {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 860 }, colorScheme: scheme });
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 860 },
+      colorScheme: scheme,
+    });
     await page.goto('http://localhost:5173/?sample=card-lift&quiet');
     await page.waitForTimeout(600);
     await page.screenshot({ path: resolve(out, `editor-${scheme}.png`), fullPage: true });

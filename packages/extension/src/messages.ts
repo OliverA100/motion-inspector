@@ -24,7 +24,17 @@ export type FromPage =
 // again: record the element picked last, without picking.
 // where: the page answers with the recorded element's box in the window
 // (a PageRect, or null), for "Play the hover" and "Play the click".
-export type ToPage = { type: 'stop' } | { type: 'cancel' } | { type: 'again' } | { type: 'where' };
+// whereabouts: the page answers with how to find the picked element again
+// after a reload (Whereabouts, or null), for "Play the load".
+export type ToPage =
+  | { type: 'stop' }
+  | { type: 'cancel' }
+  | { type: 'again' }
+  | { type: 'where' }
+  | { type: 'whereabouts' };
+
+// How the capture script finds an element again after the page reloads.
+export type Whereabouts = { path: string; short: string; index: number; label: string };
 
 export type PageRect = {
   x: number;

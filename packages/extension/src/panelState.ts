@@ -76,7 +76,7 @@ export type PanelMsg =
   | { kind: 'takesCleared' }
   | { kind: 'saveFailed'; why: string }
   // "Play the hover" or "Play the click" could not move the pointer.
-  | { kind: 'playFailed'; what: 'hover' | 'click'; why: string }
+  | { kind: 'playFailed'; what: 'hover' | 'click' | 'load'; why: string }
   | { kind: 'noticeDismissed' }
   | { kind: 'pointerMoved'; inPanel: boolean };
 
@@ -232,7 +232,9 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
         notice:
           msg.what === 'hover'
             ? `The hover could not be played (${msg.why}). Choose Record and move the pointer over the element yourself.`
-            : `The click could not be played (${msg.why}). Choose Record and click the element yourself.`,
+            : msg.what === 'click'
+              ? `The click could not be played (${msg.why}). Choose Record and click the element yourself.`
+              : `The load could not be recorded (${msg.why}).`,
       };
     case 'saveFailed':
       return {

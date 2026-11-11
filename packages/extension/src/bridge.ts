@@ -2,11 +2,20 @@
 // script. It starts the picker, and passes what capture finds on to the
 // side panel. It is only ever injected when "Pick element" is pressed.
 
-import { FROM_PAGE, PANEL_PORT, type FromPage, type PageRect, type ToPage } from './messages';
+import {
+  FROM_PAGE,
+  PANEL_PORT,
+  type FromPage,
+  type PageRect,
+  type ToPage,
+  type Whereabouts,
+} from './messages';
 
 // The capture script, injected just before this one, puts this on window.
 declare const MotionCapture: {
   pick: () => Promise<string | null>;
+  choose: (where: Whereabouts) => string | null;
+  pickedWhereabouts: () => Whereabouts | null;
   recordAgain: (
     onTake: (take: TakeResult) => void,
     onMoved: (label: string) => void,
@@ -24,6 +33,9 @@ type Session = { end: () => void };
 declare global {
   interface Window {
     motionInspectorSession?: Session;
+    // Set by the panel just before injecting, after "Play the load": the
+    // element to choose again, instead of picking.
+    motionInspectorChoose?: Whereabouts;
   }
 }
 
@@ -47,9 +59,10 @@ const onStopped = (): void => send({ type: 'stopped', auto: true });
 const onMessage = (
   message: ToPage,
   _sender: chrome.runtime.MessageSender,
-  answer: (response: PageRect | null) => void,
+  answer: (response: PageRect | Whereabouts | null) => void,
 ): void => {
   if (message.type === 'where') answer(capture.recordedRect());
+  if (message.type === 'whereabouts') answer(capture.pickedWhereabouts());
   if (message.type === 'cancel') capture.cancelPicking();
   if (message.type === 'again') {
     send({ type: capture.recordAgain(onTake, onMoved, onStopped) ? 'recording' : 'cancelled' });
@@ -81,8 +94,16 @@ const onPanelClosed = (): void => session.end();
 panel.onDisconnect.addListener(onPanelClosed);
 window.motionInspectorSession = session;
 
-// Picking only: recording starts when the panel asks.
-capture
-  .pick()
-  .then((label) => send(label === null ? { type: 'cancelled' } : { type: 'picked', label }))
-  .catch(() => send({ type: 'cancelled' }));
+// Picking only: recording starts when the panel asks. After "Play the
+// load", the element is chosen again instead.
+const chosen = window.motionInspectorChoose;
+delete window.motionInspectorChoose;
+if (chosen !== undefined) {
+  const label = capture.choose(chosen);
+  send(label === null ? { type: 'cancelled' } : { type: 'picked', label });
+} else {
+  capture
+    .pick()
+    .then((label) => send(label === null ? { type: 'cancelled' } : { type: 'picked', label }))
+    .catch(() => send({ type: 'cancelled' }));
+}

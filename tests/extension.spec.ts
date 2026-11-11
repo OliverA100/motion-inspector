@@ -430,3 +430,23 @@ test('animations that follow the scroll are listed as soon as recording starts',
   );
   await expect(panel.locator('.mi__description')).toContainText('as the page scrolls');
 });
+
+test('Play the load reloads the page and records what plays as it loads', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/entrance.html');
+  await site.waitForTimeout(800);
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.click('[data-entrance]');
+  await panel.getByRole('button', { name: 'Play the load' }).click();
+  await site.bringToFront();
+  await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 15000 });
+  await expect(panel.locator('.xp__take[aria-pressed="true"] .xp__trigger')).toHaveText('On load');
+  await expect(panel.locator('.mi__description')).toContainText('fades from 0% to 100%');
+  // The same element is ready to record again on the reloaded page.
+  await expect(panel.getByRole('button', { name: 'Record', exact: true })).toBeVisible({
+    timeout: 8000,
+  });
+});

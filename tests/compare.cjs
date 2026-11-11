@@ -20,7 +20,10 @@ const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 const { chromium } = require('@playwright/test');
 
-const captureScript = readFileSync(resolve(__dirname, '../packages/capture/dist/capture.iife.js'), 'utf8');
+const captureScript = readFileSync(
+  resolve(__dirname, '../packages/capture/dist/capture.iife.js'),
+  'utf8',
+);
 const out = resolve(__dirname, '../real-sites-output/compare');
 const EDITOR = 'http://localhost:5173';
 const FRACTIONS = [0, 0.2, 0.4, 0.6, 0.8, 0.98];
@@ -28,35 +31,157 @@ const FRACTIONS = [0, 0.2, 0.4, 0.6, 0.8, 0.98];
 const cases = [
   // The fixtures page first: known animations, as a control.
   { name: 'fixture-card-lift', url: `${EDITOR}/fixtures.html`, pick: '.fx-card', trigger: 'hover' },
-  { name: 'fixture-bounce', url: `${EDITOR}/fixtures.html`, pick: '.fx-bounce', trigger: 'click', clickTarget: '[data-fixture="bounce"] [data-trigger="play"]' },
-  { name: 'fixture-stagger', url: `${EDITOR}/fixtures.html`, pick: '.fx-list', trigger: 'click', clickTarget: '[data-fixture="stagger-list"] [data-trigger="toggle"]' },
+  {
+    name: 'fixture-bounce',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-bounce',
+    trigger: 'click',
+    clickTarget: '[data-fixture="bounce"] [data-trigger="play"]',
+  },
+  {
+    name: 'fixture-stagger',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-list',
+    trigger: 'click',
+    clickTarget: '[data-fixture="stagger-list"] [data-trigger="toggle"]',
+  },
   { name: 'fixture-morph', url: `${EDITOR}/fixtures.html`, pick: '.fx-morph', trigger: 'hover' },
-  { name: 'fixture-underline', url: `${EDITOR}/fixtures.html`, pick: '.fx-underline', trigger: 'hover' },
+  {
+    name: 'fixture-underline',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-underline',
+    trigger: 'hover',
+  },
   { name: 'fixture-sweep', url: `${EDITOR}/fixtures.html`, pick: '.fx-sweep', trigger: 'hover' },
-  { name: 'fixture-grow-layer', url: `${EDITOR}/fixtures.html`, pick: '.fx-grow-layer', trigger: 'hover' },
+  {
+    name: 'fixture-grow-layer',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-grow-layer',
+    trigger: 'hover',
+  },
   { name: 'fixture-ribbon', url: `${EDITOR}/fixtures.html`, pick: '.fx-ribbon', trigger: 'hover' },
-  { name: 'fixture-chevron', url: `${EDITOR}/fixtures.html`, pick: '.fx-chevron', trigger: 'hover' },
+  {
+    name: 'fixture-chevron',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-chevron',
+    trigger: 'hover',
+  },
   { name: 'fixture-ring', url: `${EDITOR}/fixtures.html`, pick: '.fx-ring', trigger: 'none' },
-  { name: 'fixture-lift-card', url: `${EDITOR}/fixtures.html`, pick: '.fx-lift-card', trigger: 'hover' },
-  { name: 'fixture-pseudo-spinner', url: `${EDITOR}/fixtures.html`, pick: '.fx-pseudo-spinner', trigger: 'none' },
+  {
+    name: 'fixture-lift-card',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-lift-card',
+    trigger: 'hover',
+  },
+  {
+    name: 'fixture-pseudo-spinner',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-pseudo-spinner',
+    trigger: 'none',
+  },
   { name: 'fixture-reveal', url: `${EDITOR}/fixtures.html`, pick: '.fx-reveal', trigger: 'hover' },
-  { name: 'fixture-clip-loader', url: `${EDITOR}/fixtures.html`, pick: '.fx-clip-loader', trigger: 'none' },
-  { name: 'fixture-switches', url: `${EDITOR}/fixtures.html`, pick: '.fx-switches', trigger: 'click', clickTarget: '[data-fixture="switches"] [data-trigger="toggle"]' },
-  { name: 'fixture-skeleton', url: `${EDITOR}/fixtures.html`, pick: '.fx-skeleton', trigger: 'none' },
-  { name: 'fixture-svg-group', url: `${EDITOR}/fixtures.html`, pick: '.fx-svg-group', trigger: 'none' },
-  { name: 'fixture-reflow', url: `${EDITOR}/fixtures.html`, pick: '.fx-reflow', trigger: 'click', clickTarget: '[data-fixture="reflow"] [data-trigger="toggle"]' },
-  { name: 'fixture-icon-button', url: `${EDITOR}/fixtures.html`, pick: '.fx-icon-button__arrows', trigger: 'hover' },
+  {
+    name: 'fixture-clip-loader',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-clip-loader',
+    trigger: 'none',
+  },
+  {
+    name: 'fixture-switches',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-switches',
+    trigger: 'click',
+    clickTarget: '[data-fixture="switches"] [data-trigger="toggle"]',
+  },
+  {
+    name: 'fixture-skeleton',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-skeleton',
+    trigger: 'none',
+  },
+  {
+    name: 'fixture-svg-group',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-svg-group',
+    trigger: 'none',
+  },
+  {
+    name: 'fixture-reflow',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-reflow',
+    trigger: 'click',
+    clickTarget: '[data-fixture="reflow"] [data-trigger="toggle"]',
+  },
+  {
+    name: 'fixture-icon-button',
+    url: `${EDITOR}/fixtures.html`,
+    pick: '.fx-icon-button__arrows',
+    trigger: 'hover',
+  },
   // Real sites.
-  { name: 'bootstrap-button', url: 'https://getbootstrap.com/docs/5.3/components/buttons/', pick: '.bd-example .btn-primary', trigger: 'hover' },
-  { name: 'bootstrap-spinner', url: 'https://getbootstrap.com/docs/5.3/components/spinners/', pick: '.bd-example .spinner-border', trigger: 'none' },
-  { name: 'bootstrap-spinner-grow', url: 'https://getbootstrap.com/docs/5.3/components/spinners/', pick: '.bd-example .spinner-grow', trigger: 'none' },
-  { name: 'bootstrap-accordion', url: 'https://getbootstrap.com/docs/5.3/components/accordion/', pick: '.bd-example .accordion', trigger: 'click', clickTarget: '.bd-example .accordion-item:nth-child(2) .accordion-button' },
-  { name: 'bootstrap-carousel', url: 'https://getbootstrap.com/docs/5.3/components/carousel/', pick: '.bd-example .carousel', trigger: 'click', clickTarget: '.bd-example .carousel-control-next' },
-  { name: 'bootstrap-progress', url: 'https://getbootstrap.com/docs/5.3/components/progress/', pick: '.bd-example .progress-bar-animated', trigger: 'none' },
-  { name: 'bootstrap-switch', url: 'https://getbootstrap.com/docs/5.3/forms/checks-radios/', pick: '.bd-example .form-switch .form-check-input', trigger: 'click', clickTarget: '.bd-example .form-switch .form-check-input' },
-  { name: 'daisyui-button', url: 'https://daisyui.com/components/button/', pick: 'main .btn', trigger: 'hover' },
-  { name: 'daisyui-loading', url: 'https://daisyui.com/components/loading/', pick: 'main .loading', trigger: 'none' },
-  { name: 'mui-button', url: 'https://mui.com/material-ui/react-button/', pick: 'main .MuiButton-contained', trigger: 'hover' },
+  {
+    name: 'bootstrap-button',
+    url: 'https://getbootstrap.com/docs/5.3/components/buttons/',
+    pick: '.bd-example .btn-primary',
+    trigger: 'hover',
+  },
+  {
+    name: 'bootstrap-spinner',
+    url: 'https://getbootstrap.com/docs/5.3/components/spinners/',
+    pick: '.bd-example .spinner-border',
+    trigger: 'none',
+  },
+  {
+    name: 'bootstrap-spinner-grow',
+    url: 'https://getbootstrap.com/docs/5.3/components/spinners/',
+    pick: '.bd-example .spinner-grow',
+    trigger: 'none',
+  },
+  {
+    name: 'bootstrap-accordion',
+    url: 'https://getbootstrap.com/docs/5.3/components/accordion/',
+    pick: '.bd-example .accordion',
+    trigger: 'click',
+    clickTarget: '.bd-example .accordion-item:nth-child(2) .accordion-button',
+  },
+  {
+    name: 'bootstrap-carousel',
+    url: 'https://getbootstrap.com/docs/5.3/components/carousel/',
+    pick: '.bd-example .carousel',
+    trigger: 'click',
+    clickTarget: '.bd-example .carousel-control-next',
+  },
+  {
+    name: 'bootstrap-progress',
+    url: 'https://getbootstrap.com/docs/5.3/components/progress/',
+    pick: '.bd-example .progress-bar-animated',
+    trigger: 'none',
+  },
+  {
+    name: 'bootstrap-switch',
+    url: 'https://getbootstrap.com/docs/5.3/forms/checks-radios/',
+    pick: '.bd-example .form-switch .form-check-input',
+    trigger: 'click',
+    clickTarget: '.bd-example .form-switch .form-check-input',
+  },
+  {
+    name: 'daisyui-button',
+    url: 'https://daisyui.com/components/button/',
+    pick: 'main .btn',
+    trigger: 'hover',
+  },
+  {
+    name: 'daisyui-loading',
+    url: 'https://daisyui.com/components/loading/',
+    pick: 'main .loading',
+    trigger: 'none',
+  },
+  {
+    name: 'mui-button',
+    url: 'https://mui.com/material-ui/react-button/',
+    pick: 'main .MuiButton-contained',
+    trigger: 'hover',
+  },
   // The round arrow button on a tilted card (from a user's screen recording).
   // Its two circles are next to the picked part, not inside it, so the
   // page's animations are paused from the parent up.
@@ -67,7 +192,12 @@ const cases = [
     prepare: () => {
       const button = [...document.querySelectorAll('span.relative.flex')].find((el) => {
         const r = el.getBoundingClientRect();
-        return Math.abs(r.width - r.height) < 3 && r.width > 30 && r.width < 90 && el.querySelector('svg');
+        return (
+          Math.abs(r.width - r.height) < 3 &&
+          r.width > 30 &&
+          r.width < 90 &&
+          el.querySelector('svg')
+        );
       });
       button?.setAttribute('data-mi-pick', '');
     },
@@ -76,34 +206,47 @@ const cases = [
     waitUntil: 'networkidle',
     trigger: 'hover',
   },
-  { name: 'animate-style', url: 'https://animate.style/', pick: '.animate__animated', trigger: 'none' },
+  {
+    name: 'animate-style',
+    url: 'https://animate.style/',
+    pick: '.animate__animated',
+    trigger: 'none',
+  },
 ];
 
 // In the real page: wait for the element's animations, then pause them all
 // and return how far apart they started and how long the whole thing is.
 async function pauseAll(page, selector, levelsUp = 0) {
-  return page.evaluate(async ([sel, up]) => {
-    let element = document.querySelector(sel);
-    for (let i = 0; i < up; i += 1) element = element.parentElement;
-    const roots = [element, ...element.querySelectorAll('*')].flatMap((el) => (el.shadowRoot ? [el.shadowRoot] : []));
-    const animations = [...element.getAnimations({ subtree: true }), ...roots.flatMap((r) => r.getAnimations())].filter(
-      (a) => a.timeline instanceof DocumentTimeline,
-    );
-    if (animations.length === 0) return null;
-    await Promise.all(animations.map((a) => a.ready.catch(() => {})));
-    const starts = animations.map((a) => (typeof a.startTime === 'number' ? a.startTime : document.timeline.currentTime));
-    const first = Math.min(...starts);
-    const ends = animations.map((a, i) => {
-      const t = a.effect.getComputedTiming();
-      const one = typeof t.duration === 'number' ? t.duration : 0;
-      // Show one cycle of something that repeats forever.
-      const active = Number.isFinite(t.activeDuration) ? t.activeDuration : one;
-      return starts[i] - first + Math.max((t.delay ?? 0) + active, 0);
-    });
-    animations.forEach((a) => a.pause());
-    window.__compare = { animations, offsets: starts.map((s) => s - first) };
-    return { count: animations.length, length: Math.max(...ends, 1) };
-  }, [selector, levelsUp]);
+  return page.evaluate(
+    async ([sel, up]) => {
+      let element = document.querySelector(sel);
+      for (let i = 0; i < up; i += 1) element = element.parentElement;
+      const roots = [element, ...element.querySelectorAll('*')].flatMap((el) =>
+        el.shadowRoot ? [el.shadowRoot] : [],
+      );
+      const animations = [
+        ...element.getAnimations({ subtree: true }),
+        ...roots.flatMap((r) => r.getAnimations()),
+      ].filter((a) => a.timeline instanceof DocumentTimeline);
+      if (animations.length === 0) return null;
+      await Promise.all(animations.map((a) => a.ready.catch(() => {})));
+      const starts = animations.map((a) =>
+        typeof a.startTime === 'number' ? a.startTime : document.timeline.currentTime,
+      );
+      const first = Math.min(...starts);
+      const ends = animations.map((a, i) => {
+        const t = a.effect.getComputedTiming();
+        const one = typeof t.duration === 'number' ? t.duration : 0;
+        // Show one cycle of something that repeats forever.
+        const active = Number.isFinite(t.activeDuration) ? t.activeDuration : one;
+        return starts[i] - first + Math.max((t.delay ?? 0) + active, 0);
+      });
+      animations.forEach((a) => a.pause());
+      window.__compare = { animations, offsets: starts.map((s) => s - first) };
+      return { count: animations.length, length: Math.max(...ends, 1) };
+    },
+    [selector, levelsUp],
+  );
 }
 
 async function seekReal(page, timeMs) {
@@ -143,14 +286,23 @@ async function realFrames(page, c) {
   // Photograph a box a little larger than the element, so movement shows.
   const box = await target.boundingBox();
   const pad = 24;
-  const clip = { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad), width: box.width + pad * 2, height: box.height + pad * 2 };
+  const clip = {
+    x: Math.max(0, box.x - pad),
+    y: Math.max(0, box.y - pad),
+    width: box.width + pad * 2,
+    height: box.height + pad * 2,
+  };
   const frames = [];
   for (const fraction of FRACTIONS) {
     await seekReal(page, paused.length * fraction);
     frames.push(await page.screenshot({ clip }));
   }
   // Let everything run to its end, so the take closes.
-  await page.evaluate(() => window.__compare.animations.forEach((a) => (Number.isFinite(a.effect.getComputedTiming().activeDuration) ? a.finish() : a.play())));
+  await page.evaluate(() =>
+    window.__compare.animations.forEach((a) =>
+      Number.isFinite(a.effect.getComputedTiming().activeDuration) ? a.finish() : a.play(),
+    ),
+  );
   await page.waitForTimeout(700);
   await page.evaluate(() => window.MotionCapture.stop());
   // The capture comes from a second run that nothing pauses or seeks: the
@@ -176,7 +328,10 @@ async function realFrames(page, c) {
 async function previewFrames(browser, capture, length) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await page.goto(`${EDITOR}/?quiet`);
-  await page.evaluate((json) => sessionStorage.setItem('motion-inspector-capture', json), JSON.stringify(capture));
+  await page.evaluate(
+    (json) => sessionStorage.setItem('motion-inspector-capture', json),
+    JSON.stringify(capture),
+  );
   const frames = [];
   for (const fraction of FRACTIONS) {
     await page.goto(`${EDITOR}/?capture=session&quiet&time=${Math.round(length * fraction)}`);
@@ -214,12 +369,16 @@ async function montage(browser, c, real, preview, description, notes) {
   const browser = await chromium.launch();
   const summary = [];
   for (const c of cases.filter((x) => only === undefined || x.name.includes(only))) {
-    const context = await browser.newContext({ viewport: c.viewport ?? { width: 1280, height: 800 } });
+    const context = await browser.newContext({
+      viewport: c.viewport ?? { width: 1280, height: 800 },
+    });
     const page = await context.newPage();
     let line;
     try {
       const real = await realFrames(page, c);
-      const take = (real.takes ?? []).find((t) => t.capture !== null && t.capture.tracks.length > 0) ?? (real.takes ?? [])[0];
+      const take =
+        (real.takes ?? []).find((t) => t.capture !== null && t.capture.tracks.length > 0) ??
+        (real.takes ?? [])[0];
       writeFileSync(`${out}/${c.name}.json`, JSON.stringify(real.takes ?? [], null, 2));
       if (real.error) {
         line = `${c.name}: ${real.error}; takes: ${(real.takes ?? []).length}`;

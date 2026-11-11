@@ -880,3 +880,15 @@ Tested on a page of 24 special cases and on Shoelace's web components.
 **Why:** recording began the moment the element was picked, so the hover that reaching for it started was recorded halfway, as "Already running" (reported on vercel.com). The user asked for recording to start when they choose.
 
 Also for Play the hover: the element is scrolled into view at once, even on a page that scrolls smoothly (the pointer moved while the page was still gliding, and the take was named "On scroll"), and when something covers its middle (a fixed header) the panel says so rather than playing into the cover.
+
+### D152. Play the load: animations that play as the page loads
+**Chose:** a fourth way to start, beside Record, Play the hover and Play the click. With the debugger (already asked for, D129), the panel puts the capture script into the page before the page's own scripts (`Page.addScriptToEvaluateOnNewDocument`) and reloads it. The script finds the picked element again (by a path of child positions from the nearest parent with an id, or by its short selector and its place among what that matches), waits frame by frame until it is drawn, and records it from that frame: what is already running then is what the load set off, not something running before the pick. Its takes are named "load" ("On load"), a new optional trigger. The panel reads the takes back through the debugger once recording stops by itself (at most 12 seconds), takes the script out again, detaches, and puts its usual scripts back on the new page with the same element chosen.
+**Why:** asked for by the user: entrances were over before anything could be picked. Nothing in Chrome lets an extension's script run before a page's own without asking for access to every site up front, or for the debugger, which the extension already has.
+
+### D153. What the preview cuts, what it draws, how a take is named
+**Chose:**
+- The clipping frame adds back the translations of the parts between it and the picked element (layout leaves transforms out). One that turns, scales or tilts leaves no frame: nothing the page shows is cut.
+- A part with no shape (past the 40 drawn, which are taken in page order) that a script writes to during a take gets a shape then, as one that appears does.
+- A take is named by when its own motion began: loops already running when picked are left out of that.
+- The note says "more parts were left out", not "smaller": they are the ones later in the page.
+**Why:** a round button on oliverhassan.dev was drawn cut in half: it sits in a box centred with left: 50% and a -640 px translate. Vercel's backends card left out its peeled flap, the last part of a busy card, and its hover was named "Loops" by the chat's typing dots, running since long before.

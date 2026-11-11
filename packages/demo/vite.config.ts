@@ -10,6 +10,7 @@ export default defineConfig({
         index: 'index.html',
         pieces: 'pieces.html',
         fixtures: 'fixtures.html',
+        entrance: 'entrance.html',
       },
     },
   },

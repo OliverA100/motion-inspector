@@ -371,7 +371,7 @@ export const rawCapture: fc.Arbitrary<unknown> = rawRoot
       follows: fc.constant(null),
       trigger: fc.oneof(
         fc.constant(null),
-        fc.constantFrom('hover', 'leave', 'hover-and-leave', 'click', 'loop', 'unknown'),
+        fc.constantFrom('hover', 'leave', 'hover-and-leave', 'click', 'loop', 'load', 'unknown'),
       ),
       frame: fc.oneof(
         fc.constant(null),

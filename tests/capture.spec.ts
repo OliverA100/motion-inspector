@@ -1822,3 +1822,22 @@ test('a web component: slotted children are drawn, and a hidden popup in a neste
   expect(labels).toContain('span');
   expect(capture.tracks.map((track) => track.property)).toEqual(['opacity']);
 });
+
+test('the clipping frame counts the translations between it and the element: nothing on screen is cut', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-bleed { position: relative; width: 400px; height: 200px; overflow: hidden }
+     #sp-centred { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) }
+     #sp-round { width: 80px; height: 80px; border-radius: 50%; background: black; transition: scale .2s }
+     #sp-round.on { scale: 1.1 }`,
+    '<div id="sp-bleed"><div id="sp-centred"><div id="sp-round"></div></div></div>',
+    '#sp-round',
+  );
+  await page.evaluate(() => document.getElementById('sp-round')?.classList.add('on'));
+  await page.waitForTimeout(500);
+  const capture = onlyCapture(await takesNow(page));
+  // The round part sits in the middle of its clipping parent, whole.
+  expect(capture.frame).toEqual({ x: -160, y: -60, width: 400, height: 200 });
+});

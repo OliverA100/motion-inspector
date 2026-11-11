@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Entrance · Motion Inspector</title>
+    <!-- A card that slides and fades in as the page loads: an animation that
+         is over before anything can be picked ("Play the load"). -->
+    <style>
+      body {
+        margin: 0;
+        padding: 48px;
+        font: 16px system-ui, sans-serif;
+        background: #f4f4f5;
+      }
+      .entrance {
+        width: 240px;
+        height: 120px;
+        border-radius: 12px;
+        background: #2563eb;
+        animation: entrance-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+      @keyframes entrance-in {
+        from {
+          opacity: 0;
+          translate: 0 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="entrance" data-entrance></div>
+  </body>
+</html>

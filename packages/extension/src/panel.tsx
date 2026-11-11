@@ -9,8 +9,15 @@ import { StrictMode, useEffect, useReducer, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describeCapture, parseCapture, type Trigger } from '@motion-inspector/core';
 import { Editor, takeLengthMs } from '@motion-inspector/editor';
-import { FROM_PAGE, PANEL_PORT, type FromPage, type PageRect, type ToPage } from './messages';
-import { playClick, playHover } from './playHover';
+import {
+  FROM_PAGE,
+  PANEL_PORT,
+  type FromPage,
+  type PageRect,
+  type ToPage,
+  type Whereabouts,
+} from './messages';
+import { playClick, playHover, playLoad } from './playHover';
 import './panel.css';
 import {
   initialPanel,
@@ -162,6 +169,7 @@ const TRIGGER_WORDS: { trigger: Trigger; words: string }[] = [
   // Not sent since D151: kept for takes saved before.
   { trigger: 'running', words: 'Already running' },
   { trigger: 'scroll', words: 'On scroll' },
+  { trigger: 'load', words: 'On load' },
   { trigger: 'unknown', words: 'On its own' },
 ];
 
@@ -259,7 +267,7 @@ function PanelApp() {
   const loaded = useRef(false);
   const [copied, setCopied] = useState('');
   // What the extension is playing on the page, while it moves the pointer.
-  const [playing, setPlaying] = useState<'hover' | 'click' | null>(null);
+  const [playing, setPlaying] = useState<'hover' | 'click' | 'load' | null>(null);
   // Waiting for the page: recording to begin, or a take to arrive.
   const waiters = useRef<{ recording: (() => void)[]; take: (() => void)[] }>({
     recording: [],
@@ -300,6 +308,36 @@ function PanelApp() {
     });
   }, [panel.takes]);
 
+  // A take from the page. Checked again here: the panel does not trust what
+  // a page sends.
+  const accept = (message: {
+    capture?: unknown;
+    problems?: string[];
+    raw?: unknown;
+    replaces?: boolean;
+  }): void => {
+    rawTakes.current = [...rawTakes.current, message.raw].slice(-20);
+    const parsed = parseCapture(message.capture);
+    if (parsed.ok) {
+      // A take that adds a hover's leave replaces the hover's take, and
+      // keeps its id, so it stays selected and in its place in the list.
+      const previousId = lastTakeId.current;
+      const replaced = message.replaces === true && previousId !== null;
+      const id = replaced && previousId !== null ? previousId : crypto.randomUUID();
+      lastTakeId.current = id;
+      dispatch({ kind: 'takeArrived', take: { id, capture: parsed.value }, replaced });
+      heard('take');
+    } else {
+      dispatch({
+        kind: 'takeRejected',
+        problems: [...(message.problems ?? []), ...parsed.errors],
+      });
+    }
+  };
+  // True while "Play the load" reloads the page: the page going away is
+  // then expected, not a reason to forget the picked element.
+  const reloading = useRef(false);
+
   // What the page reports.
   useEffect(() => {
     const onMessage = (
@@ -327,26 +365,7 @@ function PanelApp() {
       if (message.type === 'moved' && typeof message.label === 'string') {
         dispatch({ kind: 'movedToParent', label: message.label });
       }
-      if (message.type === 'take') {
-        rawTakes.current = [...rawTakes.current, message.raw].slice(-20);
-        // Checked again here. The panel does not trust what a page sends.
-        const parsed = parseCapture(message.capture);
-        if (parsed.ok) {
-          // A take that adds a hover's leave replaces the hover's take, and
-          // keeps its id, so it stays selected and in its place in the list.
-          const previousId = lastTakeId.current;
-          const replaced = message.replaces === true && previousId !== null;
-          const id = replaced && previousId !== null ? previousId : crypto.randomUUID();
-          lastTakeId.current = id;
-          dispatch({ kind: 'takeArrived', take: { id, capture: parsed.value }, replaced });
-          heard('take');
-        } else {
-          dispatch({
-            kind: 'takeRejected',
-            problems: [...(message.problems ?? []), ...parsed.errors],
-          });
-        }
-      }
+      if (message.type === 'take') accept(message);
     };
     chrome.runtime.onMessage.addListener(onMessage);
     // Accepting the page's connection is all: it is ended by Chrome when
@@ -367,6 +386,7 @@ function PanelApp() {
   useEffect(() => {
     const onUpdated = (updatedId: number, change: { status?: string }): void => {
       if (change.status !== 'loading') return;
+      if (updatedId === tabId.current && reloading.current) return;
       if (updatedId === tabId.current) {
         dispatch({ kind: 'stopped', auto: false });
         tabId.current = null;
@@ -468,6 +488,54 @@ function PanelApp() {
     } catch (error) {
       dispatch({ kind: 'playFailed', what: 'hover', why: messageOf(error) });
     } finally {
+      setPlaying(null);
+    }
+  };
+
+  // Reloads the page with the recorder put in before the page's own scripts,
+  // so what plays as the page loads (an entrance) is recorded from its first
+  // frame. Then the scripts go back on the new page, with the same element
+  // chosen again, ready to record.
+  const playTheLoad = async (): Promise<void> => {
+    const id = tabId.current;
+    if (id === null || playing !== null) return;
+    setPlaying('load');
+    try {
+      const where = (await chrome.tabs.sendMessage(id, {
+        type: 'whereabouts',
+      } satisfies ToPage)) as Whereabouts | null;
+      if (where === null) throw new Error('the element is no longer on the page');
+      const script = await (await fetch(chrome.runtime.getURL('capture.iife.js'))).text();
+      reloading.current = true;
+      const result = await playLoad(
+        id,
+        `${script}\n;MotionCapture.recordOnLoad(${JSON.stringify(where)});`,
+      );
+      for (const take of result.takes) accept(take as Parameters<typeof accept>[0]);
+      if (!result.found) throw new Error(result.problem ?? 'the element was not found again');
+      if (result.takes.length === 0) {
+        dispatch({
+          kind: 'playFailed',
+          what: 'load',
+          why: 'nothing on it moved as the page loaded',
+        });
+      }
+      // The page is new: its scripts are put back, choosing the same element.
+      await chrome.scripting.executeScript({
+        target: { tabId: id },
+        func: (chosen: Whereabouts) => {
+          (window as { motionInspectorChoose?: Whereabouts }).motionInspectorChoose = chosen;
+        },
+        args: [where],
+      });
+      await chrome.scripting.executeScript({
+        target: { tabId: id },
+        files: ['capture.iife.js', 'bridge.js'],
+      });
+    } catch (error) {
+      dispatch({ kind: 'playFailed', what: 'load', why: messageOf(error) });
+    } finally {
+      reloading.current = false;
       setPlaying(null);
     }
   };
@@ -645,6 +713,9 @@ function PanelApp() {
             </button>
             <button type="button" className="btn" onClick={() => void playTheClick()}>
               Play the click
+            </button>
+            <button type="button" className="btn" onClick={() => void playTheLoad()}>
+              Play the load
             </button>
           </div>
         </section>

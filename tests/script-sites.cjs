@@ -10,13 +10,21 @@ const { readFileSync, mkdirSync, writeFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 const { chromium } = require('@playwright/test');
 // CAPTURE=path runs another build of the capture script.
-const captureScript = readFileSync(process.env.CAPTURE ?? resolve(__dirname, '../packages/capture/dist/capture.iife.js'), 'utf8');
+const captureScript = readFileSync(
+  process.env.CAPTURE ?? resolve(__dirname, '../packages/capture/dist/capture.iife.js'),
+  'utf8',
+);
 const out = resolve(__dirname, '../real-sites-output/script');
 const EDITOR = 'http://localhost:5173';
 
 // selector: the element to record. act: what the pointer does over it.
 const sites = [
-  { name: 'vanilla-tilt', url: 'https://micku7zu.github.io/vanilla-tilt.js/', selector: '[data-tilt]', act: 'circle' },
+  {
+    name: 'vanilla-tilt',
+    url: 'https://micku7zu.github.io/vanilla-tilt.js/',
+    selector: '[data-tilt]',
+    act: 'circle',
+  },
   { name: 'atropos', url: 'https://atroposjs.com/', selector: '.atropos-inner', act: 'circle' },
   {
     name: 'vercel-backends',
@@ -25,7 +33,8 @@ const sites = [
     mark: () => {
       const heading = [...document.querySelectorAll('p')].find((p) => p.textContent === 'Backends');
       let card = heading;
-      while (card?.parentElement && card.getBoundingClientRect().height < 300) card = card.parentElement;
+      while (card?.parentElement && card.getBoundingClientRect().height < 300)
+        card = card.parentElement;
       // The whole card: the link around it, as a person picks it.
       card = heading?.closest('a') ?? card?.parentElement?.parentElement?.parentElement ?? null;
       card?.setAttribute('data-mi-target', '');
@@ -34,7 +43,12 @@ const sites = [
     act: 'hover',
   },
   { name: 'motion-dev', url: 'https://motion.dev/', selector: 'a[href*="docs"]', act: 'hover' },
-  { name: 'react-spring', url: 'https://www.react-spring.dev/', selector: 'a[href*="docs"]', act: 'hover' },
+  {
+    name: 'react-spring',
+    url: 'https://www.react-spring.dev/',
+    selector: 'a[href*="docs"]',
+    act: 'hover',
+  },
 ];
 
 async function act(page, box, kind) {
@@ -62,13 +76,19 @@ async function act(page, box, kind) {
   mkdirSync(out, { recursive: true });
   const browser = await chromium.launch();
   const results = [];
-  for (const site of sites.filter((item) => only === null || only.some((word) => item.name.includes(word)))) {
+  for (const site of sites.filter(
+    (item) => only === null || only.some((word) => item.name.includes(word)),
+  )) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     try {
       await page.goto(site.url, { waitUntil: 'networkidle', timeout: 30000 });
       await page.waitForTimeout(1500);
       if (site.mark !== undefined) {
-        await page.getByText('Backends', { exact: true }).first().scrollIntoViewIfNeeded().catch(() => {});
+        await page
+          .getByText('Backends', { exact: true })
+          .first()
+          .scrollIntoViewIfNeeded()
+          .catch(() => {});
         await page.evaluate(site.mark);
       }
       const element = page.locator(site.selector).first();
@@ -92,24 +112,39 @@ async function act(page, box, kind) {
       const editor = await browser.newPage({ viewport: { width: 1100, height: 900 } });
       for (const [index, capture] of captures.entries()) {
         await editor.goto(`${EDITOR}/?quiet`);
-        await editor.evaluate((json) => sessionStorage.setItem('motion-inspector-capture', json), JSON.stringify(capture));
+        await editor.evaluate(
+          (json) => sessionStorage.setItem('motion-inspector-capture', json),
+          JSON.stringify(capture),
+        );
         await editor.goto(`${EDITOR}/?capture=session&quiet`);
         await editor.waitForTimeout(600);
-        const check = await editor.locator('.mi__check').textContent({ timeout: 2000 }).catch(() => null);
+        const check = await editor
+          .locator('.mi__check')
+          .textContent({ timeout: 2000 })
+          .catch(() => null);
         const description = await editor.locator('.mi__description').textContent();
         await editor.screenshot({ path: resolve(out, `${site.name}-${index + 1}.png`) });
         // Halfway through, and the capture itself, to look at by hand.
-        await editor.goto(`${EDITOR}/?capture=session&quiet&time=${Math.round(capture.tracks.reduce((most, track) => Math.max(most, track.startOffset + track.timing.delay + track.timing.duration), 0) / 2)}`);
+        await editor.goto(
+          `${EDITOR}/?capture=session&quiet&time=${Math.round(capture.tracks.reduce((most, track) => Math.max(most, track.startOffset + track.timing.delay + track.timing.duration), 0) / 2)}`,
+        );
         await editor.waitForTimeout(600);
-        await editor.locator('.stage').screenshot({ path: resolve(out, `${site.name}-${index + 1}-middle.png`) });
-        writeFileSync(resolve(out, `${site.name}-${index + 1}.json`), JSON.stringify(capture, null, 1));
+        await editor
+          .locator('.stage')
+          .screenshot({ path: resolve(out, `${site.name}-${index + 1}-middle.png`) });
+        writeFileSync(
+          resolve(out, `${site.name}-${index + 1}.json`),
+          JSON.stringify(capture, null, 1),
+        );
         results.push({
           site: site.name,
           take: index + 1,
           trigger: capture.trigger,
           tracks: capture.tracks.map((track) => `${track.origin}:${track.property}`).join(' '),
           follows: (capture.follows ?? []).map((follow) => `lag ${follow.lagMs} ms`).join(', '),
-          measured: (capture.measured ?? []).map((entry) => `${entry.shapeId}:${entry.frames.length}`).join(' '),
+          measured: (capture.measured ?? [])
+            .map((entry) => `${entry.shapeId}:${entry.frames.length}`)
+            .join(' '),
           trackShapes: Array.from(new Set(capture.tracks.map((track) => track.shapeId))).join(' '),
           check,
           description,
@@ -117,7 +152,11 @@ async function act(page, box, kind) {
         });
       }
       if (captures.length === 0) {
-        results.push({ site: site.name, note: 'no takes', problems: takes.flatMap((take) => take.problems) });
+        results.push({
+          site: site.name,
+          note: 'no takes',
+          problems: takes.flatMap((take) => take.problems),
+        });
       }
       await editor.close();
     } catch (error) {

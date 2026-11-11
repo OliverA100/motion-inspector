@@ -10,7 +10,8 @@
 const { resolve } = require('node:path');
 const { chromium } = require('@playwright/test');
 // CAPTURE=path runs another build of the capture script, to compare.
-const capturePath = process.env.CAPTURE ?? resolve(__dirname, '../packages/capture/dist/capture.iife.js');
+const capturePath =
+  process.env.CAPTURE ?? resolve(__dirname, '../packages/capture/dist/capture.iife.js');
 
 const sites = [
   { name: 'vercel-main', url: 'https://vercel.com/home', selector: 'main' },
@@ -23,7 +24,11 @@ const sites = [
   { name: 'github-main', url: 'https://github.com/', selector: 'main' },
   { name: 'lenis-body', url: 'https://lenis.darkroom.engineering/', selector: 'body > div, main' },
   { name: 'atropos', url: 'https://atroposjs.com/', selector: '.atropos-inner' },
-  { name: 'vanilla-tilt', url: 'https://micku7zu.github.io/vanilla-tilt.js/', selector: '[data-tilt]' },
+  {
+    name: 'vanilla-tilt',
+    url: 'https://micku7zu.github.io/vanilla-tilt.js/',
+    selector: '[data-tilt]',
+  },
   // The whole page picked: thousands of parts.
   { name: 'body-wikipedia', url: 'https://en.wikipedia.org/wiki/Animation', selector: 'body' },
   { name: 'body-github', url: 'https://github.com/', selector: 'body' },
@@ -80,7 +85,8 @@ function captureHotspots(profile) {
 function slowestStretches(profile) {
   const byId = new Map(profile.nodes.map((node) => [node.id, node]));
   const parentOf = new Map();
-  for (const node of profile.nodes) for (const child of node.children ?? []) parentOf.set(child, node.id);
+  for (const node of profile.nodes)
+    for (const child of node.children ?? []) parentOf.set(child, node.id);
   const stackOf = (id) => {
     const names = [];
     for (let at = id; at !== undefined; at = parentOf.get(at)) {
@@ -94,7 +100,9 @@ function slowestStretches(profile) {
   profile.samples.forEach((id, index) => {
     const ms = (profile.timeDeltas[index + 1] ?? 0) / 1000;
     const stack = stackOf(id);
-    const busy = !['(idle)', '(garbage collector)'].includes(byId.get(id)?.callFrame.functionName ?? '');
+    const busy = !['(idle)', '(garbage collector)'].includes(
+      byId.get(id)?.callFrame.functionName ?? '',
+    );
     if (process.env.ANY ? !busy : stack.length === 0) {
       if (current !== null) stretches.push(current);
       current = null;
@@ -103,8 +111,15 @@ function slowestStretches(profile) {
     current ??= { ms: 0, inside: new Map() };
     current.ms += ms;
     const frame = byId.get(id)?.callFrame;
-    const names = process.env.ANY ? [...stack, (frame?.url.includes('capture') ? 'capture:' : frame?.url ? 'page:' : 'native:') + (frame?.functionName || '?')] : stack;
-    for (const name of new Set(names)) current.inside.set(name, (current.inside.get(name) ?? 0) + ms);
+    const names = process.env.ANY
+      ? [
+          ...stack,
+          (frame?.url.includes('capture') ? 'capture:' : frame?.url ? 'page:' : 'native:') +
+            (frame?.functionName || '?'),
+        ]
+      : stack;
+    for (const name of new Set(names))
+      current.inside.set(name, (current.inside.get(name) ?? 0) + ms);
   });
   if (current !== null) stretches.push(current);
   return stretches
@@ -124,7 +139,9 @@ function slowestStretches(profile) {
 (async () => {
   const only = process.argv[2]?.split(',') ?? null;
   const browser = await chromium.launch();
-  for (const site of sites.filter((item) => only === null || only.some((word) => item.name.includes(word)))) {
+  for (const site of sites.filter(
+    (item) => only === null || only.some((word) => item.name.includes(word)),
+  )) {
     // As the extension's injection is, the capture script is not held to
     // the page's own Content Security Policy.
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, bypassCSP: true });
@@ -170,7 +187,11 @@ function slowestStretches(profile) {
           (take) => {
             const at = performance.now();
             const size = JSON.stringify(take).length;
-            window.__sent.push({ kb: Math.round(size / 1024), ms: Math.round(performance.now() - at), raw: Math.round(JSON.stringify(take.raw ?? null).length / 1024) });
+            window.__sent.push({
+              kb: Math.round(size / 1024),
+              ms: Math.round(performance.now() - at),
+              raw: Math.round(JSON.stringify(take.raw ?? null).length / 1024),
+            });
           },
           (label) => window.__sent.push({ moved: label }),
           () => window.__sent.push({ stopped: true }),
@@ -186,7 +207,8 @@ function slowestStretches(profile) {
           stopMs: Math.round(performance.now() - started),
           takes: takes.filter((take) => take.capture !== null).length,
           shapes: takes.reduce((most, take) => {
-            const count = (shape) => 1 + shape.children.reduce((sum, child) => sum + count(child), 0);
+            const count = (shape) =>
+              1 + shape.children.reduce((sum, child) => sum + count(child), 0);
             return Math.max(most, take.capture === null ? 0 : count(take.capture.root));
           }, 0),
         };

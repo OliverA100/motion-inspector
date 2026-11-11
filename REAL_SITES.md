@@ -252,6 +252,10 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 76 | Special cases page | Popovers and dialogs gave no take; a player sped up or reversed was 22 to 51 px off; composition 40 px; paths and SVG dashes looked still; a turning registered variable was listed; a view transition gave no take | D150: all at 0 px or listed with the reason |
 | 77 | Material Web | Its demos run inside an iframe | Not recorded: the recorder works in one document |
 | 78 | Magic UI (border beam) | A dot a script moves round its card with offset-path: rect(): the path was not read, so it stood still; once read, the film was fitted as a turning transform, 10 px off at the corners | D150: the path is read for rect(), inset(), xywh() and circle(), and the film gives its distance: 0 px for the CSS version of our fixture, the script one within the film's step |
+| 79 | Shoelace (select, dropdown) | No take: the popup animates in a shadow root inside a part hidden when picked; then its options and menu items were not drawn, being slotted | Every open shadow root is asked; slots are walked through to what is slotted (D150). Within 0 px |
+| 80 | Chrome view transition demos | A page that slides in with its own animation of ::view-transition-new gave no motion | Read as the part's own (D150) |
+| 81 | oliverhassan.dev | A round button drawn cut in half: its box is centred with a -640 px translate, which the clipping frame left out | D153: whole |
+| 82 | vercel.com/backends | The peeled flap was left out of the drawing (the last part of a busy card); the hover was named "Loops" after the chat's typing dots, and its start "Already running" | D151, D153: flap drawn, within 1 px; "Hover in", "Hover out" |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 
