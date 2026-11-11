@@ -733,6 +733,9 @@ function playsBackwards(track: Track): boolean {
   return track.timing.direction === 'reverse' || track.timing.direction === 'alternate-reverse';
 }
 
+// More keyframes than a person writes by hand: a curve sampled into them.
+const MOST_STAGES = 12;
+
 function changePhrase(group: PropertyGroup, backdrop: Rgb, pivot: Pivot | null = null): string {
   const track = group.tracks[0];
   const written = track?.keyframes ?? [];
@@ -761,9 +764,10 @@ function changePhrase(group: PropertyGroup, backdrop: Rgb, pivot: Pivot | null =
     track?.origin === 'script',
   );
   // Keyframes an author wrote say the motion has stages (a bounce). Those
-  // fitted to measured motion are only how closely it was followed.
+  // fitted to measured motion are only how closely it was followed, and so
+  // are the hundreds a library bakes a spring into (Framer Motion).
   const measured = group.tracks[0]?.origin === 'script';
-  return keyframes.length > 2 && !measured
+  return keyframes.length > 2 && keyframes.length <= MOST_STAGES && !measured
     ? `${joinWithAnd(phrase.split(PART))} through ${keyframes.length} keyframes`
     : phrase;
 }

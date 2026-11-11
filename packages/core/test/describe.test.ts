@@ -273,6 +273,28 @@ describe('special properties in plain words', () => {
     expect(firstSentence(changing(property, from, to, parsed))).toBe(expected);
   });
 
+  test('a spring baked into many keyframes is not said as stages', () => {
+    const base = cardLift.tracks[0];
+    if (base === undefined) throw new Error('no track');
+    const first = base.keyframes[0];
+    if (first === undefined) throw new Error('no keyframes');
+    const keyframes = Array.from({ length: 40 }, (_item, index) => ({
+      ...first,
+      offset: (index / 39) as typeof first.offset,
+      value: `translate(0px, ${-index}px)`,
+      parsed: {
+        kind: 'transform' as const,
+        functions: [{ fn: 'translate' as const, x: 0, y: -index }],
+      },
+    }));
+    const text = describeCapture({
+      ...cardLift,
+      tracks: [{ ...base, property: 'transform', keyframes }],
+    });
+    expect(text).toContain('moves up 39 px');
+    expect(text).not.toContain('keyframes');
+  });
+
   test('a size change under a pixel is left out', () => {
     const base = cardLift.tracks[0];
     if (base === undefined) throw new Error('no track');
