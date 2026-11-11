@@ -961,6 +961,10 @@ function sampleLayout(snapshot: Snapshot): LayoutSample {
     // One taken off the page has no layout: measured, it would jump to the
     // corner (MUI's ripple, gone, read as -385 px left and 0 wide).
     if (!element.isConnected) continue;
+    // Nor one that is not drawn (display: none, or inside a part that is: a
+    // dropdown that closed, found on Ant Design's tabs). Every part inside
+    // read 0 wide and 0 tall: a layout track each. It keeps its last box.
+    if (element.getClientRects().length === 0) continue;
     boxes.set(element, layoutNow(snapshot, element));
   }
   return { time: asNumber(document.timeline.currentTime) ?? 0, boxes };
@@ -2060,6 +2064,36 @@ function buildTake(
       (track) => track.shapeId === id && track.property === 'opacity',
     );
     shape.opacity = fades ? fade.from : fade.to;
+  }
+  // After the fading rule above: the film is what the page showed.
+  // A part whose opacity animation waits on a delay shows its own opacity
+  // until then, and the film has it. Read in the page it may have been the
+  // animation's (Ant Design's spinner dots, appearing as recording moved
+  // to them, read at 1 for a rest of 0.3).
+  for (const seen of take) {
+    if (seen.pseudoElement !== null || seen.timing.delay <= 0) continue;
+    if (!seen.properties.includes('opacity')) continue;
+    // The first fade on the part only: during a later one's delay (a
+    // hover's way back) it shows the hovered state, not its rest.
+    const earlier = take.some(
+      (other) =>
+        other !== seen &&
+        other.target === seen.target &&
+        other.pseudoElement === null &&
+        other.properties.includes('opacity') &&
+        other.startTime < seen.startTime,
+    );
+    if (earlier) continue;
+    const shape = snapshot.shapeOf.get(seen.target);
+    if (shape === undefined) continue;
+    // Only during the delay itself: a hover's way back waits too, and
+    // before it the part was in its hovered state, not at rest.
+    const waiting = (film.get(seen.target) ?? []).filter(
+      (frame) =>
+        frame.time >= seen.startTime - 20 && frame.time < seen.startTime + seen.timing.delay - 1,
+    );
+    const before = waiting[waiting.length - 1];
+    if (before !== undefined) shape.opacity = before.opacity;
   }
   // What explains a part: the parts with tracks or a rule, and those whose
   // animations the take saw, drawn or listed.

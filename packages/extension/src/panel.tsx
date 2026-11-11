@@ -48,12 +48,16 @@ async function findTargetTab(): Promise<chrome.tabs.Tab | null> {
 }
 
 // The capture script is injected here and nowhere else: only when
-// "Pick element" is pressed, and only into that one tab.
+// "Pick element" is pressed, and only into that one tab: into every frame
+// of it, so a part shown in a frame (a component in Storybook, a docs
+// demo) can be picked. If a frame cannot be reached, the page alone.
 async function inject(tabId: number): Promise<void> {
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ['capture.iife.js', 'bridge.js'],
-  });
+  const files = ['capture.iife.js', 'bridge.js'];
+  try {
+    await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files });
+  } catch {
+    await chrome.scripting.executeScript({ target: { tabId }, files });
+  }
 }
 
 function messageOf(error: unknown): string {
@@ -103,8 +107,13 @@ async function startPicking(tab: chrome.tabs.Tab): Promise<string | null> {
   }
 }
 
-function toPage(tabId: number, message: ToPage): Promise<void> {
-  return chrome.tabs.sendMessage(tabId, message).then(
+// To the frame the element was picked in, or to every frame when none is.
+function toPage(tabId: number, message: ToPage, frameId: number | null): Promise<void> {
+  const sent =
+    frameId === null
+      ? chrome.tabs.sendMessage(tabId, message)
+      : chrome.tabs.sendMessage(tabId, message, { frameId });
+  return sent.then(
     () => {},
     () => {},
   );
@@ -228,6 +237,9 @@ function PanelApp() {
   const [panel, dispatch] = useReducer(updatePanel, initialPanel);
   // The tab being inspected, and what the capture script sent, as it sent it.
   const tabId = useRef<number | null>(null);
+  // The frame of that tab the element was picked in: 0 for the page itself,
+  // null while picking (every frame offers the picker).
+  const frameId = useRef<number | null>(null);
   const rawTakes = useRef<unknown[]>([]);
   // The id of the last take, so a take that completes it can replace it.
   const lastTakeId = useRef<string | null>(null);
@@ -350,6 +362,23 @@ function PanelApp() {
         return;
       }
       if (message.from !== FROM_PAGE || sender.tab?.id !== tabId.current) return;
+      // Once picked, only that frame speaks for the element.
+      if (
+        frameId.current !== null &&
+        message.type !== 'picked' &&
+        sender.frameId !== frameId.current
+      ) {
+        return;
+      }
+      if (message.type === 'picked' && frameId.current === null) {
+        frameId.current = sender.frameId ?? 0;
+        // The other frames stop offering the picker.
+        void toPage(tabId.current ?? 0, { type: 'cancel' }, null);
+      }
+      if (message.type === 'cancelled' && frameId.current === null && tabId.current !== null) {
+        // Escape in one frame cancels picking in all of them.
+        void toPage(tabId.current, { type: 'cancel' }, null);
+      }
       if (message.type === 'picked') {
         dispatch({
           kind: 'elementPicked',
@@ -441,6 +470,7 @@ function PanelApp() {
 
   const pick = async (): Promise<void> => {
     dispatch({ kind: 'pickStarted' });
+    frameId.current = null;
     const tab = await findTargetTab();
     const problem = tab === null ? 'There is no tab to inspect.' : await startPicking(tab);
     if (problem !== null) {
@@ -464,14 +494,22 @@ function PanelApp() {
 
   // Where the picked element is in the window, scrolled into view.
   const whereIs = async (id: number): Promise<PageRect> => {
-    const where: unknown = await chrome.tabs.sendMessage(id, { type: 'where' } satisfies ToPage);
+    const where: unknown = await chrome.tabs.sendMessage(id, { type: 'where' } satisfies ToPage, {
+      frameId: frameId.current ?? 0,
+    });
     if (where === null || typeof where !== 'object') {
       throw new Error('the element is no longer on the page');
     }
     if ('covered' in where && where.covered === true) {
       throw new Error('something on the page covers it');
     }
-    return where as PageRect;
+    const rect = where as PageRect;
+    // In a frame, the pointer goes where the frame shows it in the tab.
+    if (rect.frame === null) {
+      throw new Error('it is inside a frame from another site, which does not say where it is');
+    }
+    const offset = rect.frame ?? { x: 0, y: 0 };
+    return { ...rect, x: rect.x + offset.x, y: rect.y + offset.y };
   };
 
   // Moves a pointer over the picked element with Chrome's debugger, so its
@@ -504,9 +542,12 @@ function PanelApp() {
     if (id === null || playing !== null) return;
     setPlaying('load');
     try {
-      const where = (await chrome.tabs.sendMessage(id, {
-        type: 'whereabouts',
-      } satisfies ToPage)) as Whereabouts | null;
+      if ((frameId.current ?? 0) !== 0) {
+        throw new Error('it is inside a frame; only the page itself can be reloaded this way');
+      }
+      const where = (await chrome.tabs.sendMessage(id, { type: 'whereabouts' } satisfies ToPage, {
+        frameId: 0,
+      })) as Whereabouts | null;
       if (where === null) throw new Error('the element is no longer on the page');
       const script = await (await fetch(chrome.runtime.getURL('capture.iife.js'))).text();
       reloading.current = true;
@@ -575,7 +616,7 @@ function PanelApp() {
       return;
     }
     // If the page does not answer (it was closed), stop on this side anyway.
-    void toPage(tabId.current, message).then(() => {
+    void toPage(tabId.current, message, frameId.current).then(() => {
       if (message.type === 'stop')
         window.setTimeout(() => dispatch({ kind: 'stopped', auto: false }), 300);
     });

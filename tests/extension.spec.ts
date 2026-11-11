@@ -450,3 +450,32 @@ test('Play the load reloads the page and records what plays as it loads', async 
     timeout: 8000,
   });
 });
+
+test('an element inside a frame is picked and recorded, and its hover played', async ({
+  context,
+  extensionId,
+}) => {
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/framed.html');
+  const frame = site.frameLocator('iframe');
+  await expect(frame.locator('.fx-button')).toBeVisible();
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.mouse.move(0, 0);
+  await frame.locator('.fx-button').click();
+  await site.mouse.move(0, 0);
+  await expect(panel.locator('.xp__ready-name')).toHaveText('button.fx-button');
+  // Recorded in the frame, by hand.
+  await panel.getByRole('button', { name: 'Record', exact: true }).click();
+  await site.bringToFront();
+  await frame.locator('.fx-button').hover();
+  await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 4000 });
+  await site.mouse.move(0, 0);
+  await expect(panel.getByRole('button', { name: 'Stop' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Stop' }).click();
+  // And played: the pointer is moved to where the frame shows it.
+  const hovers = panel.locator('.xp__take', { hasText: 'Hover in and out' });
+  const before = await hovers.count();
+  await panel.getByRole('button', { name: 'Play the hover' }).click();
+  await site.bringToFront();
+  await expect(hovers).toHaveCount(before + 1, { timeout: 10000 });
+});

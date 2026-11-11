@@ -11,6 +11,7 @@ export default defineConfig({
         pieces: 'pieces.html',
         fixtures: 'fixtures.html',
         entrance: 'entrance.html',
+        framed: 'framed.html',
       },
     },
   },

@@ -43,6 +43,10 @@ export type PageRect = {
   height: number;
   // True when something on the page sits over its middle (a fixed header).
   covered?: boolean;
+  // Inside a frame: where that frame's top left is in the tab's window, so
+  // the pointer can be moved there. null when a frame on the way is from
+  // another site, which does not say where it is.
+  frame?: { x: number; y: number } | null;
 };
 
 // Every message from the page carries this, so the panel can tell them

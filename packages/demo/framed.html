@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Framed · Motion Inspector</title>
+    <!-- The fixtures inside a frame, as Storybook and docs sites show
+         components: picking and recording must reach into it. -->
+    <style>
+      body {
+        margin: 0;
+        padding: 40px 0 0 60px;
+        font: 16px system-ui, sans-serif;
+        background: #e4e4e7;
+      }
+      iframe {
+        width: 1000px;
+        height: 760px;
+        border: 2px solid #a1a1aa;
+        background: white;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe src="/fixtures.html" title="Fixtures"></iframe>
+  </body>
+</html>

@@ -38,4 +38,4 @@ The extension asks for five permissions and no access to any site up front: `act
 - **Closed shadow roots cannot be reached.** Open ones are captured.
 - **Access is per site unless you allow all sites.** Clicking the toolbar icon gives access to the tab you are on. Elsewhere, the panel offers "Allow on all sites" (asked for only on that click); without it, "Pick element" asks for access to each site.
 - **Browser pages, the Chrome Web Store and PDF files cannot be inspected.** Chrome does not allow it. The panel says so.
-- **Iframes are not looked into.** Only the top document and open shadow roots.
+- **Frames are looked into.** An element inside a frame (Storybook, a docs demo) can be picked and recorded. Play the hover and Play the click need to know where the frame is, which a frame from another site does not say; Play the load reloads the page itself only.

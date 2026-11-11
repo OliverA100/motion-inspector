@@ -56,12 +56,36 @@ const onMoved = (label: string): void => send({ type: 'moved', label });
 // The take is complete and nothing else happened: stopped by itself.
 const onStopped = (): void => send({ type: 'stopped', auto: true });
 
+// Where this frame's top left is in the tab's window: the frames it is
+// inside, each scrolled into view, added up. null when one of them is from
+// another site, which does not say where it is.
+function frameOffset(): { x: number; y: number } | null {
+  let x = 0;
+  let y = 0;
+  let at: Window = window;
+  while (at !== at.top) {
+    const holder = at.frameElement;
+    if (holder === null) return null;
+    holder.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    const box = holder.getBoundingClientRect();
+    const style = at.parent.getComputedStyle(holder);
+    x += box.left + holder.clientLeft + (parseFloat(style.paddingLeft) || 0);
+    y += box.top + holder.clientTop + (parseFloat(style.paddingTop) || 0);
+    at = at.parent;
+  }
+  return { x, y };
+}
+
 const onMessage = (
   message: ToPage,
   _sender: chrome.runtime.MessageSender,
   answer: (response: PageRect | Whereabouts | null) => void,
 ): void => {
-  if (message.type === 'where') answer(capture.recordedRect());
+  if (message.type === 'where') {
+    const frame = frameOffset();
+    const rect = capture.recordedRect();
+    answer(rect === null ? null : { ...rect, frame });
+  }
   if (message.type === 'whereabouts') answer(capture.pickedWhereabouts());
   if (message.type === 'cancel') capture.cancelPicking();
   if (message.type === 'again') {

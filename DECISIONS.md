@@ -928,3 +928,13 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - A ::before or ::after that is not absolutely positioned is placed from the element's own text: ::after just past the end of its last line, ::before just before the start of its first, centered on that line. Its size is its own width and height, or, for text it shows (an arrow), the text's width measured with its font on a canvas (the text is only measured, never kept) and its line's height. Text it shows is drawn as a bar in its color.
 - The ::before and ::after a take animates are filmed (their computed transform and opacity), so the badge checks them too; a hover's way back shifts their film as it does the rest.
 **Why:** "Learn more →" arrows that slide on hover, and Mantine's spinner ring (an ::after), were listed and not drawn; and a take of pseudo-elements had no badge at all, so a wrong one could not be told from a right one.
+
+### D159. More from the component sweep
+**Chose:**
+- Layout is not sampled for a part that is not drawn (display: none, or inside one that is): when a dropdown closed, every part in it read 0 wide and 0 tall, a layout track each (Ant Design's tabs: 60 tracks for a menu fading out). It keeps its last box.
+- A part whose opacity animation waits on a delay is drawn, until then, at the opacity the film shows: read in the page it may have been the animation's (Ant Design's spinner dots, read at 1 for a rest of 0.3, 70% off). The film is applied last, after the rule for parts fading when picked.
+**Why:** the component sweep, on Ant Design's tabs and spin pages.
+
+### D160. Elements inside frames
+**Chose:** "Pick element" puts the capture script into every frame of the tab, not only the page, so a part shown in a frame can be picked: a component in Storybook, a demo on a docs site (Headless UI, Material Web). Each frame offers the picker; the first to pick is the one the panel talks to from then on, and the others stop offering it. Play the hover and Play the click move the pointer to where the frame shows the element, found by adding up the frames it is inside (each scrolled into view); a frame from another site does not say where it is, and the panel says so. Play the load reloads only the page itself, so it is offered for an element of the page, not of a frame. If a frame cannot be reached, the page alone is used.
+**Why:** the component sweep found Headless UI's demos in a frame, with nothing to pick; Storybook shows every story in one.
