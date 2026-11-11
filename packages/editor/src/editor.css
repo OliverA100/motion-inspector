@@ -127,6 +127,15 @@ html {
   cursor: default;
 }
 
+/* What the badge found different, in full, under it. */
+.mi__differs {
+  max-width: 64ch;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-small);
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
 .mi__check.is-close {
   color: var(--color-good);
   background: color-mix(in srgb, var(--color-good) 12%, transparent);

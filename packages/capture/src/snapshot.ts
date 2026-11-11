@@ -1214,6 +1214,83 @@ function pseudoBox(walk: Walk, element: Element, style: CSSStyleDeclaration): Bo
   };
 }
 
+// The text a pseudo-element shows (content: "→"), or null for none, an
+// empty string, an image or a counter. Used only to measure its width: it
+// is never kept.
+function contentText(content: string): string | null {
+  const found = /^"((?:[^"\\]|\\.)*)"$/.exec(content.trim());
+  if (found === null || found[1] === undefined || found[1] === '') return null;
+  return found[1].replace(/\\(.)/g, '$1');
+}
+
+let measuring: CanvasRenderingContext2D | null = null;
+function textWidth(text: string, style: CSSStyleDeclaration): number | null {
+  measuring ??= document.createElement('canvas').getContext('2d');
+  if (measuring === null) return null;
+  measuring.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const spacing = parseFloat(style.letterSpacing);
+  return measuring.measureText(text).width + (Number.isFinite(spacing) ? spacing * text.length : 0);
+}
+
+// Where a pseudo-element in the flow sits: ::after just past the element's
+// last text or child, ::before just before its first, on that line. Its
+// size is its own width and height, or, for text (an arrow after a link),
+// its measured width and its line. null when it cannot be worked out.
+function flowPseudoBox(
+  walk: Walk,
+  element: Element,
+  pseudo: (typeof PSEUDOS)[number],
+  style: CSSStyleDeclaration,
+): Box | null {
+  if (style.position === 'absolute' || style.position === 'fixed') return null;
+  if (!(element instanceof HTMLElement)) return null;
+  const n = (value: string): number => {
+    const number = parseFloat(value);
+    return Number.isFinite(number) ? number : 0;
+  };
+  const text = contentText(style.content);
+  let width = parseFloat(style.width);
+  let height = parseFloat(style.height);
+  if (!Number.isFinite(width)) {
+    if (text === null) return null;
+    width = textWidth(text, style) ?? NaN;
+  }
+  if (!Number.isFinite(height)) {
+    const line = parseFloat(style.lineHeight);
+    height = Number.isFinite(line) ? line : n(style.fontSize) * 1.2;
+  }
+  if (!(width > 0) || !(height > 0)) return null;
+  const own = layoutBox(element, walk);
+  const drawn = element.getBoundingClientRect();
+  const scale = drawnScale(element);
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0);
+  const place = (rect: { left: number; top: number; height: number }, left: number) => ({
+    x: own.x + (left - drawn.left) / scale,
+    y: own.y + (rect.top - drawn.top) / scale + (rect.height / scale - height) / 2,
+    width,
+    height,
+  });
+  if (rects.length === 0) {
+    const style0 = getComputedStyle(element);
+    return {
+      x: own.x + element.clientLeft + n(style0.paddingLeft) + n(style.marginLeft),
+      y: own.y + element.clientTop + n(style0.paddingTop) + n(style.marginTop),
+      width,
+      height,
+    };
+  }
+  if (pseudo === '::after') {
+    const last = rects[rects.length - 1];
+    if (last === undefined) return null;
+    return place(last, last.right + n(style.marginLeft) * scale);
+  }
+  const first = rects[0];
+  if (first === undefined) return null;
+  return place(first, first.left - (width + n(style.marginRight)) * scale);
+}
+
 function readPseudoResting(element: Element, pseudo: string): Map<string, string> {
   const style = getComputedStyle(element, pseudo);
   return new Map(
@@ -1235,9 +1312,12 @@ function pseudoShape(
   if (style.content === 'none' || style.content === 'normal' || style.display === 'none') {
     return null;
   }
-  const box = pseudoBox(walk, element, style);
+  const box = pseudoBox(walk, element, style) ?? flowPseudoBox(walk, element, pseudo, style);
   if (box === null) return null;
+  // Text it shows (an arrow) is drawn as a bar, like any text.
+  const shows = contentText(style.content) !== null && isVisibleColor(style.color);
   const paints =
+    shows ||
     isVisibleColor(style.backgroundColor) ||
     style.backgroundImage !== 'none' ||
     hasBorder(style) ||
@@ -1252,6 +1332,47 @@ function pseudoShape(
   const shape = boxShape(walk, element, style, box, id, false);
   shape.label = `${labelOf(element)}${pseudo}`;
   walk.count += 1;
+  if (shows) {
+    const fontSize = parseFloat(style.fontSize);
+    const barHeight = Math.min(
+      Number.isFinite(fontSize) ? fontSize * 0.55 : box.height / 2,
+      box.height * 0.8,
+    );
+    const bar: RawShape = {
+      ...shape,
+      id: `${id}.t`,
+      label: 'text',
+      kind: 'text',
+      box: {
+        x: box.x,
+        y: box.y + (box.height - barHeight) / 2,
+        width: box.width,
+        height: barHeight,
+      },
+      radius: [barHeight / 2, barHeight / 2, barHeight / 2, barHeight / 2],
+      fill: style.color,
+      stroke: null,
+      opacity: 1,
+      transformOrigin: { x: box.width / 2, y: barHeight / 2 },
+      clip: false,
+      transform: null,
+      shadow: null,
+      shadows: null,
+      outline: null,
+      clipPath: null,
+      filter: null,
+      gradient: null,
+      gradients: null,
+      mask: null,
+      offset: null,
+      individual: null,
+      words: null,
+      icon: null,
+      children: [],
+    };
+    shape.children = [...shape.children, bar];
+    walk.ownerOf.set(bar, element);
+  }
   const parts = walk.snapshot.pseudoParts.get(element) ?? new Map<string, PseudoPart>();
   parts.set(pseudo, { id, shape, resting: readPseudoResting(element, pseudo) });
   walk.snapshot.pseudoParts.set(element, parts);
@@ -2214,6 +2335,43 @@ function filmedText(style: CSSStyleDeclaration, property: string): string {
 // One frame of film: an element's transform now, as it looks on the page
 // (flat, plus how a 3D turn tapers it, its parent's perspective included),
 // its opacity, and the computed text of FILMED_STYLES.
+// One frame of film for a ::before or ::after: its transform and opacity
+// as computed. It has no box of its own to measure; the size of its shape
+// is used for percentages.
+export function framePseudo(
+  element: Element,
+  pseudo: string,
+  size: { width: number; height: number },
+): {
+  matrix: [number, number, number, number, number, number];
+  taper: [number, number] | null;
+  opacity: number;
+  styles: string[];
+} {
+  const style = getComputedStyle(element, pseudo);
+  const own = transformNow(style, size, null);
+  const opacity = parseFloat(style.opacity);
+  const matrix: [number, number, number, number, number, number] = [
+    own.a,
+    own.b,
+    own.c,
+    own.d,
+    own.e,
+    own.f,
+  ];
+  return {
+    matrix: matrix.every(Number.isFinite) ? matrix : [1, 0, 0, 1, 0, 0],
+    taper: null,
+    opacity:
+      style.display === 'none' || style.visibility === 'hidden'
+        ? 0
+        : Number.isFinite(opacity)
+          ? opacity
+          : 1,
+    styles: FILMED_STYLES.map((property) => filmedText(style, property)),
+  };
+}
+
 export function frameNow(element: Element): {
   matrix: [number, number, number, number, number, number];
   taper: [number, number] | null;

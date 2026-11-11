@@ -41,6 +41,7 @@ import {
   type Box,
   FILMED_STYLES,
   frameNow,
+  framePseudo,
   layoutNow,
   type RawShape,
   type Snapshot,
@@ -1427,20 +1428,36 @@ function scriptTracksFor(
 
 // The film, kept with the take, so the editor can check its preview
 // against the page.
-function measuredFor(snapshot: Snapshot, film: Film, takeStart: number): unknown[] {
-  return Array.from(film, ([element, frames]) => {
-    const shapeId = snapshot.shapeIdOf.get(element);
-    if (shapeId === undefined || frames.length < 2) return null;
-    return {
-      shapeId,
-      frames: frames.slice(0, MOST_FRAMES).map((frame) => ({
-        t: round(frame.time - takeStart, 1),
-        matrix: frame.matrix.map((value) => round(value, 4)),
-        taper: frame.taper === null ? null : frame.taper.map((value) => round(value, 8)),
-        opacity: round(frame.opacity, 4),
-      })),
-    };
-  }).filter((entry) => entry !== null);
+// Film of the ::before and ::after a take animates, by their shape's id.
+type PseudoFilm = Map<string, FilmFrame[]>;
+
+function measuredFor(
+  snapshot: Snapshot,
+  film: Film,
+  takeStart: number,
+  pseudoFilm: PseudoFilm = new Map(),
+): unknown[] {
+  const entries: [string | undefined, FilmFrame[]][] = [
+    ...Array.from(film, ([element, frames]): [string | undefined, FilmFrame[]] => [
+      snapshot.shapeIdOf.get(element),
+      frames,
+    ]),
+    ...pseudoFilm,
+  ];
+  return entries
+    .map(([shapeId, frames]) => {
+      if (shapeId === undefined || frames.length < 2) return null;
+      return {
+        shapeId,
+        frames: frames.slice(0, MOST_FRAMES).map((frame) => ({
+          t: round(frame.time - takeStart, 1),
+          matrix: frame.matrix.map((value) => round(value, 4)),
+          taper: frame.taper === null ? null : frame.taper.map((value) => round(value, 8)),
+          opacity: round(frame.opacity, 4),
+        })),
+      };
+    })
+    .filter((entry) => entry !== null);
 }
 
 // ---------- Following the pointer ----------
@@ -1904,6 +1921,7 @@ function buildTake(
   film: Film = new Map(),
   scripted: Set<Element> = new Set(),
   watch: Watch = new Map(),
+  pseudoFilm: PseudoFilm = new Map(),
 ): TakeResult {
   // Parts that were hidden at pick time and appeared for this animation get
   // their shapes now.
@@ -2076,6 +2094,7 @@ function buildTake(
         ),
       ),
       takeStart,
+      pseudoFilm,
     ),
     follows: follows.length > 0 ? follows : null,
     trigger:
@@ -2336,6 +2355,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // describes: a script writing inline styles frame by frame.
   let film: Film = new Map();
   let previousFilm: Film = new Map();
+  let pseudoFilm: PseudoFilm = new Map();
+  let previousPseudoFilm: PseudoFilm = new Map();
   // What the take misses: every part that draws, watched while it runs.
   let watch: Watch = new Map();
   let previousWatch: Watch = new Map();
@@ -2567,6 +2588,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     scripted = new Set();
     lastFilmed = -Infinity;
     watch = new Map();
+    pseudoFilm = new Map();
   };
 
   const endTake = (quick = false): void => {
@@ -2617,6 +2639,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     const finishedScripted = scripted;
     // Set aside with the film: clearing the film starts a new watch.
     const takenWatch = watch;
+    const takenPseudoFilm = pseudoFilm;
     restingFrames = new Map();
     for (const element of finishedScripted) {
       const last = finishedFilm.get(element)?.at(-1);
@@ -2708,7 +2731,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       previousSamples = [];
       previousFilm = new Map();
       const mergedWatch = joinWatches(previousWatch, takenWatch);
+      // The pseudo-elements' film, its hold shortened as the film's is.
+      const mergedPseudoFilm: PseudoFilm = new Map();
+      for (const id of new Set([...previousPseudoFilm.keys(), ...takenPseudoFilm.keys()])) {
+        const there = previousPseudoFilm.get(id) ?? [];
+        mergedPseudoFilm.set(id, rejoin(there, takenPseudoFilm.get(id) ?? [], resumed(there)));
+      }
       previousWatch = new Map();
+      previousPseudoFilm = new Map();
       const first = triggerOf(
         snapshot.rootElement,
         previousTake,
@@ -2731,6 +2761,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
           mergedFilm,
           new Set([...finishedScripted]),
           mergedWatch,
+          mergedPseudoFilm,
         ),
         replaces: true,
       });
@@ -2740,6 +2771,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     previousSamples = finishedSamples;
     previousFilm = finishedFilm;
     const finishedWatch = takenWatch;
+    previousPseudoFilm = takenPseudoFilm;
     previousWatch = finishedWatch;
     lastTakeEnd = performance.now();
     const notes = [...chainNote];
@@ -2763,6 +2795,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       finishedFilm,
       finishedScripted,
       finishedWatch,
+      takenPseudoFilm,
     );
     const capture = result.capture;
     // Only the end of something that was already moving when the element
@@ -3095,6 +3128,20 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         }
         frames.push({ time: docNow, ...frameNow(element) });
         film.set(element, frames);
+      }
+      // The ::before and ::after the take animates, filmed too, so they
+      // are checked as well.
+      for (const seen of take) {
+        if (seen.pseudoElement === null) continue;
+        const part = snapshot.pseudoParts.get(seen.target)?.get(seen.pseudoElement);
+        if (part === undefined || !seen.target.isConnected) continue;
+        const frames = pseudoFilm.get(part.id) ?? [];
+        if (frames.length >= MOST_FRAMES || frames[frames.length - 1]?.time === docNow) continue;
+        frames.push({
+          time: docNow,
+          ...framePseudo(seen.target, seen.pseudoElement, part.shape.box),
+        });
+        pseudoFilm.set(part.id, frames);
       }
       // One that moved is measured, as a script's part is.
       for (const element of throughVariables) {

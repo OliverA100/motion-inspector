@@ -264,14 +264,13 @@ The sweep now also runs Magic UI, Aceternity, a scroll-driven demo, and menus an
 ## Known limits seen on real sites
 
 - **Only the nearest parent's perspective is drawn.** Faces nested deeper inside a preserve-3d parent are drawn as their own parent flattens them.
-- **Pseudo-elements are not filmed**, so a take that only moves ::before or ::after has no self-check badge.
 
 - **Images are flat gray**, so two slides of a carousel look the same. Image data is never copied.
 - **Text is drawn as bars.** Page text is never copied.
 - **A toggle's knob drawn as a background image** (Bootstrap's switch) is not shown.
 - **SVG animations (SMIL) are not captured.**
-- **Layout is measured, not computed** (D119): parts pushed or resized by an animation move as they did on the page, but only for the take as it was recorded. A pseudo-element in the flow of text (daisyUI's toggle knob) is still not measured.
-- **A pseudo-element in the flow of text** (an inline arrow after a link) is listed, not drawn: its box cannot be measured.
+- **Layout is measured, not computed** (D119): parts pushed or resized by an animation move as they did on the page, but only for the take as it was recorded.
+- **A pseudo-element in the flow of text** is placed from its element's text: right for one at the start or end of a line, approximate inside a flex or grid layout.
 - **Motion driven by script frame by frame** is measured, not read (D124): transform and opacity only, fitted to keyframes. A rule that is not linear in the pointer's place (a glare that turns with its angle) is shown as measured over time.
 - **Parts inside an iframe** are not recorded: the recorder works in the page it was opened on.
 - **A dialog's backdrop** and **a view transition's cross-fade** are listed, not drawn.

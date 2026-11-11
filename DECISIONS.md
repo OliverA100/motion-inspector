@@ -922,3 +922,9 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - Transforms that differ only by whole turns (rotateY(0deg) to rotateY(3600deg)) are a change: their matrices are the same, their written angles are not (Mantine's loader was dropped). Whole turns past one are said as such: "turns round 10 times".
 - A part taken off the page "disappears".
 **Why:** the first 115 lines of the 85-page sweep: Radix's tooltips gave no take on every page; shadcn's popovers and Radix's navigation menu were 12 to 68 px off; Mantine's loader was listed as changing nothing.
+
+### D158. Pseudo-elements in the flow of text are drawn, and pseudo-elements are checked
+**Chose:**
+- A ::before or ::after that is not absolutely positioned is placed from the element's own text: ::after just past the end of its last line, ::before just before the start of its first, centered on that line. Its size is its own width and height, or, for text it shows (an arrow), the text's width measured with its font on a canvas (the text is only measured, never kept) and its line's height. Text it shows is drawn as a bar in its color.
+- The ::before and ::after a take animates are filmed (their computed transform and opacity), so the badge checks them too; a hover's way back shifts their film as it does the rest.
+**Why:** "Learn more →" arrows that slide on hover, and Mantine's spinner ring (an ::after), were listed and not drawn; and a take of pseudo-elements had no badge at all, so a wrong one could not be told from a right one.

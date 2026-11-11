@@ -292,7 +292,9 @@ test('an animation on an absolutely positioned pseudo-element is drawn on its ow
   expect(capture.notShown).toEqual([]);
 });
 
-test('a pseudo-element in the flow of text is listed, not drawn', async ({ page }) => {
+test('a pseudo-element in the flow of text is drawn just before its text (D158)', async ({
+  page,
+}) => {
   await openFixtures(page);
   const takes = await page.evaluate(async () => {
     const style = document.createElement('style');
@@ -311,9 +313,13 @@ test('a pseudo-element in the flow of text is listed, not drawn', async ({ page 
   await page.hover('.in-flow');
   await page.waitForTimeout(500);
   const capture = captureOf((await page.evaluate(() => window.MotionCapture.stop()))[0]);
-  expect(capture.notShown).toEqual([
-    'An animation on ::before of span.in-flow is not shown, because that pseudo-element sits in the flow of text, so its box cannot be measured. Only absolutely positioned ones are drawn.',
-  ]);
+  expect(capture.notShown).toEqual([]);
+  const shapes = flattenShapes(capture.root);
+  const before = shapes.find((shape) => shape.label === 'span.in-flow::before');
+  const text = shapes.find((shape) => shape.kind === 'text');
+  expect(before?.box.width).toBe(8);
+  expect((before?.box.x ?? 0) + 8).toBeLessThanOrEqual((text?.box.x ?? 0) + 0.5);
+  expect(capture.tracks.find((item) => item.shapeId === before?.id)?.property).toBe('transform');
 });
 
 test('an animation inside an open shadow root is captured', async ({ page }) => {
@@ -1962,4 +1968,28 @@ test('a tooltip a hover opens at the end of the page is followed, and its take i
   expect(capture.root.label).toBe('div.sp-tip');
   expect(capture.trigger).toBe('hover');
   expect(capture.tracks.map((track) => track.property).sort()).toEqual(['opacity', 'translate']);
+});
+
+test('an arrow after a link, in the flow of its text, is drawn, moved and checked', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-more { font-size: 18px; color: rgb(37, 99, 235) }
+     #sp-more::after { content: "→"; display: inline-block; margin-left: 6px; transition: transform .3s }
+     #sp-more.on::after { transform: translateX(6px) }`,
+    '<p><a id="sp-more" href="#">Learn more</a></p>',
+    '#sp-more',
+  );
+  await page.evaluate(() => document.getElementById('sp-more')?.classList.add('on'));
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  const arrow = flattenShapes(capture.root).find((shape) => shape.label === 'a::after');
+  // Placed just past the text, with a bar for its glyph.
+  const words = flattenShapes(capture.root).find((shape) => shape.kind === 'text');
+  expect(arrow?.box.x).toBeGreaterThan((words?.box.x ?? 0) + (words?.box.width ?? 0));
+  expect(arrow?.children.map((child) => child.kind)).toEqual(['text']);
+  expect(capture.tracks.find((track) => track.shapeId === arrow?.id)?.property).toBe('transform');
+  // Filmed, so the badge can check it.
+  expect(capture.measured?.some((entry) => entry.shapeId === arrow?.id)).toBe(true);
 });

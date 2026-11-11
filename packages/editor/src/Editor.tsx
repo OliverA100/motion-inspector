@@ -382,6 +382,9 @@ function EditorInside({ capture, initialMsgs = [], showFrameTime = false }: Prop
                 {edited.notShown.length > 0 ? ` · ${edited.notShown.length} not shown` : ''}
               </span>
             </div>
+            {/* What differs from the page, said where it is seen, not only
+                in the badge's tooltip. */}
+            {check !== null && !check.close ? <p className="mi__differs">{check.detail}</p> : null}
           </div>
           <div className="mi__actions">
             <div className="mi__buttons mi__buttons--icons">
