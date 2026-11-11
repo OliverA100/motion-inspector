@@ -1201,3 +1201,13 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D211. A part already off the page is not measured
 **Chose:** a part with no shape that a script writes to is given one only while it is on the page.
 **Why:** Bootstrap writes the style of a tooltip's arrow as it removes the tooltip. The write was seen once both were gone, the arrow was measured from an empty style, and the take failed with an opacity that is no number (four checks in the library sweep).
+
+### D212. A hover whose way back has no animation says so
+**Chose:** when recording ends with the pointer off the element, and every transition of the last hover take is back at its first value with nothing animating it, the take is sent again with a note. The panel names it "Hover in, back at once". The description adds "When the pointer leaves, it goes back at once, with no animation." The note does not count as motion left out.
+**Why:** on Mercury and Dub the transition is only in the :hover rule, so the page snaps back. "Hover in" alone was right, but it read like the leave had been missed, which is what was reported about hovers before D205.
+**Format:** no new field. The note is one more string in `notShown`.
+
+### D213. An animation cancelled as it ends does not hold
+**Chose:** an animation that fills forwards (or both) and that the page cancels within 50 ms of its end is taken with its fill dropped: `both` becomes `backwards`, `forwards` becomes `none`. One cancelled later keeps its fill.
+**Why:** Stripe's counter rolls each digit up with fill both and cancels it as the digit's text changes, so the digit snaps back. Held, the preview stayed rolled up until the next roll, 18 px off; now it is 0 px. Chrome fires `cancel` even after an animation has finished, when the `finished` promise is already settled, so the recorder listens for that event too.
+**Gave up:** one held for a while and then cancelled (the same counter's first roll on load, held about 450 ms) still holds to the end. A track's timing cannot say "hold, then let go" without stretching its duration, which would make the description and the timeline wrong.

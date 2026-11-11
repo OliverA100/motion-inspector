@@ -17,6 +17,7 @@ import {
   parseCapture,
   parseEasing,
   shorthandOf,
+  SNAPS_BACK_NOTE,
   type Capture,
   type Easing,
   type Follow,
@@ -309,6 +310,10 @@ function playStart(animation: Animation, endTime: number, now: number): number {
   if (start === null) return now - ((asNumber(animation.currentTime) ?? begin) - begin) / rate;
   return rate < 0 ? start - endTime / Math.abs(rate) : start;
 }
+
+// How soon after its end a cancelled animation counts as let go of at its
+// end: two frames, and the page's own handler running a little late.
+const LET_GO_WITHIN_MS = 50;
 
 // Parts that open as a whole, named by their role.
 const OPENS_AS =
@@ -624,6 +629,17 @@ function read(animation: Animation): Seen | null {
       seen.ended = 'cancelled';
     },
   );
+  // A page that cancels an animation as soon as it ends lets go of its last
+  // keyframe (Stripe's counter: each digit rolls up and snaps back as its
+  // text changes). So does the take: it does not hold it. One cancelled a
+  // while after it ended held it that long, and keeps its fill.
+  animation.addEventListener('cancel', () => {
+    const now = asNumber(document.timeline.currentTime);
+    const end = seen.startTime + seen.timing.endTime;
+    if (now === null || now < end || now - end > LET_GO_WITHIN_MS) return;
+    if (seen.timing.fill === 'both') seen.timing = { ...seen.timing, fill: 'backwards' };
+    else if (seen.timing.fill === 'forwards') seen.timing = { ...seen.timing, fill: 'none' };
+  });
   return seen;
 }
 
@@ -1300,6 +1316,27 @@ function layoutTracksFor(
 const pickedAt = new WeakMap<Snapshot, { x: number; y: number }>();
 
 export const RESTARTS_MEASURED = 'Its motion is measured from the page instead.';
+
+// Whether every transition of a hover take is back where it began, with
+// nothing animating it there: the page went back with no animation.
+function wentBackAtOnce(seen: Seen[]): boolean {
+  if (seen.length === 0) return false;
+  return seen.every((item) => {
+    if (item.origin !== 'css-transition' || !item.target.isConnected) return false;
+    if (item.target.getAnimations().some((animation) => animation.playState === 'running'))
+      return false;
+    const style = getComputedStyle(item.target, item.pseudoElement);
+    const first = item.keyframes[0]?.values ?? [];
+    const last = item.keyframes.at(-1)?.values ?? [];
+    return item.properties.every((property) => {
+      const from = first.find((value) => value.property === property)?.value;
+      const to = last.find((value) => value.property === property)?.value;
+      if (from === undefined || to === undefined) return false;
+      if (sameValue(property, from, to, item.target)) return false;
+      return sameValue(property, style.getPropertyValue(cssName(property)), from, item.target);
+    });
+  });
+}
 
 export const KEPT_MOVING_NOTE = `A script kept moving this part. The first ${LONGEST_SCRIPT_TAKE_MS / 1000} seconds are shown.`;
 
@@ -2241,6 +2278,21 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // back to come: the element, or the part around it whose hover set it
   // off (a card hovered away from the picked image inside it).
   let hoveredWhenSent: Element | null = null;
+  // The last take sent, while it is a hover with no way back yet: once the
+  // pointer has left, it is looked at again (SNAPS_BACK_NOTE).
+  let lastHover: { result: TakeResult; seen: Seen[] } | null = null;
+  const sayWentBack = (): void => {
+    const capture = lastHover?.result.capture;
+    if (lastHover === null || capture === null || capture === undefined) return;
+    if (!wentBackAtOnce(lastHover.seen)) return;
+    const result = lastHover.result;
+    lastHover = null;
+    options.onTake({
+      ...result,
+      capture: { ...capture, notShown: [...capture.notShown, SNAPS_BACK_NOTE] },
+      replaces: true,
+    });
+  };
   // Where the element was, in the page, when recording began: a hover can
   // change it so that it is no longer under the pointer (oliverhassan.dev's
   // button narrows as its words roll), while the page still shows it hovered.
@@ -2923,6 +2975,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       lastTakeEnd = performance.now();
       hoveredWhenSent = null;
       hoverArea = [];
+      lastHover = null;
       options.onTake({
         ...buildTake(
           snapshot,
@@ -3000,6 +3053,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       capture.notShown.every((note) => note.endsWith('so there is nothing to see.'));
     if (nothingToSee && shownMotion) return;
     if (moves) shownMotion = true;
+    lastHover = capture?.trigger === 'hover' ? { result, seen: finished } : null;
     options.onTake(result);
   };
 
@@ -3105,6 +3159,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     idleWatch = new Map();
     idleChangeBegan = null;
     lastTakeEnd = performance.now();
+    lastHover = null;
     options.onTake(
       buildTake(
         snapshot,
@@ -3450,6 +3505,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       // the moment it moves.
       performance.now() - (pointerPath.at(-1)?.time ?? 0) > MOVED_LATELY_MS
     ) {
+      sayWentBack();
       stopped = true;
       watcher.disconnect();
       textWatcher.disconnect();
@@ -3471,6 +3527,12 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       cancelAnimationFrame(frame);
       endTake();
       sendIdleMissed();
+      // Stopped by hand once the pointer has left: the page may have gone
+      // back with no animation.
+      const hovered =
+        snapshot.rootElement.matches(':hover') ||
+        (snapshot.pickedFrom?.matches(':hover') ?? false);
+      if (!hovered) sayWentBack();
     },
   };
 }

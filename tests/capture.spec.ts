@@ -3350,3 +3350,80 @@ test('a part written to and removed at once is not measured', async ({ page }) =
   const capture = onlyCapture(await takesNow(page));
   expect(capture.tracks.length).toBeGreaterThan(0);
 });
+
+// Found on Mercury and Dub: the transition is only in the :hover rule, so
+// the page snaps back when the pointer leaves. The hover is all there is to
+// record; the take says the way back has no animation, so it does not read
+// as a leave that was missed.
+test('a hover with no animation on the way back says so', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-snap { display: inline-block; width: 80px; height: 32px; background: rgb(221, 221, 221) }
+     #sp-snap:hover { background: rgb(51, 51, 51); transition: background-color .2s }
+     #sp-ease { display: inline-block; width: 80px; height: 32px; background: rgb(221, 221, 221); transition: background-color .2s }
+     #sp-ease:hover { background: rgb(51, 51, 51) }`,
+    '<div id="sp-snap"></div><div id="sp-ease"></div>',
+    '#sp-snap',
+  );
+  const box = await page.locator('#sp-snap').boundingBox();
+  await page.mouse.move((box?.x ?? 0) + 40, (box?.y ?? 0) + 16, { steps: 3 });
+  await page.waitForTimeout(500);
+  await page.mouse.move((box?.x ?? 0) + 40, (box?.y ?? 0) + 200, { steps: 3 });
+  await page.waitForTimeout(300);
+  const snapped = onlyCapture(await takesNow(page));
+  expect(snapped.trigger).toBe('hover');
+  expect(snapped.notShown.some((note) => note.includes('no animation on the way back'))).toBe(true);
+  expect(describeCapture(snapped)).toContain('it goes back at once, with no animation');
+
+  // With a way back that animates, nothing of the sort is said.
+  await page.evaluate(() =>
+    window.MotionCapture.record(document.querySelector('#sp-ease') as Element),
+  );
+  const ease = await page.locator('#sp-ease').boundingBox();
+  await page.mouse.move((ease?.x ?? 0) + 40, (ease?.y ?? 0) + 16, { steps: 3 });
+  await page.waitForTimeout(500);
+  await page.mouse.move((ease?.x ?? 0) + 40, (ease?.y ?? 0) + 200, { steps: 3 });
+  await page.waitForTimeout(600);
+  const eased = onlyCapture(await takesNow(page));
+  expect(eased.trigger).toBe('hover-and-leave');
+  expect(eased.notShown.some((note) => note.includes('way back'))).toBe(false);
+});
+
+// Found on Stripe's counter: each digit rolls up with fill both, and the
+// page cancels the animation as it ends, so the digit snaps back as its
+// text changes. The take lets go at the end too; held, the preview stayed
+// rolled up until the next roll, 18 px off.
+test('an animation cancelled as it ends does not hold its last keyframe', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-digit { display: inline-block; width: 10px; height: 18px; background: #222 }',
+    '<span id="sp-digit"></span>',
+    '#sp-digit',
+  );
+  await page.evaluate(() => {
+    const digit = document.getElementById('sp-digit') as HTMLElement;
+    const roll = (): void => {
+      const animation = digit.animate(
+        [{ transform: 'translateY(0)' }, { transform: 'translateY(-100%)' }],
+        { duration: 200, fill: 'both' },
+      );
+      animation.onfinish = () => animation.cancel();
+    };
+    roll();
+    setTimeout(roll, 500);
+  });
+  await page.waitForTimeout(1300);
+  const captures = (await takesNow(page)).map(captureOf);
+  expect(captures.flatMap((capture) => capture.tracks.map((item) => item.timing.fill))).toEqual([
+    'backwards',
+    'backwards',
+  ]);
+  const misses = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number; opacity: number };
+    };
+    return taken.map((capture) => module.worstMiss(capture).px);
+  }, captures);
+  expect(Math.max(...misses)).toBeLessThan(2);
+});

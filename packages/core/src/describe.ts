@@ -15,7 +15,7 @@ import {
   waysBack,
   type PropertyGroup,
 } from './groups';
-import { aboutMotion } from './notes';
+import { aboutMotion, SNAPS_BACK_NOTE } from './notes';
 import { flattenShapes } from './shapes';
 import type { Capture, Follow, FollowChannel, Keyframe, ParsedValue, Shape, Track } from './types';
 
@@ -1073,6 +1073,9 @@ export function describeCapture(capture: Capture): string {
     ...(motions.length === 0 && (capture.follows ?? []).length === 0 && moved === 0
       ? ['No animations were captured.']
       : described),
+    ...(capture.notShown.includes(SNAPS_BACK_NOTE)
+      ? ['When the pointer leaves, it goes back at once, with no animation.']
+      : []),
     ...(capture.follows ?? []).map((follow) => followSentence(capture, follow)),
     ...(left === 0 ? [] : [left === 1 ? '1 more shape animates.' : `${left} more shapes animate.`]),
     ...(scripted === 0

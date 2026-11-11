@@ -7,7 +7,7 @@
 
 import { StrictMode, useEffect, useReducer, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { describeCapture, parseCapture, type Trigger } from '@motion-inspector/core';
+import { describeCapture, parseCapture, SNAPS_BACK_NOTE, type Trigger } from '@motion-inspector/core';
 import { aboutMotion, Editor, notDrawn, takeLengthMs } from '@motion-inspector/editor';
 import {
   FROM_PAGE,
@@ -199,6 +199,10 @@ const TRIGGER_WORDS: { trigger: Trigger; words: string }[] = [
 
 function triggerWords(take: StoredTake): string {
   const trigger = take.capture.trigger;
+  // The page went back with no animation: the hover is all there was.
+  if (trigger === 'hover' && take.capture.notShown.includes(SNAPS_BACK_NOTE)) {
+    return 'Hover in, back at once';
+  }
   return TRIGGER_WORDS.find((item) => item.trigger === trigger)?.words ?? 'Take';
 }
 
@@ -935,9 +939,14 @@ function PanelApp() {
                               <span
                                 className="xp__gap"
                                 title={gapWords(take) ?? ''}
+                                role="img"
                                 aria-label={gapWords(take) ?? ''}
                               >
-                                !
+                                {/* A warning mark, drawn: the panel's words use no exclamation marks. */}
+                                <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                                  <rect x="4" y="1" width="2" height="5" rx="1" fill="currentColor" />
+                                  <circle cx="5" cy="8.2" r="1.1" fill="currentColor" />
+                                </svg>
                               </span>
                             )}
                           </span>

@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import { describeCapture } from '../src/describe';
+import { SNAPS_BACK_NOTE } from '../src/notes';
 import type { Capture, ParsedValue, TransformFunction } from '../src/types';
 import { capture } from './arbitraries';
 import {
@@ -421,4 +422,10 @@ test('parts the take misses are named at the end', () => {
       '1 part changed on the page that this preview misses: "rect".',
     ),
   ).toBe(true);
+});
+
+test('a way back with no animation is said, and not counted as left out', () => {
+  const text = describeCapture({ ...cardLift, notShown: [SNAPS_BACK_NOTE] });
+  expect(text).toContain('When the pointer leaves, it goes back at once, with no animation.');
+  expect(text).not.toContain('left out');
 });
