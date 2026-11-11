@@ -2118,6 +2118,34 @@ test('a path whose outline morphs is drawn as it is now', async ({ page }) => {
   expect(halfway).toEqual(['M 30 7.5 L 92.5 30 L 70 92.5 L 7.5 70 Z']);
 });
 
+// Found on Retool: an underline drawn in on hover by growing the size of a
+// gradient that does not repeat. Drawn only where its tile is.
+test('an underline drawn in by background-size is previewed and said in words', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-uline { display: inline-block; padding-bottom: 4px; transition: background-size .4s linear;
+       background: linear-gradient(#e55, #e55) no-repeat 0 100% / 0% 2px }
+     #sp-uline.on { background-size: 100% 2px }`,
+    '<a id="sp-uline">Read the docs</a>',
+    '#sp-uline',
+  );
+  await page.evaluate(() => document.getElementById('sp-uline')?.classList.add('on'));
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.root.gradient?.tile).toMatchObject({ width: 0, height: 2 });
+  expect(describeCapture(capture)).toContain('widens its background from 0% to 100%');
+  const halfway = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (capture: unknown, timeMs: number) => { backgroundSize: string | null }[];
+    };
+    return module.posesOf(taken, 200).map((pose) => pose.backgroundSize);
+  }, capture);
+  expect(halfway).toEqual(['50% 2px']);
+});
+
 // GSAP and Lottie move SVG parts by writing their transform and opacity
 // attributes every frame, not their style.
 test('an SVG group a script turns by its transform attribute is filmed, and said as a turn in place', async ({

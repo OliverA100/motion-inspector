@@ -70,6 +70,9 @@ export type Pose = {
   // An SVG path's animated outline (the d property), as path data in its
   // own coordinates. It replaces the resting outline.
   d: string | null;
+  // An animated background-size, as computed CSS ("100% 2px"): the size of
+  // a gradient's tile (an underline growing under a link).
+  backgroundSize: string | null;
 };
 
 export type StageData = {
@@ -749,13 +752,13 @@ function fillGradient(
       const left = shape.box.x + tile.x + across * tile.width;
       const top = shape.box.y + tile.y + down * tile.height;
       context.save();
-      if (tile.repeat) {
-        // Each copy only within its own tile. The shape's path is kept: a
-        // clip does not replace the current path.
-        const region = new Path2D();
-        region.rect(left, top, tile.width, tile.height);
-        context.clip(region);
-      }
+      // Each copy only within its own tile, and a single tile too: CSS
+      // paints a background image that does not repeat only where its tile
+      // is (an underline 2 px tall, drawn in by background-size). The
+      // shape's path is kept: a clip does not replace the current path.
+      const region = new Path2D();
+      region.rect(left, top, tile.width, tile.height);
+      context.clip(region);
       fillOneTile(context, gradient, left, top, tile.width, tile.height);
       context.restore();
     }
@@ -772,7 +775,19 @@ function tileAt(
 ): { x: number; y: number; width: number; height: number; repeat: boolean } {
   const boxWidth = Math.max(pose?.width ?? shape.box.width, 0);
   const boxHeight = Math.max(pose?.height ?? shape.box.height, 0);
-  const tile = gradient.tile ?? { x: 0, y: 0, width: boxWidth, height: boxHeight, repeat: false };
+  const resting = gradient.tile ?? { x: 0, y: 0, width: boxWidth, height: boxHeight, repeat: false };
+  // An animated size: px, or a share of the box; auto keeps the resting one.
+  const [sizeX, sizeY] = (pose?.backgroundSize ?? '').trim().split(/\s+/);
+  const length = (value: string | undefined, rest: number, whole: number): number => {
+    if (value === undefined || value === '' || value === 'auto') return rest;
+    const number = parseFloat(value);
+    if (!Number.isFinite(number)) return rest;
+    return value.endsWith('%') ? (number / 100) * whole : number;
+  };
+  const width = length(sizeX, resting.width, boxWidth);
+  // One value sets the width only; the height stays as it was.
+  const height = length(sizeY, resting.height, boxHeight);
+  const tile = { ...resting, width, height };
   const offset = (value: string | null, rest: number, free: number): number => {
     if (value === null) return rest;
     const number = parseFloat(value);

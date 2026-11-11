@@ -1043,3 +1043,9 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - The look a part had before a take goes into its film just before its first animation began, not a frame before it was first filmed (which may be some frames later).
 - An <svg> in the page (not inside another svg) takes percentages in its film from its CSS box, as the snapshot does, not from its drawing.
 **Why:** Figma's button: its icon's fade looked 29% off in its first frame (the look before the take sat inside the fade), and its translate: 0 -50% was read as 7.8 px instead of 10. Now 0 px.
+
+### D180. A background image that does not repeat is drawn only on its tile; background-size is previewed
+**Chose:**
+- The stage clips every gradient tile to its own area, a single one too. A background image that does not repeat is painted only where its tile is, as in CSS.
+- background-size is previewed: the probe reads it, and the tile takes that size (px, a share of the box, or auto for the resting size). The description says the background widens or grows, from what to what.
+**Why:** Retool's links draw their underline in on hover by growing a gradient's size. It was listed as not drawn, and at rest a 2 px underline of 0 width filled the whole link.

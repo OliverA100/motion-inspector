@@ -424,6 +424,20 @@ function phraseBetween(
   if (property === 'clip-path') return clipPhrase(from.value, to.value);
   // An SVG path's d: its outline turns into another (an icon morphing).
   if (property === 'd') return 'morphs its outline';
+  // A background image's size: a gradient drawn in (an underline growing).
+  if (property === 'background-size') {
+    const [fromWidth, fromHeight] = from.value.trim().split(/\s+/);
+    const [toWidth, toHeight] = to.value.trim().split(/\s+/);
+    const widens = fromWidth !== toWidth;
+    const heightens = (fromHeight ?? 'auto') !== (toHeight ?? 'auto');
+    if (widens && !heightens) {
+      return `${parseFloat(toWidth ?? '0') > parseFloat(fromWidth ?? '0') ? 'widens' : 'narrows'} its background from ${fromWidth} to ${toWidth}`;
+    }
+    if (heightens && !widens) {
+      return `${parseFloat(toHeight ?? '0') > parseFloat(fromHeight ?? '0') ? 'grows' : 'shrinks'} its background from ${fromHeight} to ${toHeight} tall`;
+    }
+    return `resizes its background from ${from.value} to ${to.value}`;
+  }
   if (property === 'background-image') {
     const start = conicStart(from.value);
     const end = conicStart(to.value);

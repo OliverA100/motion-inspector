@@ -73,6 +73,8 @@ export const PREVIEWED_PROPERTIES = [
   'background-image',
   // An SVG path's outline morphing.
   'd',
+  // A gradient's tile growing (an underline drawn in on hover).
+  'background-size',
 ];
 
 // Size and position: measured against the containing block on the page,
@@ -507,6 +509,7 @@ function poseOf(
     backgroundY: firstLayer(valueOf('background-position-y')),
     backgroundImage: valueOf('background-image'),
     d: shape.kind === 'path' ? pathData(valueOf('d')) : null,
+    backgroundSize: firstLayer(valueOf('background-size')),
     radius: has(corners) ? [corner(0), corner(1), corner(2), corner(3)] : null,
     width: poseWidth,
     height: poseHeight,
