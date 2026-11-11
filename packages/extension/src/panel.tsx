@@ -8,7 +8,7 @@
 import { StrictMode, useEffect, useReducer, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describeCapture, parseCapture, type Trigger } from '@motion-inspector/core';
-import { Editor, takeLengthMs } from '@motion-inspector/editor';
+import { aboutMotion, Editor, isPreviewed, takeLengthMs } from '@motion-inspector/editor';
 import {
   FROM_PAGE,
   PANEL_PORT,
@@ -185,6 +185,26 @@ const TRIGGER_WORDS: { trigger: Trigger; words: string }[] = [
 function triggerWords(take: StoredTake): string {
   const trigger = take.capture.trigger;
   return TRIGGER_WORDS.find((item) => item.trigger === trigger)?.words ?? 'Take';
+}
+
+// What a take already knows it lacks, without playing it: parts that moved
+// and are not in it, motion left out, properties not drawn. null when
+// nothing. The editor's badge says the rest (how close it is).
+function gapWords(take: StoredTake): string | null {
+  const capture = take.capture;
+  const missed = (capture.missed ?? []).length;
+  const leftOut = capture.notShown.filter(aboutMotion).length;
+  const notDrawn = new Set(
+    capture.tracks.map((track) => track.property).filter((name) => !isPreviewed(name)),
+  ).size;
+  const words = [
+    ...(missed === 0 ? [] : [missed === 1 ? '1 part missing' : `${missed} parts missing`]),
+    ...(notDrawn === 0
+      ? []
+      : [notDrawn === 1 ? '1 property not drawn' : `${notDrawn} properties not drawn`]),
+    ...(leftOut === 0 ? [] : [leftOut === 1 ? '1 thing left out' : `${leftOut} things left out`]),
+  ];
+  return words.length === 0 ? null : words.join(', ');
 }
 
 function lengthWords(take: StoredTake): string {
@@ -819,7 +839,18 @@ function PanelApp() {
                         onClick={() => dispatch({ kind: 'takeSelected', id: take.id })}
                       >
                         <span className="xp__take-head">
-                          <span className="xp__trigger">{triggerWords(take)}</span>
+                          <span className="xp__trigger">
+                            {triggerWords(take)}
+                            {gapWords(take) === null ? null : (
+                              <span
+                                className="xp__gap"
+                                title={gapWords(take) ?? ''}
+                                aria-label={gapWords(take) ?? ''}
+                              >
+                                !
+                              </span>
+                            )}
+                          </span>
                           <span className="xp__take-meta" title={takeTime(take)}>
                             {lengthWords(take)}
                           </span>

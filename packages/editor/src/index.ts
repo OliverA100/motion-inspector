@@ -9,6 +9,7 @@ export { SpeedGraph } from './pieces/SpeedGraph';
 export { Stage } from './pieces/Stage';
 export { Timeline } from './pieces/Timeline';
 export { createProbe, isPreviewed } from './probe';
+export { aboutMotion } from './selfCheck';
 export type { Probe } from './probe';
 export type { Compare, Model, Msg, Speed } from './state/model';
 export { plainName, takeLengthMs, timelineRows } from './state/selectors';
