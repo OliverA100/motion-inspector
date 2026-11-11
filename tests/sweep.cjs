@@ -763,7 +763,10 @@ async function sweepSite(browser, editor, site) {
     if (badge === undefined) continue;
     const kind = badge.startsWith('Matches')
       ? 'matches'
-      : badge.replace(/^\d+ /, 'N ').replace(/[\d.]+ px/, 'X px').replace(/: .*/, '');
+      : badge
+          .replace(/^\d+ /, 'N ')
+          .replace(/[\d.]+ px/, 'X px')
+          .replace(/: .*/, '');
     tally.set(kind, (tally.get(kind) ?? 0) + 1);
   }
   const tallyLines = Array.from(tally, ([kind, count]) => `  ${count}  ${kind}`).sort();
