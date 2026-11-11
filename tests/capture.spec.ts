@@ -1047,6 +1047,28 @@ test('a loop that only turns a registered variable is filmed for one turn and dr
   expect(capture.notShown.join(' ')).not.toContain('only changes CSS variables');
 });
 
+// Found on Cal: a menu fades out, and at the same moment a class shrinks it
+// to 0.95 with no transition. Its fade is a track; the shrink, seen only in
+// its film, is measured too.
+test('a jump with no transition on a part that also fades is measured from its film', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-menu-box { width: 200px; height: 120px }
+     .sp-menu { width: 160px; height: 100px; background: #36f; transition: opacity .3s }
+     .sp-menu.closing { opacity: 0; scale: 0.5 }`,
+    '<div id="sp-menu-box"><div class="sp-menu"></div></div>',
+    '#sp-menu-box',
+  );
+  await page.evaluate(() => document.querySelector('.sp-menu')?.classList.add('closing'));
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  const properties = capture.tracks.map((item) => `${item.origin}:${item.property}`);
+  expect(properties).toContain('css-transition:opacity');
+  expect(properties).toContain('script:transform');
+});
+
 // Found on Attio: a button lit on hover by a registered color variable that
 // a radial gradient uses. Chrome lists the variable, which cannot be drawn;
 // the gradient it changes is filmed and drawn in its colors now.

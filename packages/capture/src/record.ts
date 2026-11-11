@@ -2301,11 +2301,23 @@ function buildTake(
     followed.has(seen.target) &&
     seen.pseudoElement === null &&
     seen.properties.every((property) => TRANSFORM_PROPERTIES.includes(property));
+  // Parts the browser animates are filmed too. What their film shows change
+  // that none of their own animations do (a class flip with no transition:
+  // Cal's menu shrinking to 0.95 as it fades out) is measured as well.
+  const filmedByBrowser = Array.from(film.keys()).filter(
+    (element) =>
+      !scripted.has(element) &&
+      !followed.has(element) &&
+      take.some((seen) => seen.target === element && seen.pseudoElement === null),
+  );
   const scripts = scriptTracksFor(
     snapshot,
     take,
     film,
-    new Set(Array.from(scripted).filter((element) => !followed.has(element))),
+    new Set([
+      ...Array.from(scripted).filter((element) => !followed.has(element)),
+      ...filmedByBrowser,
+    ]),
     takeStart,
   ) as { shapeId: unknown; property: unknown; groupId: string | null }[];
   // A part a script turns in 3D is measured as it looks: flat. Said, so
@@ -3160,10 +3172,13 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     restingFrames = new Map();
     for (const element of finishedScripted) {
       const last = finishedFilm.get(element)?.at(-1);
-      if (last !== undefined) {
-        restingFrames.set(element, last);
-        lastKnown.set(element, last);
-      }
+      if (last !== undefined) restingFrames.set(element, last);
+    }
+    // Where every filmed part came to rest: the look the next take's film
+    // starts from.
+    for (const [element, frames] of finishedFilm) {
+      const last = frames.at(-1);
+      if (last !== undefined) lastKnown.set(element, last);
     }
     take = [];
     samples = [];
@@ -3684,7 +3699,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         ) {
           continue;
         }
-        frames.push({ time: docNow, ...frameNow(element) });
+        const now: FilmFrame = { time: docNow, ...frameNow(element) };
+        // Its look before the take, a frame before: a change made at the
+        // same moment with no transition (a class flip) shows in the film.
+        const before = frames.length === 0 ? lastKnown.get(element) : undefined;
+        if (before !== undefined && !sameFrame(before, now)) {
+          frames.push({ ...before, time: docNow - ONE_FRAME_MS });
+        }
+        frames.push(now);
         film.set(element, frames);
       }
       // The ::before and ::after the take animates, filmed too, so they

@@ -1033,3 +1033,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D177. A radial gradient whose colors change is drawn
 **Chose:** films keep a background-image that is a radial-gradient(), as they keep linear and conic ones. The stage draws the resting radial layer in the colors the film gives, when it has as many stops.
 **Why:** Attio's buttons are lit on hover by a registered color variable that a radial gradient uses: the variable was listed as not drawn.
+
+### D178. What a page changes with no animation, on a part it also animates, is measured
+**Chose:** parts the browser animates are filmed for the check. Their film is now also fitted, as a script's is, for what none of their own animations change (their own properties are left to their tracks): a class flip with no transition. Every filmed part's film starts from its look before the take, and that look is kept where each take ends.
+**Why:** Cal's menu fades out, and in the same moment a class shrinks it to 0.95 with no transition: the preview kept it full size, 20 px off. Now 0 px.
