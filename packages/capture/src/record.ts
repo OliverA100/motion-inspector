@@ -1873,6 +1873,16 @@ function buildTake(
       !followed.has(element) &&
       take.some((seen) => seen.target === element && seen.pseudoElement === null),
   );
+  // A part a CSS variable moves that has animations of its own too:
+  // basement.studio's links fade to 50% by a transition, then blink through
+  // an animated variable used in their opacity. The film has both; the
+  // transition alone left the link at 50%, while the page blinked back.
+  const throughVariables = new Set(
+    take
+      .filter(changesVariables)
+      .flatMap((seen) => partsUsingVariables(snapshot, seen.target))
+      .filter((part) => film.has(part) && !followed.has(part)),
+  );
   const scripts = scriptTracksFor(
     snapshot,
     take,
@@ -1882,6 +1892,7 @@ function buildTake(
       ...filmedByBrowser,
     ]),
     takeStart,
+    throughVariables,
   ) as { shapeId: unknown; property: unknown; groupId: string | null }[];
   // A part a script turns in 3D is measured as it looks: flat. Said, so
   // "rotates and slants" is not taken for what the page wrote.
@@ -1906,15 +1917,25 @@ function buildTake(
       measuredIds.has(snapshot.shapeIdOf.get(part)),
     );
   const kept = take.filter((seen) => !replacedByRule(seen) && !measuredThrough(seen));
-  const built = kept.map((seen, index) =>
+  const built = kept.map((seen, index) => {
     // Properties from one animation share its timing: one group.
-    tracksFor(
+    const item = tracksFor(
       snapshot,
       seen,
       seen.properties.length > 1 ? `animation-${index + 1}` : null,
       takeStart,
-    ),
-  );
+    );
+    // On a part a variable moves, a property its film measured is shown by
+    // that: its own animation's track would only cover part of it.
+    if (seen.pseudoElement !== null || !throughVariables.has(seen.target)) return item;
+    const id = snapshot.shapeIdOf.get(seen.target);
+    const measured = (property: unknown): boolean =>
+      scripts.some((track) => track.shapeId === id && track.property === property);
+    return {
+      ...item,
+      tracks: item.tracks.filter((track) => !measured((track as { property: unknown }).property)),
+    };
+  });
   // The way there and the way back of one property share a group, so an
   // edit to its curve or duration applies to both, as one CSS transition
   // does. Unlinking separates them.
@@ -3541,8 +3562,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       // Stopped by hand once the pointer has left: the page may have gone
       // back with no animation.
       const hovered =
-        snapshot.rootElement.matches(':hover') ||
-        (snapshot.pickedFrom?.matches(':hover') ?? false);
+        snapshot.rootElement.matches(':hover') || (snapshot.pickedFrom?.matches(':hover') ?? false);
       if (!hovered) sayWentBack();
     },
   };

@@ -18,12 +18,18 @@ import {
 import type { Model } from './model';
 
 // How long the take is, for the playhead and the timeline's right edge.
-// An animation that repeats forever is shown for two of its cycles.
+// An animation that repeats forever is shown for two of its cycles, up to
+// LONGEST_LOOP_SHOWN_MS: a slow one (Magic UI's marquee turns once in 90 s)
+// made the take 3 minutes long, the rest of it a sliver at the start.
+export const LONGEST_LOOP_SHOWN_MS = 10_000;
+
 export function takeLengthMs(capture: Capture): number {
   const ends = capture.tracks.map(
     (track) =>
       trackEndTime(track) ??
-      track.startOffset + Math.max(track.timing.delay, 0) + track.timing.duration * 2,
+      track.startOffset +
+        Math.max(track.timing.delay, 0) +
+        Math.min(track.timing.duration * 2, LONGEST_LOOP_SHOWN_MS),
   );
   return Math.max(1, saturate(Math.max(0, ...ends)));
 }

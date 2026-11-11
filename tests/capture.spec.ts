@@ -3439,7 +3439,11 @@ test.describe('on a screen with a device pixel ratio of 2', () => {
   ): Promise<{ page: Page; close: () => Promise<void> }> => {
     const browser = await browserType.launch({ args: ['--force-device-scale-factor=2'] });
     const page = await (
-      await browser.newContext({ baseURL, viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 })
+      await browser.newContext({
+        ...(baseURL === undefined ? {} : { baseURL }),
+        viewport: { width: 1280, height: 720 },
+        deviceScaleFactor: 2,
+      })
     ).newPage();
     return { page, close: () => browser.close() };
   };
@@ -3455,8 +3459,10 @@ test.describe('on a screen with a device pixel ratio of 2', () => {
       box.style.transform = 'translateX(2px)';
       return [
         devicePixelRatio,
-        box.getAnimations()[0]?.effect?.getKeyframes().at(-1)?.transform,
-        box.animate([{ transform: 'translateX(2px)' }], 1000).effect?.getKeyframes()[0]?.transform,
+        (box.getAnimations()[0]?.effect as KeyframeEffect | null)?.getKeyframes().at(-1)?.transform,
+        (
+          box.animate([{ transform: 'translateX(2px)' }], 1000).effect as KeyframeEffect | null
+        )?.getKeyframes()[0]?.transform,
       ];
     });
     await close();
@@ -3488,4 +3494,34 @@ test.describe('on a screen with a device pixel ratio of 2', () => {
     expect(describeCapture(capture)).toContain('moves right 2 px');
     expect(miss.px).toBeLessThan(0.5);
   });
+});
+
+// Found on basement.studio: a link fades to 50% by a transition, then
+// blinks back through an animated variable its opacity is written with.
+// Chrome lists no values for an unregistered variable's keyframes. The
+// film shows the blink; the transition alone left the link at 50%.
+test('a part a variable moves shows its film over its own transition', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-blink { display: inline-block; width: 80px; height: 20px; background: #222;
+       --sp-v: 100; opacity: calc(var(--sp-v) * .01); transition: opacity 60ms }
+     #sp-blink:hover { --sp-v: 50; animation: sp-blink .3s 60ms linear forwards }
+     @keyframes sp-blink { 20%, 60%, 100% { --sp-v: 100 } 40%, 80% { --sp-v: 50 } }`,
+    '<a id="sp-blink"></a>',
+    '#sp-blink',
+  );
+  const box = await page.locator('#sp-blink').boundingBox();
+  await page.mouse.move((box?.x ?? 0) + 40, (box?.y ?? 0) + 10, { steps: 2 });
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  const opacity = capture.tracks.filter((item) => item.property === 'opacity');
+  expect(opacity.map((item) => item.origin)).toEqual(['script']);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number; opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.opacity).toBeLessThan(0.1);
 });

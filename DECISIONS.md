@@ -1217,3 +1217,11 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 **Chose:** a CSS transition's transform keyframes have their px lengths (in translate and perspective, and the moves of matrix and matrix3d) divided by `devicePixelRatio` as they are read. A test pins what Chrome reports at a ratio of 2, so a fix in Chrome fails it and this can be taken out.
 **Other options:** (b) read a transition's ends from `getComputedStyle` instead (exact, but its start is only known as the transition begins, and its end only once it has finished); (c) leave the values and say so on screens with a ratio above 1.
 **Not checked:** browser zoom. `devicePixelRatio` includes it, and Chrome applies both as one zoom, so it is expected to be covered too.
+
+### D215. A slow loop is shown for at most 10 seconds
+**Chose:** an animation that repeats forever counts toward the take's length as two turns, but no more than 10 s.
+**Why:** Magic UI's marquee turns once in 90 s, so its load take was "180 s" long and the fades in it were a sliver at the start of the timeline. The preview still plays the marquee as it moves; it just repeats the take sooner.
+
+### D216. A part a CSS variable moves is shown by its film, over its own animations
+**Chose:** on a part that an animation of CSS variables moves, a property its film measured is shown by that film. The part's own transition or animation of the same property is left out.
+**Why:** basement.studio's links fade to 50% with an opacity transition, then blink back through an animated variable used in their opacity. Chrome lists no values for an unregistered variable's keyframes, so only the film has the blink. The transition alone left the link at 50% while the page blinked back to full: 50% off. Now 1% off.

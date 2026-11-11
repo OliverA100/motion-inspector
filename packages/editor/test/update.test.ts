@@ -166,6 +166,19 @@ describe('playback', () => {
   test('an animation that repeats forever is shown for two cycles', () => {
     expect(takeLengthMs(loader)).toBe(1800);
   });
+
+  // Found on Magic UI: a marquee that turns once in 90 s made the take 3
+  // minutes long.
+  test('a slow loop is shown for at most 10 seconds', () => {
+    const marquee = {
+      ...loader,
+      tracks: loader.tracks.map((track) => ({
+        ...track,
+        timing: { ...track.timing, duration: 90_000 as typeof track.timing.duration },
+      })),
+    };
+    expect(takeLengthMs(marquee)).toBe(10_000);
+  });
 });
 
 describe('editing the curve', () => {

@@ -377,6 +377,9 @@ export function scriptTracksFor(
   film: Film,
   scripted: Set<Element>,
   takeStart: number,
+  // Parts a CSS variable moves: their film is the motion, their own
+  // animations of the same properties included (see record.ts).
+  throughVariables: Set<Element> = new Set(),
 ): unknown[] {
   const tracks: unknown[] = [];
   for (const [element, written] of film) {
@@ -548,7 +551,7 @@ export function scriptTracksFor(
           : group.property === 'offset-distance'
             ? animated.has(group.property) || along !== true
             : animated.has(group.property);
-      if (own) continue;
+      if (own && !throughVariables.has(element)) continue;
       const still = group.channels.every((channel) => {
         const values = channel.values;
         return Math.max(...values) - Math.min(...values) < channel.tolerance;
