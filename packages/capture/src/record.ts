@@ -1651,6 +1651,24 @@ function movesInFilm(frames: FilmFrame[] | undefined): boolean {
   return first !== undefined && frames.some((frame) => !sameFrame(frame, first));
 }
 
+// How long after the pointer last moved recording may stop by itself.
+const MOVED_LATELY_MS = 500;
+
+// Whether the pointer was last seen inside one of these boxes (page
+// coordinates), with a few pixels to spare.
+function pointerStillIn(boxes: Box[]): boolean {
+  const last = pointerPath.at(-1);
+  if (last === undefined || boxes.length === 0) return false;
+  const spare = 4;
+  return boxes.some(
+    (box) =>
+      last.x >= box.x - spare &&
+      last.x <= box.x + box.width + spare &&
+      last.y >= box.y - spare &&
+      last.y <= box.y + box.height + spare,
+  );
+}
+
 // How long the parent beside an element waits for what the element has
 // just expanded to start moving.
 const EXPANDS_WITHIN_MS = 400;
@@ -2214,6 +2232,21 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // back to come: the element, or the part around it whose hover set it
   // off (a card hovered away from the picked image inside it).
   let hoveredWhenSent: Element | null = null;
+  // Where the element was, in the page, when recording began: a hover can
+  // change it so that it is no longer under the pointer (oliverhassan.dev's
+  // button narrows as its words roll), while the page still shows it hovered.
+  const pageBox = (element: Element | null): Box | null => {
+    if (element === null) return null;
+    const r = element.getBoundingClientRect();
+    return {
+      x: r.left + window.scrollX,
+      y: r.top + window.scrollY,
+      width: r.width,
+      height: r.height,
+    };
+  };
+  const boxAtStart = pageBox(snapshot.rootElement);
+  let hoverArea: Box[] = [];
   // Layout read every frame while the take animates something that can
   // move the parts around it.
   let samples: LayoutSample[] = [];
@@ -2880,6 +2913,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
           : first;
       lastTakeEnd = performance.now();
       hoveredWhenSent = null;
+      hoverArea = [];
       options.onTake({
         ...buildTake(
           snapshot,
@@ -2931,6 +2965,12 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       capture?.trigger === 'hover'
         ? (hoveredAround(snapshot.rootElement) ?? hoveredAround(snapshot.pickedFrom ?? null))
         : null;
+    hoverArea =
+      capture?.trigger === 'hover'
+        ? [boxAtStart, pageBox(snapshot.rootElement), pageBox(snapshot.pickedFrom ?? null)].filter(
+            (box): box is Box => box !== null && box.width > 0,
+          )
+        : [];
     // Only the end of something that was already moving when the element
     // was picked (most often the hover that reaching for it started): its
     // start was never seen. It is not listed, and nothing joins it: the
@@ -3393,10 +3433,13 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       !(snapshot.pickedFrom?.matches(':hover') ?? false) &&
       // Still on the part whose hover set the take off, for a while.
       !(
-        hoveredWhenSent !== null &&
-        hoveredWhenSent.matches(':hover') &&
+        ((hoveredWhenSent !== null && hoveredWhenSent.matches(':hover')) ||
+          pointerStillIn(hoverArea)) &&
         now - lastTakeEnd < HOVER_WAITS_MS
-      )
+      ) &&
+      // The page answers the pointer leaving a frame or more later: not in
+      // the moment it moves.
+      performance.now() - (pointerPath.at(-1)?.time ?? 0) > MOVED_LATELY_MS
     ) {
       stopped = true;
       watcher.disconnect();

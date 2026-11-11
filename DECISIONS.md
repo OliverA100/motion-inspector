@@ -1169,3 +1169,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - A joined take that began with a hover is "Hover in and out", whatever the pointer crossed on the way out.
 - Recording asks to move to a parent before it stops: a move that fails leaves it recording where it was, with the take it holds.
 **Why:** on Linear, hovering a nav item followed the chat in the hero, which adds messages on its own. On Linear and Stripe, a nav menu opened by a hover came out as two takes, "Hover in" twice: the menu's position written by a script counted as script motion, the close faded links the open had not, and a failed move to a hidden wrapper restarted recording, losing the first take.
+
+### D205. Recording does not stop by itself as the pointer leaves
+**Chose:** recording stops by itself only once the pointer has been still for half a second, and, after a hover, not while the pointer is where the element was when recording began (a hover can move or narrow it from under a pointer that has not moved).
+**Why:** tested through the real side panel, a hover held longer than recording waits to stop came out as "Hover in" alone, on oliverhassan.dev's rolling button and on Stripe's nav. Recording stopped in the very frame the pointer left, before the page began its way back: a script (React) answers a frame or more later. Recorded by a test harness, which leaves sooner, it had not shown.

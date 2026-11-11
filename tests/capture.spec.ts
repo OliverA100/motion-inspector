@@ -3148,3 +3148,51 @@ test('a menu a hover opens, placed by a script, closes in the same take', async 
     'div.sp-menu hover-and-leave',
   ]);
 });
+
+// Found through the side panel on oliverhassan.dev and Stripe: with the
+// hover held longer than recording waits to stop by itself, the pointer
+// leaving stopped it in that very frame, before the page began its way back
+// (a frame later, or after a delay). The way back is recorded.
+test('a way back that starts a moment after the pointer leaves a long hover is recorded', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `#sp-late { width: 120px; height: 40px; background: #36f; transition: transform .2s }
+      #sp-late.on { transform: translateY(-6px) }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="sp-late"></div>';
+    document.body.prepend(holder);
+    // As React does: the hover is a state, set and cleared by the page's
+    // script, a little after the pointer comes and goes.
+    const late = document.getElementById('sp-late') as HTMLElement;
+    late.addEventListener('mouseenter', () => late.classList.add('on'));
+    late.addEventListener('mouseleave', () =>
+      window.setTimeout(() => late.classList.remove('on'), 80),
+    );
+  });
+  await page.mouse.move(400, 600);
+  await page.evaluate(() => {
+    const seen: Take[] = [];
+    (window as unknown as { seenTakes: Take[] }).seenTakes = seen;
+    window.MotionCapture.record(
+      document.getElementById('sp-late') as Element,
+      (take) => seen.push(take),
+      () => {},
+      // @ts-expect-error: the fourth argument, onStopped, is not in the test's type.
+      () => {},
+    );
+  });
+  await page.hover('#sp-late');
+  await page.waitForTimeout(2500);
+  await page.mouse.move(400, 600);
+  await page.waitForTimeout(1500);
+  const triggers = await page.evaluate(() =>
+    (window as unknown as { seenTakes: Take[] }).seenTakes.map(
+      (take) => `${take.replaces ? 'replaces ' : ''}${take.capture?.trigger}`,
+    ),
+  );
+  expect(triggers.at(-1)).toBe('replaces hover-and-leave');
+});
