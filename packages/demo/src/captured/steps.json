@@ -162,7 +162,7 @@
           "opacity": 1
         },
         {
-          "t": 83.3,
+          "t": 83.4,
           "matrix": [1, 0, 0, 1, 0, 0],
           "taper": null,
           "opacity": 1
@@ -240,13 +240,13 @@
           "opacity": 1
         },
         {
-          "t": 733.3,
+          "t": 733.2,
           "matrix": [1, 0, 0, 1, 72, 0],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 783.3,
+          "t": 783.2,
           "matrix": [1, 0, 0, 1, 72, 0],
           "taper": null,
           "opacity": 1
@@ -258,7 +258,7 @@
           "opacity": 1
         },
         {
-          "t": 883.2,
+          "t": 883.3,
           "matrix": [1, 0, 0, 1, 96, 0],
           "taper": null,
           "opacity": 1
@@ -270,7 +270,7 @@
           "opacity": 1
         },
         {
-          "t": 983.3,
+          "t": 983.2,
           "matrix": [1, 0, 0, 1, 96, 0],
           "taper": null,
           "opacity": 1

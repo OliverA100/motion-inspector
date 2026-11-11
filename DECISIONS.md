@@ -1263,3 +1263,11 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D224. Pick the part around it
 **Chose:** after a pick, the panel offers "Pick the part around it", which moves the pick out one level (to the nearest part with a box, short of the page). While picking, the panel says ↑ and ↓ move to the part around it or inside it.
 **Why:** asked for: a wrapper whose parts cover it all could not be clicked, and the arrow keys were not mentioned anywhere.
+
+### D225. Distances inside a part are scaled across and down apart
+**Chose:** how much larger a part is drawn than its layout size is measured across and down separately, and a difference under a pixel is taken as rounding (offsetWidth and offsetHeight are whole pixels), not a scale.
+**Why:** found by hand on oliverhassan.dev's About page. As the page loads, the heading's letters are turned 80 degrees about y: drawn at 17% of their width and their full height. One scale for both put each letter's text 540 px below it. The samples were re-recorded: their text moves by up to 0.2 px, the rounding taken as a scale before.
+
+### D226. Up to 80 parts are drawn; big text is drawn as soft blocks
+**Chose:** a take draws up to 80 parts (40 before). A bar of text has corners of at most 3 px plus 12% of its height, so a line of body text is still a pill and a letter in display type is a block.
+**Why:** that heading is 19 letters of three parts each; at 40 a letter was missing from the word. Rounded fully, each letter on its own was a black disc.

@@ -3618,3 +3618,29 @@ test('picker: a canvas cannot be picked, the part around it can', async ({ page 
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => (window as unknown as { picked: string }).picked)).toBe('true');
 });
+
+// Found by hand on oliverhassan.dev: the heading's letters are turned 80
+// degrees about y as the page loads. Drawn narrower but not shorter, one
+// scale for both put each letter's text 540 px below it.
+test('the text of a part turned in 3D stays inside it', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-turned { display: inline-block; font-size: 60px; line-height: 1; transform: rotateY(80deg) }`,
+    '<span id="sp-turned">D</span>',
+    '#sp-turned',
+  );
+  await page.evaluate(() =>
+    (document.getElementById('sp-turned') as HTMLElement).animate(
+      [{ transform: 'rotateY(80deg)' }, { transform: 'rotateY(0deg)' }],
+      { duration: 200, fill: 'forwards' },
+    ),
+  );
+  await page.waitForTimeout(600);
+  const capture = onlyCapture(await takesNow(page));
+  const text = flattenShapes(capture.root).find((shape) => shape.kind === 'text');
+  expect(text).toBeDefined();
+  expect(text?.box.y ?? -1).toBeGreaterThanOrEqual(0);
+  expect((text?.box.y ?? 999) + (text?.box.height ?? 0)).toBeLessThanOrEqual(
+    capture.root.box.height,
+  );
+});

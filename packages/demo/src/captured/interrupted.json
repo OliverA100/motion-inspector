@@ -61,9 +61,9 @@
         "label": "text",
         "kind": "text",
         "box": {
-          "x": 16.04,
-          "y": 13.69,
-          "width": 63.92,
+          "x": 16,
+          "y": 13.65,
+          "width": 63.77,
           "height": 7.7
         },
         "radius": [3.85, 3.85, 3.85, 3.85],
@@ -92,11 +92,11 @@
         "words": [
           {
             "x": 0,
-            "width": 39.72
+            "width": 39.63
           },
           {
-            "x": 43.34,
-            "width": 20.58
+            "x": 43.23,
+            "width": 20.53
           }
         ],
         "underline": null,
@@ -216,12 +216,12 @@
       "property": "transform",
       "origin": "css-transition",
       "groupId": "s0:transform",
-      "startOffset": 33.29,
+      "startOffset": 33,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.573714px)",
+          "value": "translateY(-0.574017px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -252,7 +252,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.63,
+        "duration": 51.66,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -274,12 +274,12 @@
       "property": "box-shadow",
       "origin": "css-transition",
       "groupId": "s0:box-shadow",
-      "startOffset": 49.99,
+      "startOffset": 49,
       "interrupted": true,
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.216) 0px 2.43428px 6.016px 0px",
+          "value": "rgba(0, 0, 0, 0.216) 0px 2.43504px 6.01812px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -298,7 +298,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.63,
+        "duration": 51.66,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -324,13 +324,19 @@
       "shapeId": "s0",
       "frames": [
         {
+          "t": -1,
+          "matrix": [1, 0, 0, 1, 0, 0],
+          "taper": null,
+          "opacity": 1
+        },
+        {
           "t": 33.3,
           "matrix": [1, 0, 0, 1, 0, -0.57],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 83.4,
+          "t": 83.3,
           "matrix": [1, 0, 0, 1, 0, 0],
           "taper": null,
           "opacity": 1
@@ -354,7 +360,7 @@
           "opacity": 1
         },
         {
-          "t": 283.4,
+          "t": 283.3,
           "matrix": [1, 0, 0, 1, 0, 0],
           "taper": null,
           "opacity": 1

@@ -49,7 +49,9 @@ export const PREVIEWED_PROPERTIES = [
 
 const TRANSFORM_LIKE = ['transform', 'translate', 'rotate', 'scale'];
 const IMAGE_TAGS = ['img', 'svg', 'canvas', 'video', 'picture'];
-const MOST_SHAPES = 40;
+// Enough for a heading split into letters, three parts each (oliverhassan.dev:
+// 19 letters, 57 parts; at 40 a letter was missing from the word).
+const MOST_SHAPES = 80;
 const IMAGE_FILL = 'rgb(200, 200, 200)';
 const UNKNOWN_FILL = '#d9d9d9';
 
@@ -278,10 +280,18 @@ function layoutPosition(element: HTMLElement): { x: number; y: number } {
 // How much larger an element is drawn than its layout size, from transforms
 // on it or on its parents (a hero that is tilted and scaled, for example).
 // On-screen distances are divided by this to get layout distances.
-function drawnScale(element: Element): number {
-  if (!(element instanceof HTMLElement) || element.offsetWidth === 0) return 1;
-  const drawn = element.getBoundingClientRect().width;
-  return drawn > 0 ? drawn / element.offsetWidth : 1;
+// Across and down apart: a part turned in 3D is drawn narrower, not
+// shorter (oliverhassan.dev's letters, turned 80 degrees as the page loads,
+// are drawn at 17% of their width and their full height). One scale for
+// both put their text 540 px below them.
+function drawnScale(element: Element): { x: number; y: number } {
+  if (!(element instanceof HTMLElement)) return { x: 1, y: 1 };
+  const drawn = element.getBoundingClientRect();
+  // offsetWidth and offsetHeight are whole pixels: under a pixel apart is
+  // their rounding, not a scale.
+  const of = (size: number, laid: number): number =>
+    laid > 0 && size > 0 && Math.abs(size - laid) >= 1 ? size / laid : 1;
+  return { x: of(drawn.width, element.offsetWidth), y: of(drawn.height, element.offsetHeight) };
 }
 
 function nearestHtmlParent(element: Element): HTMLElement | null {
@@ -305,10 +315,10 @@ function layoutBox(element: Element, walk: Walk): Box {
       const drawn = element.getBoundingClientRect();
       const drawnAnchor = anchor.getBoundingClientRect();
       return {
-        x: anchorBox.x + (drawn.left - drawnAnchor.left) / scale,
-        y: anchorBox.y + (drawn.top - drawnAnchor.top) / scale,
-        width: drawn.width / scale,
-        height: drawn.height / scale,
+        x: anchorBox.x + (drawn.left - drawnAnchor.left) / scale.x,
+        y: anchorBox.y + (drawn.top - drawnAnchor.top) / scale.y,
+        width: drawn.width / scale.x,
+        height: drawn.height / scale.y,
       };
     }
   }
@@ -1335,8 +1345,8 @@ function flowPseudoBox(
   range.selectNodeContents(element);
   const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0);
   const place = (rect: { left: number; top: number; height: number }, left: number) => ({
-    x: own.x + (left - drawn.left) / scale,
-    y: own.y + (rect.top - drawn.top) / scale + (rect.height / scale - height) / 2,
+    x: own.x + (left - drawn.left) / scale.x,
+    y: own.y + (rect.top - drawn.top) / scale.y + (rect.height / scale.y - height) / 2,
     width,
     height,
   });
@@ -1352,11 +1362,11 @@ function flowPseudoBox(
   if (pseudo === '::after') {
     const last = rects[rects.length - 1];
     if (last === undefined) return null;
-    return place(last, last.right + n(style.marginLeft) * scale);
+    return place(last, last.right + n(style.marginLeft) * scale.x);
   }
   const first = rects[0];
   if (first === undefined) return null;
-  return place(first, first.left - (width + n(style.marginRight)) * scale);
+  return place(first, first.left - (width + n(style.marginRight)) * scale.x);
 }
 
 function readPseudoResting(element: Element, pseudo: string): Map<string, string> {
@@ -1515,7 +1525,7 @@ function textBars(
       return [];
     }
     spend(walk, parent.element);
-    const lineHeight = rect.height / scale;
+    const lineHeight = rect.height / scale.y;
     const height = Number.isFinite(fontSize)
       ? Math.min(fontSize * 0.55, lineHeight * 0.8)
       : lineHeight / 2;
@@ -1530,16 +1540,19 @@ function textBars(
     );
     const words =
       inLine.length > 1 && inLine.length <= 64
-        ? inLine.map((word) => ({ x: (word.left - rect.left) / scale, width: word.width / scale }))
+        ? inLine.map((word) => ({
+            x: (word.left - rect.left) / scale.x,
+            width: word.width / scale.x,
+          }))
         : null;
     const bar: RawShape = {
       id: `${parentId}.t${walk.count}-${index}`,
       label: 'text',
       kind: 'text',
       box: {
-        x: parent.box.x + (rect.left - drawnParent.left) / scale,
-        y: parent.box.y + (rect.top - drawnParent.top) / scale + (lineHeight - height) / 2,
-        width: rect.width / scale,
+        x: parent.box.x + (rect.left - drawnParent.left) / scale.x,
+        y: parent.box.y + (rect.top - drawnParent.top) / scale.y + (lineHeight - height) / 2,
+        width: rect.width / scale.x,
         height,
       },
       radius: [height / 2, height / 2, height / 2, height / 2],

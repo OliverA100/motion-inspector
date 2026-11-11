@@ -246,8 +246,17 @@ function shapePath(
     shape.box.y + inset,
     atLeastZero((pose?.width ?? shape.box.width) - inset * 2),
     atLeastZero((pose?.height ?? shape.box.height) - inset * 2),
-    (pose?.radius ?? shape.radius).map((radius) => atLeastZero(radius - inset)),
+    (pose?.radius ?? shape.radius).map((radius) =>
+      atLeastZero((shape.kind === 'text' ? textRadius(radius * 2) : radius) - inset),
+    ),
   );
+}
+
+// How round a bar of text is. A line of body text is a pill; display type
+// is a block with soft corners: rounded fully, a letter on its own was a
+// black disc (oliverhassan.dev's heading, split into letters).
+function textRadius(height: number): number {
+  return Math.min(height / 2, 3 + height * 0.12);
 }
 
 // Where a shape and its content are drawn: moved by left and top, then
@@ -812,7 +821,7 @@ function wordsPath(
   for (const word of shape.words ?? []) {
     const left = across(shape.box.x + word.x);
     const right = across(shape.box.x + word.x + Math.max(word.width, 0));
-    context.roundRect(left, shape.box.y, right - left, height, height / 2);
+    context.roundRect(left, shape.box.y, right - left, height, textRadius(height));
   }
 }
 

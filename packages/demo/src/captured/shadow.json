@@ -157,7 +157,7 @@
           "opacity": 1
         },
         {
-          "t": 83.4,
+          "t": 83.3,
           "matrix": [1, 0, 0, 1, 0, -1.66],
           "taper": null,
           "opacity": 1
@@ -175,13 +175,13 @@
           "opacity": 1
         },
         {
-          "t": 233.4,
+          "t": 233.3,
           "matrix": [1, 0, 0, 1, 0, -3.7],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 283.3,
+          "t": 283.4,
           "matrix": [1, 0, 0, 1, 0, -3.98],
           "taper": null,
           "opacity": 1
@@ -193,7 +193,7 @@
           "opacity": 1
         },
         {
-          "t": 383.4,
+          "t": 383.3,
           "matrix": [1, 0, 0, 1, 0, -4],
           "taper": null,
           "opacity": 1

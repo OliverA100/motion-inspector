@@ -181,38 +181,38 @@
       "shapeId": "s0.1",
       "frames": [
         {
-          "t": 33.4,
-          "matrix": [1, 0, 0, 1, 11.19, 0],
+          "t": 33.3,
+          "matrix": [1, 0, 0, 1, 11.17, 0],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 83.3,
-          "matrix": [1, 0, 0, 1, 31.02, 0],
+          "matrix": [1, 0, 0, 1, 31.03, 0],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 133.3,
-          "matrix": [1, 0, 0, 1, 55.4, 0],
+          "matrix": [1, 0, 0, 1, 55.41, 0],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 183.3,
-          "matrix": [1, 0, 0, 1, 79.78, 0],
+          "matrix": [1, 0, 0, 1, 79.79, 0],
           "taper": null,
           "opacity": 1
         },
         {
           "t": 233.3,
-          "matrix": [1, 0, 0, 1, 99.43, 0],
+          "matrix": [1, 0, 0, 1, 99.44, 0],
           "taper": null,
           "opacity": 1
         },
         {
-          "t": 283.4,
-          "matrix": [1, 0, 0, 1, 110.15, 0],
+          "t": 283.3,
+          "matrix": [1, 0, 0, 1, 110.14, 0],
           "taper": null,
           "opacity": 1
         },
@@ -223,7 +223,7 @@
           "opacity": 1
         },
         {
-          "t": 383.4,
+          "t": 383.3,
           "matrix": [1, 0, 0, 1, 103.19, 0],
           "taper": null,
           "opacity": 1
@@ -235,8 +235,8 @@
           "opacity": 1
         },
         {
-          "t": 483.3,
-          "matrix": [1, 0, 0, 1, 95.5, 0],
+          "t": 483.2,
+          "matrix": [1, 0, 0, 1, 95.51, 0],
           "taper": null,
           "opacity": 1
         },
@@ -247,7 +247,7 @@
           "opacity": 1
         },
         {
-          "t": 583.3,
+          "t": 583.2,
           "matrix": [1, 0, 0, 1, 94.86, 0],
           "taper": null,
           "opacity": 1
@@ -265,7 +265,7 @@
           "opacity": 1
         },
         {
-          "t": 733.3,
+          "t": 733.2,
           "matrix": [1, 0, 0, 1, 96, 0],
           "taper": null,
           "opacity": 1
