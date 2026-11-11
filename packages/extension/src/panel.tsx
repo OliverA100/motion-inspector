@@ -450,8 +450,24 @@ function PanelApp() {
   // panel follows the tab in front. If the inspected tab goes to another
   // page, its capture script is gone.
   useEffect(() => {
-    const onUpdated = (updatedId: number, change: { status?: string }): void => {
+    // Only this window counts: a tab loading behind the one in front, or a
+    // tab chosen in another window, says nothing about the page inspected.
+    let windowId: number | null = null;
+    chrome.windows.getCurrent().then(
+      (current) => {
+        windowId = current.id ?? null;
+      },
+      () => {},
+    );
+    const inThisWindow = (id: number | undefined): boolean =>
+      windowId === null || id === undefined || id === windowId;
+    const onUpdated = (
+      updatedId: number,
+      change: { status?: string },
+      tab: chrome.tabs.Tab,
+    ): void => {
       if (change.status !== 'loading') return;
+      if (updatedId !== tabId.current && !(tab.active && inThisWindow(tab.windowId))) return;
       if (updatedId === tabId.current && reloading.current) return;
       if (updatedId === tabId.current) {
         dispatch({ kind: 'stopped', auto: false });
@@ -459,7 +475,11 @@ function PanelApp() {
       }
       dispatch({ kind: 'tabChanged' });
     };
-    const onActivated = (): void => dispatch({ kind: 'tabChanged' });
+    // Coming back to the tab being inspected changes nothing.
+    const onActivated = (info: { tabId: number; windowId: number }): void => {
+      if (info.tabId === tabId.current) return;
+      if (inThisWindow(info.windowId)) dispatch({ kind: 'tabChanged' });
+    };
     chrome.tabs.onUpdated.addListener(onUpdated);
     chrome.tabs.onActivated.addListener(onActivated);
     return () => {

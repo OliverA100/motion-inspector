@@ -1115,7 +1115,9 @@ test('a radial gradient lit by a variable on hover is filmed, not listed as not 
 
 // The same button, its colors written in lab() as Attio's are: Chrome
 // writes them so at rest and in oklab() in between. Both ways are filmed.
-test('a radial gradient lit by a variable in lab() colors is filmed both ways', async ({ page }) => {
+test('a radial gradient lit by a variable in lab() colors is filmed both ways', async ({
+  page,
+}) => {
   await setUp(
     page,
     `@property --sp-glow { syntax: "<color>"; inherits: false; initial-value: lab(12.7 0.1 -2.2); }
@@ -1131,7 +1133,9 @@ test('a radial gradient lit by a variable in lab() colors is filmed both ways', 
   await page.waitForTimeout(800);
   const takes = await takesNow(page);
   const properties = takes.map((take) =>
-    captureOf(take).tracks.map((item) => `${item.origin}:${item.property}`).sort(),
+    captureOf(take)
+      .tracks.map((item) => `${item.origin}:${item.property}`)
+      .sort(),
   );
   for (const each of properties) {
     expect(each).toContain('script:background-image');
@@ -2842,4 +2846,84 @@ test('an animation made paused and run later starts when it runs', async ({ page
   }, capture);
   expect(miss.px).toBeLessThan(3);
   expect(miss.opacity).toBeLessThan(0.05);
+});
+
+// A card whose hover moves the image inside it, the image picked and the
+// pointer on the card's text: the hover is named, and recording waits for
+// the way back instead of stopping by itself while the card is hovered.
+test('a hover on the card around the picked part waits for its way back', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `#sp-card { width: 240px; padding: 12px; background: #eee }
+      #sp-pic { width: 216px; height: 80px; background: #36f; transition: transform .2s }
+      #sp-card:hover #sp-pic { transform: scale(1.05) }
+      #sp-words { display: block; height: 60px; font: 14px system-ui }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="sp-card"><div id="sp-pic"></div><span id="sp-words">Read more</span></div>';
+    document.body.prepend(holder);
+  });
+  await page.mouse.move(400, 600);
+  await page.evaluate(() => {
+    const seen: Take[] = [];
+    (window as unknown as { seenTakes: Take[] }).seenTakes = seen;
+    (window as unknown as { stoppedByItself: boolean }).stoppedByItself = false;
+    window.MotionCapture.record(
+      document.getElementById('sp-pic') as Element,
+      (take) => seen.push(take),
+      () => {},
+      // @ts-expect-error: the fourth argument, onStopped, is not in the test's type.
+      () => {
+        (window as unknown as { stoppedByItself: boolean }).stoppedByItself = true;
+      },
+    );
+  });
+  const words = await page.locator('#sp-words').boundingBox();
+  await page.mouse.move((words?.x ?? 0) + 20, (words?.y ?? 0) + 20, { steps: 4 });
+  await page.waitForTimeout(3000);
+  expect(
+    await page.evaluate(() => (window as unknown as { stoppedByItself: boolean }).stoppedByItself),
+  ).toBe(false);
+  await page.mouse.move(400, 600, { steps: 4 });
+  await page.waitForTimeout(2500);
+  const result = await page.evaluate(() => ({
+    stopped: (window as unknown as { stoppedByItself: boolean }).stoppedByItself,
+    triggers: (window as unknown as { seenTakes: Take[] }).seenTakes.map(
+      (take) => `${take.replaces ? 'replaces ' : ''}${take.capture?.trigger}`,
+    ),
+  }));
+  expect(result.stopped).toBe(true);
+  expect(result.triggers.at(-1)).toBe('replaces hover-and-leave');
+});
+
+// D183: a number that counts up when the pointer comes onto it. Its take is
+// named by the hover, whether the pointer is moved by hand or played.
+test('a block whose text counts up on hover is named a hover', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-total { font: 600 28px system-ui; width: 160px }',
+    '<div id="sp-total">0</div>',
+    '#sp-total',
+  );
+  await page.evaluate(() => {
+    const total = document.getElementById('sp-total') as HTMLElement;
+    total.addEventListener('mouseenter', () => {
+      const start = performance.now();
+      const step = (now: number): void => {
+        const done = Math.min((now - start) / 600, 1);
+        total.textContent = String(Math.round(done * 1234));
+        if (done < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  });
+  const box = await page.locator('#sp-total').boundingBox();
+  await page.mouse.move((box?.x ?? 0) - 24, (box?.y ?? 0) + 10);
+  await page.waitForTimeout(300);
+  await page.mouse.move((box?.x ?? 0) + 40, (box?.y ?? 0) + 10, { steps: 4 });
+  await page.waitForTimeout(1600);
+  const takes = await takesNow(page);
+  expect(takes.map((take) => take.capture?.trigger)).toEqual(['hover']);
 });

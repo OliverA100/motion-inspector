@@ -582,7 +582,8 @@ function startedRunning(seen: Seen): void {
   seen.startTime = playStart(animation, endTime, asNumber(document.timeline.currentTime) ?? 0);
   animation.ready.then(
     () => {
-      if (animation.startTime !== null) seen.startTime = playStart(animation, endTime, seen.startTime);
+      if (animation.startTime !== null)
+        seen.startTime = playStart(animation, endTime, seen.startTime);
     },
     () => {},
   );
@@ -1509,7 +1510,9 @@ function triggerOf(
     ).length >= 2;
   if (scrolled) return 'scroll';
   for (const event of [...near].reverse()) {
-    const crosses = onIt(event.target) && !onIt(event.related);
+    const crosses =
+      (onIt(event.target) && !onIt(event.related)) ||
+      entersAround(root, event.target, event.related);
     if (event.type === 'over' && crosses) return 'hover';
     if (event.type === 'out' && crosses) return 'leave';
     if (event.type === 'down') return 'click';
@@ -1529,6 +1532,41 @@ function triggerOf(
   if (take.some((seen) => !Number.isFinite(seen.timing.endTime))) return 'loop';
   return 'unknown';
 }
+
+// The pointer crossing onto, or off, a part around the element (a card
+// whose hover moves the image inside it, the pointer on its text).
+function entersAround(
+  root: Element,
+  target: EventTarget | null,
+  related: EventTarget | null,
+): boolean {
+  if (!(target instanceof Element)) return false;
+  let around: Element | null = target;
+  while (around !== null && !around.contains(root)) around = around.parentElement;
+  if (
+    around === null ||
+    around === root ||
+    around === document.body ||
+    around === document.documentElement
+  ) {
+    return false;
+  }
+  return !(related instanceof Node && around.contains(related));
+}
+
+// The nearest of the element and the parts around it that the pointer is
+// on, short of the page itself.
+function hoveredAround(element: Element | null): Element | null {
+  for (let at = element; at !== null; at = at.parentElement) {
+    if (at === document.body || at === document.documentElement) return null;
+    if (at.matches(':hover')) return at;
+  }
+  return null;
+}
+
+// How long recording waits for the way back while the pointer stays on
+// what it hovered, before stopping by itself all the same.
+const HOVER_WAITS_MS = 10000;
 
 // ---------- Building a take ----------
 
@@ -2047,6 +2085,10 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   let take: Seen[] = [];
   // When the last take was sent, for stopping by itself.
   let lastTakeEnd = 0;
+  // What the pointer was on when a take ended that may still have its way
+  // back to come: the element, or the part around it whose hover set it
+  // off (a card hovered away from the picked image inside it).
+  let hoveredWhenSent: Element | null = null;
   // Layout read every frame while the take animates something that can
   // move the parts around it.
   let samples: LayoutSample[] = [];
@@ -2628,6 +2670,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
           ? 'hover-and-leave'
           : first;
       lastTakeEnd = performance.now();
+      hoveredWhenSent = null;
       options.onTake({
         ...buildTake(
           snapshot,
@@ -2675,6 +2718,10 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       takenPseudoFilm,
     );
     const capture = result.capture;
+    hoveredWhenSent =
+      capture?.trigger === 'hover'
+        ? (hoveredAround(snapshot.rootElement) ?? hoveredAround(snapshot.pickedFrom ?? null))
+        : null;
     // Only the end of something that was already moving when the element
     // was picked (most often the hover that reaching for it started): its
     // start was never seen. It is not listed, and nothing joins it: the
@@ -3119,7 +3166,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       !scriptActive &&
       scripted.size === 0 &&
       now - lastTakeEnd > options.autoStopMs &&
-      !snapshot.rootElement.matches(':hover')
+      !snapshot.rootElement.matches(':hover') &&
+      !(snapshot.pickedFrom?.matches(':hover') ?? false) &&
+      // Still on the part whose hover set the take off, for a while.
+      !(
+        hoveredWhenSent !== null &&
+        hoveredWhenSent.matches(':hover') &&
+        now - lastTakeEnd < HOVER_WAITS_MS
+      )
     ) {
       stopped = true;
       watcher.disconnect();

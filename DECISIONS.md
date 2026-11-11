@@ -1066,7 +1066,7 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 - A change of text seen between takes counts as a change for the watch, though no box moved: a block keeps its size while its number counts up.
 - When a take has nothing to play, the timeline says what the take saw: only text changing (never copied), or parts changing in a way the preview cannot draw, named above. The canvas and scroll hint stays for a take that saw nothing.
 **Why:** checking the panel with a counter picked whole: it said "No animation was found" while the number counted to 1234, and once found, "it may be drawn on a canvas" under a take about text.
-**Not done:** in the panel, a played hover over a counter named its take "On its own"; recorded directly, the same take is named a hover.
+**Not done:** in the panel, a played hover over a counter named its take "On its own"; recorded directly, the same take is named a hover. Looked at again (D194): a counter that counts on hover is named a hover when recorded (tested). The panel case was seen only in the test harness, which opens the panel as a tab: the page sat behind it and its clock stood still (the change was dated 244 ms, the pointer's arrival 1061 ms).
 
 ### D184. The look before a take helps the fit, and is not checked
 **Chose:** the look a part had before a take, put at the start of its film, is used to fit what no animation explains, and left out of the film the preview is checked against. Read where an earlier take ended, it may be out of date by the next one.
@@ -1115,3 +1115,11 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D193. A filmed value is read in one color space
 **Chose:** where a filmed property's text changes shape between frames, every color in it is written as rgba() and it is read again.
 **Why:** Chrome writes a color at rest as it was given (lab() on Attio's button) and a color between two others in oklab(). The film of its gradient had two shapes of text, could not be blended, and the way back was listed as "Not drawn: --button-primary-bg-from".
+
+### D194. Recording keeps going while the pointer is on what it hovered; the panel minds only its own tab
+**Chose:**
+- Recording stops by itself only once the pointer is off the element, off the one picked (a tooltip's button), and off the part around it whose hover set the take off (a card hovered away from the picked image inside it), for up to 10 s.
+- The pointer crossing onto or off a part around the element is a hover or a leave.
+- The panel goes back to "Pick element" only when the tab in front of its own window changes or starts a new page. A tab loading behind it, a tab chosen in another window, or coming back to the tab being inspected change nothing.
+- A click while picking with no move before it picks the element clicked; it used to cancel.
+**Why:** reported: recording a hover by hand kept only the hover in. With the pointer on a card around the picked part, recording stopped 1.5 s after the hover, before the way back. And any tab loading anywhere (a mail tab refreshing) stopped listening and forgot the picked element, so Play the click and Play the load could end with nothing.

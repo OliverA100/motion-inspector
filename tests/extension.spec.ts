@@ -354,6 +354,28 @@ test('Play the hover moves the pointer in and out, and the take is a hover and i
   await expect(status(panel)).toContainText('Recording stopped by itself', { timeout: 8000 });
 });
 
+// Another tab loading behind the one in front (a mail tab refreshing)
+// is not the page changing: recording goes on, and the click is recorded.
+test('a tab loading in the background does not stop recording', async ({
+  context,
+  extensionId,
+}) => {
+  const other = await context.newPage();
+  await other.goto('http://localhost:5173/pieces.html');
+  const { site, panel } = await open(context, extensionId, 'http://localhost:5173/fixtures.html');
+  await panel.getByRole('button', { name: 'Pick element' }).click();
+  await site.bringToFront();
+  await site.mouse.move(0, 0);
+  await site.click('.fx-menu-button');
+  await record(panel, site);
+  await expect(listening(panel)).toBeVisible();
+  await other.reload();
+  await site.waitForTimeout(300);
+  await expect(listening(panel)).toBeVisible();
+  await site.click('.fx-menu-button');
+  await expect(panel.locator('.xp__take')).toHaveCount(1, { timeout: 4000 });
+});
+
 test('the real build asks for nothing it does not need', async () => {
   const manifest = JSON.parse(
     (await import('node:fs')).readFileSync(

@@ -69,7 +69,12 @@ export function startPicking(): Picker {
   const block = (event: Event): void => {
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (event.type === 'click') finish(current);
+    // A click with no move before it (a tap, or a page that ate the move):
+    // the element clicked, not nothing.
+    if (event.type === 'click') {
+      const target = event.composedPath()[0];
+      finish(current ?? (target instanceof Element && target !== overlay.host ? target : null));
+    }
   };
 
   const onKey = (event: KeyboardEvent): void => {
