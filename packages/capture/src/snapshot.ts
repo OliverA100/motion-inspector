@@ -186,12 +186,18 @@ export function labelOf(element: Element): string {
   return firstClass === undefined ? tag : `${tag}.${firstClass}`;
 }
 
+// Ids a library makes up, different on every load: Radix's
+// "radix-_R_15isnnalb_-trigger-Product", Headless UI's, React Aria's.
+const GENERATED_ID = /^(radix-|headlessui-|react-aria|mui-|rc-|:)|_R_|«|\d{4,}/;
+
 // A short selector for the picked element, for the capture's source line.
 export function selectorOf(element: Element): string {
   const tag = element.tagName.toLowerCase();
   // A plain id only: React's generated ones (":r4:") say nothing, change
   // with every load, and are not valid in a selector as they are.
-  if (/^[A-Za-z][\w-]*$/.test(element.id)) return `${tag}#${element.id}`;
+  if (/^[A-Za-z][\w-]*$/.test(element.id) && !GENERATED_ID.test(element.id)) {
+    return `${tag}#${element.id}`;
+  }
   const classes = namingClasses(element).slice(0, 2);
   return classes.length === 0 ? tag : `${tag}.${classes.join('.')}`;
 }

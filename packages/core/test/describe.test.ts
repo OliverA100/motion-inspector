@@ -280,7 +280,7 @@ describe('special properties in plain words', () => {
     ) => ({
       ...base,
       property,
-      groupId: 'together',
+      groupId: 'together' as typeof base.groupId,
       keyframes: [
         { ...first, value: from, parsed: parsed[0] },
         { ...last, value: to, parsed: parsed[1] },
