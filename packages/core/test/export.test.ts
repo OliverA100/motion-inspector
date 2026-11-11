@@ -118,3 +118,23 @@ describe('what Copy CSS says about how the page made the motion', () => {
     expect(captureToCss(cardLift)).not.toContain('view transition');
   });
 });
+
+describe('Copy for AI says what set the motion off and what is missing', () => {
+  test('the trigger, in plain words', () => {
+    expect(copyForAiText({ ...cardLift, trigger: 'hover' })).toContain(
+      'Set off by: the pointer coming onto the element (a hover).',
+    );
+  });
+
+  test('what the capture does not hold, listed', () => {
+    const text = copyForAiText({
+      ...cardLift,
+      notShown: ['A mask made from an image is not drawn: the part is drawn whole.'],
+      missed: [{ label: 'rect', what: 'moved' }],
+    });
+    expect(text).toContain('## Not in this capture');
+    expect(text).toContain('`rect` changed on the page (its place, size or opacity)');
+    expect(text).toContain('- A mask made from an image is not drawn');
+    expect(copyForAiText(cardLift)).not.toContain('## Not in this capture');
+  });
+});

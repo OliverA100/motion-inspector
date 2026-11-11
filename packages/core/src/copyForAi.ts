@@ -88,6 +88,33 @@ function followSection(capture: Capture, follow: Follow): string[] {
   ];
 }
 
+// What set the motion off, for a reader rebuilding it. null when unknown.
+const SET_OFF_BY: Record<string, string> = {
+  hover: 'the pointer coming onto the element (a hover)',
+  leave: 'the pointer leaving the element',
+  'hover-and-leave': 'a hover, then the pointer leaving',
+  click: 'a click',
+  focus: 'the element getting focus',
+  blur: 'the element losing focus',
+  key: 'a key press',
+  loop: 'nothing: it loops',
+  running: 'already running when recording began',
+  scroll: 'the page scrolling',
+  load: 'the page loading',
+};
+
+// What the capture says it does not hold, so it is not mistaken for all.
+function gapsSection(capture: Capture): string[] {
+  const missed = (capture.missed ?? []).map(
+    (item) =>
+      `- \`${item.label}\` changed on the page (${item.what === 'moved' ? 'its place, size or opacity' : 'its look'}) and is not in this capture.`,
+  );
+  const notes = capture.notShown.map((note) => `- ${note}`);
+  return missed.length + notes.length === 0
+    ? []
+    : ['## Not in this capture', '', ...missed, ...notes, ''];
+}
+
 export function copyForAiText(capture: Capture): string {
   return [
     '# Motion spec',
@@ -95,6 +122,9 @@ export function copyForAiText(capture: Capture): string {
     describeCapture(capture),
     '',
     `Source: ${capture.source.url} (\`${capture.source.selector}\`)`,
+    ...(capture.trigger === null || SET_OFF_BY[capture.trigger] === undefined
+      ? []
+      : [`Set off by: ${SET_OFF_BY[capture.trigger]}.`]),
     '',
     '## Tracks',
     '',
@@ -110,6 +140,7 @@ export function copyForAiText(capture: Capture): string {
           ...(capture.follows ?? []).flatMap((follow) => followSection(capture, follow)),
           '',
         ]),
+    ...gapsSection(capture),
     '## CSS',
     '',
     '```css',
