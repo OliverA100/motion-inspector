@@ -4275,3 +4275,82 @@ test('a fade that begins late holds its start until then when the part rests els
   }, closed[0]?.capture);
   expect(miss.opacity).toBeLessThan(0.02);
 });
+
+// Found on Clerk: a script morphs a chevron's path (its d) frame by frame
+// on hover. A take draws an outline as it was at the pick, so the take says
+// so rather than call the chevron a missing part.
+test('an outline a script reshapes is said in the take, not called missing', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #rs-box { width: 120px; height: 40px }
+      #rs-bar { width: 40px; height: 10px; background: #36f; transition: transform .4s linear }
+      #rs-bar.on { transform: translateX(30px) }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="rs-box"><div id="rs-bar"></div><svg width="40" height="20" viewBox="0 0 40 20">' +
+      '<path id="rs-path" d="M0 0 L10 5 L0 10" stroke="#222" fill="none"></path></svg></div>';
+    document.body.prepend(holder);
+    const bar = document.getElementById('rs-bar') as HTMLElement;
+    const path = document.getElementById('rs-path') as Element;
+    window.MotionCapture.record(document.getElementById('rs-box') as Element);
+    setTimeout(() => {
+      bar.classList.add('on');
+      const began = performance.now();
+      const step = (now: number): void => {
+        const done = Math.min((now - began) / 400, 1);
+        path.setAttribute('d', `M0 0 L${(10 + done * 20).toFixed(2)} 5 L0 10`);
+        if (done < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, 200);
+  });
+  await page.waitForTimeout(1400);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  expect(takes.length).toBe(1);
+  const capture = takes[0]?.capture;
+  expect(capture?.tracks.some((track) => track.property === 'transform')).toBe(true);
+  expect(capture?.missed).toBeNull();
+  expect(capture?.notShown).toContain(
+    'A script reshapes the outline of path. It is shown in the shape it had when picked.',
+  );
+});
+
+// Found on Clerk's menu: the pointer crossing its items restarts the
+// highlight, which splits the takes. The label the first item lit was still
+// changing color in the next take; that take called it a missing part,
+// though its motion is in the take before.
+test('motion still running from the take before is not called missing', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #co-box { width: 160px }
+      #co-light { width: 100px; height: 6px; background: #36f; opacity: 0; transition: opacity .3s linear }
+      #co-light.on { opacity: 1 }
+      .co-label { width: 80px; height: 14px; color: rgb(0, 0, 0); transition: color .45s linear }
+      .co-label.lit { color: rgb(200, 200, 200) }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="co-box"><div id="co-light"></div><div class="co-label" id="co-a">a</div>' +
+      '<div class="co-label" id="co-b">b</div></div>';
+    document.body.prepend(holder);
+    const light = document.getElementById('co-light') as HTMLElement;
+    window.MotionCapture.record(document.getElementById('co-box') as Element);
+    setTimeout(() => {
+      light.classList.add('on');
+      document.getElementById('co-a')?.classList.add('lit');
+    }, 200);
+    setTimeout(() => {
+      light.classList.remove('on');
+      document.getElementById('co-b')?.classList.add('lit');
+    }, 340);
+  });
+  await page.waitForTimeout(1500);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  expect(takes.length).toBe(2);
+  expect(takes.map((take) => take.capture?.missed ?? null)).toEqual([null, null]);
+});

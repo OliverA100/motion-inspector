@@ -50,9 +50,11 @@ import {
 } from './film';
 import {
   animatedNow,
+  copyWatch,
   joinWatches,
   missedBy,
   partsToWatch,
+  reshapedIn,
   WATCH_EVERY_MS,
   watchOnce,
   type Watch,
@@ -2232,7 +2234,11 @@ function buildTake(
       (item) => (item as { shapeId?: unknown }).shapeId,
     ),
   );
+  // An outline a script rewrites is drawn as it was at the pick, and said
+  // so: what it lacks is known, so it is not a missing part.
+  const reshaped = reshapedIn(watch);
   const explained = new Set<Element>([
+    ...reshaped,
     ...take.map((seen) => seen.target),
     ...animatedNow(snapshot),
     ...Array.from(snapshot.ownerOf)
@@ -2294,6 +2300,10 @@ function buildTake(
             `The loop on ${labelOf(seen.target)} is not shown, because it was running long before this began.`,
         ),
         ...flattened,
+        ...reshaped.map(
+          (element) =>
+            `A script reshapes the outline of ${labelOf(element)}. It is shown in the shape it had when picked.`,
+        ),
         ...built.flatMap((item) => item.notShown),
         // Something did run. Say so, rather than "nothing was captured".
         ...(tracks.length + scripts.length + follows.length === 0
@@ -2805,13 +2815,31 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   });
   // Text that a script changes (a number counting up). Only that it
   // changed is kept, for the part around it: never the text.
+  // An outline a script rewrites (a path's d, a polygon's points) is
+  // counted the same way, for the part itself: never copied.
   const textWatcher = new MutationObserver((records) => {
     for (const record of records) {
+      const reshaped =
+        record.type === 'attributes' &&
+        record.target instanceof Element &&
+        record.oldValue !== record.target.getAttribute(record.attributeName ?? '');
       const textNodes =
         record.type === 'characterData' ||
         [...record.addedNodes, ...record.removedNodes].some(
           (node) => node.nodeType === Node.TEXT_NODE,
         );
+      if (reshaped) {
+        for (const watching of [watch, idleWatch]) {
+          const seen = watching.get(record.target as Element);
+          if (seen === undefined) continue;
+          seen.reshapes += 1;
+          if (watching === idleWatch) {
+            idleChangeBegan ??= asNumber(document.timeline.currentTime) ?? performance.now();
+            idleChangeLast = performance.now();
+          }
+        }
+        continue;
+      }
       if (!textNodes) continue;
       const at: Element | null =
         record.target instanceof Element ? record.target : record.target.parentElement;
@@ -2836,6 +2864,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     subtree: true,
     characterData: true,
     childList: true,
+    attributes: true,
+    attributeOldValue: true,
+    attributeFilter: ['d', 'points'],
   });
   // A script that changed a style without moving anything (a cursor, a
   // CSS variable) leaves no take.
@@ -3097,7 +3128,19 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   const QUICK_MS = 100;
   // A hovered part still this long, while the pointer moves, has arrived.
   const SETTLED_MS = 400;
-  let held: { take: Seen[]; samples: LayoutSample[]; film: Film; scripted: Set<Element> }[] = [];
+  // Each keeps the watch as it was when held: what it saw up to then.
+  let held: {
+    take: Seen[];
+    samples: LayoutSample[];
+    film: Film;
+    scripted: Set<Element>;
+    watch: Watch;
+  }[] = [];
+  // Animations of takes already sent that are still running. What they
+  // move is theirs: the next take's watch leaves it alone until they end
+  // (Clerk's menu: the pointer crossing its items starts a take for each,
+  // and the label the last one lit was still fading in the next).
+  let carried: Seen[] = [];
   const clearFilm = (): void => {
     film = new Map();
     scripted = new Set();
@@ -3115,7 +3158,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       // The film goes on: a restart is how a script drives the part, and
       // splitting the film there would lose the motion before it (found on
       // vanilla-tilt, which restarts a transition with every pointer move).
-      held.push({ take, samples, film: new Map(), scripted: new Set() });
+      held.push({ take, samples, film: new Map(), scripted: new Set(), watch: copyWatch(watch) });
       take = [];
       samples = [];
       return;
@@ -3146,18 +3189,21 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     } else {
       const earlier = held;
       held = [];
-      const current = { take, samples, film, scripted };
+      // Sending one clears the watch: the current take keeps its own.
+      const current = { take, samples, film, scripted, watch };
       for (const item of earlier) {
         take = item.take;
         samples = item.samples;
         film = item.film;
         scripted = item.scripted;
+        watch = item.watch;
         sendTake([]);
       }
       take = current.take;
       samples = current.samples;
       film = current.film;
       scripted = current.scripted;
+      watch = current.watch;
     }
     sendTake(chainNote);
   };
@@ -3171,6 +3217,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     // Set aside with the film: clearing the film starts a new watch.
     const takenWatch = watch;
     const takenPseudoFilm = pseudoFilm;
+    carried = [...carried, ...finished].filter(
+      (seen) => seen.ended === null && seen.pseudoElement === null,
+    );
     restingFrames = new Map();
     for (const element of finishedScripted) {
       const last = finishedFilm.get(element)?.at(-1);
@@ -3488,7 +3537,8 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     }
     if (
       idleChangeBegan === null ||
-      missedBy(idleWatch, new Set(animatedNow(snapshot))).length === 0
+      (missedBy(idleWatch, new Set(animatedNow(snapshot))).length === 0 &&
+        reshapedIn(idleWatch).length === 0)
     ) {
       return false;
     }
@@ -3691,6 +3741,22 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       if (watch.size === 0 || now - lastWatched >= WATCH_EVERY_MS) {
         lastWatched = now;
         watchOnce(watch, watchList, snapshot.rootElement);
+        carried = carried.filter((seen) => seen.ended === null && !take.includes(seen));
+        // A held take's are theirs too: it is sent later, with its own watch.
+        const theirs = [
+          ...carried,
+          ...held.flatMap((item) =>
+            item.take.filter((seen) => seen.ended === null && seen.pseudoElement === null),
+          ),
+        ];
+        // What changed under them so far is theirs. Once they end, the
+        // one step to where they left it is not enough to be missed.
+        for (const [element, seen] of watch) {
+          if (theirs.some((running) => running.target.contains(element))) {
+            seen.places.clear();
+            seen.looks.clear();
+          }
+        }
       }
       idleWatch = new Map();
       idleChangeBegan = null;

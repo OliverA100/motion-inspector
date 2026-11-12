@@ -17,12 +17,15 @@ export const MOST_WATCHED = 300;
 export const MOST_MISSED = 8;
 
 // texts: how many times its text changed (counted, never read).
+// reshapes: how many times a script rewrote its outline (an SVG path's d,
+// a polygon's points), counted and never copied.
 export type Watched = {
   place: string;
   look: string;
   places: Set<string>;
   looks: Set<string>;
   texts: number;
+  reshapes: number;
 };
 export type Watch = Map<Element, Watched>;
 
@@ -121,7 +124,7 @@ export function watchOnce(watch: Watch, parts: Element[], root: Element | null =
     );
     const known = watch.get(element);
     if (known === undefined) {
-      watch.set(element, { ...now, places: new Set(), looks: new Set(), texts: 0 });
+      watch.set(element, { ...now, places: new Set(), looks: new Set(), texts: 0, reshapes: 0 });
       continue;
     }
     if (now.place !== known.place && !known.places.has(now.place) && known.places.size < 3) {
@@ -157,10 +160,30 @@ export function joinWatches(first: Watch, second: Watch): Watch {
             places: new Set([...before.places, ...seen.places]),
             looks: new Set([...before.looks, ...seen.looks]),
             texts: before.texts + seen.texts,
+            reshapes: before.reshapes + seen.reshapes,
           },
     );
   }
   return joined;
+}
+
+// A watch as it is now, for a take held back while the watch goes on.
+export function copyWatch(watch: Watch): Watch {
+  return new Map(
+    Array.from(watch, ([element, seen]) => [
+      element,
+      { ...seen, places: new Set(seen.places), looks: new Set(seen.looks) },
+    ]),
+  );
+}
+
+// The parts whose outline a script rewrote frame after frame (Clerk's
+// chevron, its path morphed on hover). A take draws an outline as it was
+// at the pick, so these are said, not drawn.
+export function reshapedIn(watch: Watch): Element[] {
+  return Array.from(watch)
+    .filter(([element, seen]) => seen.reshapes >= 2 && element.isConnected)
+    .map(([element]) => element);
 }
 
 // The parts that changed step by step and that nothing in the take
