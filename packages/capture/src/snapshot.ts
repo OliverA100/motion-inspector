@@ -2828,6 +2828,18 @@ export function addLateShape(snapshot: Snapshot, element: Element): boolean {
   // be measured now, as it is at the end of its animation.
   const added = shapesFor(walk, element, `${parentShape.id}.late`, false, true);
   snapshot.nextId.value = walk.count;
+  // Parts inside it that got shapes before it did (letters a script set up
+  // while their heading was hidden) move into it, so they show and fade
+  // with it.
+  const own = snapshot.shapeOf.get(element);
+  if (own !== undefined && added.includes(own)) {
+    const inside = parentShape.children.filter((child) => {
+      const owner = snapshot.ownerOf.get(child);
+      return owner !== undefined && owner !== element && isInside(owner, element);
+    });
+    parentShape.children = parentShape.children.filter((child) => !inside.includes(child));
+    own.children = [...own.children, ...inside];
+  }
   parentShape.children.push(...added);
   return snapshot.shapeIdOf.has(element);
 }

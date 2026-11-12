@@ -2729,8 +2729,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   // style: this runs right after the script, in the same frame. Filming in
   // the recorder's own frame callback could come before the script's in
   // that frame, and see every frame one frame late.
-  // Parts with no shape that a script wrote to, tried once each.
-  const triedLate = new WeakSet<Element>();
+  // Parts with no shape that a script wrote to, tried once each while
+  // things stay as they were. One tried while it was not drawn, or before
+  // the parts around it had shapes (a heading hidden when picked, its
+  // letters set up by GSAP before it shows), is tried again once it is
+  // drawn or the drawing has grown.
+  const triedLate = new WeakMap<Element, string>();
+  const lateKey = (element: Element): string =>
+    `${snapshot.nextId.value}:${element.getClientRects().length > 0}`;
   // How each part looked before a script first wrote to it: read when
   // recording starts, and where it came to rest when each take ends. The
   // observer only hears of a write once it is made, so a film began one
@@ -2825,8 +2831,9 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       // Vercel's peeled corner, the last part of a busy card. An SVG group
       // gets one, and the parts inside it move into it.
       if (!snapshot.shapeOf.has(target)) {
-        if (triedLate.has(target)) continue;
-        triedLate.add(target);
+        const key = lateKey(target);
+        if (triedLate.get(target) === key) continue;
+        triedLate.set(target, key);
         const added =
           target instanceof SVGGElement
             ? addLateGroup(snapshot, target)

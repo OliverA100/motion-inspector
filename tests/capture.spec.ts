@@ -4440,3 +4440,66 @@ test('a move that begins late holds its start until then when the part rests els
   }, takes[0]?.capture);
   expect(miss.px).toBeLessThan(1.5);
 });
+
+// Found on gsap.com: the hero's heading, hidden when picked, shows on load
+// and a script lifts each letter in. A letter is a span that paints
+// nothing, so its text was drawn in its parent's shape; the script's writes
+// to it were dropped, and the watch called 8 parts missing.
+test('letters a script moves inside a heading shown after the pick are filmed', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #gl-box { width: 200px; height: 60px; font: 32px/40px sans-serif }
+      #gl-word { display: none; color: #222 }
+      #gl-word.on { display: block; animation: gl-in .3s linear }
+      @keyframes gl-in { from { opacity: 0 } to { opacity: 1 } }
+      #gl-word span { display: inline-block }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="gl-box"><span id="gl-word"><span>a</span><span>b</span><span>c</span></span></div>';
+    document.body.prepend(holder);
+    const word = document.getElementById('gl-word') as HTMLElement;
+    const letters = Array.from(word.querySelectorAll('span'));
+    window.MotionCapture.record(document.getElementById('gl-box') as Element);
+    setTimeout(() => {
+      for (const letter of letters) letter.style.transform = 'translate(0px, 30px)';
+    }, 100);
+    setTimeout(() => {
+      word.classList.add('on');
+      const began = performance.now();
+      const step = (now: number): void => {
+        const done = Math.min((now - began) / 500, 1);
+        letters.forEach((letter, index) => {
+          const own = Math.min(Math.max(done * 1.5 - index * 0.25, 0), 1);
+          letter.style.transform = `translate(0px, ${((1 - own) * 30).toFixed(2)}px)`;
+        });
+        if (done < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, 200);
+  });
+  await page.waitForTimeout(1600);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  expect(takes.length).toBe(1);
+  const capture = takes[0]?.capture;
+  expect(capture?.missed).toBeNull();
+  // Each letter is filmed, as well as the heading it is in, and drawn
+  // inside the heading, so it shows and fades with it.
+  expect(capture?.measured?.length).toBe(4);
+  const heading = capture?.root.children ?? [];
+  expect(heading.length).toBe(1);
+  expect(heading[0]?.children.length).toBe(3);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number; opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.px).toBeLessThan(1.5);
+  expect(miss.opacity).toBeLessThan(0.02);
+});
