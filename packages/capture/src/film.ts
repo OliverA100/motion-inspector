@@ -31,6 +31,25 @@ export function sameFrame(one: FilmFrame, other: FilmFrame): boolean {
   );
 }
 
+// Whether two frames show the same for these properties only: a part
+// whose text color changes may still never have turned (Supabase's
+// chevron, its turn begun and cancelled as a hover menu closed).
+export function sameFor(one: FilmFrame, other: FilmFrame, properties: string[]): boolean {
+  return properties.every((property) => {
+    if (property === 'opacity') return Math.abs(one.opacity - other.opacity) <= 0.001;
+    if (TRANSFORM_PROPERTIES.includes(property)) {
+      return (
+        one.matrix.every((value, index) => Math.abs(value - (other.matrix[index] ?? 0)) <= 0.001) &&
+        [0, 1].every(
+          (index) => Math.abs((one.taper?.[index] ?? 0) - (other.taper?.[index] ?? 0)) <= 0.000002,
+        )
+      );
+    }
+    const at = (FILMED_STYLES as readonly string[]).indexOf(property);
+    return at !== -1 && one.styles[at] === other.styles[at];
+  });
+}
+
 // Between two writes a part holds still: a script that writes every frame
 // leaves frames 16 ms apart, but one that shows a layer and hides it later
 // (Lottie, by display) leaves two frames seconds apart, which a straight
@@ -577,7 +596,10 @@ export function scriptTracksFor(
           };
         }),
         timing: {
-          delay: -Math.round(intoTurn),
+          // Filmed from before the take began (a part already moving as the
+          // take started, Resend's menu sliding away): it is that far in at
+          // the start, not starting later (it was 33 ms late, 25 px off).
+          delay: -Math.round(intoTurn) + Math.min(0, Math.round((times[0] ?? 0) - takeStart)),
           // In whole ms: half a millisecond is not worth saying.
           duration: Math.max(1, Math.round(span)),
           iterations: loopMs === undefined ? { kind: 'count', count: 1 } : { kind: 'infinite' },

@@ -240,6 +240,45 @@ describe('the check of colors, shadows and blur', () => {
     ).toBe(1);
   });
 
+  test('the first frame filmed may show the page as the take began', () => {
+    // Found on Linear's menu link: filmed first at 16.6 ms, still in its
+    // starting color, while the preview had begun to change. A frame
+    // earlier than the start is the start.
+    const page = filmed([look([255, 0, 0, 1]), look([0, 0, 255, 1])]);
+    const late = {
+      ...page,
+      measured: page.measured.map((entry) => ({
+        ...entry,
+        frames: entry.frames.map((frame) => ({ ...frame, t: frame.t + 16.6 })),
+      })),
+    };
+    const checks = selfCheck(late, (time) => [
+      { ...stillPose(cardLift.root.id), fill: time < 5 ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)' },
+    ]);
+    expect(checks[0]?.color).toBe(0);
+  });
+
+  test('what scrolling drives is not compared with a film of time', () => {
+    // Found on Stripe's dialog overlay: its color is tied to a sheet's
+    // scroll, shown over a nominal second; the page, not scrolled, held still.
+    const page = filmed([look([255, 0, 0, 1]), look([255, 0, 0, 1])]);
+    const [first] = cardLift.tracks;
+    if (first === undefined) throw new Error('cardLift has a track');
+    const scrolled = {
+      ...page,
+      tracks: [
+        {
+          ...first,
+          shapeId: cardLift.root.id,
+          property: 'background-color',
+          scroll: { timeline: '--sheet', range: 'normal' },
+        },
+      ],
+    };
+    expect(selfCheck(scrolled, posed({ fill: 'rgb(0, 0, 255)' }))[0]?.color).toBe(0);
+    expect(selfCheck(page, posed({ fill: 'rgb(0, 0, 255)' }))[0]?.color).toBe(1);
+  });
+
   test('takes saved before looks were filmed are not compared by look', () => {
     const page = { ...filmed([look([255, 0, 0, 1])]) };
     const old = {

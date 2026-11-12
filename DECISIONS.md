@@ -1310,3 +1310,31 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 **Why:** found through the side panel on Vega: a click starts a menu frame's fade-in and hides the frame the same moment. The page never showed it; the take faded it in (100% opacity off).
 
 D231 is also narrowed: a part's text color is compared only while the preview animates it. The text drawn inside a part may belong to a part within it with a color of its own (MUI's menu: 32% "off" for a paper whose items are another color).
+
+### D235. A shadow's color is read whole, whatever its color function
+**Chose:** a computed box-shadow's color is any color function (`oklch(…)`, `oklab(…)`, `color(…)`, `rgb(…)`) or one word, read as a whole before its lengths, in the snapshot and in the probe alike.
+**Why:** found on Attio through the side panel: a menu's shadow written in oklch was read as the color `oklab(0.23` with a blur of 0.08 px, its numbers taken from inside the color. The new check (D231) called it 32 px off the page. Modern CSS (Tailwind 4) computes colors this way.
+
+### D236. An end the page keeps is compared with what the preview draws at rest
+**Chose:** D233 holds an animation's end unless the part's rest already is that end. For opacity, that rest is now what the preview draws (a part fading when picked is drawn from where its fade started), not the value read as it was picked.
+**Why:** found on Aceternity through the side panel: recording began while Motion was fading a sparkle. It was read at 0 and drawn at 1; its way out ends at 0, which the page keeps, and D233 took the 0 read at pick as "already the end". The preview went back to 1 after the way out: 100% off. Now 0.
+
+### D237. A transition never shown is judged by what it animates
+**Chose:** D234's "the film never saw the part change" looks only at the properties the transition animates: a turn whose part changed color all the while is still a turn never shown.
+**Why:** found on Supabase through the side panel: a hover opens a menu and the click closes it, so the chevron's turn begins and is cancelled at once while its color carries on. The page never turned it; the take turned it 180 degrees (17 px off). Awwwards' card button (colors never shown while the button faded out) is the same case.
+
+### D238. A part picked mid-fade rests at its own opacity once the fade is over
+**Chose:** a part whose opacity a keyframe animation or Web Animation was animating when picked (drawn at full opacity) takes, as its rest, the opacity the page computes once the take's fades of it are over and nothing else animates it, when that can be read. Not one a transition fades: once over, a transition leaves the state it went to (a hover still held), not the part's rest.
+**Why:** found on Stripe through the side panel: a payouts graphic that a script fades in and out over and over, picked mid-fade, was drawn at full opacity after each fade while the page showed nothing.
+
+### D239. The check leaves out what scrolling drives, and starts at the take's start
+**Chose:**
+- A property a scroll-driven track animates is not compared with the film: the preview shows its progress over a nominal second, and the page, not scrolled, holds still.
+- The preview "a frame earlier" than a frame filmed in the take's first frame is the preview at the start, not skipped.
+**Why:** found through the side panel. Stripe's dialog overlay has a background animated on a named scroll timeline (a sheet's, which does not resolve at that width): 85% "off" in color. Linear's menu link was filmed first at 16.6 ms, still in its starting color, while the preview had begun to change: 13% "off".
+
+### D240. A script's motion filmed from before the take starts that far in
+**Chose:** a track fitted from a script's film that began before the take's start (the take starts with the first animation the browser runs) is given a negative delay of that much, as an animation that began before the take is, instead of being moved to the start.
+**Why:** found on Resend through the side panel: a menu a script slides away while a transition fades it. Its film began two frames before the fade, and the slide played 33 ms late: 25 px off on the page, 58 px in a test that slides faster.
+
+Seen in the same run and left as they are: Family's heading words turn in 3D and a script's motion is fitted flat (said in the take; about 6 px). Dub's menu is still finishing its entrance as the take of its way out starts, and that take draws it at rest from the start; where one take ends and the next begins is its own matter.

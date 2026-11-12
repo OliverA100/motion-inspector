@@ -295,6 +295,15 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 119 | Sonner, Vaul, Cal.com, basement.studio (on a Retina screen) | A transition's transform read twice as far as it moves: Sonner's arrow "4 px" and 2 px off, Cal's nav highlight 457 px off | Chrome reports those lengths times the device pixel ratio; divided back (D214) |
 | 120 | Magic UI | A 90-second marquee made a load take "180 s" long | A loop counts for at most 10 s of a take (D215) |
 | 121 | basement.studio | A link that blinks through an unregistered CSS variable stayed at 50% in the preview | A part a variable moves is shown by its film (D216): 1% |
+| 122 | oliverhassan.dev, Stripe (under device emulation) | D214 halved correct values: a load 46 px off, a link 3 px off | Chrome's factor is measured on a part of the capture's own, not taken from devicePixelRatio (D232) |
+| 123 | Linear | Heading letters faded in from a blur, then went back to invisible and blurred after 1.4 s | An end the page keeps is held (D233): 0% |
+| 124 | Vega | A menu frame the page hid the moment it began to fade in was faded in: 100% off | A transition cancelled before it showed anything is left out (D234) |
+| 125 | Attio | A menu's oklch shadow read as the color "oklab(0.23" with a 0.08 px blur: 32 px off | A shadow's color is read whole, whatever its color function (D235) |
+| 126 | Aceternity | Sparkles picked while Motion faded them went back to full opacity after their way out: 100% off | An end the page keeps is compared with what the preview draws at rest (D236) |
+| 127 | Supabase, Awwwards | A chevron's turn, begun and cancelled at once while its color changed, was drawn as a 180 degree turn: 17 px off | A transition never shown is judged by what it animates (D237) |
+| 128 | Stripe | A graphic a script fades in and out, picked mid-fade, was drawn at full opacity after each fade | Its own opacity is read once the fade is over (D238) |
+| 129 | Stripe, Linear | A background on a scroll timeline, and a link filmed first a frame after its take began, were called 85% and 13% off in color | The check leaves out what scrolling drives and starts at the take's start (D239) |
+| 130 | Resend | A menu a script slides away played 33 ms late: 25 px off | A script's motion filmed before the take starts that far in (D240) |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 

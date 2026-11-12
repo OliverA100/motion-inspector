@@ -302,7 +302,7 @@ function firstValue(value: string): string {
 // Only one outer shadow is drawn.
 function shadowOf(value: string): Shadow | null {
   if (value === 'none' || value.includes('inset')) return null;
-  const color = /^(rgba?\([^)]*\)|\S+)/.exec(value)?.[1];
+  const color = /^([a-z-]+\([^)]*\)|\S+)/.exec(value)?.[1];
   if (color === undefined) return null;
   const firstShadow = value.slice(color.length).split(',')[0] ?? '';
   const [x = 0, y = 0, blur = 0] = numbersIn(firstShadow);
@@ -314,7 +314,7 @@ function shadowOf(value: string): Shadow | null {
 function shadowLayersOf(value: string): ShadowLayer[] | null {
   if (value === 'none') return null;
   const layers = value.split(/,(?![^(]*\))/).flatMap((one): ShadowLayer[] => {
-    const color = /^\s*(rgba?\([^)]*\)|\S+)/.exec(one)?.[1];
+    const color = /^\s*([a-z-]+\([^)]*\)|\S+)/.exec(one)?.[1];
     if (color === undefined) return [];
     const [x = 0, y = 0, blur = 0, spread = 0] = numbersIn(
       one.slice(one.indexOf(color) + color.length),

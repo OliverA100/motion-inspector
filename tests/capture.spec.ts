@@ -3735,3 +3735,201 @@ test('a fade the page cancels before it shows anything is left out', async ({ pa
   const capture = onlyCapture(await takesNow(page));
   expect(capture.tracks.map((item) => item.property)).toEqual(['background-color']);
 });
+
+// Found on Attio through the side panel: a menu's shadow written in oklch
+// was read as the color "oklab(0.23" with a blur of 0.08 px, its numbers
+// taken from inside the color. The check called it 32 px off the page.
+test('a shadow in a modern color is read whole, not from inside its color', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-menu { width: 120px; height: 60px; background: #fff; opacity: 0; transition: opacity .15s;
+       box-shadow: oklch(0.2 0.01 260 / 0.05) 0px 16px 32px -8px, oklch(0 0 0 / 0.1) 0px 0px 0px 1px }
+     #sp-menu.open { opacity: 1 }`,
+    '<div id="sp-menu"></div>',
+    '#sp-menu',
+  );
+  await page.evaluate(() => document.getElementById('sp-menu')?.classList.add('open'));
+  await page.waitForTimeout(600);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.root.shadow).toMatchObject({ x: 0, y: 16, blur: 32 });
+  expect(
+    capture.root.shadows?.map((layer) => [layer.x, layer.y, layer.blur, layer.spread]),
+  ).toEqual([
+    [0, 16, 32, -8],
+    [0, 0, 0, 1],
+  ]);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { effectPx: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.effectPx).toBeLessThan(0.5);
+});
+
+// Found on Aceternity through the side panel: Motion fades a part out with
+// fill both, then writes its end and cancels it as it finishes
+// (commitStyles, then cancel). The page keeps 0; the preview went back to 1.
+test('an animation the page writes and cancels as it ends is held at its end', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-dot { width: 40px; height: 40px; background: #222 }',
+    '<div id="sp-dot"></div>',
+    '#sp-dot',
+  );
+  await page.evaluate(() => {
+    const dot = document.getElementById('sp-dot') as HTMLElement;
+    const animation = dot.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 300,
+      fill: 'both',
+    });
+    animation.onfinish = () => {
+      animation.commitStyles();
+      animation.cancel();
+    };
+  });
+  await page.waitForTimeout(1200);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => item.timing.fill)).toEqual(['both']);
+});
+
+// Found on Aceternity through the side panel: recording began while Motion
+// was fading a sparkle (read at 0, drawn at 1, see the fading rule). Its
+// way out ends at 0, which the page keeps; held only if compared with what
+// the preview draws, not with the value read as it was picked.
+test('a fade the page keeps is held when the part was fading as it was picked', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = '#sp-spark { width: 40px; height: 40px; background: #222 }';
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="sp-spark"></div>';
+    document.body.prepend(holder);
+    const spark = document.getElementById('sp-spark') as HTMLElement;
+    const waiting = spark.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: 300,
+      delay: 2000,
+      fill: 'backwards',
+    });
+    window.MotionCapture.record(spark);
+    waiting.cancel();
+    const out = spark.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'both' });
+    out.onfinish = () => {
+      out.commitStyles();
+      out.cancel();
+    };
+  });
+  await page.waitForTimeout(1200);
+  const capture = onlyCapture(await takesNow(page));
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.opacity).toBeLessThan(0.02);
+});
+
+// Found on Supabase through the side panel: a hover opens a menu and the
+// click closes it, so the chevron's turn begins and is cancelled at once,
+// while its color carries on changing. The page never turned it; the take
+// turned it 180 degrees.
+test('a turn the page cancels at once is left out while its color still changes', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#sp-chevron { display: inline-block; width: 24px; height: 24px; background: #222; color: #000;
+       transition: color .2s, rotate .2s }
+     #sp-chevron.on { color: #0a0; rotate: 180deg }
+     #sp-chevron.on.shut { rotate: none; transition: color .2s }`,
+    '<span id="sp-chevron"></span>',
+    '#sp-chevron',
+  );
+  await page.evaluate(() => {
+    const chevron = document.getElementById('sp-chevron') as HTMLElement;
+    chevron.classList.add('on');
+    chevron.getAnimations();
+    requestAnimationFrame(() => chevron.classList.add('shut'));
+  });
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => item.property)).toEqual(['color']);
+});
+
+// Found on Stripe through the side panel: a graphic a script fades in and
+// out over and over, picked mid-fade, was drawn at full opacity once its
+// fade was over, while the page showed nothing. Its own opacity is read
+// once nothing animates it.
+test('a part picked mid-fade rests at its own opacity once its fade is over', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = '#sp-glow { width: 40px; height: 40px; background: #222; opacity: 0 }';
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="sp-glow"></div>';
+    document.body.prepend(holder);
+    const glow = document.getElementById('sp-glow') as HTMLElement;
+    const pulse = (): Animation =>
+      glow.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }], { duration: 300 });
+    pulse();
+    window.MotionCapture.record(glow);
+    setTimeout(pulse, 150);
+  });
+  await page.waitForTimeout(1200);
+  const takes = await takesNow(page);
+  for (const take of takes) {
+    if (take.capture === null) continue;
+    const miss = await page.evaluate(async (taken) => {
+      const path = '/src/probeCheck.ts';
+      const module = (await import(/* @vite-ignore */ path)) as {
+        worstMiss: (capture: unknown) => { opacity: number };
+      };
+      return module.worstMiss(taken);
+    }, take.capture);
+    expect(miss.opacity).toBeLessThan(0.02);
+  }
+  expect(takes.some((take) => take.capture !== null)).toBe(true);
+});
+
+// Found on Resend through the side panel: a menu a script slides away while
+// a transition fades it. Its film began two frames before the fade, which
+// starts the take; the slide was fitted from its first frame but put at the
+// take's start, so it played 33 ms late (25 px off).
+test('a slide a script began before the take is not played late', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-menu { width: 120px; height: 40px; background: #222; transition: opacity .3s } #sp-menu.out { opacity: 0 }',
+    '<div id="sp-menu"></div>',
+    '#sp-menu',
+  );
+  await page.evaluate(() => {
+    const menu = document.getElementById('sp-menu') as HTMLElement;
+    const began = performance.now();
+    let frames = 0;
+    const step = (): void => {
+      const progress = Math.min((performance.now() - began) / 300, 1);
+      menu.style.transform = `translateX(${(-150 * (1 - (1 - progress) ** 3)).toFixed(2)}px)`;
+      frames += 1;
+      if (frames === 3) menu.classList.add('out');
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await page.waitForTimeout(1200);
+  const capture = onlyCapture(await takesNow(page));
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.px).toBeLessThan(1.5);
+});

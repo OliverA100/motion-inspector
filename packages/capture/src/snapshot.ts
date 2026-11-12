@@ -1115,7 +1115,7 @@ function hasBorder(style: CSSStyleDeclaration): boolean {
 export function shadowLayers(value: string): ShadowLayer[] | null {
   if (value === 'none' || value === '') return null;
   const layers = value.split(/,(?![^(]*\))/).flatMap((one): ShadowLayer[] => {
-    const color = /^\s*(rgba?\([^)]*\)|\S+)/.exec(one)?.[1];
+    const color = /^\s*([a-z-]+\([^)]*\)|\S+)/.exec(one)?.[1];
     if (color === undefined || !isVisibleColor(color)) return [];
     const rest = one.slice(one.indexOf(color) + color.length);
     const [x = 0, y = 0, blur = 0, spread = 0] = (rest.match(/-?\d*\.?\d+/g) ?? []).map(Number);
@@ -1128,7 +1128,7 @@ function restingShadow(value: string): RawShape['shadow'] {
   if (value === 'none' || value === '') return null;
   for (const one of value.split(/,(?![^(]*\))/)) {
     if (one.includes('inset')) continue;
-    const color = /^\s*(rgba?\([^)]*\)|\S+)/.exec(one)?.[1];
+    const color = /^\s*([a-z-]+\([^)]*\)|\S+)/.exec(one)?.[1];
     if (color === undefined || !isVisibleColor(color)) continue;
     const [x = 0, y = 0, blur = 0] = (
       one.slice(one.indexOf(color) + color.length).match(/-?\d*\.?\d+/g) ?? []

@@ -39,6 +39,7 @@ import {
   ONE_FRAME_MS,
   type PseudoFilm,
   round,
+  sameFor,
   sameFrame,
   scriptTracksFor,
   smilFilmed,
@@ -1958,7 +1959,9 @@ function buildTake(
     );
   // A transition the page cancelled before it showed anything (Vega's
   // menu: its frame starts to fade in and is hidden the same moment). The
-  // film never saw the part change, and nothing took the transition's place.
+  // film never saw what it animates change (Supabase's chevron: its color
+  // did, its turn, begun as a hover opened the menu and the click closed
+  // it, never showed), and nothing took the transition's place.
   // Drawn, it would fade in what the page never showed: it is left out.
   const neverShown = (seen: Seen): boolean => {
     if (seen.origin !== 'css-transition' || seen.ended !== 'cancelled') return false;
@@ -1977,14 +1980,22 @@ function buildTake(
     const frames = film.get(seen.target) ?? [];
     const first = frames[0];
     return (
-      first !== undefined && frames.length >= 2 && frames.every((frame) => sameFrame(frame, first))
+      first !== undefined &&
+      frames.length >= 2 &&
+      frames.every((frame) => sameFor(frame, first, seen.properties))
     );
   };
   const kept = take.filter(
     (seen) => !replacedByRule(seen) && !measuredThrough(seen) && !neverShown(seen),
   );
   for (const seen of kept) {
-    if (keepsItsEnd(seen, snapshot.resting.get(seen.target))) {
+    // Its opacity at rest is what the preview draws after it: one fading
+    // when picked is drawn from where that fade started (see buildTake),
+    // not from the value read then (Aceternity's sparkles, picked while
+    // Motion faded them: read at 0, drawn at 1).
+    const drawn = snapshot.shapeOf.get(seen.target);
+    const drawnOpacity = snapshot.fadingAtPick.get(seen.target)?.from ?? drawn?.opacity;
+    if (keepsItsEnd(seen, snapshot.resting.get(seen.target), drawnOpacity)) {
       seen.timing = {
         ...seen.timing,
         fill: seen.timing.fill === 'backwards' ? 'both' : 'forwards',
@@ -2075,7 +2086,30 @@ function buildTake(
     const fades = [...tracks, ...scripts].some(
       (track) => track.shapeId === id && track.property === 'opacity',
     );
-    shape.opacity = fades ? fade.from : fade.to;
+    // Once the take's fades of it are over, what the page shows is its
+    // own opacity, readable now: a part that fades in and out again rests
+    // unseen (Stripe's payouts graphic, picked mid-loop, drawn at 1 after
+    // its fade while the page showed nothing). Not after a transition: its
+    // end is the state it went to (a hover held), not the part's rest.
+    const fadesOfIt = take.filter(
+      (seen) =>
+        seen.target === element &&
+        seen.pseudoElement === null &&
+        seen.properties.includes('opacity'),
+    );
+    const restsNow =
+      fadesOfIt.length === 0 || fadesOfIt.some((seen) => seen.origin === 'css-transition')
+        ? []
+        : fadesOfIt.map((seen) => restNow(seen, 'opacity', false));
+    const read =
+      restsNow.length > 0 && restsNow.every((value) => value !== undefined)
+        ? Number.parseFloat(restsNow[0] ?? '')
+        : Number.NaN;
+    shape.opacity = Number.isFinite(read)
+      ? Math.min(Math.max(read, 0), 1)
+      : fades
+        ? fade.from
+        : fade.to;
   }
   // After the fading rule above: the film is what the page showed.
   // A part whose opacity animation waits on a delay shows its own opacity
@@ -2249,7 +2283,11 @@ function turnsIn(text: string): number[] {
 // styles.
 const FILMED = new Set<string>(['opacity', ...TRANSFORM_PROPERTIES, ...FILMED_STYLES]);
 
-function keepsItsEnd(seen: Seen, restAtPick: Map<string, string> | undefined): boolean {
+function keepsItsEnd(
+  seen: Seen,
+  restAtPick: Map<string, string> | undefined,
+  drawnOpacity: number | undefined,
+): boolean {
   if (seen.origin === 'css-transition' || seen.pseudoElement !== null) return false;
   if (seen.timing.fill !== 'none' && seen.timing.fill !== 'backwards') return false;
   if (!Number.isFinite(seen.timing.endTime) || !seen.target.isConnected) return false;
@@ -2274,7 +2312,10 @@ function keepsItsEnd(seen: Seen, restAtPick: Map<string, string> | undefined): b
       if (sameValue(property, from, to, seen.target)) return false;
       // Its rest is its end already: the preview shows it after the
       // animation with no fill, and the CSS keeps the page's own.
-      const before = restAtPick?.get(property) ?? seen.restAtSight.get(property);
+      const before =
+        property === 'opacity' && drawnOpacity !== undefined
+          ? String(drawnOpacity)
+          : (restAtPick?.get(property) ?? seen.restAtSight.get(property));
       if (before !== undefined && sameValue(property, before, to, seen.target)) return false;
       // Another animation on it now would make what is read its, not the
       // page's own.

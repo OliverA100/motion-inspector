@@ -160,9 +160,15 @@ function lookApart(
   shape: Shape,
   pose: Pose | undefined,
   look: MeasuredLook,
+  byScroll: Set<string>,
 ): { color: number; effectPx: number } {
   let color = 0;
-  if (look.fill !== null && shape.kind === 'box' && shape.gradient === null) {
+  if (
+    look.fill !== null &&
+    shape.kind === 'box' &&
+    shape.gradient === null &&
+    !byScroll.has('background-color')
+  ) {
     const drawn = pose?.fill ?? shape.fill;
     const fill = drawn === null ? ([0, 0, 0, 0] as Rgba) : rgbaOf(drawn);
     if (fill !== null) color = Math.max(color, colorApart(fill, look.fill));
@@ -171,7 +177,7 @@ function lookApart(
   // inside a part may belong to a part within it, with a color of its own
   // (MUI's menu: the paper's color is not its items'). A text color the page
   // changes with nothing in the take to explain it is reported as missed.
-  if (look.text !== null && pose?.textColor != null) {
+  if (look.text !== null && pose?.textColor != null && !byScroll.has('color')) {
     const read = rgbaOf(pose.textColor);
     if (read !== null) color = Math.max(color, colorApart(read, look.text));
   }
@@ -181,8 +187,8 @@ function lookApart(
     shape.shadows ??
     (shape.shadow !== null ? [shape.shadow] : []);
   const effectPx = Math.max(
-    shadowApart(widest(layers), look.shadow),
-    Math.abs(blurOf(pose?.filter ?? shape.filter) - (look.blur ?? 0)),
+    byScroll.has('box-shadow') ? 0 : shadowApart(widest(layers), look.shadow),
+    byScroll.has('filter') ? 0 : Math.abs(blurOf(pose?.filter ?? shape.filter) - (look.blur ?? 0)),
   );
   return { color, effectPx };
 }
@@ -235,9 +241,25 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
     return poses;
   };
 
+  // What scrolling drives is shown over a nominal second, not as the page
+  // played it: not compared with the film (Stripe's dialog overlay, its
+  // color tied to a sheet's scroll, still on the page as it was not
+  // scrolled).
+  const scrolled = new Map<string, Set<string>>();
+  for (const track of capture.tracks) {
+    if (track.scroll === null) continue;
+    const properties = scrolled.get(track.shapeId) ?? new Set<string>();
+    properties.add(track.property);
+    scrolled.set(track.shapeId, properties);
+  }
+
   return measured.flatMap((entry): ShapeCheck[] => {
     const shape = shapes.get(entry.shapeId);
     if (shape === undefined) return [];
+    const byScroll = scrolled.get(entry.shapeId) ?? new Set<string>();
+    const movedByScroll = ['transform', 'translate', 'rotate', 'scale'].some((property) =>
+      byScroll.has(property),
+    );
     const corners = cornersOf(shape);
     // A part that follows the pointer: its rule, played along the path.
     const follow = follows.find((item) => item.shapeId === entry.shapeId);
@@ -274,7 +296,7 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
       const looks = [frame.look, entry.frames[index - 1]?.look ?? null].filter(
         (look): look is MeasuredLook => look !== null,
       );
-      const apart = looks.map((look) => lookApart(shape, pose, look));
+      const apart = looks.map((look) => lookApart(shape, pose, look, byScroll));
       const lookMiss = {
         color: apart.length === 0 ? 0 : Math.min(...apart.map((item) => item.color)),
         effectPx: apart.length === 0 ? 0 : Math.min(...apart.map((item) => item.effectPx)),
@@ -288,7 +310,13 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
       const before = entry.frames[index - 1]?.opacity ?? frame.opacity;
       const low = Math.min(before, frame.opacity);
       const high = Math.max(before, frame.opacity);
-      const opacityMiss = seen < low ? low - seen : seen > high ? seen - high : 0;
+      const opacityMiss = byScroll.has('opacity')
+        ? 0
+        : seen < low
+          ? low - seen
+          : seen > high
+            ? seen - high
+            : 0;
       // Unseen on the page and in the preview (removed, hidden): where it
       // would be does not matter.
       if (seen === 0 && frame.opacity === 0) {
@@ -300,7 +328,7 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
         const [px2, py2] = apply(frame.matrix, frame.taper, x, y);
         pxMiss = Math.max(pxMiss, Math.hypot(px1 - px2, py1 - py2));
       }
-      return { px: pxMiss, opacity: opacityMiss, ...lookMiss };
+      return { px: movedByScroll ? 0 : pxMiss, opacity: opacityMiss, ...lookMiss };
     };
     entry.frames.forEach((frame, index) => {
       // Before the take starts the preview shows nothing to compare: a part
@@ -326,8 +354,10 @@ export function selfCheck(capture: Capture, posesAt: (timeMs: number) => Pose[])
         miss.color > CLOSE_COLOR ||
         miss.effectPx > CLOSE_PX;
       if (follow === undefined && missing) {
-        for (const time of [frame.t - FRAME_MS, frame.t + FRAME_MS]) {
-          if (time < 0) continue;
+        // A frame earlier than the start is the start: the first frame
+        // filmed may show the page as the take began (Linear's menu link).
+        for (const time of [Math.max(0, frame.t - FRAME_MS), frame.t + FRAME_MS]) {
+          if (time === frame.t) continue;
           const near = posesNear(time).find((item) => item.shapeId === entry.shapeId);
           const other = missOf(frame, index, near);
           // Each is timed on its own: a fade the browser runs can be a
