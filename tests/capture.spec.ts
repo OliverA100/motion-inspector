@@ -4503,3 +4503,67 @@ test('letters a script moves inside a heading shown after the pick are filmed', 
   expect(miss.px).toBeLessThan(1.5);
   expect(miss.opacity).toBeLessThan(0.02);
 });
+
+// Found on Dub through the side panel: the pointer left the menu's button
+// 60 ms into the menu's entrance. That cut the hover's take short, and the
+// entrance ran on into the leave's take, which did not have it: its
+// preview drew the menu whole from the start, 58 px off.
+test('an animation still running from the take before goes on in the next', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #cr-box { width: 160px; height: 80px }
+      #cr-label { width: 80px; height: 14px; color: rgb(0, 0, 0); transition: color .15s linear }
+      #cr-label.lit { color: rgb(200, 200, 200) }
+      #cr-menu { width: 120px; height: 40px; background: #222; opacity: 0 }
+      #cr-menu.open { opacity: 1; animation: cr-in .3s linear }
+      #cr-menu.closing { animation: cr-out .2s linear }
+      @keyframes cr-in { from { opacity: 0; transform: scale(.8) } to { opacity: 1; transform: none } }
+      @keyframes cr-out { from { opacity: 1 } to { opacity: 0 } }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="cr-box"><div id="cr-label">a</div><div id="cr-menu"></div></div>';
+    document.body.prepend(holder);
+    const label = document.getElementById('cr-label') as HTMLElement;
+    const menu = document.getElementById('cr-menu') as HTMLElement;
+    window.MotionCapture.record(document.getElementById('cr-box') as Element);
+    setTimeout(() => {
+      label.classList.add('lit');
+      menu.classList.add('open');
+    }, 200);
+    setTimeout(() => {
+      label.classList.remove('lit');
+      setTimeout(() => {
+        menu.addEventListener('animationend', () => menu.classList.remove('open', 'closing'), {
+          once: true,
+        });
+        menu.classList.add('closing');
+      }, 300);
+    }, 260);
+  });
+  await page.waitForTimeout(1600);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  const leave = takes.find((take) =>
+    take.capture?.tracks.some(
+      (track) => track.property === 'opacity' && track.keyframes[0]?.value === '1',
+    ),
+  );
+  expect(leave).toBeDefined();
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number; opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, leave?.capture);
+  expect(miss.opacity).toBeLessThan(0.05);
+  expect(miss.px).toBeLessThan(1.5);
+  // The entrance it carried on starts before it, and is cut to fit.
+  const entrance = leave?.capture?.tracks.find(
+    (track) => track.property === 'opacity' && track.keyframes[0]?.value === '0',
+  );
+  expect(entrance?.startOffset).toBe(0);
+  expect(entrance?.timing.delay).toBeLessThan(0);
+});

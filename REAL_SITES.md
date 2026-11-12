@@ -315,6 +315,7 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 139 | Basement | A caption hidden after the pick was drawn whole in a later take: 100% off | A part seen to change outside a take is read again; D245 judges only filmed frames (D250) |
 | 140 | Animata | Rolling letters waiting on a delay were drawn where the last hover left them: 16 px off | A move that begins late holds its start until then (D251) |
 | 141 | gsap.com | Letters a script lifts in, inside a heading hidden when picked, were never filmed: 8 parts missing | A part tried while not drawn is tried again once it is; a late shape takes in the parts inside it (D252) |
+| 142 | Dub | A menu still fading in when the pointer left was drawn whole in the leave take: 58 px off | An animation still running when a take begins goes on in it (D253) |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 

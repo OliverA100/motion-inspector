@@ -1815,6 +1815,9 @@ function buildTake(
   scripted: Set<Element> = new Set(),
   watch: Watch = new Map(),
   pseudoFilm: PseudoFilm = new Map(),
+  // Animations still running from the take before, carried on in this one:
+  // shown, but the take starts and is named by its own.
+  carriedIn: Set<Seen> = new Set(),
 ): TakeResult {
   // A loop that was running long before this take's own animations (a
   // shimmer on a nearby button since the page loaded, found on MUI) belongs
@@ -1885,9 +1888,18 @@ function buildTake(
   // started) does count: it is short, and starting the take after it
   // left its bar before 0 on the timeline, with a negative delay.
   const fresh = drawable.filter(
-    (seen) => !seen.runningAtPick || Number.isFinite(seen.timing.endTime),
+    (seen) =>
+      !carriedIn.has(seen) && (!seen.runningAtPick || Number.isFinite(seen.timing.endTime)),
   );
-  const basis = fresh.length > 0 ? fresh : drawable.length > 0 ? drawable : take;
+  const ownDrawable = drawable.filter((seen) => !carriedIn.has(seen));
+  const basis =
+    fresh.length > 0
+      ? fresh
+      : ownDrawable.length > 0
+        ? ownDrawable
+        : drawable.length > 0
+          ? drawable
+          : take;
   // A take moved only by a script starts with its first frame of film.
   // A take moved by a script starts with its first frame of film, if that
   // came before every animation in it.
@@ -2017,6 +2029,41 @@ function buildTake(
       snapshot.fadingAtPick.get(seen.target)?.from ??
       drawn?.opacity;
     if (keepsItsEnd(seen, snapshot.resting.get(seen.target), drawnOpacity)) {
+      seen.timing = {
+        ...seen.timing,
+        fill: seen.timing.fill === 'backwards' ? 'both' : 'forwards',
+      };
+    }
+  }
+  // One carried on from the take before, that another on the same property
+  // follows, is judged by the film: the page is read when the take ends,
+  // after the one that follows. Held between them at its end (Dub's menu,
+  // in and shown until it fades out), its end is kept until then.
+  for (const seen of kept) {
+    if (!carriedIn.has(seen) || seen.origin === 'css-transition') continue;
+    if (seen.timing.fill !== 'none' && seen.timing.fill !== 'backwards') continue;
+    const next = kept
+      .filter(
+        (other) =>
+          other !== seen &&
+          other.target === seen.target &&
+          other.pseudoElement === seen.pseudoElement &&
+          other.startTime > seen.startTime &&
+          sharesProperty(other, seen),
+      )
+      .map((other) => other.startTime + Math.max(other.timing.delay, 0))
+      .sort((one, other) => one - other)[0];
+    if (next === undefined) continue;
+    const ends = seen.startTime + seen.timing.endTime;
+    const between = (film.get(seen.target) ?? []).filter(
+      (frame) => frame.time > ends + ONE_FRAME_MS && frame.time < next - ONE_FRAME_MS,
+    );
+    const first = between[0];
+    if (first === undefined) continue;
+    const to = seen.keyframes.at(-1)?.values.find((value) => value.property === 'opacity')?.value;
+    const holdsOpacity =
+      to === undefined || between.every((frame) => Math.abs(frame.opacity - parseFloat(to)) < 0.02);
+    if (holdsOpacity && between.every((frame) => sameFor(frame, first, seen.properties))) {
       seen.timing = {
         ...seen.timing,
         fill: seen.timing.fill === 'backwards' ? 'both' : 'forwards',
@@ -2314,7 +2361,9 @@ function buildTake(
       trigger ??
       triggerOf(
         snapshot.rootElement,
-        take,
+        take.some((seen) => !carriedIn.has(seen))
+          ? take.filter((seen) => !carriedIn.has(seen))
+          : take,
         take.length === 0 ? takeStart : null,
         snapshot.pickedFrom ?? null,
       ),
@@ -3188,12 +3237,20 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     film: Film;
     scripted: Set<Element>;
     watch: Watch;
+    carriedIn: Set<Seen>;
   }[] = [];
   // Animations of takes already sent that are still running. What they
   // move is theirs: the next take's watch leaves it alone until they end
   // (Clerk's menu: the pointer crossing its items starts a take for each,
   // and the label the last one lit was still fading in the next).
   let carried: Seen[] = [];
+  // Those of them still running when this take began: they go on in it, so
+  // its preview shows what the page did from its start (Dub's menu, still
+  // fading in when the pointer left, was drawn whole). The take starts and
+  // is named by its own.
+  let carriedIn = new Set<Seen>();
+  // The same, for the take sent last, which a way back may join.
+  let previousCarriedIn = new Set<Seen>();
   const clearFilm = (): void => {
     film = new Map();
     scripted = new Set();
@@ -3211,9 +3268,17 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       // The film goes on: a restart is how a script drives the part, and
       // splitting the film there would lose the motion before it (found on
       // vanilla-tilt, which restarts a transition with every pointer move).
-      held.push({ take, samples, film: new Map(), scripted: new Set(), watch: copyWatch(watch) });
+      held.push({
+        take,
+        samples,
+        film: new Map(),
+        scripted: new Set(),
+        watch: copyWatch(watch),
+        carriedIn,
+      });
       take = [];
       samples = [];
+      carriedIn = new Set();
       return;
     }
     let chainNote: string[] = [];
@@ -3243,13 +3308,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       const earlier = held;
       held = [];
       // Sending one clears the watch: the current take keeps its own.
-      const current = { take, samples, film, scripted, watch };
+      const current = { take, samples, film, scripted, watch, carriedIn };
       for (const item of earlier) {
         take = item.take;
         samples = item.samples;
         film = item.film;
         scripted = item.scripted;
         watch = item.watch;
+        carriedIn = item.carriedIn;
         sendTake([]);
       }
       take = current.take;
@@ -3257,6 +3323,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       film = current.film;
       scripted = current.scripted;
       watch = current.watch;
+      carriedIn = current.carriedIn;
     }
     sendTake(chainNote);
   };
@@ -3264,13 +3331,17 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   const sendTake = (chainNote: string[]): void => {
     if (take.length === 0 && !hasFilm()) return;
     const finished = take;
+    const finishedCarriedIn = carriedIn;
+    carriedIn = new Set();
+    // Its own animations, without those it carried on from before.
+    const own = finished.filter((seen) => !finishedCarriedIn.has(seen));
     const finishedSamples = samples;
     const finishedFilm = film;
     const finishedScripted = scripted;
     // Set aside with the film: clearing the film starts a new watch.
     const takenWatch = watch;
     const takenPseudoFilm = pseudoFilm;
-    carried = [...carried, ...finished].filter(
+    carried = Array.from(new Set([...carried, ...own])).filter(
       (seen) => seen.ended === null && seen.pseudoElement === null,
     );
     restingFrames = new Map();
@@ -3313,22 +3384,27 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       !scriptedBefore &&
       previous !== null &&
       previous.length > 0 &&
-      finished.length > 0 &&
-      isWayBackOf(previous, finished)
+      own.length > 0 &&
+      isWayBackOf(
+        previous.filter((seen) => !previousCarriedIn.has(seen)),
+        own,
+      )
     ) {
-      const previousTake = previous;
-      const back = afterAHold(previous, finished);
+      const previousTake = previous.filter((seen) => !previousCarriedIn.has(seen));
+      // What this take carried on is in the way there already.
+      const back = afterAHold(previousTake, own);
       const shift =
-        Math.min(...finished.map((seen) => seen.startTime)) -
+        Math.min(...own.map((seen) => seen.startTime)) -
         Math.min(...back.map((seen) => seen.startTime));
       const merged = [...previous, ...back];
+      const mergedCarriedIn = previousCarriedIn;
       // The way back is moved earlier, to shorten the hold. Readings from
       // the moment it began move with it (a script starts moving at once,
       // so its first frames can still be in the first take); readings in
       // the part of the hold that is cut out go, or time would run back.
       // When the pointer left, if it did: a script reacts to that at once,
       // a frame before the transitions start.
-      const transitionsBegan = Math.min(...finished.map((seen) => seen.startTime));
+      const transitionsBegan = Math.min(...own.map((seen) => seen.startTime));
       const left = pageEvents
         .filter(
           (event) =>
@@ -3398,7 +3474,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
         null,
         snapshot.pickedFrom ?? null,
       );
-      const second = triggerOf(snapshot.rootElement, finished, null, snapshot.pickedFrom ?? null);
+      const second = triggerOf(snapshot.rootElement, own, null, snapshot.pickedFrom ?? null);
       const trigger: Trigger =
         // The way back of a hover is its leave, whatever the pointer crossed
         // on its way out (a menu opened elsewhere closes a moment later).
@@ -3420,12 +3496,15 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
           new Set([...finishedScripted]),
           mergedWatch,
           mergedPseudoFilm,
+          mergedCarriedIn,
         ),
         replaces: true,
       });
+      previousCarriedIn = new Set();
       return;
     }
     previous = finished;
+    previousCarriedIn = finishedCarriedIn;
     previousSamples = finishedSamples;
     previousFilm = finishedFilm;
     const finishedWatch = takenWatch;
@@ -3454,13 +3533,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       finishedScripted,
       finishedWatch,
       takenPseudoFilm,
+      finishedCarriedIn,
     );
     const capture = result.capture;
     const setOffBy =
       capture?.trigger === 'hover'
         ? hoverSetOffBy(
             [snapshot.rootElement, snapshot.pickedFrom ?? null],
-            Math.min(...finished.map((seen) => seen.startTime)),
+            Math.min(...own.map((seen) => seen.startTime)),
           )
         : null;
     hoveredWhenSent =
@@ -3714,10 +3794,32 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       );
       if (replaced !== undefined) {
         seen.interrupted = replaced.ended !== 'finished' && isReversal(replaced, seen);
-        if (take.includes(replaced)) {
+        // Carried on from the take before, it stays: this one takes over
+        // from it where it begins, as the preview lets the later of two
+        // tracks for one value decide (a menu in, then out). It does not
+        // start a take of its own.
+        if (!carriedIn.has(replaced) && take.includes(replaced)) {
           const began = Math.min(...take.map((item) => item.startTime));
           endTake(seen.startTime - began < QUICK_MS);
         }
+      }
+      if (take.length === 0) {
+        // A take begins: what is still running from the takes before goes
+        // on in it, except what this one replaces.
+        const running = new Set(
+          [...carried, ...held.flatMap((item) => item.take)].filter(
+            (earlier) =>
+              earlier.ended === null &&
+              earlier.pseudoElement === null &&
+              earlier.scroll === null &&
+              !earlier.viewTransition &&
+              Number.isFinite(earlier.timing.endTime) &&
+              earlier.target.isConnected &&
+              !(earlier.target === seen.target && sharesProperty(earlier, seen)),
+          ),
+        );
+        take = Array.from(running);
+        carriedIn = running;
       }
       take = [...take, seen];
       handled.push(seen);
