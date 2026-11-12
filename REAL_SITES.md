@@ -308,6 +308,8 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 132 | Linear | Heading words that fade in after a delay went back to nothing after their fade: 100% off | A part waiting on a delay is drawn as the film shows it when its end is judged (D242) |
 | 133 | Basement | A dot pulsing since the page loaded was held still, said nothing of, and called 45% off | A loop left out of a take is said to be, and not checked (D243) |
 | 134 | Stripe | A graphic whose pulses are let go as they end was drawn at full opacity after them | Its rest is read from the film (D244) |
+| 135 | GSAP | A path a script was fading when picked was drawn at 3% in every later take: 97% off | A part nothing fades is drawn at the opacity its film shows (D245) |
+| 136 | Dub | A menu that fades out after its take begins was drawn gone from the start: 100% off | A fade that begins late holds its start until then (D246); one that follows a held fade holds its own end (D247) |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 

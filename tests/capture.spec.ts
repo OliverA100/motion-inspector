@@ -4097,3 +4097,181 @@ test('a slide a script began before the take is not played late', async ({ page 
   }, capture);
   expect(miss.px).toBeLessThan(1.5);
 });
+
+// Found on gsap.com through the side panel: a script was fading a path in
+// when it was picked, so its look read 3%. Every later take moved it without
+// fading it and still drew it at 3% while the page showed it whole.
+test('a part a script faded before this take is drawn as the page showed it', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent =
+      '#sg-box { width: 120px } #sg-part { width: 40px; height: 40px; background: #222 }';
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="sg-box"><div id="sg-part"></div></div>';
+    document.body.prepend(holder);
+    const part = document.getElementById('sg-part') as HTMLElement;
+    const run = (ms: number, frame: (done: number) => void): void => {
+      const began = performance.now();
+      const step = (now: number): void => {
+        const done = Math.min((now - began) / ms, 1);
+        frame(done);
+        if (done < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+    part.style.opacity = '0';
+    run(300, (done) => {
+      part.style.opacity = String(done);
+    });
+    setTimeout(() => window.MotionCapture.record(document.getElementById('sg-box') as Element), 60);
+    setTimeout(() => {
+      run(300, (done) => {
+        part.style.transform = `translateX(${(done * 40).toFixed(2)}px)`;
+      });
+    }, 1300);
+  });
+  await page.waitForTimeout(2600);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  const moved = takes.filter((take) =>
+    take.capture?.tracks.some((track) => track.property === 'transform'),
+  );
+  expect(moved.length).toBe(1);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, moved[0]?.capture);
+  expect(miss.opacity).toBeLessThan(0.02);
+});
+
+// A menu faded in and held, then faded out with no fill, in one take (the
+// way back joins the way there): the preview showed it again once gone.
+test('a fade that follows a held one on the same part holds its own end', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate((scripted) => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #dm-box { width: 160px }
+      #dm-other { width: 40px; height: 10px; background: #36f; transition: height .4s linear }
+      #dm-other.tall { height: 30px }
+      #dm-menu { width: 120px; height: 40px; background: #222; opacity: 0 }
+      #dm-menu.open { opacity: 1; animation: dm-in .3s }
+      #dm-menu.closing { animation: dm-out .2s }
+      @keyframes dm-in { from { opacity: 0 } to { opacity: 1 } }
+      @keyframes dm-out { from { opacity: 1 } to { opacity: 0 } }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="dm-box"><div id="dm-other"></div><div id="dm-menu"></div></div>';
+    document.body.prepend(holder);
+    const menu = document.getElementById('dm-menu') as HTMLElement;
+    const other = document.getElementById('dm-other') as HTMLElement;
+    window.MotionCapture.record(document.getElementById('dm-box') as Element);
+    setTimeout(() => menu.classList.add('open'), 200);
+    setTimeout(() => {
+      other.classList.add('tall');
+      if (scripted) {
+        const began = performance.now();
+        const step = (now: number): void => {
+          const done = Math.min((now - began) / 400, 1);
+          other.style.transform = `translateX(${(done * 30).toFixed(2)}px)`;
+          if (done < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+      setTimeout(() => {
+        menu.addEventListener('animationend', () => menu.classList.remove('open', 'closing'), {
+          once: true,
+        });
+        menu.classList.add('closing');
+      }, 180);
+    }, 1500);
+  }, false);
+  await page.waitForTimeout(3100);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  const closed = takes.filter((take) =>
+    take.capture?.tracks.some((track) => track.property === 'height'),
+  );
+  expect(closed.length).toBe(1);
+  expect(takes.length).toBe(1);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, closed[0]?.capture);
+  expect(miss.opacity).toBeLessThan(0.02);
+});
+
+// Found on Dub through the side panel: its menu was hidden when picked and
+// shown by a hover. On leave (a take of its own: a script moved too) its way
+// out began after the take did; the page showed it until then and nothing
+// after, but the preview drew it gone from the start.
+test('a fade that begins late holds its start until then when the part rests elsewhere', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate((scripted) => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #dm-box { width: 160px }
+      #dm-other { width: 40px; height: 10px; background: #36f; transition: height .4s linear }
+      #dm-other.tall { height: 30px }
+      #dm-menu { transition: height 0.4s linear }
+      #dm-menu.grow { height: 50px }
+      #dm-dot { width: 10px; height: 10px; background: #e55 }
+      #dm-menu { width: 120px; height: 40px; background: #222; opacity: 0 }
+      #dm-menu.open { opacity: 1; animation: dm-in .3s }
+      #dm-menu.closing { animation: dm-out .2s }
+      @keyframes dm-in { from { opacity: 0 } to { opacity: 1 } }
+      @keyframes dm-out { from { opacity: 1 } to { opacity: 0 } }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="dm-box"><div id="dm-other"></div><div id="dm-menu"></div><div id="dm-dot"></div></div>';
+    document.body.prepend(holder);
+    const menu = document.getElementById('dm-menu') as HTMLElement;
+    const other = document.getElementById('dm-other') as HTMLElement;
+    const dot = document.getElementById('dm-dot') as HTMLElement;
+    window.MotionCapture.record(document.getElementById('dm-box') as Element);
+    setTimeout(() => menu.classList.add('open'), 200);
+    setTimeout(() => {
+      other.classList.add('tall');
+      menu.classList.add('grow');
+      if (scripted) {
+        const began = performance.now();
+        const step = (now: number): void => {
+          const done = Math.min((now - began) / 400, 1);
+          dot.style.transform = `translateX(${(done * 30).toFixed(2)}px)`;
+          if (done < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+      setTimeout(() => {
+        menu.addEventListener('animationend', () => menu.classList.remove('open', 'closing'), {
+          once: true,
+        });
+        menu.classList.add('closing');
+      }, 180);
+    }, 1500);
+  }, true);
+  await page.waitForTimeout(3100);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  const closed = takes.filter((take) =>
+    take.capture?.tracks.some((track) => track.property === 'height'),
+  );
+  expect(closed.length).toBe(1);
+  expect(takes.length).toBe(2);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, closed[0]?.capture);
+  expect(miss.opacity).toBeLessThan(0.02);
+});

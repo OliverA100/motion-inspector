@@ -1356,3 +1356,17 @@ Seen in the same run and left as they are: Family's heading words turn in 3D and
 **Why:** found on Stripe again: the payouts graphic's pulses are let go as they end. The preview went back to full opacity after the fade while the page showed nothing: 100% off.
 
 Seen in the same run and left as they are: cal.com's nav highlight was 36 px off for one frame, in the side panel only. The page made its way-back animation a frame late with a start time from before (the page itself jumped ahead), and the preview plays the timing the animation has. Basement's underline (a ::before) takes its color from a script that flickers its parent's color, which a pseudo-element's drawing does not follow: 50% off in color.
+
+### D245. A part nothing fades in a take is drawn at the opacity the film shows throughout
+**Chose:** a part whose film holds one opacity through a take, with no fade of it in that take (the browser's or a script's), is drawn at that opacity. The look read at pick is kept otherwise.
+**Why:** found on gsap.com through the side panel. Every take of one recording is drawn from the look read at pick, and a script was fading the logo's path in at that moment (read at 3%). The takes after it moved the path without fading it, and drew it at 3% while the page showed it whole: 97% off.
+
+### D246. A fade that begins after its take holds its start until then
+**Chose:** an animation that fades a part (not a transition, no delay, no fill backwards), begins after its take does, and starts from the opacity the film shows the part held until then, while the part rests at another, gets a backwards fill (both, if it held its end).
+**Why:** found on Dub through the side panel: the menu, hidden when picked and shown by a hover, fades out on leave 184 ms after that take starts. The page showed it until then and nothing after; the preview drew it at its rest, gone, from the start: 100% off. This is the case D240 left: a part still showing from the take before.
+
+### D247. A fade that follows a held one on the same property holds its own end
+**Chose:** an animation that comes after one whose end is held (D233), on the same part and property, holds its own end too when the page keeps it, even if that end is also the part's rest.
+**Why:** a menu faded in and held, then faded out with no fill, in one take (a way back joins the way there): once the fade-out was over, the preview fell back to the fade-in's held end and showed the menu again. On the page the new animation had replaced the old. Found while writing the test for D246.
+
+Seen in the same run and left as they are: Magic UI's closing menu flashes back to full opacity for one frame on the page before it is hidden (7%). Two script motions on Motion Primitives (a spring and a carousel) were fitted 1.5 and 2.5 px off, about what they were before. Linear's menu link is still 43% off in color after D241. Watched on the page: leaving one link, the pointer turns the next one toward white for a frame, Chrome cancels that and runs a 31 ms way back. The take keeps the first half, played whole, and not the way back. A take cut off by a restart this soon is held with no film of its own (the film goes on to the next), so D234 cannot tell it was never shown. A test page did not make the same takes, so no change was made for it.

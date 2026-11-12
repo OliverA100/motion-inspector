@@ -2021,6 +2021,27 @@ function buildTake(
       };
     }
   }
+  // One that follows a kept end on the same property replaced it on the
+  // page: its own end is held, or the preview would fall back to the kept
+  // one when it is over (a menu faded in and held, then faded out with no
+  // fill: shown again once gone).
+  for (const seen of kept) {
+    const followsAKeptEnd = kept.some(
+      (other) =>
+        other !== seen &&
+        other.target === seen.target &&
+        other.pseudoElement === seen.pseudoElement &&
+        other.startTime < seen.startTime &&
+        sharesProperty(other, seen) &&
+        (other.timing.fill === 'forwards' || other.timing.fill === 'both'),
+    );
+    if (followsAKeptEnd && keepsItsEnd(seen, undefined, undefined, true)) {
+      seen.timing = {
+        ...seen.timing,
+        fill: seen.timing.fill === 'backwards' ? 'both' : 'forwards',
+      };
+    }
+  }
   const built = kept.map((seen, index) => {
     // Properties from one animation share its timing: one group.
     const item = tracksFor(
@@ -2157,6 +2178,53 @@ function buildTake(
     const waiting = opacityWhileWaiting(take, film, seen);
     if (shape !== undefined && waiting !== undefined) shape.opacity = waiting;
   }
+  // A part nothing fades in this take is drawn as the page showed it
+  // throughout. Its look was read at pick, and a script may have faded it
+  // since (GSAP's logo: a path picked at 3% mid-fade, back at 100% by the
+  // next hover, drawn at 3% in every later take, "off by 97%").
+  for (const [element, frames] of film) {
+    const shape = snapshot.shapeOf.get(element);
+    const id = snapshot.shapeIdOf.get(element);
+    if (shape === undefined || id === undefined || frames.length < 2) continue;
+    const faded =
+      take.some(
+        (seen) =>
+          seen.target === element &&
+          seen.pseudoElement === null &&
+          seen.properties.includes('opacity'),
+      ) || scripts.some((track) => track.shapeId === id && track.property === 'opacity');
+    if (faded) continue;
+    const shown = frames.map((frame) => frame.opacity);
+    const steady = Math.max(...shown) - Math.min(...shown) <= 0.01;
+    const first = shown[0];
+    if (steady && first !== undefined && Math.abs(first - shape.opacity) > 0.02) {
+      shape.opacity = Math.min(Math.max(first, 0), 1);
+    }
+  }
+  // A fade that begins after the take does, from where the page held the
+  // part until then, while the part rests elsewhere after it: its start is
+  // held before it, as a kept end is held after (Dub's menu on leave: shown
+  // until its way out began, gone after, drawn gone throughout).
+  kept.forEach((seen, index) => {
+    if (seen.origin === 'css-transition' || seen.pseudoElement !== null) return;
+    if (seen.timing.fill !== 'none' && seen.timing.fill !== 'forwards') return;
+    if (seen.timing.delay > 0 || !seen.properties.includes('opacity')) return;
+    const shape = snapshot.shapeOf.get(seen.target);
+    const from = seen.keyframes[0]?.values.find((value) => value.property === 'opacity')?.value;
+    const start = from === undefined ? Number.NaN : Number.parseFloat(from);
+    if (shape === undefined || !Number.isFinite(start)) return;
+    if (Math.abs(shape.opacity - start) <= 0.02) return;
+    const before = (film.get(seen.target) ?? []).filter(
+      (frame) => frame.time >= takeStart && frame.time < seen.startTime - ONE_FRAME_MS,
+    );
+    if (before.length < 2 || before.some((frame) => Math.abs(frame.opacity - start) > 0.02)) return;
+    const fill = seen.timing.fill === 'forwards' ? 'both' : 'backwards';
+    seen.timing = { ...seen.timing, fill };
+    for (const track of built[index]?.tracks ?? []) {
+      const timed = track as { timing?: { fill?: string } };
+      if (timed.timing !== undefined) timed.timing = { ...timed.timing, fill };
+    }
+  });
   // What explains a part: the parts with tracks or a rule, and those whose
   // animations the take saw, drawn or listed.
   const trackedIds = new Set(
@@ -2335,6 +2403,7 @@ function keepsItsEnd(
   seen: Seen,
   restAtPick: Map<string, string> | undefined,
   drawnOpacity: number | undefined,
+  afterAKeptEnd = false,
 ): boolean {
   if (seen.origin === 'css-transition' || seen.pseudoElement !== null) return false;
   if (seen.timing.fill !== 'none' && seen.timing.fill !== 'backwards') return false;
@@ -2364,7 +2433,10 @@ function keepsItsEnd(
         property === 'opacity' && drawnOpacity !== undefined
           ? String(drawnOpacity)
           : (restAtPick?.get(property) ?? seen.restAtSight.get(property));
-      if (before !== undefined && sameValue(property, before, to, seen.target)) return false;
+      // After a kept end it is not: that one would be shown instead.
+      if (!afterAKeptEnd && before !== undefined && sameValue(property, before, to, seen.target)) {
+        return false;
+      }
       // Another animation on it now would make what is read its, not the
       // page's own.
       const moved = running.some(
