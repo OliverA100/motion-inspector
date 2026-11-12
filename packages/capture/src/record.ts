@@ -1827,6 +1827,16 @@ function buildTake(
       !seen.runningAtPick ||
       seen.startTime >= ownStart - UNRELATED_LOOP_MS,
   );
+  // Left out, so said to be, and its part not checked against a preview
+  // that holds it still (Basement's pulsing dot beside a hovered button,
+  // "off by 45%").
+  const unrelated = everything.filter(
+    (seen) =>
+      !take.includes(seen) &&
+      seen.pseudoElement === null &&
+      snapshot.shapeIdOf.has(seen.target) &&
+      !take.some((other) => other.target === seen.target),
+  );
   // Parts that were hidden at pick time and appeared for this animation get
   // their shapes now.
   for (const seen of take) {
@@ -1993,8 +2003,17 @@ function buildTake(
     // when picked is drawn from where that fade started (see buildTake),
     // not from the value read then (Aceternity's sparkles, picked while
     // Motion faded them: read at 0, drawn at 1).
+    // So is one waiting on a delay: the film's opacity then (Linear's
+    // heading words, appearing as the page loaded: read at 1 as they
+    // appeared, drawn at 0 until their fade, which was then not held).
     const drawn = snapshot.shapeOf.get(seen.target);
-    const drawnOpacity = snapshot.fadingAtPick.get(seen.target)?.from ?? drawn?.opacity;
+    const drawnOpacity =
+      take
+        .filter((other) => other.target === seen.target)
+        .map((other) => opacityWhileWaiting(take, film, other))
+        .find((value) => value !== undefined) ??
+      snapshot.fadingAtPick.get(seen.target)?.from ??
+      drawn?.opacity;
     if (keepsItsEnd(seen, snapshot.resting.get(seen.target), drawnOpacity)) {
       seen.timing = {
         ...seen.timing,
@@ -2101,10 +2120,27 @@ function buildTake(
       fadesOfIt.length === 0 || fadesOfIt.some((seen) => seen.origin === 'css-transition')
         ? []
         : fadesOfIt.map((seen) => restNow(seen, 'opacity', false));
+    // Not readable now (the page has begun the next turn of its loop, or
+    // cancelled the last one), the film shows it once they were over, for
+    // fades that do not hold their end.
+    const over = Math.max(...fadesOfIt.map((seen) => seen.startTime + seen.timing.endTime));
+    const filmedAfter =
+      fadesOfIt.length === 0 ||
+      fadesOfIt.some(
+        (seen) =>
+          seen.origin === 'css-transition' ||
+          seen.timing.fill === 'forwards' ||
+          seen.timing.fill === 'both',
+      ) ||
+      !Number.isFinite(over)
+        ? []
+        : (film.get(element) ?? []).filter((frame) => frame.time > over + ONE_FRAME_MS);
     const read =
       restsNow.length > 0 && restsNow.every((value) => value !== undefined)
         ? Number.parseFloat(restsNow[0] ?? '')
-        : Number.NaN;
+        : filmedAfter.length >= 2
+          ? (filmedAfter.at(-1)?.opacity ?? Number.NaN)
+          : Number.NaN;
     shape.opacity = Number.isFinite(read)
       ? Math.min(Math.max(read, 0), 1)
       : fades
@@ -2117,29 +2153,9 @@ function buildTake(
   // animation's (Ant Design's spinner dots, appearing as recording moved
   // to them, read at 1 for a rest of 0.3).
   for (const seen of take) {
-    if (seen.pseudoElement !== null || seen.timing.delay <= 0) continue;
-    if (!seen.properties.includes('opacity')) continue;
-    // The first fade on the part only: during a later one's delay (a
-    // hover's way back) it shows the hovered state, not its rest.
-    const earlier = take.some(
-      (other) =>
-        other !== seen &&
-        other.target === seen.target &&
-        other.pseudoElement === null &&
-        other.properties.includes('opacity') &&
-        other.startTime < seen.startTime,
-    );
-    if (earlier) continue;
     const shape = snapshot.shapeOf.get(seen.target);
-    if (shape === undefined) continue;
-    // Only during the delay itself: a hover's way back waits too, and
-    // before it the part was in its hovered state, not at rest.
-    const waiting = (film.get(seen.target) ?? []).filter(
-      (frame) =>
-        frame.time >= seen.startTime - 20 && frame.time < seen.startTime + seen.timing.delay - 1,
-    );
-    const before = waiting[waiting.length - 1];
-    if (before !== undefined) shape.opacity = before.opacity;
+    const waiting = opacityWhileWaiting(take, film, seen);
+    if (shape !== undefined && waiting !== undefined) shape.opacity = waiting;
   }
   // What explains a part: the parts with tracks or a rule, and those whose
   // animations the take saw, drawn or listed.
@@ -2170,7 +2186,12 @@ function buildTake(
       snapshot,
       new Map(
         Array.from(film).filter(
-          ([element]) => !take.some((seen) => seen.viewTransition && seen.target === element),
+          ([element]) =>
+            !take.some((seen) => seen.viewTransition && seen.target === element) &&
+            !(
+              unrelated.some((seen) => seen.target === element) &&
+              !scripts.some((track) => track.shapeId === snapshot.shapeIdOf.get(element))
+            ),
         ),
       ),
       takeStart,
@@ -2200,6 +2221,10 @@ function buildTake(
             ),
         ),
         ...snapshot.notes,
+        ...unrelated.map(
+          (seen) =>
+            `The loop on ${labelOf(seen.target)} is not shown, because it was running long before this began.`,
+        ),
         ...flattened,
         ...built.flatMap((item) => item.notShown),
         // Something did run. Say so, rather than "nothing was captured".
@@ -2282,6 +2307,29 @@ function turnsIn(text: string): number[] {
 // What the film sees of a part: its opacity, its transform and the filmed
 // styles.
 const FILMED = new Set<string>(['opacity', ...TRANSFORM_PROPERTIES, ...FILMED_STYLES]);
+
+// The opacity a part shows while its first fade waits on a delay, as the
+// film has it. Only the first fade: during a later one's delay (a hover's
+// way back) it shows the hovered state, not its rest. And only during the
+// delay itself, for the same reason.
+function opacityWhileWaiting(take: Seen[], film: Film, seen: Seen): number | undefined {
+  if (seen.pseudoElement !== null || seen.timing.delay <= 0) return undefined;
+  if (!seen.properties.includes('opacity')) return undefined;
+  const earlier = take.some(
+    (other) =>
+      other !== seen &&
+      other.target === seen.target &&
+      other.pseudoElement === null &&
+      other.properties.includes('opacity') &&
+      other.startTime < seen.startTime,
+  );
+  if (earlier) return undefined;
+  const waiting = (film.get(seen.target) ?? []).filter(
+    (frame) =>
+      frame.time >= seen.startTime - 20 && frame.time < seen.startTime + seen.timing.delay - 1,
+  );
+  return waiting[waiting.length - 1]?.opacity;
+}
 
 function keepsItsEnd(
   seen: Seen,

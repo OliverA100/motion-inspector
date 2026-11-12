@@ -616,6 +616,48 @@ test('a click that moves recording to a parent with an old loop in it is kept, w
   expect(properties.filter((property) => property.startsWith('background-position'))).toEqual([]);
 });
 
+// Found on Basement through the side panel: a dot pulsing since the page
+// loaded, beside a link that changes color. The pulse was left out of the
+// take, as the shimmer above is, but nothing said so, and the check
+// compared the dot's film with a preview that holds it still (45% off).
+test('a loop left out of a take is said to be, and its part is not checked', async ({ page }) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #bs-row { display: flex; gap: 8px; align-items: center; width: 200px }
+      #bs-row .bs-dot { display: block; width: 6px; height: 6px; background: #f50;
+        animation: bs-pulse 2s infinite }
+      @keyframes bs-pulse { 50% { opacity: .5 } }
+      #bs-link { display: block; width: 80px; height: 20px; color: #888; transition: color .2s }
+      #bs-link.on { color: #000 }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML =
+      '<div id="bs-row"><span class="bs-dot"></span><span id="bs-link">a</span></div>';
+    document.body.prepend(holder);
+  });
+  await page.waitForTimeout(1300);
+  await page.evaluate(() => {
+    window.MotionCapture.record(document.getElementById('bs-row') as Element);
+    document.getElementById('bs-link')?.classList.add('on');
+  });
+  await page.waitForTimeout(900);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((track) => track.property)).toEqual(['color']);
+  expect(capture.notShown).toContain(
+    'The loop on span.bs-dot is not shown, because it was running long before this began.',
+  );
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { opacity: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.opacity).toBeLessThan(0.02);
+});
+
 test('recording moves to the parent only when the picked element has nothing of its own', async ({
   page,
 }) => {
@@ -3862,6 +3904,87 @@ test('a turn the page cancels at once is left out while its color still changes'
   expect(capture.tracks.map((item) => item.property)).toEqual(['color']);
 });
 
+// Found on cult-ui through the side panel: the pointer, leaving a button,
+// brushed the link beside it, whose color transition began and was
+// cancelled a frame later. Chrome wrote its color in oklab() for that frame
+// and in lab() after, the same color, so the film looked like a change and
+// the preview played a hover the page never showed (60% off in color).
+test('a transition cancelled at once is left out when its color is only written another way', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#cu-bar { display: flex; gap: 8px }
+     #cu-bar span { display: block; width: 40px; height: 24px }
+     #cu-button { background: #ddd; transition: background-color .15s }
+     #cu-button.on { background: #888 }
+     #cu-link { color: lab(43 0 0); background: lab(90 0 0 / 0);
+       transition: color .3s steps(1, end), background-color .3s steps(1, end) }
+     #cu-link.on { color: lab(10 0 0); background: lab(90 0 0 / 0.6) }`,
+    '<div id="cu-bar"><span id="cu-link">a</span><span id="cu-button"></span></div>',
+    '#cu-bar',
+  );
+  await page.evaluate(() => {
+    (document.getElementById('cu-button') as HTMLElement).classList.add('on');
+    const link = document.getElementById('cu-link') as HTMLElement;
+    link.classList.add('on');
+    link.getAnimations();
+    // Left while it still shows its start: its color is written in
+    // oklab() then, though nothing on the page has changed.
+    setTimeout(() => {
+      link.classList.remove('on');
+      link.getAnimations();
+    }, 90);
+  });
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => item.property)).toEqual(['background-color']);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { color: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.color).toBeLessThan(0.05);
+});
+
+// Found on Linear through the side panel: heading words that appear as the
+// page loads, each fading in after a delay with a backwards fill. Drawn at
+// the film's opacity during the delay, 0, while the kept-end rule compared
+// with the 1 read as they appeared, so the fade was not held and the words
+// went back to nothing after it (100% off in opacity).
+test('a part that appears and fades in after a delay keeps its end', async ({ page }) => {
+  await setUp(
+    page,
+    `#ln-heading { width: 200px; height: 40px }
+     #ln-word { display: block; width: 80px; height: 30px; background: #222;
+       animation: ln-in .3s .2s backwards }
+     @keyframes ln-in { from { opacity: 0 } to { opacity: 1 } }`,
+    '<div id="ln-heading"></div>',
+    '#ln-heading',
+  );
+  await page.evaluate(() => {
+    const word = document.createElement('span');
+    word.id = 'ln-word';
+    document.getElementById('ln-heading')?.append(word);
+  });
+  await page.waitForTimeout(1200);
+  const takes = await takesNow(page);
+  expect(takes.some((take) => take.capture !== null)).toBe(true);
+  for (const take of takes) {
+    if (take.capture === null) continue;
+    const miss = await page.evaluate(async (taken) => {
+      const path = '/src/probeCheck.ts';
+      const module = (await import(/* @vite-ignore */ path)) as {
+        worstMiss: (capture: unknown) => { opacity: number };
+      };
+      return module.worstMiss(taken);
+    }, take.capture);
+    expect(miss.opacity).toBeLessThan(0.02);
+  }
+});
+
 // Found on Stripe through the side panel: a graphic a script fades in and
 // out over and over, picked mid-fade, was drawn at full opacity once its
 // fade was over, while the page showed nothing. Its own opacity is read
@@ -3896,6 +4019,47 @@ test('a part picked mid-fade rests at its own opacity once its fade is over', as
     expect(miss.opacity).toBeLessThan(0.02);
   }
   expect(takes.some((take) => take.capture !== null)).toBe(true);
+});
+
+// Found on Stripe again: the same graphic, its pulses each let go as they
+// end, so there is no finished animation to read its rest from. The film
+// shows it, unseen, once they are over.
+test('a part picked mid-fade rests as filmed when the page lets go of its fades', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = '#sp-glow2 { width: 40px; height: 40px; background: #222; opacity: 0 }';
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="sp-glow2"></div>';
+    document.body.prepend(holder);
+    const glow = document.getElementById('sp-glow2') as HTMLElement;
+    const pulse = (): void => {
+      const animation = glow.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }], {
+        duration: 300,
+      });
+      animation.addEventListener('finish', () => animation.cancel());
+    };
+    pulse();
+    window.MotionCapture.record(glow);
+    setTimeout(pulse, 150);
+  });
+  await page.waitForTimeout(1200);
+  const takes = await takesNow(page);
+  expect(takes.some((take) => take.capture !== null)).toBe(true);
+  for (const take of takes) {
+    if (take.capture === null) continue;
+    const miss = await page.evaluate(async (taken) => {
+      const path = '/src/probeCheck.ts';
+      const module = (await import(/* @vite-ignore */ path)) as {
+        worstMiss: (capture: unknown) => { opacity: number };
+      };
+      return module.worstMiss(taken);
+    }, take.capture);
+    expect(miss.opacity).toBeLessThan(0.02);
+  }
 });
 
 // Found on Resend through the side panel: a menu a script slides away while

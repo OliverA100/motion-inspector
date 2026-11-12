@@ -3,6 +3,7 @@
 // nothing in the take explains.
 
 import type { Missed } from '@motion-inspector/core';
+import { sameStyle } from './film';
 import { animationsUnder, labelOf, type Snapshot } from './snapshot';
 
 // While a take runs, every part under the picked element that draws
@@ -127,7 +128,13 @@ export function watchOnce(watch: Watch, parts: Element[], root: Element | null =
       known.places.add(now.place);
       changed = true;
     }
-    if (now.look !== known.look && !known.looks.has(now.look) && known.looks.size < 3) {
+    // A look is the same however its colors are written: Chrome writes one
+    // in oklab() as a transition begins (Clerk's menu labels, brushed by
+    // the pointer and let go a frame later, said to be missed).
+    const newLook =
+      !sameStyle(now.look, known.look) &&
+      ![...known.looks].some((look) => sameStyle(now.look, look));
+    if (newLook && known.looks.size < 3) {
       known.looks.add(now.look);
       changed = true;
     }

@@ -1338,3 +1338,21 @@ D231 is also narrowed: a part's text color is compared only while the preview an
 **Why:** found on Resend through the side panel: a menu a script slides away while a transition fades it. Its film began two frames before the fade, and the slide played 33 ms late: 25 px off on the page, 58 px in a test that slides faster.
 
 Seen in the same run and left as they are: Family's heading words turn in 3D and a script's motion is fitted flat (said in the take; about 6 px). Dub's menu is still finishing its entrance as the take of its way out starts, and that take draws it at rest from the start; where one take ends and the next begins is its own matter.
+
+### D241. One color written two ways is no change
+**Chose:** frames of film, and the looks the watch compares (what a take misses), are the same when their colors are, however Chrome writes them: each is read as rgba, a channel may be a step apart, and two clear colors are the same whatever their channels. Each color is read once and remembered (up to 500), since the watch looks at every part a few times a second.
+**Why:** found on cult-ui and Linear through the side panel. Leaving a button, the pointer brushed the link beside it, whose color transition began and was cancelled a frame later. For that frame Chrome wrote the link's colors in oklab() (the space it blends in) and before and after it in lab() or rgb(): the same colors. The film looked like a change, so D234 kept the transition, and the preview played a hover the page never showed (60% and 43% off in color). Clerk's menu labels, said to be missed, are likely the same.
+
+### D242. A part waiting on a delay is drawn as the film shows it when its end is judged
+**Chose:** D236's "what the preview draws at rest" includes the opacity a part shows while its first fade waits on a delay (as the film has it), which the take sets after D233 runs. One rule reads it for both.
+**Why:** found on Linear through the side panel, a regression of D236: heading words that appear as the page loads, each fading in after a delay with a backwards fill, were read at 1 as they appeared and drawn at 0 until their fade. D233 compared with the 1 and did not hold the end, so the words went back to nothing after their fade: 100% off.
+
+### D243. A loop left out of a take is said to be, and not checked
+**Chose:** a loop running long before a take's own animations is still left out of it (the MUI rule), and now the take says so: "The loop on … is not shown, because it was running long before this began." Its part, if nothing else in the take moves it, is not compared with the film.
+**Why:** found on Basement through the side panel: a dot pulsing since the page loaded, beside a link whose color a script changes. The preview held the dot still and said nothing of it, and the check called it 45% off.
+
+### D244. A part picked mid-fade rests as filmed when its fades cannot be read
+**Chose:** D238's rest, when the page has let go of the fades (cancelled, or begun the next turn of its loop) so nothing finished can be read, is the opacity the film shows once they are over, for fades that do not hold their end.
+**Why:** found on Stripe again: the payouts graphic's pulses are let go as they end. The preview went back to full opacity after the fade while the page showed nothing: 100% off.
+
+Seen in the same run and left as they are: cal.com's nav highlight was 36 px off for one frame, in the side panel only. The page made its way-back animation a frame late with a start time from before (the page itself jumped ahead), and the preview plays the timing the animation has. Basement's underline (a ::before) takes its color from a script that flickers its parent's color, which a pseudo-element's drawing does not follow: 50% off in color.

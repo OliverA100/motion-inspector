@@ -27,8 +27,37 @@ export function sameFrame(one: FilmFrame, other: FilmFrame): boolean {
     [0, 1].every(
       (index) => Math.abs((one.taper?.[index] ?? 0) - (other.taper?.[index] ?? 0)) <= 0.000002,
     ) &&
-    one.styles.every((text, index) => text === other.styles[index])
+    one.styles.every((text, index) => sameStyle(text, other.styles[index]))
   );
+}
+
+// The same look, however its colors are written: Chrome writes a color
+// between two others in oklab() and the same color at rest as it was given
+// (cult-ui's link, `oklab(0 0 0 / 0)` a frame into a cancelled transition
+// and `rgba(0, 0, 0, 0)` after it), which is no change on the page.
+export function sameStyle(one: string | undefined, other: string | undefined): boolean {
+  if (one === other) return true;
+  if (one === undefined || other === undefined) return false;
+  const first = colorsInRgb(one);
+  const second = colorsInRgb(other);
+  if (first === second) return true;
+  // Read through a canvas, one color written two ways can land a step
+  // apart in a channel. A clear color shows nothing, whatever its channels
+  // (\`lab(90 0 0 / 0)\` at rest, \`oklab(0 0 0 / 0)\` as its transition began).
+  const RGBA = /rgba\(([^()]*)\)/g;
+  if (first.replace(RGBA, '#') !== second.replace(RGBA, '#')) return false;
+  const these = [...first.matchAll(RGBA)];
+  const those = [...second.matchAll(RGBA)];
+  return these.every((color, index) => {
+    const a = (color[1] ?? '').split(',').map(Number);
+    const b = (those[index]?.[1] ?? '').split(',').map(Number);
+    if (a.length !== 4 || b.length !== 4) return false;
+    if (a[3] === 0 && b[3] === 0) return true;
+    return a.every(
+      (value, channel) =>
+        Math.abs(value - (b[channel] ?? Number.NaN)) <= (channel === 3 ? 0.01 : 1),
+    );
+  });
 }
 
 // Whether two frames show the same for these properties only: a part
@@ -46,7 +75,7 @@ export function sameFor(one: FilmFrame, other: FilmFrame, properties: string[]):
       );
     }
     const at = (FILMED_STYLES as readonly string[]).indexOf(property);
-    return at !== -1 && one.styles[at] === other.styles[at];
+    return at !== -1 && sameStyle(one.styles[at], other.styles[at]);
   });
 }
 
@@ -92,10 +121,19 @@ export const NUMBER = /-?\d*\.?\d+(?:e[+-]?\d+)?/g;
 // as it was given (lab() on Attio's button) and one between two others in
 // oklab(), so the same gradient reads differently from frame to frame.
 const ANY_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^()]*\)/g;
+// Each color is read once: the watch compares every part's look a few
+// times a second, and most colors through a canvas.
+const inRgb = new Map<string, string>();
+const MOST_REMEMBERED = 500;
 export function colorsInRgb(text: string): string {
   return text.replace(ANY_COLOR, (color) => {
+    const known = inRgb.get(color);
+    if (known !== undefined) return known;
     const read = readColor(color);
-    return read === null ? color : `rgba(${read.r}, ${read.g}, ${read.b}, ${read.a})`;
+    const written = read === null ? color : `rgba(${read.r}, ${read.g}, ${read.b}, ${read.a})`;
+    if (inRgb.size >= MOST_REMEMBERED) inRgb.clear();
+    inRgb.set(color, written);
+    return written;
   });
 }
 
