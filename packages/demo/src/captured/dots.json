@@ -750,31 +750,61 @@
           "t": 66.7,
           "matrix": [0.95, 0, 0, 0.95, 0, 0],
           "taper": null,
-          "opacity": 0.95
+          "opacity": 0.95,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 116.6,
           "matrix": [0.99, 0, 0, 0.99, 0, 0],
           "taper": null,
-          "opacity": 0.99
+          "opacity": 0.99,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 166.6,
+          "t": 166.7,
           "matrix": [1, 0, 0, 1, 0, 0],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 216.6,
           "matrix": [0.98, 0, 0, 0.98, 0, 0],
           "taper": null,
-          "opacity": 0.98
+          "opacity": 0.98,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 266.6,
           "matrix": [0.94, 0, 0, 0.94, 0, 0],
           "taper": null,
-          "opacity": 0.94
+          "opacity": 0.94,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         }
       ]
     },
@@ -785,31 +815,61 @@
           "t": 66.7,
           "matrix": [0.67, 0, 0, 0.67, 0, 0],
           "taper": null,
-          "opacity": 0.67
+          "opacity": 0.67,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 116.6,
           "matrix": [0.78, 0, 0, 0.78, 0, 0],
           "taper": null,
-          "opacity": 0.78
+          "opacity": 0.78,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 166.6,
+          "t": 166.7,
           "matrix": [0.87, 0, 0, 0.87, 0, 0],
           "taper": null,
-          "opacity": 0.87
+          "opacity": 0.87,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 216.6,
           "matrix": [0.94, 0, 0, 0.94, 0, 0],
           "taper": null,
-          "opacity": 0.94
+          "opacity": 0.94,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 266.6,
           "matrix": [0.99, 0, 0, 0.99, 0, 0],
           "taper": null,
-          "opacity": 0.99
+          "opacity": 0.99,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         }
       ]
     },
@@ -820,31 +880,61 @@
           "t": 66.7,
           "matrix": [0.42, 0, 0, 0.42, 0, 0],
           "taper": null,
-          "opacity": 0.42
+          "opacity": 0.42,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 116.6,
           "matrix": [0.47, 0, 0, 0.47, 0, 0],
           "taper": null,
-          "opacity": 0.47
+          "opacity": 0.47,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 166.6,
+          "t": 166.7,
           "matrix": [0.55, 0, 0, 0.55, 0, 0],
           "taper": null,
-          "opacity": 0.55
+          "opacity": 0.55,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 216.6,
           "matrix": [0.65, 0, 0, 0.65, 0, 0],
           "taper": null,
-          "opacity": 0.65
+          "opacity": 0.65,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 266.6,
           "matrix": [0.76, 0, 0, 0.76, 0, 0],
           "taper": null,
-          "opacity": 0.76
+          "opacity": 0.76,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         }
       ]
     }

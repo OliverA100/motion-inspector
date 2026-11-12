@@ -8,6 +8,8 @@ const close: ShapeCheck = {
   label: 'div',
   px: 0.2,
   opacity: 0,
+  color: 0,
+  effectPx: 0,
   worstAtMs: 0,
   frames: 10,
 };
@@ -80,6 +82,7 @@ describe('the check against the page', () => {
           t,
           matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
           taper: null,
+          look: null,
           opacity: [0.2, 0.2, 1][index] ?? 1,
         })),
       },
@@ -117,6 +120,7 @@ describe('the check against the page', () => {
               number,
             ],
             taper: null,
+            look: null,
             opacity: t === 0 ? 0 : 1,
           })),
         },
@@ -137,5 +141,118 @@ describe('the check against the page', () => {
       },
     ];
     expect(selfCheck(appearing, startsLate)[0]).toMatchObject({ px: 0, opacity: 0 });
+  });
+});
+
+// Asked for: the check covers how a part looks, not only where it is and
+// how it fades.
+describe('the check of colors, shadows and blur', () => {
+  const look = (fill: [number, number, number, number], extra: object = {}) => ({
+    fill,
+    text: null,
+    shadow: null,
+    blur: null,
+    ...extra,
+  });
+  const filmed = (looks: ReturnType<typeof look>[]) => ({
+    ...cardLift,
+    root: { ...cardLift.root, gradient: null, kind: 'box' as const },
+    measured: [
+      {
+        shapeId: cardLift.root.id,
+        frames: looks.map((item, index) => ({
+          t: index * 40,
+          matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
+          taper: null,
+          opacity: cardLift.root.opacity,
+          look: item,
+        })),
+      },
+    ],
+  });
+  const posed = (extra: object) => () => [{ ...stillPose(cardLift.root.id), ...extra }];
+
+  test('a background drawn as on the page matches', () => {
+    const page = filmed([look([255, 0, 0, 1]), look([255, 0, 0, 1])]);
+    const [check] = selfCheck(page, posed({ fill: 'rgb(255, 0, 0)' }));
+    expect(check?.color).toBe(0);
+    expect(previewBadge(selfCheck(page, posed({ fill: 'rgb(255, 0, 0)' })), none)).toMatchObject({
+      close: true,
+    });
+  });
+
+  test('a background drawn in another color is off, and the badge says so', () => {
+    const page = filmed([look([255, 0, 0, 1]), look([255, 0, 0, 1])]);
+    const checks = selfCheck(page, posed({ fill: 'rgb(0, 0, 255)' }));
+    expect(checks[0]?.color).toBe(1);
+    expect(previewBadge(checks, none)).toMatchObject({
+      close: false,
+      text: 'Off by 100% in color',
+    });
+  });
+
+  test('a shadow or a blur off by more than a pixel and a half is off', () => {
+    const page = filmed([
+      look([255, 0, 0, 1], { shadow: [0, 4, 12, 0, 0.3], blur: 4 }),
+      look([255, 0, 0, 1], { shadow: [0, 4, 12, 0, 0.3], blur: 4 }),
+    ]);
+    const same = selfCheck(
+      page,
+      posed({
+        fill: 'rgb(255, 0, 0)',
+        shadows: [{ color: 'rgba(0, 0, 0, 0.3)', x: 0, y: 4, blur: 12, spread: 0, inset: false }],
+        filter: 'blur(4px)',
+      }),
+    );
+    expect(same[0]?.effectPx).toBe(0);
+    const off = selfCheck(
+      page,
+      posed({
+        fill: 'rgb(255, 0, 0)',
+        shadows: [{ color: 'rgba(0, 0, 0, 0.3)', x: 0, y: 4, blur: 4, spread: 0, inset: false }],
+        filter: 'blur(4px)',
+      }),
+    );
+    expect(off[0]?.effectPx).toBe(8);
+    expect(previewBadge(off, none)?.text).toBe('Shadow or blur off by 8.0 px');
+  });
+
+  test('a change a frame late on the page is no difference', () => {
+    // The page turned blue between the frames at 0 and 40 ms; the preview
+    // shows blue at 40 ms and red at 0: each is one of the page's two.
+    const page = filmed([look([255, 0, 0, 1]), look([0, 0, 255, 1])]);
+    const checks = selfCheck(page, (time) => [
+      { ...stillPose(cardLift.root.id), fill: time < 20 ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)' },
+    ]);
+    expect(checks[0]?.color).toBe(0);
+  });
+
+  test('a text color is compared while the preview animates it, and only then', () => {
+    const page = filmed([
+      look([255, 0, 0, 1], { text: [0, 0, 0, 1] }),
+      look([255, 0, 0, 1], { text: [0, 0, 0, 1] }),
+    ]);
+    // Not animated: the text drawn inside may be a child's, with its own color.
+    expect(selfCheck(page, posed({ fill: 'rgb(255, 0, 0)' }))[0]?.color).toBe(0);
+    // Animated, and wrong: it is off.
+    expect(
+      selfCheck(page, posed({ fill: 'rgb(255, 0, 0)', textColor: 'rgb(255, 255, 255)' }))[0]?.color,
+    ).toBe(1);
+  });
+
+  test('takes saved before looks were filmed are not compared by look', () => {
+    const page = { ...filmed([look([255, 0, 0, 1])]) };
+    const old = {
+      ...page,
+      measured: page.measured.map((entry) => ({
+        ...entry,
+        frames: [...entry.frames, ...entry.frames].map((frame, index) => ({
+          ...frame,
+          t: index * 40,
+          look: null,
+        })),
+      })),
+    };
+    expect(selfCheck(old, posed({ fill: 'rgb(0, 0, 255)' }))[0]?.color).toBe(0);
   });
 });

@@ -3469,6 +3469,33 @@ test.describe('on a screen with a device pixel ratio of 2', () => {
     expect(reported).toEqual([2, 'translateX(4px)', 'translateX(2px)']);
   });
 
+  // DevTools' device emulation (and a headless test browser) also report a
+  // device pixel ratio of 2, but Chrome does not double anything there: the
+  // factor is measured, not taken from devicePixelRatio.
+  test('emulated at 2 without zoom, a 2 px hover is still read as 2 px', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    const client = await page.context().newCDPSession(page);
+    await client.send('Emulation.setDeviceMetricsOverride', {
+      width: 800,
+      height: 600,
+      deviceScaleFactor: 2,
+      mobile: false,
+    });
+    await setUp(
+      page,
+      `#sp-arrow { display: inline-block; width: 14px; height: 14px; background: #222; transition: transform .15s ease-out }
+       #sp-arrow:hover { transform: translateX(0.125rem) rotate(0deg) }`,
+      '<div id="sp-arrow"></div>',
+      '#sp-arrow',
+    );
+    expect(await page.evaluate(() => devicePixelRatio)).toBe(2);
+    const box = await page.locator('#sp-arrow').boundingBox();
+    await page.mouse.move((box?.x ?? 0) + 7, (box?.y ?? 0) + 7, { steps: 3 });
+    await page.waitForTimeout(500);
+    const capture = onlyCapture(await takesNow(page));
+    expect(capture.tracks[0]?.keyframes.at(-1)?.value).toBe('translateX(2px) rotate(0deg)');
+  });
+
   test('a hover that moves 2 px is read as 2 px', async ({ playwright, baseURL }) => {
     const { page, close } = await atRatio2(playwright.chromium, baseURL);
     await setUp(
@@ -3643,4 +3670,68 @@ test('the text of a part turned in 3D stays inside it', async ({ page }) => {
   expect((text?.box.y ?? 999) + (text?.box.height ?? 0)).toBeLessThanOrEqual(
     capture.root.box.height,
   );
+});
+
+// Found on Linear's heading through the side panel: letters fade in from a
+// blur with an animation that has no fill, and the page writes the end
+// values as it finishes (as Framer Motion's commitStyles does). The preview
+// went back to invisible and blurred once the animation was over.
+test('an animation whose end the page keeps is held at its end', async ({ page }) => {
+  await setUp(
+    page,
+    '#sp-letter { display: inline-block; width: 40px; height: 40px; background: #222; opacity: 0; filter: blur(10px) }',
+    '<span id="sp-letter"></span>',
+    '#sp-letter',
+  );
+  await page.evaluate(() => {
+    const letter = document.getElementById('sp-letter') as HTMLElement;
+    const animation = letter.animate(
+      [
+        { opacity: 0, filter: 'blur(10px)' },
+        { opacity: 1, filter: 'blur(0px)' },
+      ],
+      { duration: 300, delay: 100, easing: 'ease-out' },
+    );
+    animation.onfinish = () => {
+      letter.style.opacity = '1';
+      letter.style.filter = 'blur(0px)';
+    };
+  });
+  await page.waitForTimeout(1200);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => item.timing.fill)).toEqual(['forwards', 'forwards']);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number; opacity: number; effectPx: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.opacity).toBeLessThan(0.02);
+  expect(miss.effectPx).toBeLessThan(0.5);
+});
+
+// Found on Vega through the side panel: a click starts a menu frame's fade
+// in, and hides it the same moment. The page never shows it; the take
+// faded it in. A transition cancelled before it showed anything is left out.
+test('a fade the page cancels before it shows anything is left out', async ({ page }) => {
+  await setUp(
+    page,
+    `#sp-menu { display: inline-block; width: 80px; height: 30px; background: #ccc; transition: background-color .15s }
+     #sp-menu.on { background: #888 }
+     #sp-frame { width: 120px; height: 60px; background: #222; opacity: 0; transition: opacity .2s }
+     #sp-frame.open { opacity: 1 } #sp-frame.gone { display: none }`,
+    '<div id="sp-wrap"><div id="sp-menu"></div><div id="sp-frame"></div></div>',
+    '#sp-wrap',
+  );
+  await page.evaluate(() => {
+    const frame = document.getElementById('sp-frame') as HTMLElement;
+    document.getElementById('sp-menu')?.classList.add('on');
+    frame.classList.add('open');
+    frame.getAnimations();
+    requestAnimationFrame(() => frame.classList.add('gone'));
+  });
+  await page.waitForTimeout(700);
+  const capture = onlyCapture(await takesNow(page));
+  expect(capture.tracks.map((item) => item.property)).toEqual(['background-color']);
 });

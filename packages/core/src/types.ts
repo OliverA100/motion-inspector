@@ -84,7 +84,21 @@ export type Measured = {
     // matrix). null when flat. Older takes have none.
     taper: [number, number] | null;
     opacity: number;
+    // What the page showed of the part's look in this frame, as numbers, so
+    // the preview can be checked against it beyond where it is: background
+    // and text colors (r, g, b from 0 to 255, alpha from 0 to 1), the outer
+    // shadow with the widest blur (x, y, blur and spread in px, and its
+    // color's alpha) and the filter's blur in px. null for one it does not
+    // have. The look is null in takes saved before it was filmed.
+    look: MeasuredLook | null;
   }[];
+};
+
+export type MeasuredLook = {
+  fill: [number, number, number, number] | null;
+  text: [number, number, number, number] | null;
+  shadow: [number, number, number, number, number] | null;
+  blur: number | null;
 };
 
 // The pointer over the page while a take was recorded, in the root's

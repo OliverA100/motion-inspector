@@ -1287,3 +1287,26 @@ Also for Play the hover: the element is scrolled into view at once, even on a pa
 ### D230. A curve can be typed in
 **Chose:** the curve's CSS value is a field. Type or paste any CSS easing (cubic-bezier, a keyword, steps(), linear()) and press Enter or leave the field; one that is not an easing is marked and put back (Escape puts it back too). A cubic-bezier is shown as its four numbers, even when CSS has a name for it, since those are what can be changed. In an opened row the field looks like Delay and Duration, there is no line over the ready-made curves, and the chart starts from a tighter range (it still widens for an overshoot).
 **Why:** asked for: curve values could only be dragged, and the opened row had a line between its reading and its ready-made curves.
+
+### D231. The check covers colors, shadows and blur
+**Chose:**
+- Each filmed frame keeps the part's look as numbers: background and text colors (r, g, b, alpha), the outer shadow with the widest blur (x, y, blur, spread, alpha) and the filter's blur.
+- The self-check compares them with what the preview draws at the same moment, as it compares position and opacity: a color as its alpha and its alpha-weighted channels, as a share of their range; a shadow or blur in px. A part drawn with a gradient is not compared by its background color. Each value may match the page's frame or the one before it, and the preview a frame either side, since a frame's time is known to within a frame.
+- The badge matches only within 5% in color and 1.5 px in shadow and blur too, and otherwise says "Off by N% in color" or "Shadow or blur off by N px", with the part it is most on.
+**Format:** `Measured` frames gain `look` (`MeasuredLook`). Takes saved before have none, read as null, and are not compared by look.
+**Why:** asked for. A script's color fade, measured, could be wrong and the badge still say "Matches the page". Tried by breaking a capture on purpose: an end color turned green is 93% off; a shadow made wider is 38 px off. As recorded, both are within a rounding error.
+**Not compared yet:** clip-path, background position, gradients, borders and outlines.
+
+### D232. Chrome's transition zoom is measured, not taken from devicePixelRatio
+**Chose:** the factor D214 divides a transition's transform lengths by is measured once per device pixel ratio: a 100 px transition is started on a part of the capture script's own, inside a closed shadow root, its reported end is read, and the part is removed in the same moment. Nothing on the page is touched.
+**Why:** under DevTools' device emulation (and a headless test browser emulating a Retina screen) devicePixelRatio is 2 but Chrome does not double anything, so D214 halved correct values: oliverhassan.dev's load was 46 px off and Stripe's link 3 px. A test now covers both: real zoom (Chrome's flag) read as 2 px, and emulation read as 2 px.
+
+### D233. An animation whose end the page keeps is held at its end
+**Chose:** a keyframe animation or Web Animation with no forwards fill, whose end values the page keeps once it is over (read on the page with nothing else animating them), and whose resting values when picked were not already its end, is given a forwards fill (both, if it filled backwards). Where the rest is the end already, nothing changes, and the CSS export keeps the page's own.
+**Why:** found through the side panel on Linear's heading: letters fade in from a 10 px blur with no fill, and the page writes the end values as the animation finishes (as Framer Motion's commitStyles does). The preview went back to invisible and blurred after 1.4 s: 100% opacity and 10 px blur off. Now 0.
+
+### D234. A transition the page cancels before showing anything is left out
+**Chose:** a CSS transition the page cancelled, that nothing replaced, on properties the film sees, whose part the film never saw change, is not in the take.
+**Why:** found through the side panel on Vega: a click starts a menu frame's fade-in and hides the frame the same moment. The page never showed it; the take faded it in (100% opacity off).
+
+D231 is also narrowed: a part's text color is compared only while the preview animates it. The text drawn inside a part may belong to a part within it with a color of its own (MUI's menu: 32% "off" for a paper whose items are another color).

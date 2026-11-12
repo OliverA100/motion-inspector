@@ -223,43 +223,85 @@
           "t": 33.3,
           "matrix": [1, 0, 0, 1, 0, -0.57],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [255, 255, 255, 1],
+            "shadow": [0, 2.43, 6.01, 0, 0.22],
+            "blur": null
+          }
         },
         {
           "t": 83.4,
           "matrix": [1, 0, 0, 1, 0, -1.29],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [255, 255, 255, 1],
+            "shadow": [0, 4.22, 11.02, 0, 0.23],
+            "blur": null
+          }
         },
         {
           "t": 133.4,
           "matrix": [1, 0, 0, 1, 0, -1.8],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [255, 255, 255, 1],
+            "shadow": [0, 5.5, 14.6, 0, 0.24],
+            "blur": null
+          }
         },
         {
-          "t": 183.3,
+          "t": 183.4,
           "matrix": [1, 0, 0, 1, 0, -2],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [255, 255, 255, 1],
+            "shadow": [0, 6, 16, 0, 0.25],
+            "blur": null
+          }
         },
         {
           "t": 233.4,
           "matrix": [1, 0, 0, 1, 0, -2],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [255, 255, 255, 1],
+            "shadow": [0, 6, 16, 0, 0.25],
+            "blur": null
+          }
         },
         {
           "t": 283.3,
           "matrix": [1, 0, 0, 1, 0, -2],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [255, 255, 255, 1],
+            "shadow": [0, 6, 16, 0, 0.25],
+            "blur": null
+          }
         },
         {
           "t": 333.4,
           "matrix": [1, 0, 0, 1, 0, -2],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [47, 111, 237, 1],
+            "text": [255, 255, 255, 1],
+            "shadow": [0, 6, 16, 0, 0.25],
+            "blur": null
+          }
         }
       ]
     }

@@ -26,7 +26,7 @@ import {
   type TransformFunction,
   type Trigger,
 } from '@motion-inspector/core';
-import { readValue, unzoomTransform } from './readValue';
+import { readValue, transitionZoom, unzoomTransform } from './readValue';
 import {
   type Film,
   FILM_EVERY_MS,
@@ -65,6 +65,7 @@ import {
   animationsUnder,
   shadowRootsIn,
   cssName,
+  FILMED_STYLES,
   labelOf,
   containingBlock,
   type Box,
@@ -574,7 +575,7 @@ function read(animation: Animation): Seen | null {
           property: cssName(key),
           value:
             key === 'transform' && animation instanceof CSSTransition
-              ? unzoomTransform(value, window.devicePixelRatio)
+              ? unzoomTransform(value, transitionZoom())
               : value,
         };
       }),
@@ -1955,7 +1956,41 @@ function buildTake(
     partsUsingVariables(snapshot, seen.target).some((part) =>
       measuredIds.has(snapshot.shapeIdOf.get(part)),
     );
-  const kept = take.filter((seen) => !replacedByRule(seen) && !measuredThrough(seen));
+  // A transition the page cancelled before it showed anything (Vega's
+  // menu: its frame starts to fade in and is hidden the same moment). The
+  // film never saw the part change, and nothing took the transition's place.
+  // Drawn, it would fade in what the page never showed: it is left out.
+  const neverShown = (seen: Seen): boolean => {
+    if (seen.origin !== 'css-transition' || seen.ended !== 'cancelled') return false;
+    if (seen.pseudoElement !== null || !seen.properties.every((item) => FILMED.has(item))) {
+      return false;
+    }
+    const replaced = take.some(
+      (other) =>
+        other !== seen &&
+        other.target === seen.target &&
+        other.pseudoElement === null &&
+        sharesProperty(other, seen) &&
+        other.startTime >= seen.startTime,
+    );
+    if (replaced) return false;
+    const frames = film.get(seen.target) ?? [];
+    const first = frames[0];
+    return (
+      first !== undefined && frames.length >= 2 && frames.every((frame) => sameFrame(frame, first))
+    );
+  };
+  const kept = take.filter(
+    (seen) => !replacedByRule(seen) && !measuredThrough(seen) && !neverShown(seen),
+  );
+  for (const seen of kept) {
+    if (keepsItsEnd(seen, snapshot.resting.get(seen.target))) {
+      seen.timing = {
+        ...seen.timing,
+        fill: seen.timing.fill === 'backwards' ? 'both' : 'forwards',
+      };
+    }
+  }
   const built = kept.map((seen, index) => {
     // Properties from one animation share its timing: one group.
     const item = tracksFor(
@@ -2203,6 +2238,56 @@ function turnsIn(text: string): number[] {
     if (Math.abs(degrees) > 0.01) turns.push(degrees);
   }
   return turns;
+}
+
+// An animation with no fill of its own whose end the page keeps once it is
+// over: a script writes its end values as it finishes (Framer Motion's
+// commitStyles; found on Linear's heading, its letters fading in from a
+// blur). The page holds the end, so the preview does too, through a fill.
+// Not a transition: a hover's held state is its own matter.
+// What the film sees of a part: its opacity, its transform and the filmed
+// styles.
+const FILMED = new Set<string>(['opacity', ...TRANSFORM_PROPERTIES, ...FILMED_STYLES]);
+
+function keepsItsEnd(seen: Seen, restAtPick: Map<string, string> | undefined): boolean {
+  if (seen.origin === 'css-transition' || seen.pseudoElement !== null) return false;
+  if (seen.timing.fill !== 'none' && seen.timing.fill !== 'backwards') return false;
+  if (!Number.isFinite(seen.timing.endTime) || !seen.target.isConnected) return false;
+  const animation = seen.animation;
+  const over =
+    animation.playState === 'finished' ||
+    seen.ended === 'finished' ||
+    !seen.target.getAnimations().includes(animation);
+  if (!over) return false;
+  const running = seen.target
+    .getAnimations()
+    .filter((other) => other !== animation && other.playState === 'running');
+  const style = getComputedStyle(seen.target);
+  const first = seen.keyframes[0]?.values ?? [];
+  const last = seen.keyframes.at(-1)?.values ?? [];
+  return (
+    seen.properties.length > 0 &&
+    seen.properties.every((property) => {
+      const from = first.find((value) => value.property === property)?.value;
+      const to = last.find((value) => value.property === property)?.value;
+      if (from === undefined || to === undefined) return false;
+      if (sameValue(property, from, to, seen.target)) return false;
+      // Its rest is its end already: the preview shows it after the
+      // animation with no fill, and the CSS keeps the page's own.
+      const before = restAtPick?.get(property) ?? seen.restAtSight.get(property);
+      if (before !== undefined && sameValue(property, before, to, seen.target)) return false;
+      // Another animation on it now would make what is read its, not the
+      // page's own.
+      const moved = running.some(
+        (other) =>
+          other.effect instanceof KeyframeEffect &&
+          other.effect
+            .getKeyframes()
+            .some((keyframe) => Object.keys(keyframe).some((key) => cssName(key) === property)),
+      );
+      return !moved && sameValue(property, style.getPropertyValue(property), to, seen.target);
+    })
+  );
 }
 
 function sameValue(property: string, first: string, second: string, element: Element): boolean {

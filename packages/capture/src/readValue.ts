@@ -321,3 +321,44 @@ export function unzoomTransform(value: string, zoom: number): string {
     return whole;
   });
 }
+
+// How much Chrome multiplies a transition's transform lengths by on this
+// page (see unzoomTransform). Not taken from devicePixelRatio: that is 2 on
+// a Retina screen, where Chrome doubles them, and also under DevTools'
+// device emulation, where it does not. Measured instead, once for each
+// devicePixelRatio: a 100 px transition is started on a part of our own,
+// in a closed shadow root, read, and removed in the same moment. Nothing on
+// the page is touched.
+let zoomRead: { ratio: number; zoom: number } | null = null;
+export function transitionZoom(): number {
+  const ratio = window.devicePixelRatio;
+  if (zoomRead !== null && zoomRead.ratio === ratio) return zoomRead.zoom;
+  let zoom = 1;
+  const host = document.createElement('div');
+  try {
+    host.setAttribute('data-motion-inspector', 'probe');
+    host.style.cssText =
+      'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;pointer-events:none;visibility:hidden';
+    const root = host.attachShadow({ mode: 'closed' });
+    const probe = document.createElement('div');
+    probe.style.cssText = 'width:1px;height:1px;transform:none;transition:transform 1s linear';
+    root.append(probe);
+    document.documentElement.append(host);
+    probe.getBoundingClientRect();
+    probe.style.transform = 'translateX(100px)';
+    const animation = probe.getAnimations()[0];
+    const end =
+      animation?.effect instanceof KeyframeEffect
+        ? animation.effect.getKeyframes().at(-1)?.['transform']
+        : undefined;
+    animation?.cancel();
+    const moved = /translateX\((-?[\d.]+)px\)/.exec(String(end ?? ''));
+    if (moved !== null && Number(moved[1]) > 0) zoom = Number(moved[1]) / 100;
+  } catch {
+    zoom = 1;
+  } finally {
+    host.remove();
+  }
+  zoomRead = { ratio, zoom };
+  return zoom;
+}

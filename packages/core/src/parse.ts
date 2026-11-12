@@ -28,6 +28,7 @@ import type {
   IconPath,
   MaskLayer,
   Measured,
+  MeasuredLook,
   Missed,
   OffsetPath,
   Follow,
@@ -995,6 +996,37 @@ function parseSource(value: unknown): Result<Capture['source']> {
 
 export const MOST_MEASURED_FRAMES = 400;
 
+// A list of exactly this many numbers.
+function numbersOf<T extends number[]>(value: unknown, count: number): Result<T> {
+  return andThen(listOf(value, number), (list) =>
+    list.length === count ? ok(list as T) : fail(`Must be ${count} numbers.`),
+  );
+}
+
+function parseLook(value: unknown): Result<MeasuredLook> {
+  return andThen(fields(value), (source) => {
+    const fill = at(
+      'fill',
+      optional(get(source, 'fill'), (item) => numbersOf<[number, number, number, number]>(item, 4)),
+    );
+    const textColor = at(
+      'text',
+      optional(get(source, 'text'), (item) => numbersOf<[number, number, number, number]>(item, 4)),
+    );
+    const shadow = at(
+      'shadow',
+      optional(get(source, 'shadow'), (item) =>
+        numbersOf<[number, number, number, number, number]>(item, 5),
+      ),
+    );
+    const blur = at('blur', optional(get(source, 'blur'), number));
+    if (!fill.ok || !textColor.ok || !shadow.ok || !blur.ok) {
+      return failAll([fill, textColor, shadow, blur].flatMap(errorsOf));
+    }
+    return ok({ fill: fill.value, text: textColor.value, shadow: shadow.value, blur: blur.value });
+  });
+}
+
 function parseFrame(value: unknown): Result<Measured['frames'][number]> {
   return andThen(fields(value), (source) => {
     const t = at('t', number(get(source, 't')));
@@ -1011,10 +1043,20 @@ function parseFrame(value: unknown): Result<Measured['frames'][number]> {
         }),
       ),
     );
-    if (!t.ok || !matrix.ok || !opacity.ok || !taper.ok) {
-      return failAll([t, matrix, opacity, taper].flatMap(errorsOf));
+    const look = at(
+      'look',
+      optional(get(source, 'look'), (value) => parseLook(value)),
+    );
+    if (!t.ok || !matrix.ok || !opacity.ok || !taper.ok || !look.ok) {
+      return failAll([t, matrix, opacity, taper, look].flatMap(errorsOf));
     }
-    return ok({ t: t.value, matrix: matrix.value, taper: taper.value, opacity: opacity.value });
+    return ok({
+      t: t.value,
+      matrix: matrix.value,
+      taper: taper.value,
+      opacity: opacity.value,
+      look: look.value,
+    });
   });
 }
 

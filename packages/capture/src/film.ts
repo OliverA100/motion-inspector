@@ -601,6 +601,73 @@ export type PseudoFilm = Map<string, FilmFrame[]>;
 // may be out of date by now: it is not shown as what the page did.
 export const lookBefore = new WeakSet<FilmFrame>();
 
+// The look of a filmed frame, as numbers for the check (core's
+// MeasuredLook): background and text colors, the outer shadow with the
+// widest blur, and the filter's blur.
+const STYLE_AT = (property: (typeof FILMED_STYLES)[number]): number =>
+  FILMED_STYLES.indexOf(property);
+
+function rgbaOf(text: string | undefined): [number, number, number, number] | null {
+  if (text === undefined || text === '') return null;
+  const color = readColor(text);
+  return color === null ? null : [color.r, color.g, color.b, round(color.a, 3)];
+}
+
+// The layers of a box-shadow, split at the commas between them, not those
+// inside a color.
+function shadowLayers(text: string): string[] {
+  const layers: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '(') depth += 1;
+    else if (char === ')') depth -= 1;
+    else if (char === ',' && depth === 0) {
+      layers.push(text.slice(start, index));
+      start = index + 1;
+    }
+  }
+  layers.push(text.slice(start));
+  return layers.map((layer) => layer.trim()).filter((layer) => layer !== '');
+}
+
+function widestShadow(text: string | undefined): [number, number, number, number, number] | null {
+  if (text === undefined || text === '' || text === 'none') return null;
+  let widest: [number, number, number, number, number] | null = null;
+  for (const layer of shadowLayers(colorsInRgb(text))) {
+    if (/\binset\b/.test(layer)) continue;
+    const color = /rgba?\([^)]*\)/.exec(layer)?.[0];
+    const alpha = color === undefined ? 1 : (readColor(color)?.a ?? 1);
+    const lengths =
+      layer
+        .replace(/rgba?\([^)]*\)/, '')
+        .match(/-?[\d.]+(?=px)/g)
+        ?.map(Number) ?? [];
+    const [x = 0, y = 0, blur = 0, spread = 0] = lengths;
+    if (widest === null || blur > widest[2]) {
+      widest = [round(x, 2), round(y, 2), round(blur, 2), round(spread, 2), round(alpha, 3)];
+    }
+  }
+  return widest;
+}
+
+function lookOf(styles: string[]): {
+  fill: [number, number, number, number] | null;
+  text: [number, number, number, number] | null;
+  shadow: [number, number, number, number, number] | null;
+  blur: number | null;
+} | null {
+  if (styles.length === 0) return null;
+  const blur = /blur\((-?[\d.]+)px\)/.exec(styles[STYLE_AT('filter')] ?? '')?.[1];
+  return {
+    fill: rgbaOf(styles[STYLE_AT('background-color')]),
+    text: rgbaOf(styles[STYLE_AT('color')]),
+    shadow: widestShadow(styles[STYLE_AT('box-shadow')]),
+    blur: blur === undefined ? null : round(Number(blur), 2),
+  };
+}
+
 export function measuredFor(
   snapshot: Snapshot,
   film: Film,
@@ -627,6 +694,7 @@ export function measuredFor(
             matrix: frame.matrix.map((value) => round(value, 4)),
             taper: frame.taper === null ? null : frame.taper.map((value) => round(value, 8)),
             opacity: round(frame.opacity, 4),
+            look: lookOf(frame.styles ?? []),
           })),
       };
     })

@@ -242,73 +242,145 @@
           "t": 33.4,
           "matrix": [1.01, 0, 0, 1.01, 0, -2.07],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 83.4,
+          "t": 83.3,
           "matrix": [1.02, 0, 0, 1.02, 0, -4.34],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 133.4,
+          "t": 133.3,
           "matrix": [1.03, 0, 0, 1.03, 0, -5.74],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 183.4,
+          "t": 183.3,
           "matrix": [1.03, 0, 0, 1.03, 0, -6.42],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 233.4,
+          "t": 233.3,
           "matrix": [1.03, 0, 0, 1.03, 0, -6.59],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 283.4,
           "matrix": [1.03, 0, 0, 1.03, 0, -6.44],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 333.4,
+          "t": 333.3,
           "matrix": [1.03, 0, 0, 1.03, 0, -6.19],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 383.3,
+          "t": 383.4,
           "matrix": [1.03, 0, 0, 1.03, 0, -6.01],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 433.3,
+          "t": 433.4,
           "matrix": [1.03, 0, 0, 1.03, 0, -6],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 483.4,
+          "t": 483.3,
           "matrix": [1.03, 0, 0, 1.03, 0, -6],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
-          "t": 533.3,
+          "t": 533.4,
           "matrix": [1.03, 0, 0, 1.03, 0, -6],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         },
         {
           "t": 583.3,
           "matrix": [1.03, 0, 0, 1.03, 0, -6],
           "taper": null,
-          "opacity": 1
+          "opacity": 1,
+          "look": {
+            "fill": [250, 250, 250, 1],
+            "text": [28, 28, 28, 1],
+            "shadow": null,
+            "blur": null
+          }
         }
       ]
     }

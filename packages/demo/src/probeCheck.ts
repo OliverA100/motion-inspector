@@ -104,12 +104,27 @@ export function posesOf(
 
 // How far the preview is from the page, as the badge works it out: the
 // largest miss over every measured part.
-export function worstMiss(capture: Capture): { px: number; opacity: number } {
+export function worstMiss(capture: Capture): {
+  px: number;
+  opacity: number;
+  color: number;
+  effectPx: number;
+} {
   const probe = createProbe();
   const checks = selfCheck(capture, (timeMs) => probe.poses(capture, timeMs));
   probe.dispose();
   return {
     px: Math.max(0, ...checks.map((check) => check.px)),
     opacity: Math.max(0, ...checks.map((check) => check.opacity)),
+    color: Math.max(0, ...checks.map((check) => check.color)),
+    effectPx: Math.max(0, ...checks.map((check) => check.effectPx)),
   };
+}
+
+// Every part's check, for looking into a miss.
+export function checksOf(capture: Capture): ReturnType<typeof selfCheck> {
+  const probe = createProbe();
+  const checks = selfCheck(capture, (timeMs) => probe.poses(capture, timeMs));
+  probe.dispose();
+  return checks;
 }
