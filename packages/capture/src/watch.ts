@@ -105,8 +105,14 @@ export function lookAt(
   return { place, look };
 }
 
-// Returns true when something was seen to change this time.
-export function watchOnce(watch: Watch, parts: Element[], root: Element | null = null): boolean {
+// Returns true when something was seen to change this time. `differs` is
+// told of each part that is not as it was when first looked at.
+export function watchOnce(
+  watch: Watch,
+  parts: Element[],
+  root: Element | null = null,
+  differs: (element: Element) => void = () => {},
+): boolean {
   const page = { x: -window.scrollX, y: -window.scrollY };
   const corner = root?.getBoundingClientRect() ?? page;
   const rootCorner = { x: corner.x, y: corner.y };
@@ -127,6 +133,7 @@ export function watchOnce(watch: Watch, parts: Element[], root: Element | null =
       watch.set(element, { ...now, places: new Set(), looks: new Set(), texts: 0, reshapes: 0 });
       continue;
     }
+    if (now.place !== known.place || !sameStyle(now.look, known.look)) differs(element);
     if (now.place !== known.place && !known.places.has(now.place) && known.places.size < 3) {
       known.places.add(now.place);
       changed = true;

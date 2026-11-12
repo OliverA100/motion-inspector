@@ -2196,7 +2196,9 @@ function buildTake(
           seen.properties.includes('opacity'),
       ) || scripts.some((track) => track.shapeId === id && track.property === 'opacity');
     if (faded) continue;
-    const shown = frames.map((frame) => frame.opacity);
+    // Only what the page showed in the take: not the look before it.
+    const shown = frames.filter((frame) => !lookBefore.has(frame)).map((frame) => frame.opacity);
+    if (shown.length < 2) continue;
     const steady = Math.max(...shown) - Math.min(...shown) <= 0.01;
     const first = shown[0];
     if (steady && first !== undefined && Math.abs(first - shape.opacity) > 0.02) {
@@ -2220,6 +2222,42 @@ function buildTake(
       (frame) => frame.time >= takeStart && frame.time < seen.startTime - ONE_FRAME_MS,
     );
     if (before.length < 2 || before.some((frame) => Math.abs(frame.opacity - start) > 0.02)) return;
+    const fill = seen.timing.fill === 'forwards' ? 'both' : 'backwards';
+    seen.timing = { ...seen.timing, fill };
+    for (const track of built[index]?.tracks ?? []) {
+      const timed = track as { timing?: { fill?: string } };
+      if (timed.timing !== undefined) timed.timing = { ...timed.timing, fill };
+    }
+  });
+  // The same for a move: one that begins after the take does (a delay, or
+  // a late start), from where the page held the part until then, while the
+  // part rests elsewhere (Animata's rolling letters: each stack is read
+  // where the last hover left it, and its next roll waits on a delay from
+  // the top; the preview drew it at the bottom until the roll, 16 px off).
+  kept.forEach((seen, index) => {
+    if (seen.origin === 'css-transition' || seen.pseudoElement !== null) return;
+    if (seen.timing.fill !== 'none' && seen.timing.fill !== 'forwards') return;
+    if (!seen.properties.includes('transform')) return;
+    const shape = snapshot.shapeOf.get(seen.target);
+    const from = seen.keyframes[0]?.values.find((value) => value.property === 'transform')?.value;
+    if (shape === undefined || from === undefined) return;
+    let start: DOMMatrixReadOnly;
+    try {
+      start = new DOMMatrixReadOnly(from === 'none' ? undefined : from);
+    } catch {
+      // Percentages and other lengths a matrix cannot be read from alone.
+      return;
+    }
+    const startMatrix = [start.a, start.b, start.c, start.d, start.e, start.f];
+    const close = (one: readonly number[], other: readonly number[]): boolean =>
+      one.every((value, at) => Math.abs(value - (other[at] ?? 0)) <= (at >= 4 ? 0.5 : 0.01));
+    const rest = shape.transform ?? [1, 0, 0, 1, 0, 0];
+    if (close(rest, startMatrix)) return;
+    const begins = seen.startTime + Math.max(seen.timing.delay, 0);
+    const before = (film.get(seen.target) ?? []).filter(
+      (frame) => frame.time >= takeStart && frame.time < begins - ONE_FRAME_MS,
+    );
+    if (before.length < 2 || before.some((frame) => !close(frame.matrix, startMatrix))) return;
     const fill = seen.timing.fill === 'forwards' ? 'both' : 'backwards';
     seen.timing = { ...seen.timing, fill };
     for (const track of built[index]?.tracks ?? []) {
@@ -2706,6 +2744,14 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
   for (const element of knownAtStart) {
     if (element.isConnected) lastKnown.set(element, { time: 0, ...frameNow(element) });
   }
+  // A part seen to change outside a take's film (a class flipped between
+  // takes, or during one that did not film it) is read again, so the look
+  // a later take starts from is not the one at the pick.
+  const readAgain = (element: Element): void => {
+    if (!lastKnown.has(element) || !element.isConnected) return;
+    const time = asNumber(document.timeline.currentTime) ?? performance.now();
+    lastKnown.set(element, { time, ...frameNow(element) });
+  };
   // Parts an SVG animation (SMIL: <animate>, <animateTransform>, <set>)
   // moves. No animation API lists these, and nothing is written to the
   // page: they are filmed each frame, with the outline each was drawn with.
@@ -3230,6 +3276,11 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     for (const [element, frames] of finishedFilm) {
       const last = frames.at(-1);
       if (last !== undefined) lastKnown.set(element, last);
+    }
+    for (const [element, seen] of takenWatch) {
+      if ((seen.places.size > 0 || seen.looks.size > 0) && !finishedFilm.has(element)) {
+        readAgain(element);
+      }
     }
     take = [];
     samples = [];
@@ -3763,7 +3814,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
     } else if (now - lastIdleWatched >= IDLE_WATCH_MS) {
       lastIdleWatched = now;
       if (idleWatch.size === 0) idleList = partsToWatch(snapshot);
-      if (watchOnce(idleWatch, idleList, snapshot.rootElement)) {
+      if (watchOnce(idleWatch, idleList, snapshot.rootElement, readAgain)) {
         idleChangeBegan ??= docNow;
         idleChangeLast = now;
       }

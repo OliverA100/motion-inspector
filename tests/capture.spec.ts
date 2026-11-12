@@ -4354,3 +4354,89 @@ test('motion still running from the take before is not called missing', async ({
   expect(takes.length).toBe(2);
   expect(takes.map((take) => take.capture?.missed ?? null)).toEqual([null, null]);
 });
+
+// Found on Basement through the side panel: a caption hidden after the pick
+// and then moved in a take was drawn as read at pick, whole, while the
+// page showed nothing. Its film starts with the look it had before the
+// take, read long ago, which D245 took for a fade.
+test('a part hidden since the pick is drawn hidden when a later take moves it', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #lb-box { width: 120px; height: 40px }
+      #lb-num { width: 100px; height: 30px; background: #eee }
+      #lb-cap { width: 60px; height: 12px; background: #36f }
+      #lb-cap.gone { opacity: 0 }
+      #lb-cap.on { animation: lb-add .4s linear; animation-composition: add }
+      @keyframes lb-add { from { translate: 0px } to { translate: 4px } }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="lb-box"><div id="lb-num"><div id="lb-cap"></div></div></div>';
+    document.body.prepend(holder);
+    const cap = document.getElementById('lb-cap') as HTMLElement;
+    window.MotionCapture.record(document.getElementById('lb-box') as Element);
+    setTimeout(() => cap.classList.add('gone'), 100);
+    setTimeout(() => cap.classList.add('on'), 500);
+  });
+  await page.waitForTimeout(1300);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  expect(takes.length).toBe(1);
+  const capture = takes[0]?.capture;
+  // No fade from the look at the pick: the part stays hidden from the start.
+  expect(capture?.tracks.filter((track) => track.property === 'opacity')).toEqual([]);
+  const atStart = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      posesOf: (capture: unknown, timeMs: number) => { shapeId: string; opacity: number }[];
+    };
+    return module.posesOf(taken, 10);
+  }, capture);
+  const cap = flattenShapes(capture?.root as Capture['root']).find(
+    (shape) => shape.id !== capture?.root.id && shape.id !== 's0.1',
+  );
+  expect(cap).toBeDefined();
+  const pose = atStart.find((item) => item.shapeId === cap?.id);
+  expect(pose?.opacity ?? cap?.opacity).toBeLessThan(0.02);
+});
+
+// Found on Animata: rolling letters. Each stack was picked where the last
+// hover left it (held at its end), and its next roll waits on a delay from
+// the top. The page showed it at the top until then; the preview drew it
+// where it was picked, 16 px off.
+test('a move that begins late holds its start until then when the part rests elsewhere', async ({
+  page,
+}) => {
+  await openFixtures(page);
+  await page.evaluate(async () => {
+    const style = document.createElement('style');
+    style.textContent = `
+      #rl-box { width: 60px; height: 40px }
+      #rl-stack { width: 20px; height: 32px; background: #36f }
+      #rl-stack.a { animation: rl-a .2s linear forwards }
+      #rl-stack.b { animation: rl-b .2s linear .15s forwards }
+      @keyframes rl-a { from { transform: translateY(0px) } to { transform: translateY(-16px) } }
+      @keyframes rl-b { from { transform: translateY(0px) } to { transform: translateY(-16px) } }`;
+    document.head.append(style);
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="rl-box"><div id="rl-stack" class="a"></div></div>';
+    document.body.prepend(holder);
+    const stack = document.getElementById('rl-stack') as HTMLElement;
+    await new Promise((done) => setTimeout(done, 400));
+    window.MotionCapture.record(document.getElementById('rl-box') as Element);
+    setTimeout(() => stack.classList.replace('a', 'b'), 200);
+  });
+  await page.waitForTimeout(1200);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  expect(takes.length).toBe(1);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number };
+    };
+    return module.worstMiss(taken);
+  }, takes[0]?.capture);
+  expect(miss.px).toBeLessThan(1.5);
+});
