@@ -2,9 +2,9 @@
 
 A Chrome extension for taking apart the animations on any live website. Pick a part of the page, let the panel hover, click or reload it, and every animation that plays is recorded: what moved, by how much, for how long and on which curve. The take replays beside the page as plain shapes, where you can change its timing and easing and export the result as CSS.
 
-![Motion Inspector in Chrome: the side panel is opened from the toolbar, Stripe's Get started button is picked on the page and its hover recorded, replayed looping and slowed down, edited, compared with the original and exported as CSS; then Vercel's peeling card and Apple's Store menu are recorded the same way](docs/demo.gif)
+![Motion Inspector in Chrome on stripe.com: the side panel is opened from the toolbar, the Get started button is picked on the page, its hover is recorded, and the take replays as shapes while the real button is hovered beside it](docs/demo.gif)
 
-[Watch it as a video](docs/demo.mp4) (68 s). One take on the live sites, filmed with `node tests/demo-video.cjs`: the page and the panel are filmed headless and drawn inside a browser window frame by frame.
+[Watch the full video](docs/demo.mp4) (3 min 15 s): Stripe's arrow button, Vercel's peeling card and Apple's Store menu, each hovered on the page, picked, recorded, replayed beside the real thing, slowed down and exported, with an edit and a side-by-side comparison on Stripe.
 
 ## What it is for
 
