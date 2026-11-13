@@ -12,7 +12,6 @@ export default defineConfig({
         fixtures: 'fixtures.html',
         entrance: 'entrance.html',
         framed: 'framed.html',
-        showcase: 'showcase.html',
       },
     },
   },

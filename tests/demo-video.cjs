@@ -1,40 +1,48 @@
-// Films the extension in use on the demo's showcase page, for the README:
-// records a load, a hover and two clicks with the panel's own buttons, edits
-// a curve and a duration, then exports the CSS. The page and the side panel
-// are recorded side by side, headless, into docs/demo.mp4 and docs/demo.gif.
-// Needs the dev server (pnpm dev), the test build of the extension
-// (pnpm --filter @motion-inspector/extension build:test) and ffmpeg.
-// Run with: node tests/demo-video.cjs
+// Films the extension in use on real sites, for the README: Stripe's arrow
+// button (hover in and out, an edit, the CSS), Vercel's peeling card (hover
+// in and out) and Apple's Store menu (hover in and out). The page, zoomed on the part, sits
+// beside the side panel under a caption for each step. Page loads are cut,
+// and the panel is cleared of takes while they happen.
+// Writes docs/demo.mp4 and docs/demo.gif. Needs a build of the extension that
+// may read every site (a copy of packages/extension/dist whose manifest has
+// host_permissions <all_urls>) and ffmpeg.
+// Run with: EXT=<that folder> node tests/demo-video.cjs
 const { execFileSync } = require('node:child_process');
 const { mkdtempSync, rmSync, statSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { chromium } = require('@playwright/test');
 
-// EXT can name a build that may read every site, for the real-site scene.
-const extensionDir = process.env.EXT ?? resolve(__dirname, '../packages/extension/dist-test');
+const extensionDir = process.env.EXT;
+if (!extensionDir) throw new Error('Set EXT to a build of the extension that may read every site');
 const docs = resolve(__dirname, '../docs');
-const SITE = { width: 900, height: 860 };
-const PANEL = { width: 440, height: 860 };
+// Layout of the video, in CSS pixels. Pages are filmed at twice this.
+const CAPTION = 80;
+const SITE = { width: 1150, height: 820 };
+const PANEL = { width: 450, height: 820 };
+const OUT = { width: SITE.width + PANEL.width, height: CAPTION + SITE.height };
+const FPS = 30;
 
-// A drawn pointer, since a recording shows none. It follows the mouse and
-// shrinks for a moment on each press.
+// A drawn pointer, since a recording shows none: an arrow that follows the
+// mouse and dims for a moment on each press.
 const pointer = () => {
   addEventListener('DOMContentLoaded', () => {
-    const dot = document.createElement('div');
-    dot.style.cssText =
-      'position:fixed;z-index:2147483647;left:-40px;top:-40px;width:20px;height:20px;margin:-10px 0 0 -10px;' +
-      'border-radius:50%;background:rgba(20,20,20,.5);border:2px solid #fff;pointer-events:none;' +
-      'box-shadow:0 1px 4px rgba(0,0,0,.35);transition:transform .12s';
-    document.documentElement.append(dot);
+    const arrow = document.createElement('div');
+    arrow.innerHTML =
+      '<svg width="22" height="28" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7.5 17 L11 25 L14.5 23.5 L11 16 L18.5 16 Z" ' +
+      'fill="#111" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>';
+    arrow.style.cssText =
+      'position:fixed;z-index:2147483647;left:-40px;top:-40px;margin:-2px 0 0 -2px;pointer-events:none;' +
+      'filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));transition:opacity .12s';
+    document.documentElement.append(arrow);
     const at = (event) => {
-      dot.style.left = `${event.clientX}px`;
-      dot.style.top = `${event.clientY}px`;
+      arrow.style.left = `${event.clientX}px`;
+      arrow.style.top = `${event.clientY}px`;
     };
     addEventListener('mousemove', at, true);
     addEventListener('pointermove', at, true);
-    addEventListener('mousedown', () => (dot.style.transform = 'scale(.7)'), true);
-    addEventListener('mouseup', () => (dot.style.transform = ''), true);
+    addEventListener('mousedown', () => (arrow.style.opacity = '.55'), true);
+    addEventListener('mouseup', () => (arrow.style.opacity = ''), true);
   });
 };
 
@@ -46,7 +54,7 @@ async function press(page) {
 
 // Moves the drawn pointer to the middle of an element, then clicks it.
 // Scrolls it into view first if it is not.
-async function clickOn(page, locator, wait = 300) {
+async function clickOn(page, locator, wait = 250) {
   const outside = await locator.evaluate((el) => {
     const box = el.getBoundingClientRect();
     // The preview is pinned over the top of the panel once it scrolls.
@@ -57,10 +65,10 @@ async function clickOn(page, locator, wait = 300) {
     await locator.evaluate((el) =>
       el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }),
     );
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(650);
   }
   const box = await locator.boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 16 });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 14 });
   await page.waitForTimeout(wait);
   await press(page);
 }
@@ -72,213 +80,199 @@ async function scrollTo(panel, locator, gap = 12) {
     gap,
   );
   await panel.evaluate((top) => scrollTo({ top, behavior: 'smooth' }), top);
-  await panel.waitForTimeout(700);
+  await panel.waitForTimeout(480);
 }
 
 (async () => {
-  const frames = mkdtempSync(join(tmpdir(), 'mi-video-'));
+  const work = mkdtempSync(join(tmpdir(), 'mi-video-'));
+  // A new profile each time: the panel starts with nothing in it.
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
     headless: process.env.SHOW !== '1',
     viewport: SITE,
-    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`],
+    args: [
+      // Frames at twice the size, so a part can be zoomed on and stay sharp.
+      '--force-device-scale-factor=2',
+      `--disable-extensions-except=${extensionDir}`,
+      `--load-extension=${extensionDir}`,
+    ],
   });
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const id = new URL(worker.url()).host;
-
   const site = context.pages()[0] ?? (await context.newPage());
   await site.addInitScript(pointer);
-  await site.goto('http://localhost:5173/showcase.html');
   const panel = await context.newPage();
   await panel.addInitScript(pointer);
   await panel.goto(`chrome-extension://${id}/panel.html`);
   const filmed = [await film(context, site, SITE), await film(context, panel, PANEL)];
-  const t0 = Date.now() / 1000;
-  await panel.mouse.move(200, 500);
-  await panel.waitForTimeout(800);
 
-  // Picks a part of the page: the panel's button, then the part itself. If
-  // the press lands on a part inside it, the panel's "Pick the part around
-  // it" goes out one level.
-  const pick = async (selector, at, name) => {
-    await panel.evaluate(() => scrollTo({ top: 0, behavior: 'smooth' }));
-    await panel.waitForTimeout(400);
+  // The video is cut into steps, each with a caption and the part of the page
+  // to show, in CSS pixels. A step with no caption is left out.
+  const steps = [];
+  const step = (caption, crop = null) => steps.push({ at: Date.now() / 1000, caption, crop });
+  const whole = { x: 0, y: 0, w: SITE.width, h: SITE.height };
+  const around = async (locator, width) => {
+    const box = await locator.boundingBox();
+    const w = Math.min(width, SITE.width);
+    const h = (w * SITE.height) / SITE.width;
+    const x = Math.min(Math.max(box.x + box.width / 2 - w / 2, 0), SITE.width - w);
+    const y = Math.min(Math.max(box.y + box.height / 2 - h / 2, 0), SITE.height - h);
+    return { x, y, w, h };
+  };
+
+  // Clears the panel's takes, so each site starts on an empty panel.
+  const clear = async () => {
+    await panel.evaluate(() => scrollTo({ top: 0 }));
+    const more = panel.locator('summary[aria-label="More"]');
+    if ((await more.count()) === 0) return;
+    await more.click();
+    const button = panel.getByRole('button', { name: 'Clear all takes' });
+    if ((await button.count()) > 0 && (await button.isEnabled())) await button.click();
+    else await more.click();
+    await panel.waitForTimeout(300);
+  };
+  // Opens a site, its part centered, while the video is cut.
+  const open = async (url, find) => {
+    step(null);
+    await clear();
+    await site.goto(url, { waitUntil: 'domcontentloaded' });
+    await site.waitForTimeout(2500);
+    // Turn down a cookie banner if there is one, the most private choice.
+    const decline = site.getByRole('button', { name: /^(Reject all|Decline|Reject)$/i }).first();
+    if (await decline.isVisible().catch(() => false)) await decline.click();
+    const part = await find();
+    await part.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await site.waitForTimeout(1200);
+    await site.mouse.move(SITE.width - 60, 60);
+    await panel.mouse.move(PANEL.width / 2, 500);
+    return part;
+  };
+  // Picks a part: the panel's button, then the part on the page. While the
+  // press lands on a part inside it, "Pick the part around it" goes out.
+  const pick = async (part, at, name) => {
     const button = panel.getByRole('button', { name: /^Pick (element|another)$/ });
     await clickOn(panel, button);
-    await panel.mouse.move(-30, 200, { steps: 8 });
-    const box = await site.locator(selector).boundingBox();
-    await site.mouse.move(box.x + at.x, box.y + at.y, { steps: 18 });
-    await site.waitForTimeout(350);
+    await panel.mouse.move(-30, 300, { steps: 6 });
+    const box = await part.boundingBox();
+    await site.mouse.move(SITE.width - 40, box.y + at.y);
+    await site.mouse.move(box.x + at.x, box.y + at.y, { steps: 22 });
+    await site.waitForTimeout(400);
     await press(site);
-    await site.mouse.move(SITE.width - 30, box.y + at.y, { steps: 12 });
-    await site.mouse.move(SITE.width + 30, box.y + at.y);
-    await panel.mouse.move(20, 200);
-    await panel.waitForTimeout(300);
+    await site.mouse.move(SITE.width - 40, box.y + at.y + 120, { steps: 16 });
+    await site.mouse.move(SITE.width + 30, box.y + at.y + 120);
+    await panel.mouse.move(30, 240);
+    await panel.waitForTimeout(250);
     const picked = () => panel.locator('.xp__ready code').first().textContent();
-    const right = async () => {
-      const text = await picked();
-      return typeof name === 'string' ? text === name : name.test(text);
-    };
-    for (let step = 0; step < 6 && !(await right()); step += 1) {
-      await clickOn(panel, panel.getByRole('button', { name: 'Pick the part around it' }));
-      await panel.waitForTimeout(300);
+    for (let tries = 0; tries < 6 && !name.test(await picked()); tries += 1) {
+      await clickOn(panel, panel.getByRole('button', { name: 'Pick the part around it' }), 150);
+      await panel.waitForTimeout(250);
     }
-    if (!(await right())) throw new Error(`Picked ${await picked()}, not ${name}`);
+    if (!name.test(await picked())) throw new Error(`Picked ${await picked()}`);
   };
-  // Lets the panel play it, then shows the take replaying in the preview.
-  const play = async (name, wait, replay = 2600) => {
-    await clickOn(panel, panel.getByRole('button', { name }), 300);
-    await panel.mouse.move(200, 120, { steps: 10 });
+  // Lets the panel play the hover or the click, on its own.
+  const play = async (name, wait) => {
+    await clickOn(panel, panel.getByRole('button', { name }), 200);
+    await panel.mouse.move(PANEL.width - 20, 200, { steps: 8 });
     await panel.waitForTimeout(wait);
-    await scrollTo(panel, panel.locator('.mi__description').first(), 16);
-    // Play it again if the preview has already come to its end.
+    // A take still recording selects itself when it ends; wait for the end,
+    // out of the video.
+    step(null);
+    await panel
+      .getByRole('button', { name: 'Stop', exact: true })
+      .waitFor({ state: 'detached', timeout: 6000 })
+      .catch(() => {});
+  };
+  // Shows a take: its description, the badge and the preview, playing.
+  const showTake = async (take) => {
+    await panel.evaluate(() => scrollTo({ top: 0 }));
+    await panel.waitForTimeout(120);
+    if (take) await clickOn(panel, panel.locator('.xp__take', { hasText: take }).first(), 150);
+    await panel.waitForTimeout(250);
+    await scrollTo(panel, panel.locator('.mi__description').first(), 14);
     const again = panel.getByRole('button', { name: 'Play', exact: true });
-    if ((await again.count()) > 0) await clickOn(panel, again.first(), 200);
-    await panel.mouse.move(220, 520, { steps: 10 });
-    await panel.waitForTimeout(replay);
+    if ((await again.count()) > 0) await clickOn(panel, again.first(), 150);
+    await panel.mouse.move(PANEL.width - 20, 560, { steps: 10 });
   };
 
-  // ONLY=vercel films the last scenes alone, to try them quickly.
-  if (process.env.ONLY !== 'vercel') {
-    // Load: three notifications fly in.
-    await pick('.stack', { x: 100, y: 68 }, 'div.stack');
-    await play('Play the load', 2800);
-
-    // Hover: the card lifts and tilts.
-    await pick('.plan', { x: 8, y: 60 }, 'div.plan');
-    await play('Play the hover', 3200, 1500);
-
-    // Edit: pick the card's own row, make it slower and give it a curve that
-    // pulls back before it lifts. The preview stays pinned above and replays.
-    const row = panel
-      .locator('.timeline__label')
-      .filter({ hasText: 'Move and scale' })
-      .filter({ has: panel.getByText('div.plan', { exact: true }) })
-      .filter({ hasNot: panel.locator('.timeline__back') });
-    const duration = panel.locator('label.field').filter({ hasText: 'Duration' }).locator('input');
-    // A hover take opens on its first row already; clicking it again closes it.
-    if ((await duration.count()) === 0 || (await duration.inputValue()) !== '450') {
-      await clickOn(panel, row.first(), 300);
-      await panel.waitForTimeout(600);
-    }
-    await clickOn(panel, duration);
-    await duration.selectText();
-    await panel.keyboard.type('900', { delay: 120 });
-    await panel.keyboard.press('Tab');
-    await panel.waitForTimeout(1600);
-    await clickOn(panel, panel.getByRole('button', { name: 'Pull back', exact: true }), 300);
-    await panel.mouse.move(380, 500, { steps: 10 });
-    await panel.waitForTimeout(3600);
-    if ((await duration.inputValue()) !== '900') throw new Error('The duration did not change');
-
-    // Click: the heart pops, then the switch springs across.
-    await pick('.like', { x: 32, y: 10 }, 'button.like');
-    await play('Play the click', 2000, 2200);
-    await pick('.switch', { x: 60, y: 20 }, 'button.switch');
-    await play('Play the click', 2000, 2200);
+  // Stripe: the arrow on "Get started".
+  const arrow = await open('https://stripe.com/', async () =>
+    site.locator('a.hds-button', { hasText: 'Get started' }).first(),
+  );
+  const near = await around(arrow, 520);
+  step('Motion Inspector records the animations on a live website', whole);
+  await site.waitForTimeout(2000);
+  step('Pick a part of the page: Stripe’s “Get started” button', near);
+  await pick(arrow, { x: 30, y: 24 }, /^a\.hds-button/);
+  step('“Hover” moves the pointer in and out, and records both ways', near);
+  await play('Play the hover', 2400);
+  step('Each take replays as shapes, checked against the page', near);
+  await showTake(null);
+  await panel.waitForTimeout(1200);
+  step('Change its duration and curve: the preview replays at once', near);
+  const duration = panel.locator('label.field').filter({ hasText: 'Duration' }).locator('input');
+  if ((await duration.count()) === 0) {
+    await clickOn(panel, panel.locator('.timeline__label').first());
   }
-
-  // A real site: Vercel's card whose corner peels back on hover, a spring a
-  // script writes into clip-paths frame by frame.
-  await site.goto('https://vercel.com/home', { waitUntil: 'domcontentloaded' });
-  await site.waitForTimeout(2500);
-  const peel = site.locator('a', { hasText: 'Backends' }).first();
-  await peel.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'smooth' }));
-  await site.waitForTimeout(1500);
-  await site.evaluate(() => {
-    const card = [...document.querySelectorAll('a')].find((a) =>
-      a.textContent.includes('Backends'),
-    );
-    card.setAttribute('data-mi-video', '');
-  });
-  await pick('[data-mi-video]', { x: 60, y: 60 }, /./);
-  await play('Play the hover', 3600, 1200);
-  // Show the way in, where the corner ends peeled back.
-  await panel.evaluate(() => scrollTo({ top: 0, behavior: 'smooth' }));
-  await panel.waitForTimeout(500);
-  await clickOn(panel, panel.locator('.xp__take', { hasText: 'Hover in' }).first(), 250);
+  await clickOn(panel, duration);
+  await duration.selectText();
+  await panel.keyboard.type('700', { delay: 100 });
+  await panel.keyboard.press('Tab');
   await panel.waitForTimeout(400);
-  await scrollTo(panel, panel.locator('.mi__description').first(), 16);
-  await clickOn(panel, panel.getByRole('button', { name: 'Play', exact: true }).first(), 200);
-  await panel.mouse.move(220, 520, { steps: 10 });
-  await panel.waitForTimeout(2400);
-
-  // Export: the CSS, ready to copy.
+  await clickOn(panel, panel.getByRole('button', { name: 'Overshoot', exact: true }), 200);
+  await panel.mouse.move(PANEL.width - 20, 560, { steps: 8 });
+  await panel.waitForTimeout(1300);
+  step('The original beside yours: both replay together', near);
+  await scrollTo(panel, panel.locator('.mi__description').first(), 14);
+  await clickOn(panel, panel.getByRole('radio', { name: 'Side by side' }), 200);
+  await panel.waitForTimeout(300);
+  const replay = panel.getByRole('button', { name: 'Play', exact: true });
+  if ((await replay.count()) > 0) await clickOn(panel, replay.first(), 150);
+  await panel.mouse.move(PANEL.width - 20, 600, { steps: 8 });
+  await panel.waitForTimeout(2000);
+  step('Export the result as CSS', near);
   await clickOn(panel, panel.getByRole('button', { name: 'Export', exact: true }));
-  await panel.waitForTimeout(600);
+  await panel.waitForTimeout(350);
   await scrollTo(panel, panel.locator('.mi__tabs').first(), 8);
-  await clickOn(panel, panel.getByRole('button', { name: 'Copy CSS' }).last());
-  await panel.waitForTimeout(2500);
-  const t1 = Date.now() / 1000;
+  await panel.mouse.move(PANEL.width - 20, 600, { steps: 8 });
+  await panel.waitForTimeout(1500);
+
+  // Vercel: the card whose corner peels back, a spring a script writes.
+  const card = await open('https://vercel.com/home', async () =>
+    site.locator('a', { hasText: 'Backends' }).first(),
+  );
+  const cardNear = await around(card, 760);
+  step('Vercel’s card peels its corner back on hover, moved by a script', cardNear);
+  await pick(card, { x: 60, y: 60 }, /./);
+  await play('Play the hover', 2600);
+  step('Filmed frame by frame: the hover in…', cardNear);
+  await showTake('Hover in');
+  await panel.waitForTimeout(1300);
+  step('…and the hover out, each matching the page within a pixel', cardNear);
+  await showTake('Hover out');
+  await panel.waitForTimeout(1200);
+
+  // Apple: the Store menu, its columns fading in one after another.
+  const store = await open('https://www.apple.com/', async () => {
+    // Apple asks which country's store to show; close the question.
+    const close = site.locator('#ac-ls-close');
+    if (await close.isVisible().catch(() => false)) await close.click();
+    return site.locator('.globalnav-item-store').first();
+  });
+  step('Apple’s menu: “Hover” opens Store, and records every part of it', whole);
+  await pick(store, { x: 12, y: 10 }, /^div\.globalnav-item/);
+  await play('Play the hover', 2600);
+  step('The hover in: each column and link fades in on its own delay…', whole);
+  await showTake('Hover in');
+  await panel.waitForTimeout(2000);
+  step('…and the hover out, replayed as shapes, matching the page', whole);
+  await showTake('Hover out');
+  await panel.waitForTimeout(1300);
+  step(null);
+
   await Promise.all(filmed.map((one) => one.stop()));
   await context.close();
-
-  // Each page's frames become a video at a steady 30 a second, from the
-  // same start to the same end, then the two are put side by side.
-  const parts = filmed.map((one, index) => {
-    const list = [];
-    one.frames.forEach((frame, n) => {
-      const file = join(frames, `${index}-${n}.jpg`);
-      writeFileSync(file, Buffer.from(frame.data, 'base64'));
-      const from = Math.max(frame.t, t0);
-      const to = Math.min(one.frames[n + 1]?.t ?? t1, t1);
-      if (to > from) list.push(`file '${file}'\nduration ${(to - from).toFixed(4)}`);
-      else if (n === 0 || to > t0) list.push(`file '${file}'\nduration 0.001`);
-    });
-    const listFile = join(frames, `${index}.txt`);
-    writeFileSync(listFile, list.join('\n') + '\n');
-    return listFile;
-  });
-  const length = t1 - t0;
-  const mp4 = join(docs, 'demo.mp4');
-  const gif = join(docs, 'demo.gif');
-  execFileSync('ffmpeg', [
-    '-y',
-    '-loglevel',
-    'error',
-    '-f',
-    'concat',
-    '-safe',
-    '0',
-    '-i',
-    parts[0],
-    '-f',
-    'concat',
-    '-safe',
-    '0',
-    '-i',
-    parts[1],
-    '-filter_complex',
-    `[0:v]fps=30,scale=${SITE.width}:${SITE.height}[a];[1:v]fps=30,scale=${PANEL.width}:${PANEL.height}[b];` +
-      `[a]pad=iw+6:ih:0:0:color=0xd9d4ce[a2];[a2][b]hstack,format=yuv420p[v]`,
-    '-map',
-    '[v]',
-    '-t',
-    length.toFixed(2),
-    '-c:v',
-    'libx264',
-    '-crf',
-    '23',
-    '-movflags',
-    '+faststart',
-    mp4,
-  ]);
-  execFileSync('ffmpeg', [
-    '-y',
-    '-loglevel',
-    'error',
-    '-i',
-    mp4,
-    '-filter_complex',
-    'fps=12,scale=960:-1:flags=lanczos,split[x][y];[x]palettegen=max_colors=96:stats_mode=diff[p];' +
-      '[y][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle',
-    gif,
-  ]);
-  rmSync(frames, { recursive: true, force: true });
-  const mb = (path) => (statSync(path).size / 1e6).toFixed(1);
-  console.log(
-    `Wrote docs/demo.mp4 (${mb(mp4)} MB) and docs/demo.gif (${mb(gif)} MB), ${length.toFixed(1)} s`,
-  );
+  await assemble(work, filmed, steps);
+  rmSync(work, { recursive: true, force: true });
 })();
 
 // Films a page with Chrome's screencast. A page opens in a small headless
@@ -291,9 +285,153 @@ async function film(context, page, size) {
   await page.setViewportSize(size);
   const frames = [];
   cdp.on('Page.screencastFrame', (frame) => {
-    frames.push({ t: frame.metadata.timestamp, data: frame.data });
+    // Stamped when it arrives, on the same clock as the steps: Chrome's own
+    // stamp runs ahead of it, which put the next site's loading into a step.
+    frames.push({ t: Date.now() / 1000, data: frame.data });
     cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {});
   });
-  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92 });
-  return { frames, stop: () => cdp.send('Page.stopScreencast').catch(() => {}) };
+  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 95 });
+  return { frames, size, stop: () => cdp.send('Page.stopScreencast').catch(() => {}) };
+}
+
+// Puts the video together: each page's frames become a steady 30 a second;
+// then, step by step, the page (zoomed on the step's part) beside the panel,
+// under the step's caption. Steps with no caption are dropped.
+async function assemble(work, filmed, steps) {
+  const t0 = steps[0].at;
+  const t1 = steps.at(-1).at;
+  const sources = filmed.map((one, index) => {
+    const list = [];
+    one.frames.forEach((frame, n) => {
+      const next = one.frames[n + 1]?.t ?? t1;
+      const from = Math.max(frame.t, t0);
+      const to = Math.min(next, t1);
+      if (to <= from) return;
+      const file = join(work, `${index}-${n}.jpg`);
+      writeFileSync(file, Buffer.from(frame.data, 'base64'));
+      list.push(`file '${file}'\nduration ${(to - from).toFixed(4)}`);
+    });
+    // ffmpeg's concat reader ignores the last entry's duration; repeat it.
+    list.push(list.at(-1).split('\n')[0]);
+    const listFile = join(work, `${index}.txt`);
+    writeFileSync(listFile, list.join('\n') + '\n');
+    const out = join(work, `${index}.mp4`);
+    execFileSync('ffmpeg', [
+      '-y',
+      '-loglevel',
+      'error',
+      '-f',
+      'concat',
+      '-safe',
+      '0',
+      '-i',
+      listFile,
+      '-vf',
+      `fps=${FPS},scale=${one.size.width * 2}:${one.size.height * 2}`,
+      '-c:v',
+      'libx264',
+      '-crf',
+      '12',
+      '-pix_fmt',
+      'yuv420p',
+      out,
+    ]);
+    // The last frame before the start is held from the start, so both
+    // videos begin at the same moment.
+    return { out, lead: 0 };
+  });
+
+  const kept = steps
+    .map((one, index) => ({ ...one, from: one.at - t0, to: (steps[index + 1]?.at ?? t1) - t0 }))
+    .filter((one) => one.caption !== null && one.to > one.from);
+  const captions = await renderCaptions(
+    work,
+    kept.map((one) => one.caption),
+  );
+
+  const inputs = ['-i', sources[0].out, '-i', sources[1].out];
+  for (const file of captions) inputs.push('-loop', '1', '-framerate', String(FPS), '-i', file);
+  const chains = [];
+  kept.forEach((one, i) => {
+    const length = (one.to - one.from).toFixed(3);
+    const c = one.crop;
+    const crop = `crop=${Math.round(c.w * 2)}:${Math.round(c.h * 2)}:${Math.round(c.x * 2)}:${Math.round(c.y * 2)}`;
+    const trim = (lead) =>
+      `trim=start=${Math.max(0, one.from - lead).toFixed(3)}:duration=${length},setpts=PTS-STARTPTS`;
+    chains.push(
+      `[0:v]${trim(sources[0].lead)},${crop},scale=${SITE.width}:${SITE.height}:flags=lanczos,setsar=1[s${i}]`,
+      `[1:v]${trim(sources[1].lead)},scale=${PANEL.width}:${PANEL.height}:flags=lanczos,setsar=1[p${i}]`,
+      `[${i + 2}:v]trim=duration=${length},setpts=PTS-STARTPTS,setsar=1[c${i}]`,
+      `[s${i}][p${i}]hstack[h${i}]`,
+      `[c${i}][h${i}]vstack,format=yuv420p[v${i}]`,
+    );
+  });
+  chains.push(`${kept.map((_, i) => `[v${i}]`).join('')}concat=n=${kept.length}:v=1:a=0[v]`);
+  const mp4 = join(docs, 'demo.mp4');
+  const gif = join(docs, 'demo.gif');
+  execFileSync('ffmpeg', [
+    '-y',
+    '-loglevel',
+    'error',
+    ...inputs,
+    '-filter_complex',
+    chains.join(';'),
+    '-map',
+    '[v]',
+    '-r',
+    String(FPS),
+    '-c:v',
+    'libx264',
+    '-crf',
+    '20',
+    '-preset',
+    'slow',
+    '-pix_fmt',
+    'yuv420p',
+    '-movflags',
+    '+faststart',
+    mp4,
+  ]);
+  execFileSync('ffmpeg', [
+    '-y',
+    '-loglevel',
+    'error',
+    '-i',
+    mp4,
+    '-filter_complex',
+    'fps=10,scale=1120:-1:flags=lanczos,split[x][y];[x]palettegen=max_colors=128:stats_mode=diff[p];' +
+      // No dithering: flat UI and text stay crisp, and still parts stay still.
+      '[y][p]paletteuse=dither=none:diff_mode=rectangle',
+    gif,
+  ]);
+  for (const one of kept) console.log(`${(one.to - one.from).toFixed(1)} s  ${one.caption}`);
+  const length = kept.reduce((sum, one) => sum + one.to - one.from, 0);
+  const mb = (path) => (statSync(path).size / 1e6).toFixed(1);
+  console.log(
+    `Wrote docs/demo.mp4 (${mb(mp4)} MB) and docs/demo.gif (${mb(gif)} MB), ${length.toFixed(1)} s`,
+  );
+}
+
+// Draws each caption as a picture the width of the video.
+async function renderCaptions(work, texts) {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: OUT.width, height: CAPTION } });
+  const files = [];
+  for (const [index, text] of texts.entries()) {
+    await page.setContent(`<!doctype html><style>
+      body { margin: 0; height: ${CAPTION}px; display: flex; align-items: center; gap: 18px;
+        padding: 0 32px; box-sizing: border-box; background: #101012; color: #f4f4f5;
+        font: 500 26px/1 -apple-system, "SF Pro Display", system-ui, sans-serif; letter-spacing: -0.01em; }
+      .n { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+        background: #2b6cff; color: #fff; font-size: 17px; font-weight: 650; flex: none; }
+      .t { flex: 1; }
+      .brand { color: #8b8b93; font-size: 18px; font-weight: 500; }
+    </style><span class="n">${index + 1}</span><span class="t"></span><span class="brand">Motion Inspector</span>`);
+    await page.locator('.t').evaluate((el, text) => (el.textContent = text), text);
+    const file = join(work, `caption-${index}.png`);
+    await page.screenshot({ path: file });
+    files.push(file);
+  }
+  await browser.close();
+  return files;
 }
