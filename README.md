@@ -1,6 +1,8 @@
 # Motion Inspector
 
-A tool to dissect, understand and re-tune animations found on real websites. Work in progress. The full README is written in the last milestone.
+A Chrome extension that captures the animations on a real website, draws them as plain shapes and lets you re-tune their timing and easing. It reads CSS transitions, CSS keyframe animations and Web Animations exactly, and films motion that a script makes. It never copies text or image data from the page, and never pauses, changes or restyles the page's own animations.
+
+Why each part works the way it does is written down in `DECISIONS.md`, and what Chrome reports for each kind of animation is in `docs/chrome-findings.md`.
 
 ## Run it
 
