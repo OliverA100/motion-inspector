@@ -1245,7 +1245,19 @@ function layoutTracksFor(
     );
     const parentShape = parentOf.get(shape);
     const parentElement = parentShape === undefined ? undefined : snapshot.ownerOf.get(parentShape);
-    const parentStart = parentElement === undefined ? undefined : first.boxes.get(parentElement);
+    // The parent's moves are counted from where it first stood. One that
+    // appears during the take (a menu's inner box, under links already
+    // measured) has no box in the first samples: counted from nothing, its
+    // first box was a move of its whole offset, and every part inside it was
+    // drawn that far away (Apple's Store menu: each link 65 px right, 44 px
+    // up, sliding back as the menu closed).
+    const parentStart =
+      parentElement === undefined
+        ? undefined
+        : (first.boxes.get(parentElement) ??
+          samples
+            .map((sample) => sample.boxes.get(parentElement))
+            .find((box) => box !== undefined));
     // Where a sample has no box (the part was taken off the page), it is
     // where it was last seen.
     const series = (read: (box: Box, parent: Box | undefined) => number): number[] => {
@@ -1266,7 +1278,9 @@ function layoutTracksFor(
         rest: shape.box.x,
         values: series(
           (box, parent) =>
-            shape.box.x + (box.x - start.x) - ((parent?.x ?? 0) - (parentStart?.x ?? 0)),
+            shape.box.x +
+            (box.x - start.x) -
+            (parent && parentStart ? parent.x - parentStart.x : 0),
         ),
       });
     }
@@ -1276,7 +1290,9 @@ function layoutTracksFor(
         rest: shape.box.y,
         values: series(
           (box, parent) =>
-            shape.box.y + (box.y - start.y) - ((parent?.y ?? 0) - (parentStart?.y ?? 0)),
+            shape.box.y +
+            (box.y - start.y) -
+            (parent && parentStart ? parent.y - parentStart.y : 0),
         ),
       });
     }

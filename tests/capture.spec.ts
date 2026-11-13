@@ -4773,3 +4773,49 @@ test('links inside a menu hidden when picked are drawn with their text as it ope
   expect(items.length).toBe(12);
   expect(items.filter((item) => !hasText(item)).length).toBe(0);
 });
+
+test('links in a menu that opens do not move with the box around them appearing', async ({
+  page,
+}) => {
+  // Apple's Store menu: the menu grows open; a script writes to the box
+  // around the links as it does, so that box gets its shape partway through
+  // the take, with no box in the samples before. Its first box was counted
+  // as a move from nothing, and every link was drawn that far away.
+  await setUp(
+    page,
+    `#lm-nav { position: relative; width: 400px; height: 40px }
+     #lm-menu { position: absolute; top: 40px; left: 60px; width: 300px; height: 0;
+       overflow: hidden; background: #222; visibility: hidden;
+       transition: height .25s, visibility .25s }
+     #lm-nav:hover #lm-menu { visibility: visible; height: 560px }
+     #lm-inner { padding: 24px 30px; height: 500px; overflow: hidden }
+     #lm-menu li { list-style: none; color: #eee; font: 16px/24px sans-serif; opacity: 0;
+       visibility: hidden; transform: translateY(-4px);
+       transition: opacity .3s .3s, transform .3s .3s, visibility 0s .3s }
+     #lm-nav:hover #lm-menu li { opacity: 1; transform: none; visibility: visible }`,
+    `<div id="lm-nav">Store<div id="lm-menu"><div id="lm-inner"><ul>${Array.from(
+      { length: 20 },
+      (_, i) => `<li>Link ${i}</li>`,
+    ).join('')}</ul></div></div></div>`,
+    '#lm-nav',
+  );
+  await page.evaluate(() => {
+    const nav = document.getElementById('lm-nav') as HTMLElement;
+    nav.addEventListener('mouseenter', () =>
+      setTimeout(() => {
+        (document.getElementById('lm-inner') as HTMLElement).style.opacity = '0.99';
+      }, 150),
+    );
+  });
+  await page.hover('#lm-nav');
+  await page.waitForTimeout(700);
+  await page.mouse.move(5, 790);
+  await page.waitForTimeout(800);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  const capture = takes[0]?.capture;
+  expect(capture).toBeDefined();
+  const moves = (capture?.tracks ?? []).filter(
+    (track) => track.origin === 'layout' && (track.property === 'left' || track.property === 'top'),
+  );
+  expect(moves).toEqual([]);
+});

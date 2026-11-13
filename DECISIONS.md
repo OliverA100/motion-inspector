@@ -1420,3 +1420,15 @@ Seen in the same run and left as they are: on Dub, a hover take cut short by the
 ### D259. A part reached by a late walk that ran out is drawn with its content
 **Chose:** a part that appears in a take keeps a box from pick time only when content drawn earlier moves into it, or when it holds nothing to draw. Otherwise it is measured as it appears, with what is inside it, like any part hidden when picked.
 **Why:** found filming the README's video on Apple's Store menu: of its 23 links and headers, 18 were drawn as empty boxes. The menu, appearing first, used up its late walk's 15 shapes partway through, and every part that walk reached was given a box "from pick time". When each link then faded in, it was taken for a part visible at pick, drawn as part of its parent: an empty box, its text never drawn. The preview showed a dark panel where the page showed three columns of links. The motion check still matched, since it measures where parts are, not what is in them.
+
+### D260. The takes of one pick stay in one group
+**Chose:** each stored take keeps what was picked when it was recorded (`picked`, the part's label), and the list groups takes by it, not by the part recording ended up watching. A group is still named by the part its newest take recorded, the part that moves (the card, not the image inside it that was clicked). Takes saved before it was kept (`picked: null`) are grouped as before, by what they recorded. This adds a field to stored takes; older ones load with it empty.
+**Why:** found filming the README's video on Stripe's "Get started": recording moved on to the button group, "the part that moves", partway through the hover, and the way out was filed under that group while the way in stayed under the button. One hover showed as two groups, and a viewer saw the takes jump between them.
+
+### D261. The extension has an icon of its own
+**Chose:** a rounded square in the panel's blue with an easing curve, the part it moves and its trail, drawn from `packages/extension/icons/icon.svg` at 16, 32, 48 and 128 px by `icons/render.cjs`. The manifest names it for the toolbar and the extensions page.
+**Why:** without one, Chrome showed a grey letter "M" in the toolbar and on the side panel's header, which looked unfinished in the real browser.
+
+### D262. A parent that appears partway through a take moves from where it first stood
+**Chose:** a layout track counts a part's moves relative to its parent's. A parent that gets its shape partway through the take (a script writes to it as a menu opens) has no box in the samples before that; its moves are now counted from the first box it has. Before, they were counted from nothing, so its first box read as a move of its whole offset.
+**Why:** found filming the README's video on Apple's Store menu: the box around the links got its shape 283 ms into the take, at -65, 44. Every link was drawn 65 px right and 44 px up, sliding back into place as the menu closed, while the page's links did not move. The motion check passed: those layout moves were what the preview drew, not what it checked against the film.

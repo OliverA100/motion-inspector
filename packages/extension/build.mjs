@@ -55,6 +55,14 @@ if (!existsSync(captureScript)) {
 }
 copyFileSync(captureScript, resolve(outDir, 'capture.iife.js'));
 
+// The icon, drawn from icons/icon.svg by icons/render.cjs.
+const ICON_SIZES = [16, 32, 48, 128];
+mkdirSync(resolve(outDir, 'icons'), { recursive: true });
+for (const size of ICON_SIZES) {
+  copyFileSync(resolve(here, `icons/icon-${size}.png`), resolve(outDir, `icons/icon-${size}.png`));
+}
+const icons = Object.fromEntries(ICON_SIZES.map((size) => [String(size), `icons/icon-${size}.png`]));
+
 const manifest = {
   manifest_version: 3,
   name: 'Motion Inspector',
@@ -74,7 +82,8 @@ const manifest = {
   // Nothing here is granted up front. It only lists what MAY be asked for:
   // when activeTab does not cover a tab, "Pick element" asks for that one site.
   optional_host_permissions: ['*://*/*'],
-  action: { default_title: 'Open Motion Inspector' },
+  icons,
+  action: { default_title: 'Open Motion Inspector', default_icon: icons },
   side_panel: { default_path: 'panel.html' },
   background: { service_worker: 'background.js' },
 };

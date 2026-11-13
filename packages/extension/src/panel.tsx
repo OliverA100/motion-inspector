@@ -31,6 +31,7 @@ import {
   updatePanel,
   whyNotInspectable,
   type Panel,
+  groupsOf,
   type StoredTake,
 } from './panelState';
 
@@ -134,9 +135,11 @@ async function loadTakes(): Promise<StoredTake[]> {
   if (!Array.isArray(saved)) return [];
   return saved.flatMap((item: unknown): StoredTake[] => {
     if (typeof item !== 'object' || item === null) return [];
-    const { id, capture } = item as { id?: unknown; capture?: unknown };
+    const { id, capture, picked } = item as { id?: unknown; capture?: unknown; picked?: unknown };
     const parsed = parseCapture(capture);
-    return typeof id === 'string' && parsed.ok ? [{ id, capture: parsed.value }] : [];
+    return typeof id === 'string' && parsed.ok
+      ? [{ id, capture: parsed.value, picked: typeof picked === 'string' ? picked : null }]
+      : [];
   });
 }
 
@@ -247,26 +250,6 @@ function lengthWords(take: StoredTake): string {
 
 // Takes of the same element, one after another, are shown together under
 // that element's name.
-function groupsOf(
-  takes: StoredTake[],
-): { key: string; selector: string; host: string; takes: StoredTake[] }[] {
-  const groups: { key: string; selector: string; host: string; takes: StoredTake[] }[] = [];
-  for (const take of takes) {
-    const { selector, url } = take.capture.source;
-    let host = url;
-    try {
-      host = new URL(url).host;
-    } catch {
-      // Keep the address as it is.
-    }
-    const last = groups[groups.length - 1];
-    if (last !== undefined && last.selector === selector && last.host === host)
-      last.takes.push(take);
-    else groups.push({ key: take.id, selector, host, takes: [take] });
-  }
-  return groups;
-}
-
 // The first sentence of the description, without "The element".
 function summaryOf(take: StoredTake): string {
   const first = describeCapture(take.capture).split('. ')[0] ?? '';
@@ -390,7 +373,11 @@ function PanelApp() {
       const replaced = message.replaces === true && previousId !== null;
       const id = replaced && previousId !== null ? previousId : crypto.randomUUID();
       lastTakeId.current = id;
-      dispatch({ kind: 'takeArrived', take: { id, capture: parsed.value }, replaced });
+      dispatch({
+        kind: 'takeArrived',
+        take: { id, capture: parsed.value, picked: null },
+        replaced,
+      });
       heard('take');
     } else {
       dispatch({

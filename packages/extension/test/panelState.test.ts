@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { cardLift, loader } from '@motion-inspector/core/src/samples';
 import {
+  groupsOf,
   initialPanel,
   MOST_TAKES,
   selectedTake,
@@ -16,7 +17,7 @@ function run(messages: PanelMsg[], start: Panel = initialPanel): Panel {
   return messages.reduce(updatePanel, start);
 }
 
-const take = (id: string): StoredTake => ({ id, capture: cardLift });
+const take = (id: string): StoredTake => ({ id, capture: cardLift, picked: null });
 
 describe('the states of the side panel', () => {
   test('first open: idle, with no takes', () => {
@@ -115,7 +116,7 @@ describe('the states of the side panel', () => {
       { kind: 'recordingStarted' },
       { kind: 'takeArrived', take: take('hover'), replaced: false },
       { kind: 'pointerMoved', inPanel: true },
-      { kind: 'takeArrived', take: { id: 'hover', capture: loader }, replaced: true },
+      { kind: 'takeArrived', take: { id: 'hover', capture: loader, picked: null }, replaced: true },
     ]);
     expect(panel.takes.map((item) => item.id)).toEqual(['hover']);
     expect(selectedTake(panel)?.capture).toBe(loader);
@@ -287,7 +288,7 @@ describe('the list of takes', () => {
 
   test('saved takes are loaded, and the newest is shown', () => {
     const panel = run([
-      { kind: 'takesLoaded', takes: [take('new'), { id: 'old', capture: loader }] },
+      { kind: 'takesLoaded', takes: [take('new'), { id: 'old', capture: loader, picked: null }] },
     ]);
     expect(selectedTake(panel)?.id).toBe('new');
   });
@@ -362,5 +363,33 @@ describe('switching pages and stopping by itself', () => {
     ]);
     expect(panel.picked).toBeNull();
     expect(panel.status).toEqual({ kind: 'idle' });
+  });
+});
+
+describe('the groups of takes', () => {
+  test("a hover's way in and way out stay in one group when recording moves to a parent", () => {
+    // Stripe's button: the way in names the button, the way out names the
+    // group around it, which recording moved on to.
+    const button = { ...cardLift, source: { ...cardLift.source, selector: 'a.button' } };
+    const group = { ...cardLift, source: { ...cardLift.source, selector: 'div.button-group' } };
+    const panel = run([
+      { kind: 'pickStarted' },
+      { kind: 'elementPicked', label: 'a.button', draws: null },
+      { kind: 'recordingStarted' },
+      { kind: 'takeArrived', take: { id: 'in', capture: button, picked: null }, replaced: false },
+      { kind: 'movedToParent', label: 'div.button-group' },
+      { kind: 'takeArrived', take: { id: 'out', capture: group, picked: null }, replaced: false },
+    ]);
+    const groups = groupsOf(panel.takes);
+    expect(groups).toHaveLength(1);
+    // Named by the newest take's part: what moved.
+    expect(groups[0]?.selector).toBe('div.button-group');
+    expect(groups[0]?.takes.map((one) => one.id)).toEqual(['out', 'in']);
+  });
+
+  test('takes saved before the pick was kept are grouped by what they recorded', () => {
+    const other = { ...cardLift, source: { ...cardLift.source, selector: 'div.other' } };
+    const groups = groupsOf([take('a'), { id: 'b', capture: other, picked: null }]);
+    expect(groups.map((one) => one.selector)).toEqual([cardLift.source.selector, 'div.other']);
   });
 });

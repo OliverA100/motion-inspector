@@ -10,6 +10,11 @@ import type { Capture } from '@motion-inspector/core';
 export type StoredTake = {
   id: string;
   capture: Capture;
+  // The part that was picked when it was recorded, by its label. Recording
+  // can move on to a parent that animates (movedTo), and the capture then
+  // names that parent; this keeps the takes of one pick together. null for
+  // takes saved before it was kept.
+  picked: string | null;
 };
 
 export type Status =
@@ -178,7 +183,14 @@ export function updatePanel(panel: Panel, msg: PanelMsg): Panel {
           : panel.status.kind === 'ready'
             ? { kind: 'ready', nothingFound: false }
             : panel.status;
-      const takes = [msg.take, ...panel.takes.filter((take) => take.id !== msg.take.id)];
+      // Stamped with what was picked; a take that completes an earlier one
+      // (a hover's way back) keeps the earlier one's.
+      const earlier = panel.takes.find((take) => take.id === msg.take.id);
+      const stored: StoredTake = {
+        ...msg.take,
+        picked: earlier?.picked ?? panel.picked ?? msg.take.picked,
+      };
+      const takes = [stored, ...panel.takes.filter((take) => take.id !== msg.take.id)];
       // A new take is shown at once, unless the pointer is in the panel.
       // Moving the mouse from the page to the panel plays the element's
       // hover-out, and that must not replace the hover just captured. It
@@ -305,4 +317,43 @@ export function whyNotInspectable(url: string | undefined): string | null {
     return 'This kind of page cannot be inspected.';
   }
   return null;
+}
+
+// The takes as the panel lists them: in groups, one per part picked on one
+// site, newest first. Takes of one pick stay together even when recording
+// moved on to a parent that animates (Stripe's button: the way in was filed
+// under the button, the way out under the group around it). A group is
+// named by what its first take recorded, the part that moves, which is
+// what a person looks for (the card, not the image inside it they clicked).
+export function groupsOf(
+  takes: StoredTake[],
+): { key: string; selector: string; host: string; takes: StoredTake[] }[] {
+  const groups: {
+    key: string;
+    pick: string;
+    selector: string;
+    host: string;
+    takes: StoredTake[];
+  }[] = [];
+  for (const take of takes) {
+    const pick = take.picked ?? take.capture.source.selector;
+    let host = take.capture.source.url;
+    try {
+      host = new URL(host).host;
+    } catch {
+      // Keep the address as it is.
+    }
+    const last = groups[groups.length - 1];
+    if (last !== undefined && last.pick === pick && last.host === host) last.takes.push(take);
+    else {
+      groups.push({
+        key: take.id,
+        pick,
+        selector: take.capture.source.selector,
+        host,
+        takes: [take],
+      });
+    }
+  }
+  return groups.map(({ pick: _pick, ...group }) => group);
 }
