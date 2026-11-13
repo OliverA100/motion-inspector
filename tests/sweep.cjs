@@ -1,6 +1,6 @@
 // A broad sweep of real sites: finds what animates on each page by itself,
 // then puts each real animation next to the editor's preview of its
-// capture, so a person (or Claude) can judge by eye where the tool is wrong.
+// capture, so a person can judge by eye where the tool is wrong.
 //
 // compare.cjs checks a short list of hand-picked elements. This finds them:
 //  - loaders: animations already running forever when the page settles

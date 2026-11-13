@@ -39,7 +39,7 @@ For each site:
 
 For each site: the address, what you picked, what you expected, what happened, and the debug report if something was wrong. One line is enough when it worked.
 
-## How Claude ran the pass
+## How the pass was run
 
 Two scripts do what the checklist above asks, without a person at the keyboard. They inject the same capture script the extension injects.
 

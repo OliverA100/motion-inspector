@@ -1,5 +1,5 @@
 // Puts a real animation next to the editor's preview of its capture, so a
-// person (or Claude) can look at both and judge whether the tool works.
+// person can look at both and judge whether the tool works.
 //
 // For each element:
 //  1. On the real page: start recording, trigger the animation, then pause
