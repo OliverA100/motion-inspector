@@ -7,3 +7,4 @@ playwright-report
 capture-output
 dist-test
 real-sites-output
+screenshots/
