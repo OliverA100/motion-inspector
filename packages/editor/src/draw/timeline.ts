@@ -35,11 +35,7 @@ export type TimelineData = {
 };
 
 // Where a row starts, with the space opened under the selected one.
-export function rowTop(
-  index: number,
-  rowHeight: number,
-  gap: TimelineData['gap'],
-): number {
+export function rowTop(index: number, rowHeight: number, gap: TimelineData['gap']): number {
   return index * rowHeight + (gap !== null && index > gap.after ? gap.height : 0);
 }
 

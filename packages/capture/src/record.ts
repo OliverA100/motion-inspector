@@ -64,6 +64,7 @@ import {
   addLatePseudo,
   addLateShape,
   settleLateShape,
+  resizeLateShape,
   settlePseudo,
   animationsUnder,
   shadowRootsIn,
@@ -1888,8 +1889,7 @@ function buildTake(
   // started) does count: it is short, and starting the take after it
   // left its bar before 0 on the timeline, with a negative delay.
   const fresh = drawable.filter(
-    (seen) =>
-      !carriedIn.has(seen) && (!seen.runningAtPick || Number.isFinite(seen.timing.endTime)),
+    (seen) => !carriedIn.has(seen) && (!seen.runningAtPick || Number.isFinite(seen.timing.endTime)),
   );
   const ownDrawable = drawable.filter((seen) => !carriedIn.has(seen));
   const basis =
@@ -1998,7 +1998,15 @@ function buildTake(
         other.target === seen.target &&
         other.pseudoElement === null &&
         sharesProperty(other, seen) &&
-        other.startTime >= seen.startTime,
+        other.startTime >= seen.startTime &&
+        // One that moves nothing (Linear's link, brushed: its color went
+        // back to gray, from gray) takes no change's place.
+        other.keyframes.length >= 2 &&
+        seen.properties.some(
+          (property) =>
+            other.keyframes[0]?.values.find((value) => value.property === property)?.value !==
+            other.keyframes.at(-1)?.values.find((value) => value.property === property)?.value,
+        ),
     );
     if (replaced) return false;
     const frames = film.get(seen.target) ?? [];
@@ -3765,6 +3773,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
       ) {
         addLateShape(snapshot, seen.target);
       }
+      if (seen.pseudoElement === null) resizeLateShape(snapshot, seen.target);
     }
 
     // The same property on the same element restarted before it was done
@@ -3818,6 +3827,7 @@ export function startRecording(snapshot: Snapshot, options: RecorderOptions): Re
               !(earlier.target === seen.target && sharesProperty(earlier, seen)),
           ),
         );
+        for (const earlier of running) resizeLateShape(snapshot, earlier.target);
         take = Array.from(running);
         carriedIn = running;
       }

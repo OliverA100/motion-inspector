@@ -2718,6 +2718,29 @@ export function settleLateShape(snapshot: Snapshot, element: Element): void {
   }
 }
 
+// A part given its shape in one take may be another size by a later one
+// (a menu's panel, made for one item's content and shown for a wider one).
+// Its size is read again as an animation of it joins a take, while it is
+// drawn: a move in percent is a share of it (Resend's panel, sliding half
+// its width, drawn sliding half the width it had a take before, 25 px off).
+// Its place stays: the take's own film and tracks move it.
+export function resizeLateShape(snapshot: Snapshot, element: Element): void {
+  const shape = snapshot.shapeOf.get(element);
+  if (shape === undefined || shape.kind !== 'box' || !shape.id.includes('.late')) return;
+  if (!(element instanceof HTMLElement) || !element.isConnected) return;
+  if (element.getClientRects().length === 0) return;
+  const width = element.offsetWidth;
+  const height = element.offsetHeight;
+  if (width <= 0 || height <= 0) return;
+  if (Math.abs(width - shape.box.width) <= 1 && Math.abs(height - shape.box.height) <= 1) return;
+  const origin = {
+    x: shape.box.width > 0 ? (shape.transformOrigin.x / shape.box.width) * width : width / 2,
+    y: shape.box.height > 0 ? (shape.transformOrigin.y / shape.box.height) * height : height / 2,
+  };
+  shape.box = { ...shape.box, width, height };
+  shape.transformOrigin = origin;
+}
+
 // A ::before or ::after measured while its animation ran (the recording
 // moved to its element as the animation began) took its look then as its
 // rest: a dialog's dimming layer read at 0% opacity, to which the preview

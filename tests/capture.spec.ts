@@ -4523,8 +4523,7 @@ test('an animation still running from the take before goes on in the next', asyn
       @keyframes cr-out { from { opacity: 1 } to { opacity: 0 } }`;
     document.head.append(style);
     const holder = document.createElement('div');
-    holder.innerHTML =
-      '<div id="cr-box"><div id="cr-label">a</div><div id="cr-menu"></div></div>';
+    holder.innerHTML = '<div id="cr-box"><div id="cr-label">a</div><div id="cr-menu"></div></div>';
     document.body.prepend(holder);
     const label = document.getElementById('cr-label') as HTMLElement;
     const menu = document.getElementById('cr-menu') as HTMLElement;
@@ -4566,4 +4565,103 @@ test('an animation still running from the take before goes on in the next', asyn
   );
   expect(entrance?.startOffset).toBe(0);
   expect(entrance?.timing.delay).toBeLessThan(0);
+});
+
+// Found on Linear through the side panel: the pointer, leaving a link,
+// brushed the one beside it. Its color transition began and was cancelled
+// before it showed anything, and a transition from gray to gray followed.
+// Taken for what replaced it, it kept the first one in: the preview played
+// a hover the page never showed (43% off in color).
+test('a transition cancelled at once is left out when what follows it moves nothing', async ({
+  page,
+}) => {
+  await setUp(
+    page,
+    `#nb-bar { display: flex; gap: 8px }
+     #nb-bar span { display: block; width: 40px; height: 24px }
+     #nb-button { background: #ddd; transition: background-color .15s }
+     #nb-button.on { background: #888 }
+     #nb-link { color: rgb(138, 143, 152); transition: color .3s steps(1, end) }
+     #nb-link.on { color: rgb(247, 248, 248) }
+     #nb-link.still { transition: none }`,
+    '<div id="nb-bar"><span id="nb-link">a</span><span id="nb-button"></span></div>',
+    '#nb-bar',
+  );
+  await page.evaluate(() => {
+    (document.getElementById('nb-button') as HTMLElement).classList.add('on');
+    const link = document.getElementById('nb-link') as HTMLElement;
+    link.classList.add('on');
+    link.getAnimations();
+    setTimeout(() => {
+      link.classList.add('still');
+      link.classList.remove('on');
+      link.getAnimations();
+    }, 50);
+    setTimeout(() => {
+      link.animate([{ color: 'rgb(138, 143, 152)' }, { color: 'rgb(138, 143, 152)' }], 100);
+    }, 120);
+  });
+  await page.waitForTimeout(800);
+  const capture = onlyCapture(await takesNow(page));
+  expect(
+    capture.tracks.filter(
+      (track) =>
+        track.property === 'color' && track.keyframes.at(-1)?.value === 'rgb(247, 248, 248)',
+    ),
+  ).toEqual([]);
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { color: number };
+    };
+    return module.worstMiss(taken);
+  }, capture);
+  expect(miss.color).toBeLessThan(0.05);
+});
+
+// Found on Resend through the side panel: a menu's panel, given its shape
+// in one take while it was 480 px wide, was 678 px wide in the next and
+// slid in from half its width. The preview slid it half the width it had
+// a take before: 25 px off.
+test('a part given its shape in one take slides by its size in a later one', async ({ page }) => {
+  await setUp(
+    page,
+    `#rz-box { width: 400px; height: 80px }
+     #rz-panel { display: none; width: 100px; height: 40px; background: #222; opacity: 0;
+       transition: opacity .2s linear }
+     #rz-panel.open { display: block; opacity: 1 }
+     #rz-panel.wide { width: 300px }
+     #rz-panel.slide { transition: translate .3s linear }`,
+    '<div id="rz-box"><div id="rz-panel"></div></div>',
+    '#rz-box',
+  );
+  await page.evaluate(() => {
+    const panel = document.getElementById('rz-panel') as HTMLElement;
+    panel.classList.add('open');
+    getComputedStyle(panel).opacity;
+    panel.style.opacity = '1';
+    setTimeout(() => {
+      panel.classList.add('wide');
+      panel.style.translate = '-50% 0';
+      getComputedStyle(panel).translate;
+      setTimeout(() => {
+        panel.classList.add('slide');
+        panel.style.translate = 'none';
+      }, 50);
+    }, 700);
+  });
+  await page.waitForTimeout(1700);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  const slide = takes.find((take) =>
+    take.capture?.tracks.some((track) => track.property === 'translate'),
+  );
+  expect(slide).toBeDefined();
+  const miss = await page.evaluate(async (taken) => {
+    const path = '/src/probeCheck.ts';
+    const module = (await import(/* @vite-ignore */ path)) as {
+      worstMiss: (capture: unknown) => { px: number };
+    };
+    return module.worstMiss(taken);
+  }, slide?.capture);
+  expect(miss.px).toBeLessThan(1.5);
 });

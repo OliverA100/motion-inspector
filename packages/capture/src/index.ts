@@ -371,7 +371,8 @@ export function placementMiss(): { px: number; label: string } | null {
   for (const [element, shape] of drawn.shapeOf) {
     const again = now.shapeOf.get(element);
     if (again === undefined) continue;
-    const texts = (of: RawShape): RawShape[] => of.children.filter((child) => child.kind === 'text');
+    const texts = (of: RawShape): RawShape[] =>
+      of.children.filter((child) => child.kind === 'text');
     const pairs: [RawShape, RawShape][] = [[shape, again]];
     texts(shape).forEach((text, index) => {
       const other = texts(again)[index];
