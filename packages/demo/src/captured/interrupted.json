@@ -62,7 +62,7 @@
         "kind": "text",
         "box": {
           "x": 16,
-          "y": 13.65,
+          "y": 15.32,
           "width": 63.77,
           "height": 7.7
         },
@@ -221,7 +221,7 @@
       "keyframes": [
         {
           "offset": 0,
-          "value": "translateY(-0.574001px)",
+          "value": "translateY(-0.574241px)",
           "parsed": {
             "kind": "transform",
             "functions": [
@@ -252,7 +252,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.66,
+        "duration": 51.68,
         "iterations": {
           "kind": "count",
           "count": 1
@@ -279,7 +279,7 @@
       "keyframes": [
         {
           "offset": 0,
-          "value": "rgba(0, 0, 0, 0.216) 0px 2.435px 6.01801px 0px",
+          "value": "rgba(0, 0, 0, 0.216) 0px 2.4356px 6.01969px 0px",
           "parsed": null,
           "easing": {
             "kind": "linear"
@@ -298,7 +298,7 @@
       ],
       "timing": {
         "delay": 0,
-        "duration": 51.66,
+        "duration": 51.68,
         "iterations": {
           "kind": "count",
           "count": 1

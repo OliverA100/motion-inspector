@@ -1408,3 +1408,15 @@ Seen in the same run and left as they are: on Dub, a hover take cut short by the
 ### D256. A part given its shape late is measured again as a later take animates it
 **Chose:** a part that was given its shape in one take (hidden when picked) has its size read again when an animation of it joins a later take, or is carried into one, while it is drawn. Its transform origin keeps its share of the box. Its place is left: the take's own tracks and film move it.
 **Why:** found on Resend in the same sweep: a menu's panel was given its shape while it was 480 px wide, and was 678 px wide when it next slid in from half its width. Before D253 that slide was measured from the film in pixels; carried on as a track in percent, it was a share of the old width, and drawn 25 px off. Now Resend 5 matches the page (0.1 px; 3.4 px before D253).
+
+### D257. A line of text is drawn over its lowercase letters
+**Chose:** a text bar is centered on the middle of the line's lowercase letters: the baseline, up by half the x-height, both read from the font by measuring one "x" on a canvas in the page's font and scaled to the line box. When the font cannot be measured, the bar is centered on the line box as before. The bar's height is unchanged.
+**Why:** found filming the README's video on Stripe: the arrow on "Get started" looked low beside its text. The arrow was in place; the bar was 2.5 px too high. A line box runs from the font's ascent to its descent, and a font with a tall ascent puts its letters below the box's middle (6.5 px at 60 px in Georgia). Only the font's measurements are read, never the page's text.
+
+### D258. An SVG group cut by a rectangle clipPath keeps the cut
+**Chose:** a `<g>` whose clip-path points to a `<clipPath>` made of one rectangle, in user space, gets a shape of its own even when it never moves, and the rectangle becomes a polygon in the SVG's px, which the preview already draws. Other clipPaths are still left out.
+**Why:** Stripe's arrow keeps its shaft waiting left of a clip and slides it in on hover. Without the cut, the preview drew the whole shaft at rest, sticking out behind the tip.
+
+### D259. A part reached by a late walk that ran out is drawn with its content
+**Chose:** a part that appears in a take keeps a box from pick time only when content drawn earlier moves into it, or when it holds nothing to draw. Otherwise it is measured as it appears, with what is inside it, like any part hidden when picked.
+**Why:** found filming the README's video on Apple's Store menu: of its 23 links and headers, 18 were drawn as empty boxes. The menu, appearing first, used up its late walk's 15 shapes partway through, and every part that walk reached was given a box "from pick time". When each link then faded in, it was taken for a part visible at pick, drawn as part of its parent: an empty box, its text never drawn. The preview showed a dark panel where the page showed three columns of links. The motion check still matched, since it measures where parts are, not what is in them.

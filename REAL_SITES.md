@@ -318,6 +318,8 @@ Results: motion.dev's rolling text (Web Animations) checks within 0 px over 10 f
 | 142 | Dub | A menu still fading in when the pointer left was drawn whole in the leave take: 58 px off | An animation still running when a take begins goes on in it (D253) |
 | 143 | Resend | A panel's fade carried into a take tied with its own way back, and its slide was a share of an old width: 25 px off | The later track decides over a carried one (D254); a late shape is measured again (D256) |
 | 144 | Linear | A link brushed by the pointer played a hover the page cancelled: 43% off in color | A cancelled change is not kept in by one that moves nothing (D255) |
+| 145 | Stripe (filming the README video) | The arrow on "Get started" looked low: its text bar sat 2.5 px above the letters; and the arrow's shaft, held outside an SVG clipPath until hover, was drawn at rest | Text bars sit on the lowercase letters (D257); a rectangle clipPath is drawn (D258) |
+| 146 | Apple (Store menu) | 18 of its 23 links and headers drawn as empty boxes: the motion matched, the menu looked empty | A part a late walk ran out on is measured with its content (D259) |
 
 Checkpoint after D149: the full sweep checks 311 elements. All within 1.4 px of the page but GitHub's dialog (the page plays it late) and, now and then, MUI's tab ripple when two clicks land on the same spot 400 ms apart (the sweep's pick and its click): two overlapping ripples, 82 px off at the end on some runs, 0 px on others.
 
@@ -336,4 +338,4 @@ The sweep now also runs Magic UI, Aceternity, a scroll-driven demo, and menus an
 - **Motion driven by script frame by frame** is measured, not read (D124): transform and opacity only, fitted to keyframes. A rule that is not linear in the pointer's place (a glare that turns with its angle) is shown as measured over time.
 - **Parts inside a frame** are recorded (D160). Play the hover and Play the click need to know where a frame from another site is, which it does not say.
 - **A view transition's cross-fade** is listed, not drawn.
-- **SVG masks and clips are not drawn.** Railway's moving trains are a mask; they are listed with that reason.
+- **SVG masks, and clips other than one rectangle, are not drawn** (D258). Railway's moving trains are a mask; they are listed with that reason.

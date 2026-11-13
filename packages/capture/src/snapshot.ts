@@ -666,7 +666,8 @@ function useParts(use: SVGUseElement): IconPart[] | null {
   return parts;
 }
 
-// The <g> elements around an SVG part that are set up to animate,
+// The <g> elements around an SVG part that are set up to animate, or that
+// cut it with a clipPath,
 // outermost first. Railway's trains move this way.
 function movingGroups(part: Element): SVGGElement[] {
   const groups: SVGGElement[] = [];
@@ -675,12 +676,14 @@ function movingGroups(part: Element): SVGGElement[] {
     at !== null && !(at instanceof SVGSVGElement);
     at = at.parentElement
   ) {
-    if (
-      at instanceof SVGGElement &&
-      (mayAnimate(getComputedStyle(at)) || at.getAnimations().length > 0)
-    ) {
-      groups.unshift(at);
-    }
+    if (!(at instanceof SVGGElement)) continue;
+    const style = getComputedStyle(at);
+    // A group that cuts its parts with a clipPath is kept too, still or not,
+    // so the cut is drawn (Stripe's arrow: still group, moving shaft).
+    const cuts =
+      style.clipPath.startsWith('url(') &&
+      svgClipOf(at, style, at.getCTM() ?? new DOMMatrix()) !== null;
+    if (cuts || mayAnimate(style) || at.getAnimations().length > 0) groups.unshift(at);
   }
   return groups;
 }
@@ -712,7 +715,7 @@ function groupShape(walk: Walk, group: SVGGElement, box: Box, id: string): RawSh
     shadow: null,
     shadows: null,
     outline: null,
-    clipPath: null,
+    clipPath: svgClipOf(group, style, own),
     filter: null,
     inSvg: [outer.a, outer.b, outer.c, outer.d, outer.e, outer.f],
     gradient: null,
@@ -725,6 +728,41 @@ function groupShape(walk: Walk, group: SVGGElement, box: Box, id: string): RawSh
   walk.ownerOf.set(shape, group);
   if (walk.readsResting) walk.snapshot.resting.set(group, readResting(group));
   return shape;
+}
+
+// An SVG group cut by a <clipPath> made of one rectangle (Stripe's arrow: its
+// shaft waits outside the clip, and slides into it on hover). The rectangle is
+// in the group's own coordinates; its corners are turned into the SVG's px
+// with the group's matrix, the same px its parts are drawn in, and kept as a
+// polygon the preview can draw. Any other clipPath is left out, as before.
+function svgClipOf(group: SVGGElement, style: CSSStyleDeclaration, own: DOMMatrix): string | null {
+  const id = /^url\("?#([^")]+)"?\)$/.exec(style.clipPath)?.[1];
+  if (id === undefined) return null;
+  const root = group.getRootNode();
+  const clip =
+    root instanceof Document || root instanceof ShadowRoot ? root.getElementById(id) : null;
+  if (!(clip instanceof SVGClipPathElement)) return null;
+  if (clip.clipPathUnits.baseVal !== SVGUnitTypes.SVG_UNIT_TYPE_USERSPACEONUSE) return null;
+  const parts = Array.from(clip.children);
+  const rect = parts[0];
+  if (parts.length !== 1 || !(rect instanceof SVGRectElement)) return null;
+  const toSvg = DOMMatrix.fromMatrix(own)
+    .multiply(DOMMatrix.fromMatrix(clip.transform.baseVal.consolidate()?.matrix ?? new DOMMatrix()))
+    .multiply(
+      DOMMatrix.fromMatrix(rect.transform.baseVal.consolidate()?.matrix ?? new DOMMatrix()),
+    );
+  const x = rect.x.baseVal.value;
+  const y = rect.y.baseVal.value;
+  const width = rect.width.baseVal.value;
+  const height = rect.height.baseVal.value;
+  const corners = [
+    [x, y],
+    [x + width, y],
+    [x + width, y + height],
+    [x, y + height],
+  ].map(([px = 0, py = 0]) => toSvg.transformPoint(new DOMPoint(px, py)));
+  const round = (value: number): number => Math.round(value * 100) / 100;
+  return `polygon(${corners.map((point) => `${round(point.x)}px ${round(point.y)}px`).join(', ')})`;
 }
 
 function iconPaths(svg: SVGSVGElement): IconPart[] | null {
@@ -1490,6 +1528,36 @@ function backdropShape(walk: Walk, element: Element, parentId: string): RawShape
   return shape;
 }
 
+// How far down a line box of this element's font the middle of its lowercase
+// letters is, in px, or null when it cannot be told. A line box of text runs
+// from the font's ascent to its descent; the letters sit on the baseline and
+// rise by the x-height. Both are read from the font with a canvas measuring
+// one "x", so nothing of the page's text is read.
+const lowercaseMiddles = new Map<string, { ascent: number; descent: number; x: number } | null>();
+let measurer: CanvasRenderingContext2D | null = null;
+function lowercaseMiddle(element: Element, lineHeight: number): number | null {
+  const style = getComputedStyle(element);
+  const font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  let metrics = lowercaseMiddles.get(font);
+  if (metrics === undefined) {
+    measurer ??= document.createElement('canvas').getContext('2d');
+    if (measurer === null) return null;
+    measurer.font = font;
+    const measured = measurer.measureText('x');
+    const { fontBoundingBoxAscent: ascent, fontBoundingBoxDescent: descent } = measured;
+    metrics =
+      ascent > 0 && descent >= 0 && measured.actualBoundingBoxAscent > 0
+        ? { ascent, descent, x: measured.actualBoundingBoxAscent }
+        : null;
+    lowercaseMiddles.set(font, metrics);
+  }
+  if (metrics === null) return null;
+  // The line box can differ a little from the font's own box; scale to it.
+  const scale = lineHeight / (metrics.ascent + metrics.descent);
+  if (!(scale > 0.8 && scale < 1.25)) return null;
+  return (metrics.ascent - metrics.x / 2) * scale;
+}
+
 // Text becomes bars: one per line box, with no text content kept.
 function textBars(
   walk: Walk,
@@ -1529,6 +1597,10 @@ function textBars(
     const height = Number.isFinite(fontSize)
       ? Math.min(fontSize * 0.55, lineHeight * 0.8)
       : lineHeight / 2;
+    // The bar is centered on the lowercase letters: from the baseline up by
+    // the x-height. The middle of the line box is not that: fonts with a tall
+    // ascent put their letters below it (Stripe's button text, 2.5 px).
+    const band = lowercaseMiddle(parent.element, lineHeight);
     const middle = rect.top + rect.height / 2;
     const inLine = wordRects.filter(
       (word) =>
@@ -1551,7 +1623,11 @@ function textBars(
       kind: 'text',
       box: {
         x: parent.box.x + (rect.left - drawnParent.left) / scale.x,
-        y: parent.box.y + (rect.top - drawnParent.top) / scale.y + (lineHeight - height) / 2,
+        y:
+          parent.box.y +
+          (rect.top - drawnParent.top) / scale.y +
+          (band ?? lineHeight / 2) -
+          height / 2,
         width: rect.width / scale.x,
         height,
       },
@@ -2824,16 +2900,21 @@ export function addLateShape(snapshot: Snapshot, element: Element): boolean {
   // drawn as part of its parent (an accordion panel that is about to close).
   // Give it a shape where it was then, and move its content into it, so the
   // content follows it. Drawing it again would draw it twice.
-  if (boxAtPick !== undefined) {
+  // A box is also kept for a part an earlier late walk reached but ran out
+  // of shapes for (Apple's menu links: the menu, appearing first, used them
+  // up). Nothing of its content was drawn, so there is nothing to move: it is
+  // measured now, below, with its content. As an empty box it showed nothing.
+  const moved = parentShape.children.filter((child) => {
+    const owner = snapshot.ownerOf.get(child);
+    return owner !== undefined && isInside(owner, element);
+  });
+  const holdsSomething = element.childElementCount > 0 || (element.textContent ?? '').trim() !== '';
+  if (boxAtPick !== undefined && (moved.length > 0 || !holdsSomething)) {
     const style = getComputedStyle(element);
     const id = `${parentShape.id}.late${walk.count}`;
     walk.count += 1;
     snapshot.nextId.value = walk.count;
     const shape = boxShape(walk, element, style, boxAtPick, id, false);
-    const moved = parentShape.children.filter((child) => {
-      const owner = snapshot.ownerOf.get(child);
-      return owner !== undefined && isInside(owner, element);
-    });
     const at =
       moved.length === 0
         ? parentShape.children.length

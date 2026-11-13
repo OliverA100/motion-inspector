@@ -4665,3 +4665,111 @@ test('a part given its shape in one take slides by its size in a later one', asy
   }, slide?.capture);
   expect(miss.px).toBeLessThan(1.5);
 });
+
+test('an SVG part cut by a clipPath rectangle keeps the cut', async ({ page }) => {
+  // Stripe's arrow: the shaft waits left of the clip and slides into it.
+  await setUp(
+    page,
+    `#ar-link { display: inline-block; padding: 20px }
+     #ar-link svg { overflow: visible }
+     #ar-link .group { transition: transform .2s linear }
+     #ar-link:hover .group { transform: translateX(6px) }`,
+    `<a id="ar-link" href="#">
+       <svg width="5" height="8" viewBox="0 0 5 8"><defs><clipPath id="ar-clip">
+         <rect x="0" y="0" width="12" height="9"></rect></clipPath></defs>
+         <g clip-path="url(#ar-clip)"><g class="group">
+           <rect x="-10" y="3" width="13" height="2" fill="#000"></rect>
+           <path d="M0 0 L5 4 L0 8 Z" fill="#000"></path></g></g></svg></a>`,
+    '#ar-link',
+  );
+  await page.hover('#ar-link');
+  await page.waitForTimeout(500);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  const shapes: { clipPath: string | null; children: unknown[] }[] = [];
+  const all = (list: { clipPath: string | null; children: unknown[] }[]): void => {
+    for (const shape of list) {
+      shapes.push(shape);
+      all(shape.children as typeof list);
+    }
+  };
+  all([takes[0]?.capture?.root] as typeof shapes);
+  const cuts = shapes.map((shape) => shape.clipPath).filter((clip) => clip !== null);
+  expect(cuts).toEqual(['polygon(0px 0px, 12px 0px, 12px 9px, 0px 9px)']);
+});
+
+test('a line of text is drawn as a bar over its lowercase letters', async ({ page }) => {
+  // The middle of a line box is not the middle of its letters: Stripe's
+  // button text sat 2.5 px under its bar, so the arrow beside it looked low.
+  await setUp(
+    page,
+    `#tx-box { display: inline-block; padding: 10px; font: 60px/1 Georgia, serif; color: #000;
+       background: #fff; transition: opacity .2s }
+     #tx-box:hover { opacity: .9 }`,
+    '<div id="tx-box">xxxx</div>',
+    '#tx-box',
+  );
+  // Where the letters are drawn, from a picture of the box: the rows with ink.
+  const shot = await page.locator('#tx-box').screenshot();
+  const ink = await page.evaluate(async (data) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${data}`;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext('2d') as CanvasRenderingContext2D;
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height).data;
+    const rows: number[] = [];
+    for (let y = 0; y < image.height; y += 1) {
+      for (let x = 0; x < image.width; x += 1) {
+        if ((pixels[(y * image.width + x) * 4] ?? 255) < 128) {
+          rows.push(y);
+          break;
+        }
+      }
+    }
+    return { top: rows[0] ?? 0, bottom: rows.at(-1) ?? 0, scale: image.width / 1 };
+  }, shot.toString('base64'));
+  const scale = await page.evaluate(() => devicePixelRatio);
+  await page.hover('#tx-box');
+  await page.waitForTimeout(400);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  const bar = takes[0]?.capture?.root.children.find((shape) => shape.kind === 'text');
+  expect(bar).toBeDefined();
+  const barMiddle = (bar?.box.y ?? 0) + (bar?.box.height ?? 0) / 2;
+  const inkMiddle = (ink.top + ink.bottom + 1) / 2 / scale;
+  expect(Math.abs(barMiddle - inkMiddle)).toBeLessThan(1.5);
+});
+
+test('links inside a menu hidden when picked are drawn with their text as it opens', async ({
+  page,
+}) => {
+  // Apple's Store menu: hidden when picked, its links fade in one by one.
+  await setUp(
+    page,
+    `#hm-nav { position: relative; width: 300px; height: 40px }
+     #hm-menu { position: absolute; top: 40px; left: 0; width: 300px; height: 0; overflow: hidden;
+       background: #222; visibility: hidden; transition: height .3s, visibility .3s }
+     #hm-nav:hover #hm-menu { visibility: visible; height: 300px }
+     #hm-menu li { opacity: 0; color: #eee; font: 16px/24px sans-serif; transition: opacity .3s }
+     #hm-nav:hover #hm-menu li { opacity: 1 }
+     #hm-nav:hover #hm-menu li { transition-delay: calc(var(--i) * 30ms) }`,
+    // More links than one late walk draws: the later ones are added one by one.
+    `<div id="hm-nav">Store<ul id="hm-menu">${Array.from({ length: 12 }, (_, i) => `<li style="--i: ${i}"><a>Link ${i}</a></li>`).join('')}</ul></div>`,
+    '#hm-nav',
+  );
+  await page.hover('#hm-nav');
+  await page.waitForTimeout(700);
+  const takes = (await takesNow(page)).filter((take) => take.capture !== null);
+  type Drawn = { kind: string; label: string; children: Drawn[] };
+  const items: Drawn[] = [];
+  const walk = (shape: Drawn): void => {
+    if (shape.label === 'li') items.push(shape);
+    shape.children.forEach(walk);
+  };
+  walk(takes[0]?.capture?.root as unknown as Drawn);
+  const hasText = (shape: Drawn): boolean => shape.kind === 'text' || shape.children.some(hasText);
+  expect(items.length).toBe(12);
+  expect(items.filter((item) => !hasText(item)).length).toBe(0);
+});
