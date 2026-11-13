@@ -2,13 +2,19 @@
 
 A Chrome extension that captures the animations on a real website, draws them as plain shapes and lets you re-tune their timing and easing. It reads CSS transitions, CSS keyframe animations and Web Animations exactly, and films motion that a script makes. It never copies text or image data from the page, and never pauses, changes or restyles the page's own animations.
 
+It does not use AI to work. Capture reads what Chrome reports about each animation and measures the page; the preview, the descriptions ("moves up 12 px, scales to 1.03 over 450 ms") and the exported CSS are all worked out by plain code from those numbers. "Copy for AI" only copies a text description that you can paste into an assistant yourself; nothing is sent anywhere.
+
+![Motion Inspector recording a load, a hover and two clicks on a demo page, editing a curve, recording Vercel's peeling card, and exporting the CSS](docs/demo.gif)
+
+In the video: the side panel plays a page load, a hover and two clicks for you, and draws each take beside the page; a duration and a curve are changed and the preview replays at once; Vercel's card whose corner peels back on hover is recorded from the live site, matching it within a pixel; then the CSS is exported. [Watch it as a video](docs/demo.mp4). It is filmed by `node tests/demo-video.cjs` on the demo's `showcase.html`.
+
 Why each part works the way it does is written down in `DECISIONS.md`, and what Chrome reports for each kind of animation is in `docs/chrome-findings.md`.
 
 ## Run it
 
 ```bash
 pnpm install
-pnpm dev            # editor demo at http://localhost:5173/ (also /pieces.html, /fixtures.html)
+pnpm dev            # editor demo at http://localhost:5173/ (also /pieces.html, /fixtures.html, /showcase.html)
 pnpm test           # unit and property tests
 pnpm test:browser   # browser tests: capture on the fixtures page, and the editor
 pnpm samples:update # records the demo's sample captures again
